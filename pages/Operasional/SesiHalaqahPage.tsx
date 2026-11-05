@@ -60,9 +60,25 @@ const SesiHalaqahPage: React.FC = () => {
   useEffect(() => {
     const nextTab = initialTabFromRoute();
     setActiveWorkTab(nextTab);
-    const paramId = Number(sessionId || searchParams.get('halaqahId'));
+    const rawSessionParam = sessionId || searchParams.get('halaqahId') || '';
+    const paramId = Number(rawSessionParam);
     if (Number.isFinite(paramId) && paramId > 0) {
       setSelectedHalaqahId(paramId);
+    } else if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawSessionParam)) {
+      // Jika parameter URL berupa UUID sesi dari halaqah_sessions, resolusi otomatis ke halaqah_id, tanggal, dan slot
+      (supabase as any)
+        .from('halaqah_sessions')
+        .select('halaqah_id, session_date, session_slot')
+        .eq('id', rawSessionParam)
+        .maybeSingle()
+        .then(({ data }: any) => {
+          if (data) {
+            if (data.halaqah_id) setSelectedHalaqahId(Number(data.halaqah_id));
+            if (data.session_date) setSelectedDate(data.session_date);
+            if (data.session_slot) setSelectedSlot(data.session_slot);
+          }
+        })
+        .catch(() => {});
     }
     const qDate = searchParams.get('date');
     if (qDate) setSelectedDate(qDate);
@@ -169,6 +185,7 @@ const SesiHalaqahPage: React.FC = () => {
           .eq('organization_id', orgId)
           .eq('halaqah_id', activeHalaqah.id)
           .eq('recitation_date', selectedDate)
+          .eq('session_slot', selectedSlot)
           .order('created_at', { ascending: false }),
       ]);
 
@@ -257,7 +274,7 @@ const SesiHalaqahPage: React.FC = () => {
     return found?.status || '';
   }, [attendance, activeHalaqah, selectedDate, selectedSlot]);
 
-  // Baca transaksi setoran yang tercatat pada sesi ini
+  // Baca catatan setoran yang tercatat pada sesi ini (difilter per tanggal & slot waktu sesi)
   const sessionRecitations = useMemo(() => {
     if (!activeHalaqah) return [];
     const rosterIds = new Set(sessionRoster.map((s) => s.id));
@@ -265,6 +282,7 @@ const SesiHalaqahPage: React.FC = () => {
       .filter(
         (st: any) =>
           st.tanggal === selectedDate &&
+          (!st.waktu || st.waktu === selectedSlot) &&
           (st.halaqah_id === activeHalaqah.id || rosterIds.has(st.santri_id))
       )
       .map((st: any) => {
@@ -280,7 +298,7 @@ const SesiHalaqahPage: React.FC = () => {
           v2_entry: matchedV2 || null,
         };
       });
-  }, [setoranHarian, activeHalaqah, selectedDate, sessionRoster, v2RecitationLedger]);
+  }, [setoranHarian, activeHalaqah, selectedDate, selectedSlot, sessionRoster, v2RecitationLedger]);
 
   const getEffectiveStatus = (santriId: number): string => {
     if (draftAttendance[santriId] !== undefined) return draftAttendance[santriId];
@@ -450,15 +468,22 @@ const SesiHalaqahPage: React.FC = () => {
     if (!activeHalaqah) return;
     try {
       const orgId = await getOrgId();
-      try {
-        await (supabase as any).rpc('rpc_open_halaqah_session', {
-          p_halaqah_id: activeHalaqah.id,
-          p_session_date: selectedDate,
-          p_session_slot: selectedSlot,
-        });
-      } catch {
+      const { error: rpcErr } = await (supabase as any).rpc('rpc_open_halaqah_session', {
+        p_halaqah_id: activeHalaqah.id,
+        p_session_date: selectedDate,
+        p_session_slot: selectedSlot,
+      });
+
+      if (rpcErr) {
+        const isMissingRpc =
+          rpcErr.code === '42883' ||
+          rpcErr.code === 'PGRST202' ||
+          String(rpcErr.message || '').includes('Could not find the function');
+        if (!isMissingRpc) {
+          throw new Error(rpcErr.message);
+        }
         if (orgId) {
-          await (supabase as any).from('halaqah_sessions').upsert(
+          const { error: upsertErr } = await (supabase as any).from('halaqah_sessions').upsert(
             {
               organization_id: orgId,
               academic_year_id: selectedAcademicYear?.id || null,
@@ -470,8 +495,10 @@ const SesiHalaqahPage: React.FC = () => {
             },
             { onConflict: 'organization_id,halaqah_id,session_date,session_slot' }
           );
+          if (upsertErr && upsertErr.code !== '42P01') throw upsertErr;
         }
       }
+
       await fetchV2SessionAndLedger();
       NotificationStore.addNotification(
         `Sesi ${activeHalaqah.nama} (${selectedDate} · ${selectedSlot}) dibuka dengan ${sessionRoster.length} santri aktif berstatus awal Belum Diisi.`,
@@ -494,39 +521,61 @@ const SesiHalaqahPage: React.FC = () => {
     setIsLockingSession(true);
     try {
       const orgId = await getOrgId();
-      if (orgId) {
-        await (supabase as any).from('halaqah_sessions').upsert(
-          {
-            organization_id: orgId,
-            academic_year_id: selectedAcademicYear?.id || null,
-            halaqah_id: activeHalaqah.id,
-            session_date: selectedDate,
-            session_slot: selectedSlot,
-            status: 'locked',
-            locked_at: new Date().toISOString(),
-            locked_by: userProfile?.id || null,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'organization_id,halaqah_id,session_date,session_slot' }
-        );
+      const lockReason = `Kunci sesi operasional ${activeHalaqah.nama} (${selectedDate} ${selectedSlot})`;
+      const { error: rpcErr } = await (supabase as any).rpc('rpc_lock_halaqah_session', {
+        p_halaqah_id: activeHalaqah.id,
+        p_session_date: selectedDate,
+        p_session_slot: selectedSlot,
+        p_reason: lockReason,
+      });
 
-        await (supabase as any).from('audit_logs').insert({
-          organization_id: orgId,
-          actor_id: userProfile?.id || null,
-          actor_role: canonicalRole,
-          action: 'lock_halaqah_session',
-          resource_type: 'halaqah_sessions',
-          resource_id: `${activeHalaqah.id}_${selectedDate}_${selectedSlot}`,
-          reason: `Kunci sesi operasional ${activeHalaqah.nama} (${selectedDate} ${selectedSlot})`,
-        });
+      if (rpcErr) {
+        const isMissingRpc =
+          rpcErr.code === '42883' ||
+          rpcErr.code === 'PGRST202' ||
+          String(rpcErr.message || '').includes('Could not find the function');
+        if (!isMissingRpc) {
+          throw new Error(rpcErr.message);
+        }
+        if (orgId) {
+          const { error: upsertErr } = await (supabase as any).from('halaqah_sessions').upsert(
+            {
+              organization_id: orgId,
+              academic_year_id: selectedAcademicYear?.id || null,
+              halaqah_id: activeHalaqah.id,
+              session_date: selectedDate,
+              session_slot: selectedSlot,
+              status: 'locked',
+              locked_at: new Date().toISOString(),
+              locked_by: userProfile?.id || null,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'organization_id,halaqah_id,session_date,session_slot' }
+          );
+          if (upsertErr) throw upsertErr;
+
+          await (supabase as any).from('audit_logs').insert({
+            organization_id: orgId,
+            actor_id: userProfile?.id || null,
+            actor_role: canonicalRole,
+            action: 'lock_halaqah_session',
+            resource_type: 'halaqah_sessions',
+            resource_id: `${activeHalaqah.id}_${selectedDate}_${selectedSlot}`,
+            reason: lockReason,
+          });
+        }
       }
+
       await fetchV2SessionAndLedger();
       NotificationStore.addNotification(
         `Sesi ${activeHalaqah.nama} (${selectedDate} · ${selectedSlot}) telah dikunci. Perubahan selanjutnya memerlukan alasan koreksi teraudit.`,
         'success'
       );
-    } catch {
-      NotificationStore.addNotification('Sesi berhasil ditandai selesai.', 'info');
+    } catch (err: any) {
+      NotificationStore.addNotification(
+        err?.message || 'Gagal mengunci sesi halaqah. Pastikan sesi sudah dibuka dan absensi telah disimpan.',
+        'error'
+      );
     } finally {
       setIsLockingSession(false);
     }
@@ -592,27 +641,52 @@ const SesiHalaqahPage: React.FC = () => {
       const idempotencyKey = `batch_${activeHalaqah.id}_${selectedDate}_${selectedSlot}`;
 
       // Panggil RPC pembukaan sesi & rpc_save_attendance_batch bila tersedia di DB
-      try {
-        const { data: openedSessionId } = await (supabase as any).rpc('rpc_open_halaqah_session', {
+      const { data: openedSessionData, error: openErr } = await (supabase as any).rpc(
+        'rpc_open_halaqah_session',
+        {
           p_halaqah_id: activeHalaqah.id,
           p_session_date: selectedDate,
           p_session_slot: selectedSlot,
-        });
-        if (openedSessionId) {
-          await (supabase as any).rpc('rpc_save_attendance_batch', {
-            p_session_id: openedSessionId,
-            p_records: recordsToSave
-              .filter((r) => r.peran === Peran.Santri)
-              .map((r) => ({
-                santri_id: r.personId,
-                status: r.status.toLowerCase(),
-              })),
-            p_idempotency_key: idempotencyKey,
-            p_reason: correctionReason || null,
-          });
         }
-      } catch {
-        // Fallback ditangani secara otomatis oleh addAttendanceRecords
+      );
+
+      if (openErr) {
+        const isMissingOpenRpc =
+          openErr.code === '42883' ||
+          openErr.code === 'PGRST202' ||
+          String(openErr.message || '').includes('Could not find the function');
+        if (!isMissingOpenRpc) {
+          throw new Error(openErr.message);
+        }
+      }
+
+      const resolvedSessionUuid =
+        typeof openedSessionData === 'string'
+          ? openedSessionData
+          : openedSessionData?.session_id || v2SessionRecord?.id || null;
+
+      if (resolvedSessionUuid) {
+        const { error: batchErr } = await (supabase as any).rpc('rpc_save_attendance_batch', {
+          p_session_id: resolvedSessionUuid,
+          p_records: recordsToSave
+            .filter((r) => r.peran === Peran.Santri)
+            .map((r) => ({
+              santri_id: r.personId,
+              status: r.status.toLowerCase(),
+            })),
+          p_idempotency_key: idempotencyKey,
+          p_reason: correctionReason || null,
+        });
+
+        if (batchErr) {
+          const isMissingBatchRpc =
+            batchErr.code === '42883' ||
+            batchErr.code === 'PGRST202' ||
+            String(batchErr.message || '').includes('Could not find the function');
+          if (!isMissingBatchRpc) {
+            throw new Error(batchErr.message);
+          }
+        }
       }
 
       if (correctionReason && orgId) {
@@ -874,11 +948,11 @@ const SesiHalaqahPage: React.FC = () => {
       <PageHeader
         kicker={
           canonicalRole === 'musammi'
-            ? 'RUANG KERJA OPERASIONAL MUSAMMI (/APP/SESSIONS & /APP/MY-*)'
+            ? 'RUANG KERJA OPERASIONAL MUSAMMI'
             : 'MANAJEMEN SESI, VALIDASI & MONITORING HALAQAH'
         }
-        title="Sesi Halaqah, Absensi Batch & Transaksi Setoran Terstruktur"
-        description="Buka sesi halaqah untuk membekukan roster peserta aktif dengan status awal Belum Diisi, catat transaksi setoran Al-Qur'an tervalidasi (1–114), dan pantau progres santri binaan."
+        title="Sesi Halaqah, Absensi & Catatan Setoran"
+        description="Buka sesi halaqah untuk memuat daftar santri aktif dengan status awal Belum Diisi, catat setoran Al-Qur'an tervalidasi (1–114), dan pantau progres santri binaan."
         actions={
           activeHalaqah ? (
             <div className="flex flex-wrap items-center gap-2">
@@ -887,7 +961,7 @@ const SesiHalaqahPage: React.FC = () => {
                 onClick={handleOpenAndFreezeSession}
                 className="px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-colors"
               >
-                Buka Sesi & Bekukan Roster
+                Buka Sesi Halaqah
               </button>
               {!isSessionLocked && (
                 <button
@@ -896,7 +970,7 @@ const SesiHalaqahPage: React.FC = () => {
                   onClick={handleLockSession}
                   className="px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-colors disabled:opacity-50"
                 >
-                  {isLockingSession ? 'Mengunci...' : 'Kunci Sesi (Lock)'}
+                  {isLockingSession ? 'Mengunci...' : 'Kunci Sesi'}
                 </button>
               )}
             </div>
@@ -999,7 +1073,7 @@ const SesiHalaqahPage: React.FC = () => {
           {/* Session KPI Summary */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
-              label="Roster Snapshot Sesi"
+              label="Daftar Santri Sesi"
               value={sessionRoster.length}
               meta={`Musammi: ${activeHalaqah?.musammi?.nama || '-'}`}
               tone="neutral"
@@ -1017,11 +1091,11 @@ const SesiHalaqahPage: React.FC = () => {
             <StatCard
               label="Setoran Tercatat Sesi Ini"
               value={sessionRecitations.length}
-              meta="Ziyadah, Sabqi & Manzil pada tanggal terpilih"
+              meta="Ziyadah, Sabqi & Manzil pada sesi terpilih"
               tone="primary"
             />
             <StatCard
-              label="Status Siklus Sesi"
+              label="Status Sesi"
               value={sessionStatusLabel}
               meta={`${selectedDate} · ${selectedSlot}`}
               tone={
@@ -1038,9 +1112,9 @@ const SesiHalaqahPage: React.FC = () => {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-100 rounded-lg border border-slate-200">
               {[
-                { id: 'absensi', label: '1. Absensi Sesi (Batch)' },
-                { id: 'setoran', label: '2. Input & Ledger Setoran Terstruktur' },
-                { id: 'roster', label: '3. Halaqah Saya & Progres Santri Binaan' },
+                { id: 'absensi', label: '1. Absensi Sesi' },
+                { id: 'setoran', label: '2. Input & Catatan Setoran' },
+                { id: 'roster', label: '3. Halaqah Saya & Progres Santri' },
                 { id: 'schedule', label: '4. Jadwal Saya & Riwayat Sesi' },
               ].map((t) => (
                 <button
@@ -1451,7 +1525,7 @@ const SesiHalaqahPage: React.FC = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Status Pengiriman Ledger
+                        Status Pengiriman Setoran
                       </label>
                       <select
                         value={recitationForm.submissionMode}
@@ -1463,7 +1537,7 @@ const SesiHalaqahPage: React.FC = () => {
                         }
                         className="w-full border border-slate-300 rounded-lg px-2.5 py-2 text-xs bg-white"
                       >
-                        <option value="submitted">Submitted (Ajukan ke Ledger)</option>
+                        <option value="submitted">Submitted (Ajukan Setoran)</option>
                         <option value="draft">Draft (Simpan Sementara)</option>
                       </select>
                     </div>
@@ -1489,10 +1563,10 @@ const SesiHalaqahPage: React.FC = () => {
                     className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors disabled:opacity-50"
                   >
                     {isSavingRecitation
-                      ? 'Menyimpan Transaksi...'
+                      ? 'Menyimpan Setoran...'
                       : recitationForm.submissionMode === 'draft'
                       ? 'Simpan sebagai Draft'
-                      : 'Simpan & Submit Setoran'}
+                      : 'Simpan & Ajukan Setoran'}
                   </button>
                 </form>
               </div>
@@ -1501,14 +1575,14 @@ const SesiHalaqahPage: React.FC = () => {
                 <div className="p-4 sm:px-6 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <h2 className="text-base font-bold text-slate-900">
-                      Ledger Setoran Sesi Ini ({selectedDate})
+                      Catatan Setoran Sesi Ini ({selectedDate} · {selectedSlot})
                     </h2>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Siklus status: Draft → Submitted → Accepted / Returned / Voided beserta riwayat revisi.
+                      Status setoran: Draft → Submitted → Disetujui / Dikembalikan / Dibatalkan beserta riwayat revisi.
                     </p>
                   </div>
                   <StatusBadge
-                    label={`${sessionRecitations.length} TRANSAKSI`}
+                    label={`${sessionRecitations.length} SETORAN`}
                     tone="neutral"
                   />
                 </div>
@@ -1520,7 +1594,7 @@ const SesiHalaqahPage: React.FC = () => {
                         <th className="px-5 py-3">Jenis</th>
                         <th className="px-5 py-3">Rentang Bacaan</th>
                         <th className="px-5 py-3 text-right">Halaman</th>
-                        <th className="px-5 py-3">Status Ledger</th>
+                        <th className="px-5 py-3">Status Setoran</th>
                         <th className="px-5 py-3 text-right">Tindakan & Histori</th>
                       </tr>
                     </thead>
@@ -1601,7 +1675,7 @@ const SesiHalaqahPage: React.FC = () => {
                                       }}
                                       className="px-2.5 py-1 rounded-md border border-blue-200 bg-blue-50 hover:bg-blue-100 text-xs font-semibold text-blue-700"
                                     >
-                                      Review Admin
+                                      Validasi Setoran
                                     </button>
                                   )}
                                 </div>
@@ -2099,11 +2173,11 @@ const SesiHalaqahPage: React.FC = () => {
         </div>
       </Modal>
 
-      {/* MODAL REVIEW / REVISI LEDGER SETORAN OLEH ADMIN (WAJIB ALASAN) */}
+      {/* MODAL VALIDASI SETORAN OLEH ADMIN (WAJIB ALASAN) */}
       <Modal
         isOpen={Boolean(reviewModalTarget)}
         onClose={() => setReviewModalTarget(null)}
-        title="Review & Validasi Ledger Setoran (Admin)"
+        title="Validasi Setoran (Admin)"
       >
         <form onSubmit={handleAdminReviewRecitation} className="space-y-4">
           <div>

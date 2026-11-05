@@ -1,7 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
+import crypto from "crypto";
 
 const getEnv = (key: string) =>
   (typeof process !== "undefined" && process.env ? process.env[key] : undefined) || "";
+
+const generateSecureTempPassword = () => {
+  return `${crypto.randomBytes(9).toString("base64url")}A1!`;
+};
 
 export async function processInvitationPayload(authHeader: string | undefined, body: any) {
   const supabaseUrl = getEnv("SUPABASE_URL") || getEnv("VITE_SUPABASE_URL");
@@ -28,14 +33,34 @@ export async function processInvitationPayload(authHeader: string | undefined, b
 
   const callerId = userData.user.id;
 
-  // Periksa role pemanggil dari access_grants atau profiles
+  // Periksa role pemanggil dari access_grants (utama) dan profiles (fallback)
   const { data: profile } = await callerClient
     .from("profiles")
     .select("id, role, organization_id")
     .eq("id", callerId)
     .maybeSingle();
 
-  const rawRole = (profile?.role || "").toLowerCase();
+  let rawRole = (profile?.role || "").toLowerCase();
+  let callerOrgId = profile?.organization_id || null;
+
+  try {
+    const { data: grants } = await callerClient
+      .from("access_grants")
+      .select("role, organization_id, status")
+      .eq("user_id", callerId);
+
+    if (Array.isArray(grants) && grants.length > 0) {
+      const activeGrant = grants.find((g: any) => g.status === "active");
+      if (!activeGrant) {
+        return { status: 403, data: { error: "Akses ditolak: Status keanggotaan Anda tidak aktif." } };
+      }
+      rawRole = (activeGrant.role || rawRole).toLowerCase();
+      callerOrgId = activeGrant.organization_id || callerOrgId;
+    }
+  } catch {
+    // Abaikan jika tabel access_grants belum tersedia
+  }
+
   const canonicalRole =
     rawRole === "super_admin" || rawRole === "superadmin"
       ? "superadmin"
@@ -55,6 +80,7 @@ export async function processInvitationPayload(authHeader: string | undefined, b
     fullName,
     role: requestedRoleInput,
     targetOrganizationId,
+    organizationId,
     mahadName,
     musammiId,
   } = body || {};
@@ -70,15 +96,22 @@ export async function processInvitationPayload(authHeader: string | undefined, b
       ? "admin"
       : "musammi";
 
-  // Admin Lembaga hanya boleh mengundang/membuat akun Musammi di dalam tenant-nya sendiri
+  // Admin Lembaga tidak boleh membuat akun Superadmin
   if (canonicalRole === "admin" && requestedRole === "superadmin") {
     return { status: 403, data: { error: "Admin Lembaga tidak diizinkan membuat akun Superadmin." } };
   }
 
+  const requestedTargetOrg = targetOrganizationId || organizationId || null;
+
+  // Admin Lembaga tidak boleh membuat pengguna untuk organisasi lain
+  if (canonicalRole === "admin" && requestedTargetOrg && callerOrgId && requestedTargetOrg !== callerOrgId) {
+    return { status: 403, data: { error: "Admin Lembaga hanya dapat mengundang pengguna ke dalam lembaganya sendiri." } };
+  }
+
   const resolvedOrgId =
     canonicalRole === "superadmin"
-      ? targetOrganizationId || profile?.organization_id || null
-      : profile?.organization_id || null;
+      ? requestedTargetOrg || callerOrgId || null
+      : callerOrgId || null;
 
   if (requestedRole !== "superadmin" && !resolvedOrgId && !mahadName) {
     return { status: 400, data: { error: "Organisasi/Tenant tujuan wajib ditentukan." } };
@@ -97,12 +130,17 @@ export async function processInvitationPayload(authHeader: string | undefined, b
     }
   );
 
+  const effectivePassword =
+    typeof password === "string" && password.trim().length >= 8
+      ? password.trim()
+      : generateSecureTempPassword();
+
   let createdUserId: string | null = null;
 
   if (serviceRoleKey) {
     const { data: adminCreated, error: adminErr } = await privilegedClient.auth.admin.createUser({
       email: String(email).trim().toLowerCase(),
-      password: password || Math.random().toString(36).slice(-10) + "A1!",
+      password: effectivePassword,
       email_confirm: true,
       user_metadata: {
         full_name: fullName,
@@ -118,7 +156,7 @@ export async function processInvitationPayload(authHeader: string | undefined, b
   } else {
     const { data: signUpData, error: signUpErr } = await privilegedClient.auth.signUp({
       email: String(email).trim().toLowerCase(),
-      password: password || Math.random().toString(36).slice(-10) + "A1!",
+      password: effectivePassword,
       options: {
         data: {
           full_name: fullName,
@@ -141,9 +179,11 @@ export async function processInvitationPayload(authHeader: string | undefined, b
   // Tunggu sejenak bila trigger handle_new_user berjalan di database
   await new Promise((r) => setTimeout(r, 900));
 
+  const mutationClient = serviceRoleKey ? privilegedClient : callerClient;
+
   // Sinkronkan ke profiles (kompatibilitas) dan access_grants + user_profiles (V2 SaaS)
   const legacyRoleValue = requestedRole === "superadmin" ? "super_admin" : requestedRole;
-  await callerClient
+  const { error: profileUpdateErr } = await mutationClient
     .from("profiles")
     .update({
       full_name: fullName,
@@ -153,45 +193,65 @@ export async function processInvitationPayload(authHeader: string | undefined, b
     })
     .eq("id", createdUserId);
 
-  try {
-    await callerClient.from("user_profiles").upsert(
-      {
-        user_id: createdUserId,
-        full_name: fullName,
-        email: String(email).trim().toLowerCase(),
-      },
-      { onConflict: "user_id" }
-    );
-  } catch {
-    // Abaikan jika tabel V2 belum dijalankan di DB
+  if (profileUpdateErr && profileUpdateErr.code !== "42P01") {
+    return {
+      status: 500,
+      data: { error: `Akun Auth dibuat tetapi gagal memperbarui profil: ${profileUpdateErr.message}` },
+    };
   }
 
-  try {
-    await callerClient.from("access_grants").upsert(
-      {
-        user_id: createdUserId,
-        organization_id: requestedRole === "superadmin" ? null : resolvedOrgId,
-        role: requestedRole,
-        status: "active",
-        invited_by: callerId,
-        invited_email: String(email).trim().toLowerCase(),
-      },
-      { onConflict: "organization_id,user_id" }
-    );
-  } catch {
-    // Abaikan jika tabel V2 belum dijalankan
+  const { error: userProfileErr } = await mutationClient.from("user_profiles").upsert(
+    {
+      user_id: createdUserId,
+      full_name: fullName,
+      email: String(email).trim().toLowerCase(),
+    },
+    { onConflict: "user_id" }
+  );
+
+  if (userProfileErr && userProfileErr.code !== "42P01") {
+    return {
+      status: 500,
+      data: { error: `Gagal menyinkronkan user_profiles: ${userProfileErr.message}` },
+    };
+  }
+
+  const { error: grantErr } = await mutationClient.from("access_grants").upsert(
+    {
+      user_id: createdUserId,
+      organization_id: requestedRole === "superadmin" ? null : resolvedOrgId,
+      role: requestedRole,
+      status: "active",
+      invited_by: callerId,
+      invited_email: String(email).trim().toLowerCase(),
+    },
+    { onConflict: "organization_id,user_id" }
+  );
+
+  if (grantErr && grantErr.code !== "42P01") {
+    return {
+      status: 500,
+      data: { error: `Gagal menetapkan hak akses (access_grants): ${grantErr.message}` },
+    };
   }
 
   if (musammiId && resolvedOrgId) {
-    await callerClient
+    const { error: musammiErr } = await mutationClient
       .from("musammi")
       .update({ user_id: createdUserId })
       .eq("id", musammiId)
       .eq("organization_id", resolvedOrgId);
+
+    if (musammiErr && musammiErr.code !== "42P01") {
+      return {
+        status: 500,
+        data: { error: `Gagal menautkan akun ke profil Musammi: ${musammiErr.message}` },
+      };
+    }
   }
 
   try {
-    await callerClient.from("audit_logs").insert({
+    await mutationClient.from("audit_logs").insert({
       organization_id: resolvedOrgId,
       actor_id: callerId,
       actor_role: canonicalRole,

@@ -13,7 +13,7 @@ export async function processTelegramNotification(
   authHeader: string | undefined,
   body: any
 ) {
-  const { chatId, message, botToken: clientBotToken, parseMode } = body || {};
+  const { chatId, message, parseMode } = body || {};
   if (!chatId || !message) {
     return { status: 400, data: { error: "chatId and message are required" } };
   }
@@ -22,63 +22,95 @@ export async function processTelegramNotification(
   const supabaseAnonKey = getEnv("SUPABASE_ANON_KEY") || getEnv("VITE_SUPABASE_ANON_KEY");
   const serviceRoleKey = getEnv("SUPABASE_SERVICE_ROLE_KEY");
 
-  let token = !isMaskedToken(clientBotToken)
-    ? String(clientBotToken).trim()
-    : getEnv("TELEGRAM_BOT_TOKEN") || getEnv("VITE_TELEGRAM_BOT_TOKEN");
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return { status: 500, data: { error: "Konfigurasi Supabase belum diatur di server." } };
+  }
 
-  if (!token && supabaseUrl && supabaseAnonKey) {
-    const bearer = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
-    if (bearer) {
-      const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-        global: { headers: { Authorization: `Bearer ${bearer}` } },
-      });
-      const { data: userData } = await userClient.auth.getUser(bearer);
-      const userId = userData?.user?.id;
-      if (userId) {
-        const { data: profile } = await userClient
-          .from("profiles")
-          .select("organization_id")
-          .eq("id", userId)
-          .maybeSingle();
+  const bearer = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
+  if (!bearer) {
+    return { status: 401, data: { error: "Unauthorized: Sesi autentikasi diperlukan." } };
+  }
 
-        const orgId = profile?.organization_id;
-        if (orgId) {
-          const secretReader = serviceRoleKey
-            ? createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
-            : userClient;
+  const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: `Bearer ${bearer}` } },
+  });
+  const { data: userData, error: authErr } = await userClient.auth.getUser(bearer);
+  const userId = userData?.user?.id;
+  if (authErr || !userId) {
+    return { status: 401, data: { error: "Unauthorized: Token sesi tidak valid." } };
+  }
 
-          try {
-            const { data: secretRow } = await secretReader
-              .from("integration_secrets")
-              .select("secret_value")
-              .eq("organization_id", orgId)
-              .eq("secret_key_name", "TELEGRAM_BOT_TOKEN")
-              .maybeSingle();
-            if (secretRow?.secret_value && !isMaskedToken(secretRow.secret_value)) {
-              token = String(secretRow.secret_value).trim();
-            }
-          } catch {
-            // fallback to app_settings if integration_secrets not migrated yet
-          }
+  const { data: profile } = await userClient
+    .from("profiles")
+    .select("organization_id, role")
+    .eq("id", userId)
+    .maybeSingle();
 
-          if (!token) {
-            const { data: setting } = await userClient
-              .from("app_settings")
-              .select("value")
-              .eq("organization_id", orgId)
-              .eq("key", "TELEGRAM_BOT_TOKEN")
-              .maybeSingle();
-            if (setting?.value && !isMaskedToken(setting.value)) {
-              token = String(setting.value).trim();
-            }
-          }
-        }
+  let orgId = profile?.organization_id || null;
+  let role = (profile?.role || "").toLowerCase();
+
+  try {
+    const { data: grants } = await userClient
+      .from("access_grants")
+      .select("organization_id, role, status")
+      .eq("user_id", userId);
+
+    if (Array.isArray(grants) && grants.length > 0) {
+      const activeGrant = grants.find((g: any) => g.status === "active");
+      if (!activeGrant) {
+        return { status: 403, data: { error: "Akses ditolak: Keanggotaan pengguna tidak aktif." } };
+      }
+      orgId = activeGrant.organization_id || orgId;
+      role = (activeGrant.role || role).toLowerCase();
+    }
+  } catch {
+    // fallback if access_grants not migrated yet
+  }
+
+  if (!orgId && role !== "superadmin" && role !== "super_admin") {
+    return { status: 403, data: { error: "Akses ditolak: Organisasi pengguna tidak ditemukan." } };
+  }
+
+  let token = "";
+
+  if (orgId) {
+    const secretReader = serviceRoleKey
+      ? createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
+      : userClient;
+
+    try {
+      const { data: secretRow } = await secretReader
+        .from("integration_secrets")
+        .select("secret_value")
+        .eq("organization_id", orgId)
+        .eq("secret_key_name", "TELEGRAM_BOT_TOKEN")
+        .maybeSingle();
+      if (secretRow?.secret_value && !isMaskedToken(secretRow.secret_value)) {
+        token = String(secretRow.secret_value).trim();
+      }
+    } catch {
+      // fallback to app_settings if integration_secrets not migrated yet
+    }
+
+    if (!token) {
+      const { data: setting } = await userClient
+        .from("app_settings")
+        .select("value")
+        .eq("organization_id", orgId)
+        .eq("key", "TELEGRAM_BOT_TOKEN")
+        .maybeSingle();
+      if (setting?.value && !isMaskedToken(setting.value)) {
+        token = String(setting.value).trim();
       }
     }
   }
 
+  if (!token) {
+    token = getEnv("TELEGRAM_BOT_TOKEN");
+  }
+
   if (!token || isMaskedToken(token)) {
-    return { status: 400, data: { error: "Token Bot Telegram belum dikonfigurasi di server." } };
+    return { status: 400, data: { error: "Token Bot Telegram belum dikonfigurasi di server untuk lembaga ini." } };
   }
 
   const cleanToken = String(token).trim();

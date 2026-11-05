@@ -934,13 +934,16 @@ const useSupabaseDataInternal = () => {
                         marked_by: userProfile?.id || null,
                         updated_at: new Date().toISOString()
                     }));
-                    await (supabase as any).from('attendance_records').upsert(v2AttRows, {
+                    const { error: v2AttErr } = await (supabase as any).from('attendance_records').upsert(v2AttRows, {
                         onConflict: 'session_id,santri_id'
                     });
+                    if (v2AttErr && v2AttErr.code !== '42P01') {
+                        console.warn('V2 attendance_records sync warning:', v2AttErr.message);
+                    }
                 }
             }
-        } catch {
-            // Fallback aman jika tabel V2 belum dimigrasi
+        } catch (v2SyncErr) {
+            console.warn('V2 attendance sync skipped:', v2SyncErr);
         }
 
         await fetchData();
@@ -1005,7 +1008,7 @@ const useSupabaseDataInternal = () => {
             .select();
         if (error) throw error;
 
-        // Sinkronisasi otomatis ke Ledger Setoran V2 (recitation_entries) sesuai Blueprint Fase 3
+        // Sinkronisasi otomatis ke Catatan Setoran V2 (recitation_entries)
         try {
             const inserted = Array.isArray(insertedRows) ? insertedRows[0] : insertedRows;
             if (inserted && orgId) {
@@ -1016,7 +1019,7 @@ const useSupabaseDataInternal = () => {
                         : rawKind.includes('manzil') || rawKind.includes('murojaah') || rawKind.includes('murajaah')
                         ? 'manzil'
                         : 'ziyadah';
-                await (supabase as any).from('recitation_entries').upsert(
+                const { error: v2RecErr } = await (supabase as any).from('recitation_entries').upsert(
                     {
                         organization_id: orgId,
                         academic_year_id: selectedAcademicYear?.id || null,
@@ -1039,9 +1042,12 @@ const useSupabaseDataInternal = () => {
                     },
                     { onConflict: 'legacy_setoran_id' }
                 );
+                if (v2RecErr && v2RecErr.code !== '42P01') {
+                    console.warn('V2 recitation_entries sync warning:', v2RecErr.message);
+                }
             }
-        } catch {
-            // Abaikan bila tabel recitation_entries belum dimigrasikan di DB
+        } catch (v2RecSyncErr) {
+            console.warn('V2 recitation sync skipped:', v2RecSyncErr);
         }
 
         await fetchData();

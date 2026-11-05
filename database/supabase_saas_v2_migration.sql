@@ -1046,6 +1046,8 @@ CREATE TABLE IF NOT EXISTS public.report_cards (
   final_score numeric(5,2) DEFAULT 0,
   predikat text,
   snapshot_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+  snapshot_hash text,
+  verification_code text,
   parent_report_card_id uuid REFERENCES public.report_cards(id) ON DELETE SET NULL,
   amendment_reason text,
   published_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -1057,40 +1059,198 @@ CREATE TABLE IF NOT EXISTS public.report_cards (
     REFERENCES public.santri(organization_id, id) ON DELETE RESTRICT
 );
 
+ALTER TABLE public.report_cards
+  ADD COLUMN IF NOT EXISTS snapshot_hash text,
+  ADD COLUMN IF NOT EXISTS verification_code text;
+
 CREATE INDEX IF NOT EXISTS idx_report_cards_org_year_student
   ON public.report_cards(organization_id, academic_year_id, semester_name, santri_id, version_no DESC);
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_report_cards_verification_code_uniq
+  ON public.report_cards(verification_code)
+  WHERE verification_code IS NOT NULL;
+
+-- Trigger Immutability pada report_cards yang sudah berstatus published / amended
+CREATE OR REPLACE FUNCTION public.enforce_report_card_immutability()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    IF OLD.status IN ('published', 'amended', 'archived') THEN
+      RAISE EXCEPTION 'Snapshot raport yang telah diterbitkan bersifat immutable dan tidak dapat dihapus.';
+    END IF;
+    RETURN OLD;
+  END IF;
+
+  IF TG_OP = 'UPDATE' THEN
+    IF OLD.status IN ('published', 'amended', 'archived') THEN
+      -- Hanya izinkan perubahan status dari published -> amended atau archived tanpa mengubah isi snapshot
+      IF NEW.snapshot_json IS DISTINCT FROM OLD.snapshot_json
+         OR NEW.final_score IS DISTINCT FROM OLD.final_score
+         OR NEW.predikat IS DISTINCT FROM OLD.predikat
+         OR NEW.santri_id IS DISTINCT FROM OLD.santri_id
+         OR NEW.academic_year_id IS DISTINCT FROM OLD.academic_year_id
+         OR NEW.semester_name IS DISTINCT FROM OLD.semester_name
+         OR NEW.version_no IS DISTINCT FROM OLD.version_no
+      THEN
+        RAISE EXCEPTION 'Snapshot raport yang telah diterbitkan bersifat immutable. Gunakan fitur Amendment untuk menerbitkan versi revisi baru.';
+      END IF;
+    END IF;
+  END IF;
+
+  IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
+    IF NEW.snapshot_hash IS NULL AND NEW.snapshot_json IS NOT NULL THEN
+      NEW.snapshot_hash := encode(digest(convert_to(NEW.snapshot_json::text, 'UTF8'), 'sha256'), 'hex');
+    END IF;
+    IF NEW.verification_code IS NULL AND NEW.snapshot_hash IS NOT NULL THEN
+      NEW.verification_code := UPPER(SUBSTRING(NEW.snapshot_hash FROM 1 FOR 8) || '-' || SUBSTRING(NEW.id::text FROM 1 FOR 4));
+    END IF;
+    NEW.updated_at := now();
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_enforce_report_card_immutability ON public.report_cards;
+CREATE TRIGGER trg_enforce_report_card_immutability
+BEFORE INSERT OR UPDATE OR DELETE ON public.report_cards
+FOR EACH ROW
+EXECUTE FUNCTION public.enforce_report_card_immutability();
+
 -- ---------------------------------------------------------------------------------
--- 9. FUNGSI HELPER OTORISASI 3-ROLE & SUPPORT ACCESS SESSION
+-- 9. FUNGSI HELPER OTORISASI 3-ROLE & SUPPORT ACCESS SESSION (HARDENED)
 -- ---------------------------------------------------------------------------------
+-- Penting: Jika user memiliki baris di access_grants yang berstatus 'suspended' atau 'revoked'
+-- dan tidak memiliki grant 'active', jangan pernah fallback ke profiles.role!
 CREATE OR REPLACE FUNCTION public.get_canonical_role()
 RETURNS text
-LANGUAGE sql
+LANGUAGE plpgsql
 SECURITY DEFINER
 STABLE
 SET search_path = public
 AS $$
-  SELECT COALESCE(
-    (
-      SELECT ag.role
-      FROM public.access_grants ag
-      WHERE ag.user_id = auth.uid()
-        AND ag.status = 'active'
-      ORDER BY CASE ag.role WHEN 'superadmin' THEN 1 WHEN 'admin' THEN 2 ELSE 3 END
-      LIMIT 1
-    ),
-    (
-      SELECT CASE
-        WHEN LOWER(p.role) IN ('super_admin', 'superadmin') THEN 'superadmin'
-        WHEN LOWER(p.role) IN ('admin', 'admin_mahad') THEN 'admin'
-        WHEN LOWER(p.role) IN ('musammi', 'pengajar') THEN 'musammi'
-        ELSE NULL
-      END
-      FROM public.profiles p
-      WHERE p.id = auth.uid()
-      LIMIT 1
-    )
+DECLARE
+  v_active_role text;
+  v_has_any_grant boolean;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  SELECT ag.role
+  INTO v_active_role
+  FROM public.access_grants ag
+  WHERE ag.user_id = auth.uid()
+    AND ag.status = 'active'
+    AND (ag.expires_at IS NULL OR ag.expires_at > now())
+  ORDER BY CASE ag.role WHEN 'superadmin' THEN 1 WHEN 'admin' THEN 2 ELSE 3 END
+  LIMIT 1;
+
+  IF v_active_role IS NOT NULL THEN
+    RETURN v_active_role;
+  END IF;
+
+  -- Cek apakah user sudah memiliki record di access_grants (mis. invited / suspended / revoked).
+  -- Bila sudah ada tetapi tidak active, blokir fallback ke profiles!
+  SELECT EXISTS (
+    SELECT 1 FROM public.access_grants ag WHERE ag.user_id = auth.uid()
+  ) INTO v_has_any_grant;
+
+  IF v_has_any_grant THEN
+    RETURN NULL;
+  END IF;
+
+  -- Fallback kompatibilitas hanya untuk akun lama yang belum memiliki baris sama sekali di access_grants
+  RETURN (
+    SELECT CASE
+      WHEN LOWER(p.role) IN ('super_admin', 'superadmin') THEN 'superadmin'
+      WHEN LOWER(p.role) IN ('admin', 'admin_mahad') THEN 'admin'
+      WHEN LOWER(p.role) IN ('musammi', 'pengajar') THEN 'musammi'
+      ELSE NULL
+    END
+    FROM public.profiles p
+    WHERE p.id = auth.uid()
+    LIMIT 1
   );
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_role_for_org(target_org_id uuid)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+DECLARE
+  v_grant_role text;
+  v_has_org_grant boolean;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  -- Cek apakah superadmin aktif
+  IF EXISTS (
+    SELECT 1
+    FROM public.access_grants ag
+    WHERE ag.user_id = auth.uid()
+      AND ag.role = 'superadmin'
+      AND ag.status = 'active'
+      AND (ag.expires_at IS NULL OR ag.expires_at > now())
+  ) THEN
+    RETURN 'superadmin';
+  END IF;
+
+  IF target_org_id IS NULL THEN
+    RETURN public.get_canonical_role();
+  END IF;
+
+  -- Cek grant aktif spesifik pada organisasi target
+  SELECT ag.role
+  INTO v_grant_role
+  FROM public.access_grants ag
+  WHERE ag.user_id = auth.uid()
+    AND ag.organization_id = target_org_id
+    AND ag.status = 'active'
+    AND (ag.expires_at IS NULL OR ag.expires_at > now())
+  ORDER BY CASE ag.role WHEN 'admin' THEN 1 ELSE 2 END
+  LIMIT 1;
+
+  IF v_grant_role IS NOT NULL THEN
+    RETURN v_grant_role;
+  END IF;
+
+  -- Jika ada grant non-aktif (suspended/revoked/invited) pada org ini, tolak fallback ke profiles
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.access_grants ag
+    WHERE ag.user_id = auth.uid()
+      AND ag.organization_id = target_org_id
+  ) INTO v_has_org_grant;
+
+  IF v_has_org_grant THEN
+    RETURN NULL;
+  END IF;
+
+  -- Fallback kompatibilitas ke profiles jika belum ada baris di access_grants
+  RETURN (
+    SELECT CASE
+      WHEN LOWER(p.role) IN ('super_admin', 'superadmin') THEN 'superadmin'
+      WHEN LOWER(p.role) IN ('admin', 'admin_mahad') THEN 'admin'
+      WHEN LOWER(p.role) IN ('musammi', 'pengajar') THEN 'musammi'
+      ELSE NULL
+    END
+    FROM public.profiles p
+    WHERE p.id = auth.uid()
+      AND (p.organization_id = target_org_id OR LOWER(p.role) IN ('super_admin', 'superadmin'))
+    LIMIT 1
+  );
+END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.is_super_admin()
@@ -1118,7 +1278,7 @@ AS $$
       AND sas.ended_at IS NULL
       AND sas.expires_at > now()
       AND (NOT require_write OR sas.mode = 'read_write')
-  );
+  ) AND public.is_super_admin();
 $$;
 
 CREATE OR REPLACE FUNCTION public.is_admin_of_org(target_org_id uuid)
@@ -1128,20 +1288,13 @@ SECURITY DEFINER
 STABLE
 SET search_path = public
 AS $$
-  SELECT EXISTS (
-    SELECT 1
-    FROM public.profiles p
-    WHERE p.id = auth.uid()
-      AND LOWER(COALESCE(p.role, '')) IN ('admin', 'admin_mahad')
-      AND p.organization_id = target_org_id
-  ) OR EXISTS (
-    SELECT 1
-    FROM public.access_grants ag
-    WHERE ag.user_id = auth.uid()
-      AND ag.organization_id = target_org_id
-      AND ag.role = 'admin'
-      AND ag.status = 'active'
-  ) OR public.has_active_support_session(target_org_id, true);
+  SELECT (
+    target_org_id IS NOT NULL
+    AND (
+      public.get_role_for_org(target_org_id) = 'admin'
+      OR public.has_active_support_session(target_org_id, true)
+    )
+  );
 $$;
 
 CREATE OR REPLACE FUNCTION public.is_musammi_assigned_to_halaqah(target_org_id uuid, target_halaqah_id bigint)
@@ -1151,27 +1304,36 @@ SECURITY DEFINER
 STABLE
 SET search_path = public
 AS $$
-  SELECT EXISTS (
-    SELECT 1
-    FROM public.halaqah_musammi_assignments hma
-    JOIN public.musammi m ON m.id = hma.musammi_id AND m.organization_id = hma.organization_id
-    WHERE hma.organization_id = target_org_id
-      AND hma.halaqah_id = target_halaqah_id
-      AND hma.status = 'active'
-      AND (hma.valid_to IS NULL OR hma.valid_to >= CURRENT_DATE)
-      AND (hma.user_id = auth.uid() OR m.user_id = auth.uid())
-  ) OR EXISTS (
-    SELECT 1
-    FROM public.halaqah h
-    JOIN public.musammi m ON m.id = h.musammi_id AND m.organization_id = h.organization_id
-    WHERE h.organization_id = target_org_id
-      AND h.id = target_halaqah_id
-      AND m.user_id = auth.uid()
+  SELECT (
+    target_org_id IS NOT NULL
+    AND target_halaqah_id IS NOT NULL
+    AND public.get_role_for_org(target_org_id) IN ('musammi', 'admin')
+    AND (
+      EXISTS (
+        SELECT 1
+        FROM public.halaqah_musammi_assignments hma
+        LEFT JOIN public.musammi m ON m.id = hma.musammi_id AND m.organization_id = hma.organization_id
+        WHERE hma.organization_id = target_org_id
+          AND hma.halaqah_id = target_halaqah_id
+          AND hma.status = 'active'
+          AND hma.is_active = true
+          AND (hma.valid_to IS NULL OR hma.valid_to >= CURRENT_DATE)
+          AND (hma.user_id = auth.uid() OR m.user_id = auth.uid())
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM public.halaqah h
+        JOIN public.musammi m ON m.id = h.musammi_id AND m.organization_id = h.organization_id
+        WHERE h.organization_id = target_org_id
+          AND h.id = target_halaqah_id
+          AND m.user_id = auth.uid()
+      )
+    )
   );
 $$;
 
 -- ---------------------------------------------------------------------------------
--- 10. RPC TRANSAKSIONAL SERVERLESS (UNTUK VERCEL / NETLIFY / CLIENT)
+-- 10. RPC TRANSAKSIONAL SERVERLESS (SECURITY DEFINER HARDENED)
 -- ---------------------------------------------------------------------------------
 
 -- 10.1 Buka Sesi Halaqah + Snapshot Roster Aktif (Status Awal: Belum Diisi / unmarked)
@@ -1205,13 +1367,17 @@ BEGIN
     RAISE EXCEPTION 'Halaqah tidak ditemukan';
   END IF;
 
-  v_role := public.get_canonical_role();
-  IF v_role = 'musammi' AND NOT public.is_musammi_assigned_to_halaqah(v_org_id, p_halaqah_id) THEN
-    RAISE EXCEPTION 'Akses ditolak: Anda tidak ditugaskan pada halaqah ini';
-  ELSIF v_role = 'superadmin' AND NOT public.has_active_support_session(v_org_id, true) THEN
-    RAISE EXCEPTION 'Akses ditolak: Superadmin wajib membuka Support Access Session mode read_write';
-  ELSIF v_role NOT IN ('admin', 'musammi', 'superadmin') THEN
-    RAISE EXCEPTION 'Akses ditolak';
+  v_role := public.get_role_for_org(v_org_id);
+  IF v_role = 'musammi' THEN
+    IF NOT public.is_musammi_assigned_to_halaqah(v_org_id, p_halaqah_id) THEN
+      RAISE EXCEPTION 'Akses ditolak: Anda tidak ditugaskan pada halaqah ini';
+    END IF;
+  ELSIF v_role = 'superadmin' THEN
+    IF NOT public.has_active_support_session(v_org_id, true) THEN
+      RAISE EXCEPTION 'Akses ditolak: Superadmin wajib membuka Support Access Session mode read_write';
+    END IF;
+  ELSIF v_role IS DISTINCT FROM 'admin' THEN
+    RAISE EXCEPTION 'Akses ditolak untuk membuka sesi pada lembaga ini';
   END IF;
 
   SELECT COALESCE(jsonb_agg(jsonb_build_object(
@@ -1237,7 +1403,12 @@ BEGIN
     v_org_id, v_year_id, p_halaqah_id, p_session_date, p_session_slot, 'open', auth.uid(), v_roster
   )
   ON CONFLICT (organization_id, halaqah_id, session_date, session_slot)
-  DO UPDATE SET updated_at = now()
+  DO UPDATE SET
+    roster_snapshot = CASE
+      WHEN public.halaqah_sessions.status IN ('locked', 'submitted') THEN public.halaqah_sessions.roster_snapshot
+      ELSE EXCLUDED.roster_snapshot
+    END,
+    updated_at = now()
   RETURNING id INTO v_session_id;
 
   INSERT INTO public.audit_logs (organization_id, actor_id, actor_role, action, resource_type, resource_id, after_state)
@@ -1254,7 +1425,7 @@ BEGIN
 END;
 $$;
 
--- 10.2 Simpan Batch Kehadiran Sesi Halaqah (Idempotent + Audit Trail)
+-- 10.2 Simpan Batch Kehadiran Sesi Halaqah (Idempotent + Validasi Tenant, Lock & Status)
 CREATE OR REPLACE FUNCTION public.rpc_save_attendance_batch(
   p_session_id uuid,
   p_records jsonb,
@@ -1268,6 +1439,7 @@ SET search_path = public
 AS $$
 DECLARE
   v_session public.halaqah_sessions%ROWTYPE;
+  v_role text;
   v_item jsonb;
   v_santri_id bigint;
   v_status text;
@@ -1282,34 +1454,162 @@ BEGIN
     RAISE EXCEPTION 'Sesi halaqah tidak ditemukan';
   END IF;
 
+  -- Validasi hak akses tenant dan penugasan halaqah
+  v_role := public.get_role_for_org(v_session.organization_id);
+  IF v_role = 'musammi' THEN
+    IF NOT public.is_musammi_assigned_to_halaqah(v_session.organization_id, v_session.halaqah_id) THEN
+      RAISE EXCEPTION 'Akses ditolak: Anda bukan pengampu halaqah pada sesi ini';
+    END IF;
+  ELSIF v_role = 'superadmin' THEN
+    IF NOT public.has_active_support_session(v_session.organization_id, true) THEN
+      RAISE EXCEPTION 'Akses ditolak: Superadmin memerlukan Support Session read_write aktif';
+    END IF;
+  ELSIF v_role IS DISTINCT FROM 'admin' THEN
+    RAISE EXCEPTION 'Akses ditolak untuk menyimpan kehadiran sesi ini';
+  END IF;
+
+  -- Jika sesi sudah dikunci, wajib menyertakan alasan koreksi minimal 5 karakter
+  IF v_session.status = 'locked' AND COALESCE(LENGTH(TRIM(p_reason)), 0) < 5 THEN
+    RAISE EXCEPTION 'Sesi telah dikunci. Perubahan kehadiran wajib menyertakan alasan koreksi (minimal 5 karakter).';
+  END IF;
+
   IF jsonb_typeof(p_records) = 'array' THEN
     FOR v_item IN SELECT * FROM jsonb_array_elements(p_records)
     LOOP
       v_santri_id := (v_item->>'santri_id')::bigint;
-      v_status := LOWER(COALESCE(v_item->>'status', 'hadir'));
-      IF v_santri_id IS NOT NULL THEN
-        INSERT INTO public.attendance_records (
-          organization_id, session_id, halaqah_id, santri_id,
-          attendance_date, session_slot, status, idempotency_key,
-          marked_by, correction_reason, updated_at
-        )
-        VALUES (
-          v_session.organization_id, v_session.id, v_session.halaqah_id, v_santri_id,
-          v_session.session_date, v_session.session_slot, v_status,
-          COALESCE(p_idempotency_key, 'batch') || '_' || v_santri_id::text,
-          auth.uid(), p_reason, now()
-        )
-        ON CONFLICT (session_id, santri_id) DO UPDATE
-        SET status = EXCLUDED.status,
-            marked_by = EXCLUDED.marked_by,
-            correction_reason = COALESCE(EXCLUDED.correction_reason, public.attendance_records.correction_reason),
-            updated_at = now();
-        v_saved_count := v_saved_count + 1;
+      v_status := LOWER(TRIM(COALESCE(v_item->>'status', '')));
+
+      IF v_santri_id IS NULL THEN
+        CONTINUE;
       END IF;
+
+      -- Jangan pernah diam-diam mengubah status kosong/tidak valid menjadi 'hadir'
+      IF v_status NOT IN ('hadir', 'izin', 'sakit', 'alpa', 'terlambat') THEN
+        RAISE EXCEPTION 'Status kehadiran tidak valid untuk santri ID %: %', v_santri_id, COALESCE(v_status, 'kosong');
+      END IF;
+
+      -- Pastikan santri berada di dalam organisasi yang sama
+      IF NOT EXISTS (
+        SELECT 1 FROM public.santri s
+        WHERE s.id = v_santri_id AND s.organization_id = v_session.organization_id
+      ) THEN
+        RAISE EXCEPTION 'Santri ID % tidak terdaftar pada organisasi ini', v_santri_id;
+      END IF;
+
+      INSERT INTO public.attendance_records (
+        organization_id, session_id, halaqah_id, santri_id,
+        attendance_date, session_slot, status, idempotency_key,
+        marked_by, correction_reason, updated_at
+      )
+      VALUES (
+        v_session.organization_id, v_session.id, v_session.halaqah_id, v_santri_id,
+        v_session.session_date, v_session.session_slot, v_status,
+        COALESCE(p_idempotency_key, 'batch') || '_' || v_santri_id::text,
+        auth.uid(), NULLIF(TRIM(COALESCE(p_reason, '')), ''), now()
+      )
+      ON CONFLICT (session_id, santri_id) DO UPDATE
+      SET status = EXCLUDED.status,
+          marked_by = EXCLUDED.marked_by,
+          correction_reason = COALESCE(EXCLUDED.correction_reason, public.attendance_records.correction_reason),
+          updated_at = now();
+
+      v_saved_count := v_saved_count + 1;
     END LOOP;
   END IF;
 
-  RETURN jsonb_build_object('session_id', v_session.id, 'saved_count', v_saved_count);
+  IF v_session.status IN ('scheduled', 'open') AND v_saved_count > 0 THEN
+    UPDATE public.halaqah_sessions
+    SET status = 'submitted',
+        completed_by = COALESCE(completed_by, auth.uid()),
+        completed_at = COALESCE(completed_at, now()),
+        updated_at = now()
+    WHERE id = v_session.id;
+  END IF;
+
+  INSERT INTO public.audit_logs (
+    organization_id, actor_id, actor_role, action, resource_type, resource_id, reason, after_state
+  )
+  VALUES (
+    v_session.organization_id, auth.uid(), v_role,
+    CASE WHEN v_session.status = 'locked' THEN 'post_lock_attendance_correction' ELSE 'save_attendance_batch' END,
+    'halaqah_sessions', v_session.id::text, NULLIF(TRIM(COALESCE(p_reason, '')), ''),
+    jsonb_build_object('saved_count', v_saved_count, 'session_date', v_session.session_date, 'session_slot', v_session.session_slot)
+  );
+
+  RETURN jsonb_build_object('session_id', v_session.id, 'saved_count', v_saved_count, 'status', CASE WHEN v_session.status = 'locked' THEN 'locked' ELSE 'submitted' END);
+END;
+$$;
+
+-- 10.2b Kunci Sesi Halaqah Secara Transaksional
+CREATE OR REPLACE FUNCTION public.rpc_lock_halaqah_session(
+  p_halaqah_id bigint,
+  p_session_date date,
+  p_session_slot text,
+  p_reason text DEFAULT NULL
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_org_id uuid;
+  v_year_id bigint;
+  v_role text;
+  v_session_id uuid;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Unauthorized';
+  END IF;
+
+  SELECT h.organization_id, h.academic_year_id
+  INTO v_org_id, v_year_id
+  FROM public.halaqah h
+  WHERE h.id = p_halaqah_id;
+
+  IF v_org_id IS NULL THEN
+    RAISE EXCEPTION 'Halaqah tidak ditemukan';
+  END IF;
+
+  v_role := public.get_role_for_org(v_org_id);
+  IF v_role = 'musammi' THEN
+    IF NOT public.is_musammi_assigned_to_halaqah(v_org_id, p_halaqah_id) THEN
+      RAISE EXCEPTION 'Akses ditolak: Anda bukan pengampu halaqah ini';
+    END IF;
+  ELSIF v_role = 'superadmin' THEN
+    IF NOT public.has_active_support_session(v_org_id, true) THEN
+      RAISE EXCEPTION 'Akses ditolak: Superadmin memerlukan Support Session read_write aktif';
+    END IF;
+  ELSIF v_role IS DISTINCT FROM 'admin' THEN
+    RAISE EXCEPTION 'Akses ditolak untuk mengunci sesi halaqah';
+  END IF;
+
+  INSERT INTO public.halaqah_sessions (
+    organization_id, academic_year_id, halaqah_id, session_date, session_slot,
+    status, opened_by, locked_by, locked_at, updated_at
+  )
+  VALUES (
+    v_org_id, v_year_id, p_halaqah_id, p_session_date, p_session_slot,
+    'locked', auth.uid(), auth.uid(), now(), now()
+  )
+  ON CONFLICT (organization_id, halaqah_id, session_date, session_slot)
+  DO UPDATE SET
+    status = 'locked',
+    locked_by = auth.uid(),
+    locked_at = now(),
+    updated_at = now()
+  RETURNING id INTO v_session_id;
+
+  INSERT INTO public.audit_logs (
+    organization_id, actor_id, actor_role, action, resource_type, resource_id, reason, after_state
+  )
+  VALUES (
+    v_org_id, auth.uid(), v_role, 'lock_halaqah_session', 'halaqah_sessions', v_session_id::text,
+    COALESCE(NULLIF(TRIM(p_reason), ''), 'Penguncian sesi operasional halaqah'),
+    jsonb_build_object('halaqah_id', p_halaqah_id, 'session_date', p_session_date, 'session_slot', p_session_slot, 'status', 'locked')
+  );
+
+  RETURN jsonb_build_object('session_id', v_session_id, 'status', 'locked');
 END;
 $$;
 
@@ -1327,6 +1627,7 @@ AS $$
 DECLARE
   v_entry public.recitation_entries%ROWTYPE;
   v_clean_status text;
+  v_role text;
 BEGIN
   IF auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Unauthorized';
@@ -1337,9 +1638,20 @@ BEGIN
     RAISE EXCEPTION 'Data setoran tidak ditemukan';
   END IF;
 
+  -- Hanya Admin Lembaga pemilik organisasi atau Superadmin dengan Support Session write yang dapat memverifikasi setoran
+  IF NOT public.is_admin_of_org(v_entry.organization_id) THEN
+    RAISE EXCEPTION 'Akses ditolak: Hanya Admin Lembaga yang dapat memvalidasi atau membatalkan catatan setoran.';
+  END IF;
+
+  v_role := COALESCE(public.get_role_for_org(v_entry.organization_id), 'admin');
+
   v_clean_status := LOWER(TRIM(COALESCE(p_new_status, 'accepted')));
   IF v_clean_status NOT IN ('draft', 'submitted', 'accepted', 'returned', 'voided') THEN
     RAISE EXCEPTION 'Status verifikasi tidak valid';
+  END IF;
+
+  IF v_clean_status IN ('returned', 'voided') AND COALESCE(LENGTH(TRIM(p_reason)), 0) < 3 THEN
+    RAISE EXCEPTION 'Alasan wajib diisi saat mengembalikan atau membatalkan catatan setoran.';
   END IF;
 
   UPDATE public.recitation_entries
@@ -1374,7 +1686,7 @@ BEGIN
     organization_id, actor_id, actor_role, action, resource_type, resource_id, reason, before_state, after_state
   )
   VALUES (
-    v_entry.organization_id, auth.uid(), public.get_canonical_role(),
+    v_entry.organization_id, auth.uid(), v_role,
     'review_recitation_' || v_clean_status, 'recitation_entries', v_entry.id::text, p_reason,
     jsonb_build_object('status', v_entry.status),
     jsonb_build_object('status', v_clean_status)
@@ -1405,7 +1717,7 @@ BEGIN
     RAISE EXCEPTION 'Tahun ajaran tidak ditemukan';
   END IF;
 
-  IF NOT public.is_admin_of_org(v_year.organization_id) AND NOT public.is_super_admin() THEN
+  IF NOT public.is_admin_of_org(v_year.organization_id) THEN
     RAISE EXCEPTION 'Hanya Admin Lembaga yang dapat menutup Tahun Ajaran';
   END IF;
 
@@ -1436,7 +1748,7 @@ BEGIN
     organization_id, actor_id, actor_role, action, resource_type, resource_id, reason, after_state
   )
   VALUES (
-    v_year.organization_id, auth.uid(), public.get_canonical_role(),
+    v_year.organization_id, auth.uid(), COALESCE(public.get_role_for_org(v_year.organization_id), 'admin'),
     'close_academic_year', 'academic_years', p_academic_year_id::text,
     'Penutupan resmi Tahun Ajaran ' || v_year.name,
     jsonb_build_object('name', v_year.name, 'status', 'closed', 'closed_at', now())
@@ -1475,7 +1787,7 @@ BEGIN
 
   v_slug := COALESCE(
     NULLIF(TRIM(p_slug), ''),
-    regexp_replace(lower(TRIM(p_name)), '[^a-z0-9]+', '-', 'g') || '-' || substr(md5(random()::text), 1, 5)
+    regexp_replace(lower(TRIM(p_name)), '[^a-z0-9]+', '-', 'g') || '-' || substr(encode(gen_random_bytes(4), 'hex'), 1, 6)
   );
   v_clean_status := CASE WHEN p_status IN ('trial', 'active', 'suspended', 'archived') THEN p_status ELSE 'active' END;
   v_clean_plan := CASE WHEN p_plan_id IN ('trial', 'standard', 'enterprise') THEN p_plan_id ELSE 'standard' END;
@@ -1601,7 +1913,7 @@ BEGIN
 END;
 $$;
 
--- 10.6 Publish & Amend Raport Snapshot Immutable (Kompatibel penuh dengan RekapNilaiPage.tsx)
+-- 10.6 Publish & Amend Raport Snapshot Immutable + SHA-256 Verification Hash
 DROP FUNCTION IF EXISTS public.rpc_publish_report_card(uuid, text, bigint, jsonb, text);
 DROP FUNCTION IF EXISTS public.rpc_publish_report_card(uuid, bigint, text, bigint, numeric, text, jsonb, text);
 
@@ -1625,14 +1937,18 @@ DECLARE
   v_prev_id uuid;
   v_prev_version integer := 0;
   v_new_id uuid;
+  v_hash text;
+  v_code text;
 BEGIN
-  v_org_id := COALESCE(public.get_my_org_id(), p_org_id);
-  IF v_org_id IS NULL OR (v_org_id <> public.get_my_org_id() AND NOT public.has_active_support_session(v_org_id, true)) THEN
-    RAISE EXCEPTION 'Akses ditolak untuk organisasi ini';
+  v_org_id := COALESCE(p_org_id, public.get_my_org_id());
+  IF v_org_id IS NULL OR NOT public.is_admin_of_org(v_org_id) THEN
+    RAISE EXCEPTION 'Akses ditolak: Hanya Admin Lembaga yang dapat menerbitkan snapshot raport.';
   END IF;
 
-  IF public.get_canonical_role() NOT IN ('admin', 'superadmin') THEN
-    RAISE EXCEPTION 'Hanya Admin Lembaga yang dapat menerbitkan snapshot raport';
+  IF NOT EXISTS (
+    SELECT 1 FROM public.santri s WHERE s.id = p_santri_id AND s.organization_id = v_org_id
+  ) THEN
+    RAISE EXCEPTION 'Santri tidak ditemukan pada organisasi ini.';
   END IF;
 
   SELECT id, version_no
@@ -1646,39 +1962,130 @@ BEGIN
   ORDER BY version_no DESC
   LIMIT 1;
 
+  IF v_prev_id IS NOT NULL AND COALESCE(LENGTH(TRIM(p_amendment_reason)), 0) < 5 THEN
+    RAISE EXCEPTION 'Penerbitan Amendment Raport wajib menyertakan alasan revisi yang jelas (minimal 5 karakter).';
+  END IF;
+
   IF v_prev_id IS NOT NULL THEN
     UPDATE public.report_cards SET status = 'amended', updated_at = now() WHERE id = v_prev_id;
   END IF;
 
+  v_hash := encode(digest(convert_to(COALESCE(p_snapshot_json, '{}'::jsonb)::text, 'UTF8'), 'sha256'), 'hex');
+
   INSERT INTO public.report_cards (
     organization_id, academic_year_id, semester_name, santri_id,
     version_no, status, final_score, predikat, snapshot_json,
-    parent_report_card_id, amendment_reason, published_by, published_at
+    snapshot_hash, parent_report_card_id, amendment_reason, published_by, published_at
   )
   VALUES (
     v_org_id, p_academic_year_id, p_semester, p_santri_id,
     v_prev_version + 1, 'published', p_final_score, p_predikat, p_snapshot_json,
-    v_prev_id, NULLIF(TRIM(COALESCE(p_amendment_reason, 'Pembaruan snapshot raport')), ''),
+    v_hash, v_prev_id, NULLIF(TRIM(COALESCE(p_amendment_reason, 'Publikasi awal v1')), ''),
     auth.uid(), now()
   )
-  RETURNING id INTO v_new_id;
+  RETURNING id, verification_code INTO v_new_id, v_code;
 
   INSERT INTO public.audit_logs (
     organization_id, actor_id, actor_role, action, resource_type, resource_id, reason, after_state
   )
   VALUES (
-    v_org_id, auth.uid(), public.get_canonical_role(),
+    v_org_id, auth.uid(), COALESCE(public.get_role_for_org(v_org_id), 'admin'),
     CASE WHEN v_prev_id IS NULL THEN 'publish_report_card' ELSE 'amend_report_card' END,
     'report_cards', v_new_id::text, p_amendment_reason,
-    jsonb_build_object('santri_id', p_santri_id, 'version_no', v_prev_version + 1, 'final_score', p_final_score)
+    jsonb_build_object(
+      'santri_id', p_santri_id,
+      'version_no', v_prev_version + 1,
+      'final_score', p_final_score,
+      'snapshot_hash', v_hash,
+      'verification_code', v_code
+    )
   );
 
-  RETURN jsonb_build_object('id', v_new_id, 'version_no', v_prev_version + 1, 'status', 'published');
+  RETURN jsonb_build_object(
+    'id', v_new_id,
+    'version_no', v_prev_version + 1,
+    'status', 'published',
+    'snapshot_hash', v_hash,
+    'verification_code', v_code
+  );
+END;
+$$;
+
+-- 10.7 Verifikasi Publik Dokumen Raport Berdasarkan Verification Code / Hash
+CREATE OR REPLACE FUNCTION public.rpc_verify_report_card(
+  p_code text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+DECLARE
+  v_clean text;
+  v_rc record;
+BEGIN
+  v_clean := UPPER(TRIM(COALESCE(p_code, '')));
+  IF LENGTH(v_clean) < 6 THEN
+    RETURN jsonb_build_object('valid', false, 'error', 'Kode verifikasi tidak valid.');
+  END IF;
+
+  SELECT
+    rc.id,
+    rc.version_no,
+    rc.status,
+    rc.semester_name,
+    rc.final_score,
+    rc.predikat,
+    rc.snapshot_hash,
+    rc.verification_code,
+    rc.published_at,
+    rc.amendment_reason,
+    o.name AS organization_name,
+    s.nama AS santri_nama,
+    s.kode AS santri_kode,
+    s.marhalah,
+    s.kelas,
+    ay.name AS academic_year_name
+  INTO v_rc
+  FROM public.report_cards rc
+  JOIN public.organizations o ON o.id = rc.organization_id
+  JOIN public.santri s ON s.id = rc.santri_id AND s.organization_id = rc.organization_id
+  LEFT JOIN public.academic_years ay ON ay.id = rc.academic_year_id AND ay.organization_id = rc.organization_id
+  WHERE UPPER(COALESCE(rc.verification_code, '')) = v_clean
+     OR UPPER(COALESCE(rc.snapshot_hash, '')) = v_clean
+     OR UPPER(rc.id::text) = v_clean
+  ORDER BY rc.version_no DESC
+  LIMIT 1;
+
+  IF v_rc.id IS NULL THEN
+    RETURN jsonb_build_object('valid', false, 'error', 'Dokumen raport tidak ditemukan.');
+  END IF;
+
+  RETURN jsonb_build_object(
+    'valid', true,
+    'id', v_rc.id,
+    'version_no', v_rc.version_no,
+    'status', v_rc.status,
+    'organization_name', v_rc.organization_name,
+    'santri_nama', v_rc.santri_nama,
+    'santri_kode', v_rc.santri_kode,
+    'marhalah', v_rc.marhalah,
+    'kelas', v_rc.kelas,
+    'academic_year_name', v_rc.academic_year_name,
+    'semester_name', v_rc.semester_name,
+    'final_score', v_rc.final_score,
+    'predikat', v_rc.predikat,
+    'snapshot_hash', v_rc.snapshot_hash,
+    'verification_code', v_rc.verification_code,
+    'published_at', v_rc.published_at,
+    'amendment_reason', v_rc.amendment_reason
+  );
 END;
 $$;
 
 -- ---------------------------------------------------------------------------------
--- 11. ROW LEVEL SECURITY (RLS) KETAT: 3-ROLE, SUPPORT SESSION & HAPUS FULL_NAME MATCH
+-- 11. ROW LEVEL SECURITY (RLS) KETAT: 3-ROLE, SUPPORT SESSION & SEPARASI ROLE
 -- ---------------------------------------------------------------------------------
 ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.access_grants ENABLE ROW LEVEL SECURITY;
@@ -1705,7 +2112,7 @@ CREATE POLICY "View Organizations" ON public.organizations
   FOR SELECT TO authenticated
   USING (
     id = public.get_my_org_id()
-    OR public.get_canonical_role() = 'superadmin'
+    OR public.is_super_admin()
     OR public.has_active_support_session(id, false)
   );
 
@@ -1713,88 +2120,136 @@ DROP POLICY IF EXISTS "Allow admins to update own organization" ON public.organi
 CREATE POLICY "Allow admins to update own organization" ON public.organizations
   FOR UPDATE TO authenticated
   USING (
-    public.get_canonical_role() = 'superadmin'
-    OR (id = public.get_my_org_id() AND public.get_canonical_role() = 'admin')
-    OR public.has_active_support_session(id, true)
+    public.is_super_admin()
+    OR public.is_admin_of_org(id)
   )
   WITH CHECK (
-    public.get_canonical_role() = 'superadmin'
-    OR (id = public.get_my_org_id() AND public.get_canonical_role() = 'admin')
-    OR public.has_active_support_session(id, true)
+    public.is_super_admin()
+    OR public.is_admin_of_org(id)
   );
 
 DROP POLICY IF EXISTS "Superadmin Insert Organizations" ON public.organizations;
 CREATE POLICY "Superadmin Insert Organizations" ON public.organizations
   FOR INSERT TO authenticated
-  WITH CHECK (public.get_canonical_role() = 'superadmin');
+  WITH CHECK (public.is_super_admin());
 
+-- Kebijakan user_profiles: Admin hanya boleh melihat/mengubah profil user di dalam organisasinya sendiri
 DROP POLICY IF EXISTS user_profiles_select ON public.user_profiles;
 CREATE POLICY user_profiles_select ON public.user_profiles
   FOR SELECT TO authenticated
-  USING (user_id = auth.uid() OR public.get_canonical_role() IN ('superadmin', 'admin'));
+  USING (
+    user_id = auth.uid()
+    OR public.is_super_admin()
+    OR EXISTS (
+      SELECT 1 FROM public.access_grants ag
+      WHERE ag.user_id = public.user_profiles.user_id
+        AND ag.organization_id = public.get_my_org_id()
+        AND public.is_admin_of_org(ag.organization_id)
+    )
+    OR EXISTS (
+      SELECT 1 FROM public.profiles p
+      WHERE p.id = public.user_profiles.user_id
+        AND p.organization_id = public.get_my_org_id()
+        AND public.is_admin_of_org(p.organization_id)
+    )
+  );
 
 DROP POLICY IF EXISTS user_profiles_write ON public.user_profiles;
-CREATE POLICY user_profiles_write ON public.user_profiles
-  FOR ALL TO authenticated
-  USING (user_id = auth.uid() OR public.get_canonical_role() IN ('superadmin', 'admin'))
-  WITH CHECK (user_id = auth.uid() OR public.get_canonical_role() IN ('superadmin', 'admin'));
+DROP POLICY IF EXISTS user_profiles_insert ON public.user_profiles;
+DROP POLICY IF EXISTS user_profiles_update ON public.user_profiles;
 
+CREATE POLICY user_profiles_insert ON public.user_profiles
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    user_id = auth.uid()
+    OR public.is_super_admin()
+    OR public.is_admin_of_org(public.get_my_org_id())
+  );
+
+CREATE POLICY user_profiles_update ON public.user_profiles
+  FOR UPDATE TO authenticated
+  USING (
+    user_id = auth.uid()
+    OR public.is_super_admin()
+    OR EXISTS (
+      SELECT 1 FROM public.access_grants ag
+      WHERE ag.user_id = public.user_profiles.user_id
+        AND ag.organization_id = public.get_my_org_id()
+        AND public.is_admin_of_org(ag.organization_id)
+    )
+    OR EXISTS (
+      SELECT 1 FROM public.profiles p
+      WHERE p.id = public.user_profiles.user_id
+        AND p.organization_id = public.get_my_org_id()
+        AND public.is_admin_of_org(p.organization_id)
+    )
+  )
+  WITH CHECK (
+    user_id = auth.uid()
+    OR public.is_super_admin()
+    OR public.is_admin_of_org(public.get_my_org_id())
+  );
+
+-- Kebijakan access_grants
 DROP POLICY IF EXISTS access_grants_select ON public.access_grants;
 CREATE POLICY access_grants_select ON public.access_grants
   FOR SELECT TO authenticated
   USING (
     user_id = auth.uid()
-    OR public.get_canonical_role() = 'superadmin'
-    OR (organization_id = public.get_my_org_id() AND public.get_canonical_role() = 'admin')
+    OR public.is_super_admin()
+    OR public.is_admin_of_org(organization_id)
   );
 
 DROP POLICY IF EXISTS access_grants_manage ON public.access_grants;
 CREATE POLICY access_grants_manage ON public.access_grants
   FOR ALL TO authenticated
   USING (
-    public.get_canonical_role() = 'superadmin'
-    OR (organization_id = public.get_my_org_id() AND public.get_canonical_role() = 'admin' AND role IN ('admin', 'musammi'))
+    public.is_super_admin()
+    OR (public.is_admin_of_org(organization_id) AND role IN ('admin', 'musammi'))
   )
   WITH CHECK (
-    public.get_canonical_role() = 'superadmin'
-    OR (organization_id = public.get_my_org_id() AND public.get_canonical_role() = 'admin' AND role IN ('admin', 'musammi'))
+    public.is_super_admin()
+    OR (public.is_admin_of_org(organization_id) AND role IN ('admin', 'musammi'))
   );
 
+-- Kebijakan support_access_sessions
 DROP POLICY IF EXISTS support_sessions_policy ON public.support_access_sessions;
 CREATE POLICY support_sessions_policy ON public.support_access_sessions
   FOR ALL TO authenticated
-  USING (public.get_canonical_role() = 'superadmin' OR organization_id = public.get_my_org_id())
-  WITH CHECK (public.get_canonical_role() = 'superadmin');
+  USING (public.is_super_admin() OR public.is_admin_of_org(organization_id))
+  WITH CHECK (public.is_super_admin());
 
+-- Kebijakan audit_logs: Murni Append-Only (Hanya SELECT & INSERT, tanpa UPDATE/DELETE)
 DROP POLICY IF EXISTS audit_logs_select ON public.audit_logs;
+DROP POLICY IF EXISTS audit_logs_insert ON public.audit_logs;
+DROP POLICY IF EXISTS audit_logs_update ON public.audit_logs;
+DROP POLICY IF EXISTS audit_logs_delete ON public.audit_logs;
+
 CREATE POLICY audit_logs_select ON public.audit_logs
   FOR SELECT TO authenticated
   USING (
-    public.get_canonical_role() = 'superadmin'
-    OR (organization_id = public.get_my_org_id() AND public.get_canonical_role() = 'admin')
-    OR actor_id = auth.uid()
-    OR actor_user_id = auth.uid()
+    public.is_super_admin()
+    OR public.is_admin_of_org(organization_id)
+    OR (organization_id = public.get_my_org_id() AND (actor_id = auth.uid() OR actor_user_id = auth.uid()))
   );
 
-DROP POLICY IF EXISTS audit_logs_insert ON public.audit_logs;
 CREATE POLICY audit_logs_insert ON public.audit_logs
   FOR INSERT TO authenticated
   WITH CHECK (
     COALESCE(actor_id, actor_user_id, auth.uid()) = auth.uid()
-    OR public.get_canonical_role() IN ('superadmin', 'admin')
+    AND (
+      organization_id = public.get_my_org_id()
+      OR public.is_super_admin()
+      OR public.has_active_support_session(organization_id, true)
+    )
   );
 
+-- Kebijakan integration_secrets: Hanya Admin Lembaga / Support Session Read-Write
 DROP POLICY IF EXISTS integration_secrets_admin ON public.integration_secrets;
 CREATE POLICY integration_secrets_admin ON public.integration_secrets
   FOR ALL TO authenticated
-  USING (
-    (organization_id = public.get_my_org_id() AND public.get_canonical_role() = 'admin')
-    OR public.has_active_support_session(organization_id, true)
-  )
-  WITH CHECK (
-    (organization_id = public.get_my_org_id() AND public.get_canonical_role() = 'admin')
-    OR public.has_active_support_session(organization_id, true)
-  );
+  USING (public.is_admin_of_org(organization_id))
+  WITH CHECK (public.is_admin_of_org(organization_id));
 
 -- Perbaiki Kebijakan RLS Tabel Eksisting: Hapus pencocokan Musammi berbasis full_name!
 DROP POLICY IF EXISTS "Tenant Isolation Santri Select" ON public.santri;
@@ -1804,7 +2259,7 @@ CREATE POLICY "Tenant Isolation Santri Select" ON public.santri
     (
       organization_id = public.get_my_org_id()
       AND (
-        public.get_canonical_role() = 'admin'
+        public.is_admin_of_org(organization_id)
         OR id IN (
           SELECT hs.santri_id
           FROM public.halaqah_santri hs
@@ -1823,7 +2278,7 @@ CREATE POLICY "Tenant Isolation Halaqah Select" ON public.halaqah
     (
       organization_id = public.get_my_org_id()
       AND (
-        public.get_canonical_role() = 'admin'
+        public.is_admin_of_org(organization_id)
         OR public.is_musammi_assigned_to_halaqah(organization_id, id)
       )
     )
@@ -1837,14 +2292,14 @@ CREATE POLICY "Tenant Isolation HalaqahSantri Select" ON public.halaqah_santri
     (
       organization_id = public.get_my_org_id()
       AND (
-        public.get_canonical_role() = 'admin'
+        public.is_admin_of_org(organization_id)
         OR public.is_musammi_assigned_to_halaqah(organization_id, halaqah_id)
       )
     )
     OR public.has_active_support_session(organization_id, false)
   );
 
--- Perketat mutasi tabel master (musammi, wali_kelas) dengan DROP POLICY IF EXISTS yang idempoten
+-- Perketat mutasi tabel master (musammi, wali_kelas)
 DROP POLICY IF EXISTS "Tenant Isolation Musammi" ON public.musammi;
 DROP POLICY IF EXISTS "Tenant Isolation Musammi Select" ON public.musammi;
 DROP POLICY IF EXISTS "Tenant Isolation Musammi Modify" ON public.musammi;
@@ -1854,8 +2309,8 @@ CREATE POLICY "Tenant Isolation Musammi Select" ON public.musammi
   USING (organization_id = public.get_my_org_id() OR public.has_active_support_session(organization_id, false));
 CREATE POLICY "Tenant Isolation Musammi Modify" ON public.musammi
   FOR ALL TO authenticated
-  USING ((organization_id = public.get_my_org_id() AND public.get_canonical_role() = 'admin') OR public.has_active_support_session(organization_id, true))
-  WITH CHECK ((organization_id = public.get_my_org_id() AND public.get_canonical_role() = 'admin') OR public.has_active_support_session(organization_id, true));
+  USING (public.is_admin_of_org(organization_id))
+  WITH CHECK (public.is_admin_of_org(organization_id));
 
 DROP POLICY IF EXISTS "Tenant Isolation WaliKelas" ON public.wali_kelas;
 DROP POLICY IF EXISTS "Tenant Isolation WaliKelas Select" ON public.wali_kelas;
@@ -1866,10 +2321,10 @@ CREATE POLICY "Tenant Isolation WaliKelas Select" ON public.wali_kelas
   USING (organization_id = public.get_my_org_id() OR public.has_active_support_session(organization_id, false));
 CREATE POLICY "Tenant Isolation WaliKelas Modify" ON public.wali_kelas
   FOR ALL TO authenticated
-  USING ((organization_id = public.get_my_org_id() AND public.get_canonical_role() = 'admin') OR public.has_active_support_session(organization_id, true))
-  WITH CHECK ((organization_id = public.get_my_org_id() AND public.get_canonical_role() = 'admin') OR public.has_active_support_session(organization_id, true));
+  USING (public.is_admin_of_org(organization_id))
+  WITH CHECK (public.is_admin_of_org(organization_id));
 
--- Kebijakan standar tenant-scoped untuk seluruh tabel akademik V2
+-- 11.A Bersihkan kebijakan lama generik (%I_tenant_write / %I_tenant_select) pada seluruh tabel V2
 DO $$
 DECLARE
   t text;
@@ -1882,18 +2337,191 @@ BEGIN
   ]
   LOOP
     EXECUTE format('DROP POLICY IF EXISTS %I_tenant_select ON public.%I', t, t);
+    EXECUTE format('DROP POLICY IF EXISTS %I_tenant_write ON public.%I', t, t);
+    EXECUTE format('DROP POLICY IF EXISTS %I_admin_write ON public.%I', t, t);
+  END LOOP;
+END $$;
+
+-- 11.B Tabel Master & Akademik V2 (SELECT untuk anggota tenant, WRITE khusus Admin Lembaga)
+DO $$
+DECLARE
+  t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY[
+    'semesters', 'student_enrollments', 'halaqah_student_memberships',
+    'halaqah_musammi_assignments', 'musammi_staff',
+    'target_plans', 'rubric_versions', 'exam_attempts'
+  ]
+  LOOP
     EXECUTE format(
       'CREATE POLICY %I_tenant_select ON public.%I FOR SELECT TO authenticated USING (organization_id = public.get_my_org_id() OR public.has_active_support_session(organization_id, false))',
       t, t
     );
 
-    EXECUTE format('DROP POLICY IF EXISTS %I_tenant_write ON public.%I', t, t);
     EXECUTE format(
-      'CREATE POLICY %I_tenant_write ON public.%I FOR ALL TO authenticated USING (organization_id = public.get_my_org_id() OR public.has_active_support_session(organization_id, true)) WITH CHECK (organization_id = public.get_my_org_id() OR public.has_active_support_session(organization_id, true))',
+      'CREATE POLICY %I_admin_write ON public.%I FOR ALL TO authenticated USING (public.is_admin_of_org(organization_id)) WITH CHECK (public.is_admin_of_org(organization_id))',
       t, t
     );
   END LOOP;
 END $$;
+
+-- 11.C Tabel Operasional Halaqah V2 (halaqah_sessions, attendance_records, recitation_entries)
+-- Hanya Admin Lembaga atau Musammi yang ditugaskan aktif pada halaqah_id terkait yang boleh SELECT / INSERT / UPDATE
+DROP POLICY IF EXISTS halaqah_sessions_role_select ON public.halaqah_sessions;
+CREATE POLICY halaqah_sessions_role_select ON public.halaqah_sessions
+  FOR SELECT TO authenticated
+  USING (
+    public.is_admin_of_org(organization_id)
+    OR public.has_active_support_session(organization_id, false)
+    OR public.is_musammi_assigned_to_halaqah(organization_id, halaqah_id)
+  );
+
+DROP POLICY IF EXISTS halaqah_sessions_role_insert ON public.halaqah_sessions;
+CREATE POLICY halaqah_sessions_role_insert ON public.halaqah_sessions
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    public.is_admin_of_org(organization_id)
+    OR public.is_musammi_assigned_to_halaqah(organization_id, halaqah_id)
+  );
+
+DROP POLICY IF EXISTS halaqah_sessions_role_update ON public.halaqah_sessions;
+CREATE POLICY halaqah_sessions_role_update ON public.halaqah_sessions
+  FOR UPDATE TO authenticated
+  USING (
+    public.is_admin_of_org(organization_id)
+    OR public.is_musammi_assigned_to_halaqah(organization_id, halaqah_id)
+  )
+  WITH CHECK (
+    public.is_admin_of_org(organization_id)
+    OR public.is_musammi_assigned_to_halaqah(organization_id, halaqah_id)
+  );
+
+DROP POLICY IF EXISTS halaqah_sessions_role_delete ON public.halaqah_sessions;
+CREATE POLICY halaqah_sessions_role_delete ON public.halaqah_sessions
+  FOR DELETE TO authenticated
+  USING (public.is_admin_of_org(organization_id));
+
+-- attendance_records
+DROP POLICY IF EXISTS attendance_records_role_select ON public.attendance_records;
+CREATE POLICY attendance_records_role_select ON public.attendance_records
+  FOR SELECT TO authenticated
+  USING (
+    public.is_admin_of_org(organization_id)
+    OR public.has_active_support_session(organization_id, false)
+    OR public.is_musammi_assigned_to_halaqah(organization_id, halaqah_id)
+  );
+
+DROP POLICY IF EXISTS attendance_records_role_insert ON public.attendance_records;
+CREATE POLICY attendance_records_role_insert ON public.attendance_records
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    public.is_admin_of_org(organization_id)
+    OR public.is_musammi_assigned_to_halaqah(organization_id, halaqah_id)
+  );
+
+DROP POLICY IF EXISTS attendance_records_role_update ON public.attendance_records;
+CREATE POLICY attendance_records_role_update ON public.attendance_records
+  FOR UPDATE TO authenticated
+  USING (
+    public.is_admin_of_org(organization_id)
+    OR public.is_musammi_assigned_to_halaqah(organization_id, halaqah_id)
+  )
+  WITH CHECK (
+    public.is_admin_of_org(organization_id)
+    OR public.is_musammi_assigned_to_halaqah(organization_id, halaqah_id)
+  );
+
+DROP POLICY IF EXISTS attendance_records_role_delete ON public.attendance_records;
+CREATE POLICY attendance_records_role_delete ON public.attendance_records
+  FOR DELETE TO authenticated
+  USING (public.is_admin_of_org(organization_id));
+
+-- recitation_entries
+DROP POLICY IF EXISTS recitation_entries_role_select ON public.recitation_entries;
+CREATE POLICY recitation_entries_role_select ON public.recitation_entries
+  FOR SELECT TO authenticated
+  USING (
+    public.is_admin_of_org(organization_id)
+    OR public.has_active_support_session(organization_id, false)
+    OR public.is_musammi_assigned_to_halaqah(organization_id, halaqah_id)
+  );
+
+DROP POLICY IF EXISTS recitation_entries_role_insert ON public.recitation_entries;
+CREATE POLICY recitation_entries_role_insert ON public.recitation_entries
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    public.is_admin_of_org(organization_id)
+    OR public.is_musammi_assigned_to_halaqah(organization_id, halaqah_id)
+  );
+
+DROP POLICY IF EXISTS recitation_entries_role_update ON public.recitation_entries;
+CREATE POLICY recitation_entries_role_update ON public.recitation_entries
+  FOR UPDATE TO authenticated
+  USING (
+    public.is_admin_of_org(organization_id)
+    OR (
+      public.is_musammi_assigned_to_halaqah(organization_id, halaqah_id)
+      AND status IN ('draft', 'submitted', 'returned')
+    )
+  )
+  WITH CHECK (
+    public.is_admin_of_org(organization_id)
+    OR (
+      public.is_musammi_assigned_to_halaqah(organization_id, halaqah_id)
+      AND status IN ('draft', 'submitted')
+    )
+  );
+
+DROP POLICY IF EXISTS recitation_entries_role_delete ON public.recitation_entries;
+CREATE POLICY recitation_entries_role_delete ON public.recitation_entries
+  FOR DELETE TO authenticated
+  USING (public.is_admin_of_org(organization_id) AND status = 'draft');
+
+-- recitation_revisions (Append-Only: SELECT & INSERT saja, tanpa UPDATE/DELETE)
+DROP POLICY IF EXISTS recitation_revisions_role_select ON public.recitation_revisions;
+CREATE POLICY recitation_revisions_role_select ON public.recitation_revisions
+  FOR SELECT TO authenticated
+  USING (
+    organization_id = public.get_my_org_id()
+    OR public.has_active_support_session(organization_id, false)
+  );
+
+DROP POLICY IF EXISTS recitation_revisions_role_insert ON public.recitation_revisions;
+CREATE POLICY recitation_revisions_role_insert ON public.recitation_revisions
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    public.is_admin_of_org(organization_id)
+    OR (
+      organization_id = public.get_my_org_id()
+      AND public.get_role_for_org(organization_id) = 'musammi'
+      AND COALESCE(actor_id, changed_by, auth.uid()) = auth.uid()
+    )
+  );
+
+-- 11.D report_cards (Immutable Snapshot: SELECT untuk tenant, INSERT/UPDATE terkontrol hanya untuk Admin Lembaga)
+DROP POLICY IF EXISTS report_cards_role_select ON public.report_cards;
+CREATE POLICY report_cards_role_select ON public.report_cards
+  FOR SELECT TO authenticated
+  USING (
+    organization_id = public.get_my_org_id()
+    OR public.has_active_support_session(organization_id, false)
+  );
+
+DROP POLICY IF EXISTS report_cards_role_insert ON public.report_cards;
+CREATE POLICY report_cards_role_insert ON public.report_cards
+  FOR INSERT TO authenticated
+  WITH CHECK (public.is_admin_of_org(organization_id));
+
+DROP POLICY IF EXISTS report_cards_role_update ON public.report_cards;
+CREATE POLICY report_cards_role_update ON public.report_cards
+  FOR UPDATE TO authenticated
+  USING (public.is_admin_of_org(organization_id))
+  WITH CHECK (public.is_admin_of_org(organization_id));
+
+DROP POLICY IF EXISTS report_cards_role_delete ON public.report_cards;
+CREATE POLICY report_cards_role_delete ON public.report_cards
+  FOR DELETE TO authenticated
+  USING (public.is_admin_of_org(organization_id) AND status = 'draft');
 
 -- ---------------------------------------------------------------------------------
 -- 12. GRANTS, PRIVILEGES & RELOAD POSTGREST SCHEMA CACHE
@@ -1902,17 +2530,25 @@ GRANT USAGE ON SCHEMA public TO postgres, anon, authenticated, service_role;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated, service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated, service_role;
 
+-- Cabut akses langsung anon ke integration_secrets
+REVOKE ALL ON TABLE public.integration_secrets FROM anon;
+
 GRANT EXECUTE ON FUNCTION public.get_canonical_role() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_role_for_org(uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.is_super_admin() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.is_admin_of_org(uuid) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.has_active_support_session(uuid, boolean) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.is_musammi_assigned_to_halaqah(uuid, bigint) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.rpc_open_halaqah_session(bigint, date, text) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.rpc_save_attendance_batch(uuid, jsonb, text, text) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.rpc_lock_halaqah_session(bigint, date, text, text) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.rpc_review_recitation_entry(uuid, text, text) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.rpc_close_academic_year(bigint) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.rpc_create_tenant_with_admin(text, text, text, text, text) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.rpc_start_support_session(uuid, text, integer, text) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.rpc_end_support_session(uuid) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.rpc_publish_report_card(uuid, bigint, text, bigint, numeric, text, jsonb, text) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.rpc_verify_report_card(text) TO anon, authenticated, service_role;
 
 -- Nonaktifkan akses anon ke rpc_link_telegram_chat_id sesuai keputusan Blueprint (Portal Wali ditunda)
 DO $$

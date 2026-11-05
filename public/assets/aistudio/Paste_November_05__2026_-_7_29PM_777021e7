@@ -1,0 +1,1587 @@
+# PROMPT INDUK — AUDIT, PERBAIKAN, DAN PENYEMPURNAAN MENYELURUH APLIKASI LAJNAH QURAN
+
+## 1. IDENTITAS PROYEK DAN TUGAS UTAMA
+
+Anda bertindak sebagai Senior Software Architect, Senior Full-Stack Developer, Database Security Engineer, QA Engineer, dan UI/UX Designer yang bertanggung jawab melakukan perbaikan menyeluruh terhadap aplikasi Lajnah Quran.
+
+**Repository:**
+https://github.com/jabdrise-png/lajnahquran.git
+
+**Branch utama:** `main`
+
+**Baseline audit sebelumnya:** commit `55a40147e09f38eb426989509459153775deda71` (5 November 2026). Periksa kembali HEAD terbaru sebelum mulai bekerja karena mungkin terdapat perubahan setelah baseline tersebut.
+
+Aplikasi ini merupakan sistem manajemen akademik dan operasional pendidikan Tahfidz Al-Qur'an berbasis SaaS multi-tenant menggunakan React, TypeScript, Supabase, PostgreSQL, dan API serverless.
+
+Tugas Anda bukan sekadar memberikan rekomendasi atau membuat dokumen rencana. Anda harus melakukan audit terhadap implementasi aktual, memperbaiki masalah yang ditemukan, mempertahankan fitur yang sudah berjalan, melakukan pengujian, dan mendokumentasikan hasilnya.
+
+**Prioritas utama:**
+1. Keamanan sistem dan isolasi data multi-tenant.
+2. Perbaikan otorisasi role dan database.
+3. Konsistensi transaksi serta integritas data akademik.
+4. Perbaikan bug seluruh alur aplikasi.
+5. Konsistensi arsitektur dan routing.
+6. Penyempurnaan UI/UX untuk seluruh halaman.
+7. Pengujian, verifikasi, dan kesiapan produksi.
+
+Jangan menganggap aplikasi sudah aman hanya karena berhasil dikompilasi atau tidak memiliki TypeScript error.
+
+---
+
+# 2. KEPUTUSAN PRODUK YANG WAJIB DIPERTAHANKAN
+
+## A. Hanya ada tiga role
+
+Aplikasi hanya memiliki tiga role sistem:
+
+1. `superadmin`
+2. `admin`
+3. `musammi`
+
+Jangan membuat role keempat.
+
+Ketentuan kewenangan:
+
+**Superadmin**
+- Mengelola platform SaaS secara global.
+- Membuat dan mengelola organisasi/ma'had.
+- Mengelola status tenant.
+- Melihat pengguna lintas tenant sesuai kewenangannya.
+- Memantau audit log dan kesehatan sistem.
+- Mengelola Support Access Session dengan durasi, alasan, mode, dan audit log.
+- Secara default tidak boleh mengakses data akademik tenant secara langsung.
+- Untuk membantu tenant, harus membuka Support Access Session yang valid.
+- Mode `read_only` hanya boleh membaca.
+- Mode `read_write` boleh melakukan tindakan yang diizinkan secara terbatas dan teraudit.
+
+**Admin**
+- Mengelola satu organisasi/tenant miliknya.
+- Mengelola tahun ajaran dan semester.
+- Mengelola struktur akademik, marhalah, kelas, dan data santri.
+- Mengelola data Musammi dan penugasannya.
+- Mengelola halaqah, anggota, dan jadwal.
+- Mengelola target dan rubrik evaluasi.
+- Memantau absensi serta melakukan validasi setoran.
+- Mengelola ujian, remedial, buku nilai, raport, dan laporan.
+- Mengelola pengguna dalam tenant sesuai kewenangannya.
+- Mengelola integrasi lembaga tanpa dapat membaca token rahasia secara langsung.
+
+**Musammi**
+- Mengakses hanya halaqah yang ditugaskan kepadanya.
+- Mengakses hanya santri binaan yang termasuk dalam penugasan aktif.
+- Membuka dan menyelesaikan sesi halaqah sesuai kewenangan.
+- Mengisi absensi.
+- Mencatat setoran ziyadah, sabqi, dan manzil/murajaah.
+- Melihat riwayat setoran dan perkembangan santri binaannya.
+- Tidak boleh mengubah konfigurasi lembaga, target global, rubrik, hak akses pengguna, atau raport terbit.
+
+## B. Wali Kelas dan Musyrif bukan role aplikasi
+
+`wali_kelas` dan `musyrif` merupakan atribut administratif pada kelas atau santri, bukan role autentikasi.
+
+Pertahankan atribut dan data historisnya. Jangan membuat login, route guard, atau dashboard khusus untuk keduanya.
+
+Portal Wali Santri tidak termasuk cakupan saat ini. Jangan mengaktifkan atau menambahkan role `wali_santri`.
+
+Jika ada halaman lama seperti `WaliSantriReport.tsx`, jangan mengaktifkannya sebagai portal pengguna. Pertahankan data yang diperlukan dan tandai fitur tersebut sebagai ditunda.
+
+## C. Pertahankan fitur dan data lama
+
+Jangan menghapus fitur yang masih dibutuhkan pengguna hanya karena sedang melakukan refactor.
+
+Jangan:
+- Menghapus data historis.
+- Mengganti rumus perhitungan hafalan tanpa persetujuan.
+- Menghilangkan histori ujian, remedial, absensi, setoran, dan raport.
+- Mengubah identitas atau relasi santri tanpa rekonsiliasi.
+- Membuat fallback yang menampilkan data yang sebenarnya tidak memiliki relasi akademik.
+- Menganggap perubahan UI sebagai pengganti keamanan database.
+
+Semua perubahan harus kompatibel dengan data produksi yang sudah ada.
+
+---
+
+# 3. TAHAP PERTAMA — AUDIT KONDISI REPOSITORY TERBARU
+
+Sebelum mengubah kode, lakukan pemeriksaan repository terbaru secara menyeluruh.
+
+Periksa:
+
+- `App.tsx`
+- `components/`
+- `components/layouts/`
+- `components/ui/`
+- `hooks/`
+- `lib/`
+- `pages/`
+- `api/`
+- `database/`
+- `types/`
+- `package.json`
+- `package-lock.json` atau lockfile yang digunakan.
+- `server.ts`
+- `vercel.json`
+- `netlify.toml`
+- `.env.example`
+- konfigurasi TypeScript dan Vite.
+- konfigurasi deployment.
+- seluruh SQL migration yang relevan.
+
+Jangan hanya membaca nama file. Baca implementasi sebenarnya.
+
+Identifikasi:
+
+1. Semua halaman dan route yang aktif.
+2. Semua endpoint API.
+3. Semua fungsi RPC PostgreSQL.
+4. Seluruh tabel yang digunakan frontend.
+5. Seluruh tabel V2 dan tabel legacy.
+6. Semua kebijakan RLS.
+7. Semua fungsi `SECURITY DEFINER`.
+8. Semua fungsi yang menggunakan `service_role`.
+9. Seluruh sumber token atau secret.
+10. Semua proses insert, update, upsert, delete, dan sinkronisasi data.
+11. Semua perhitungan skor, target, progres, dan raport.
+12. Komponen UI yang duplikatif.
+13. Halaman dengan implementasi terlalu besar atau bercampur tanggung jawab.
+
+Buat peta hubungan:
+
+`Role → Route → Page → API/RPC → Database Table → RLS Policy`
+
+Pastikan setiap halaman mempunyai hubungan yang jelas dengan sumber data dan hak aksesnya.
+
+**Penting:** bedakan antara fitur yang benar-benar telah diimplementasikan, fitur yang baru berupa UI, fitur yang memakai fallback legacy, dan fitur yang belum tersedia.
+
+Jangan melaporkan fitur selesai jika belum benar-benar terhubung dan diuji.
+
+Setelah audit awal, susun daftar temuan berdasarkan tingkat risiko P0, P1, P2, dan P3. Kemudian lanjutkan perbaikan sesuai urutan prioritas di bawah.
+
+---
+
+# 4. FASE P0 — PERBAIKAN KEAMANAN DATABASE DAN MULTI-TENANT
+
+Fase ini paling penting. Jangan lanjut ke penambahan fitur baru sebelum masalah kritis diselesaikan.
+
+## A. Perbaiki seluruh kebijakan Row Level Security
+
+Audit semua kebijakan RLS, terutama pada:
+
+- `organizations`
+- `profiles`
+- `user_profiles`
+- `access_grants`
+- `support_access_sessions`
+- `audit_logs`
+- `integration_secrets`
+- `semesters`
+- `student_enrollments`
+- `halaqah_student_memberships`
+- `halaqah_musammi_assignments`
+- `musammi_staff`
+- `halaqah_sessions`
+- `attendance_records`
+- `recitation_entries`
+- `recitation_revisions`
+- `target_plans`
+- `rubric_versions`
+- `exam_attempts`
+- `report_cards`
+
+Temuan yang harus diperbaiki:
+
+Beberapa tabel V2 menggunakan kebijakan generik:
+
+`FOR ALL USING (organization_id = get_my_org_id() ...)`
+
+Kebijakan tersebut hanya membatasi organisasi, bukan kewenangan role.
+
+Perbaiki dengan prinsip:
+
+**Admin**
+- Hanya membaca dan mengubah data milik tenant sendiri.
+- Dapat mengelola master dan konfigurasi akademik.
+- Dapat mengelola data operasional tenant sesuai aturan bisnis.
+- Tidak boleh mengakses data tenant lain tanpa Support Access yang sah.
+
+**Musammi**
+- Hanya dapat membaca data halaqah dan santri binaannya.
+- Hanya dapat membuat atau mengubah absensi dan setoran pada assignment aktif.
+- Tidak boleh mengubah target lembaga, rubrik, konfigurasi akademik, akses pengguna, atau raport.
+- Tidak boleh mengubah sesi milik Musammi lain.
+
+**Superadmin**
+- Memiliki akses platform global yang memang dibutuhkan.
+- Akses akademik tenant wajib melalui Support Access Session yang valid.
+- `read_only` tidak boleh melakukan INSERT, UPDATE, atau DELETE.
+- `read_write` harus tetap tunduk pada pembatasan dan audit trail.
+
+Pisahkan kebijakan `SELECT`, `INSERT`, `UPDATE`, dan `DELETE` jika aturan aksesnya berbeda. Jangan menggunakan `FOR ALL` secara generik apabila terdapat perbedaan kewenangan.
+
+Seluruh validasi tenant harus menggunakan identitas yang diperoleh dari sesi dan relasi database, bukan `organization_id` yang dikirim begitu saja oleh frontend.
+
+## B. Perbaiki helper role dan access grants
+
+Audit fungsi:
+
+- `get_canonical_role()`
+- `is_super_admin()`
+- `is_admin_of_org()`
+- `is_musammi_assigned_to_halaqah()`
+- `has_active_support_session()`
+- seluruh fungsi helper akses lainnya.
+
+Temuan penting:
+
+`get_canonical_role()` memiliki fallback ke `profiles` apabila tidak menemukan grant aktif.
+
+Perbaiki agar:
+
+1. Grant aktif menjadi sumber utama otorisasi.
+2. Grant `suspended` atau `revoked` tidak dapat dihidupkan kembali oleh role lama pada `profiles`.
+3. Fallback legacy hanya boleh dipakai untuk akun yang memang belum mempunyai grant, selama masa kompatibilitas yang terkontrol.
+4. Setelah grant dinonaktifkan, akses pengguna langsung ditolak.
+5. Role harus divalidasi berdasarkan tenant yang sedang diakses.
+6. Pengguna tidak boleh memperoleh akses tenant hanya karena memiliki role dengan nama yang sama pada tenant lain.
+
+Pertimbangkan helper role berbasis tenant seperti `get_role_for_org(target_org_id)` agar otorisasi tidak hanya memakai role global.
+
+Pastikan data `access_grants` tidak memberikan lebih dari satu hak aktif yang bertentangan dengan model produk.
+
+## C. Perbaiki keamanan user_profiles
+
+Saat ini kebijakan `user_profiles` memberikan akses luas kepada role Admin.
+
+Perbaiki agar:
+- Admin hanya dapat melihat profil pengguna yang memiliki grant pada tenant miliknya.
+- Admin tidak dapat melihat atau mengubah profil lintas tenant.
+- Pengguna dapat mengubah hanya field profil pribadinya yang diperbolehkan.
+- Field keamanan, role, dan status grant tidak dapat diubah melalui profil biasa.
+- Superadmin hanya memperoleh akses global sesuai kebutuhan platform.
+
+## D. Perbaiki keamanan audit_logs
+
+Pastikan audit log tidak dapat dipalsukan.
+
+Ketentuannya:
+- `actor_id` diambil atau diverifikasi berdasarkan `auth.uid()`.
+- Pengguna tidak dapat menulis log untuk tenant lain.
+- Admin hanya boleh mencatat aktivitas tenant sendiri.
+- Musammi hanya boleh melakukan aktivitas yang diperbolehkan.
+- Catatan penting harus dibuat dari RPC atau server tepercaya.
+- Pengguna biasa tidak boleh mengubah atau menghapus audit log.
+- Audit log menyimpan pelaku, tenant, waktu, jenis tindakan, resource, alasan, dan perubahan yang relevan.
+
+Buat kebijakan append-only untuk log yang benar-benar harus immutable.
+
+## E. Perbaiki integration_secrets
+
+Tabel `integration_secrets` tidak boleh memberikan akses langsung kepada browser untuk membaca nilai rahasia.
+
+Ketentuan:
+
+1. Cabut akses `SELECT` terhadap `secret_value` dari `anon` dan `authenticated`.
+2. Jangan memberikan `GRANT ALL` secara membabi buta pada seluruh objek database baru.
+3. Operasi penyimpanan dan pengambilan secret dilakukan melalui server yang tervalidasi.
+4. Admin hanya boleh mengelola secret untuk tenant miliknya.
+5. Superadmin tidak otomatis dapat membaca secret tenant.
+6. API hanya mengembalikan status, nama provider, waktu pembaruan, dan masked preview.
+7. Token tidak boleh muncul di response API, log, browser console, URL, atau error message.
+
+Jika membutuhkan enkripsi, gunakan mekanisme enkripsi server-side dengan pengelolaan kunci yang aman. Jangan menganggap penyimpanan plaintext di tabel sudah aman hanya karena UI menampilkan token tersamarkan.
+
+---
+
+# 5. FASE P0 — PERBAIKI SELURUH RPC SECURITY DEFINER
+
+Audit semua fungsi `SECURITY DEFINER` yang tersedia dalam migration V2 dan SQL lainnya.
+
+Khusus periksa:
+
+- `rpc_open_halaqah_session`
+- `rpc_save_attendance_batch`
+- `rpc_review_recitation_entry`
+- `rpc_close_academic_year`
+- `rpc_create_tenant_with_admin`
+- `rpc_start_support_session`
+- `rpc_end_support_session`
+- `rpc_publish_report_card`
+- seluruh RPC tambahan.
+
+Setiap fungsi harus:
+
+1. Memvalidasi `auth.uid()` tidak NULL.
+2. Memvalidasi role pemanggil.
+3. Memvalidasi organisasi dari record yang sedang diakses.
+4. Memvalidasi hak akses tenant.
+5. Memvalidasi assignment Musammi jika operasinya merupakan tugas Musammi.
+6. Memvalidasi status record sebelum mengubahnya.
+7. Memvalidasi seluruh parameter yang diterima.
+8. Mengunci record yang rawan race condition menggunakan mekanisme transaksi dan row locking jika diperlukan.
+9. Menulis audit log untuk aktivitas penting.
+10. Tidak memberikan hak operasi melebihi kebutuhan.
+11. Memiliki `search_path` yang aman.
+12. Tidak dapat dipanggil oleh `anon` jika bukan fungsi publik yang memang dirancang untuk anon.
+13. Memiliki GRANT dan REVOKE yang tepat.
+
+Jangan percaya nilai `organization_id`, `santri_id`, `halaqah_id`, atau role yang dikirim frontend tanpa validasi ke database.
+
+### Bug RPC yang wajib diperbaiki
+
+**`rpc_open_halaqah_session`**
+- Admin harus divalidasi benar-benar anggota tenant pemilik halaqah.
+- Musammi harus memiliki assignment aktif.
+- Superadmin harus memiliki Support Access Session `read_write`.
+- Roster snapshot harus mengambil daftar anggota yang benar dan aktif pada tanggal sesi.
+- Pembukaan ulang sesi tidak boleh menghapus snapshot dan histori yang sudah ada.
+
+**`rpc_save_attendance_batch`**
+- Harus memvalidasi role dan tenant.
+- Musammi hanya dapat menyimpan absensi pada sesi halaqah yang ditugaskan.
+- Santri yang dikirim harus merupakan anggota roster sesi.
+- Status harus divalidasi terhadap daftar status yang sah.
+- Tidak boleh menggunakan default `hadir` untuk record yang tidak memiliki status.
+- Tidak boleh mengubah sesi yang telah dikunci tanpa alasan koreksi yang sah.
+- Harus idempotent dan aman terhadap request ganda.
+- Semua record batch harus berhasil atau seluruh transaksi dibatalkan.
+- Buat audit trail untuk koreksi.
+
+**`rpc_review_recitation_entry`**
+- Hanya Admin tenant yang berhak melakukan review.
+- Musammi tidak boleh menyetujui atau membatalkan setoran sendiri melalui RPC ini.
+- Validasi tenant pemilik transaksi.
+- Validasi transisi status.
+- Alasan wajib untuk pengembalian, pembatalan, atau koreksi sesuai aturan.
+- Simpan revision snapshot sebelum dan sesudah perubahan.
+- Jangan menerima ID transaksi dari tenant lain.
+
+**`rpc_close_academic_year`**
+- Admin harus berasal dari tenant pemilik tahun ajaran.
+- Superadmin tidak boleh melakukan penutupan tahun ajaran secara otomatis hanya karena role global.
+- Superadmin harus memiliki Support Access Session `read_write` jika operasi ini diizinkan.
+- Lakukan pemeriksaan kelengkapan dan konsekuensi sebelum penutupan.
+- Jangan mengunci tahun ajaran jika prasyarat belum terpenuhi.
+
+**Seluruh fungsi harus menggunakan akses tenant yang eksplisit.** Jangan membuat satu pengecualian global yang melewati validasi tenant.
+
+---
+
+# 6. FASE P0 — PERBAIKI KEAMANAN API DAN INTEGRASI
+
+Audit seluruh endpoint dalam direktori `api/`.
+
+Prioritaskan:
+- `api/invitations.ts`
+- `api/integrations.ts`
+- `api/notify/telegram.ts`
+- `api/notify/whatsapp.ts`
+- `api/telegram-webhook.ts`
+- seluruh endpoint lain yang menggunakan token, service role, atau mengubah data.
+
+## A. API Telegram dan WhatsApp
+
+Temuan sebelumnya:
+
+- Beberapa jalur endpoint dapat menggunakan token environment sebelum memvalidasi autentikasi pemanggil.
+- Request menerima `botToken` atau `apiToken` dari browser.
+- Token environment dan token dari database memiliki jalur fallback yang membingungkan.
+- Fungsi client `lib/notifications.ts` masih memiliki fallback pengiriman langsung dari browser ke provider.
+
+Perbaiki dengan ketentuan:
+
+1. Autentikasi wajib dilakukan sebelum proses pengiriman.
+2. Validasi role dan tenant harus dilakukan sebelum mengambil secret.
+3. Token tidak boleh dikirim oleh browser.
+4. Server hanya mengambil token dari secret store yang sesuai tenant.
+5. Jangan menggunakan token `VITE_TELEGRAM_BOT_TOKEN` atau `VITE_FONNTE_API_TOKEN`.
+6. Hilangkan fallback pengiriman langsung dari browser.
+7. Jangan menulis token ke `app_settings`.
+8. Jangan mengembalikan token dalam response.
+9. Batasi ukuran request dan panjang pesan.
+10. Validasi format target dan chat ID.
+11. Tangani timeout provider dan HTTP error dengan benar.
+12. Tambahkan rate limiting dan pencegahan penyalahgunaan.
+13. Error harus aman dan tidak membocorkan token.
+14. Jangan mengirim pesan apabila hak akses tenant tidak valid.
+
+Frontend cukup memanggil endpoint dengan access token user aktif, target, dan isi pesan. Server yang bertanggung jawab mengelola token rahasia.
+
+## B. API integrasi
+
+Perbaiki `api/integrations.ts`.
+
+Saat ini penyimpanan secret belum selalu memeriksa hasil operasi Supabase. Endpoint berpotensi memberikan respons sukses walaupun penyimpanan gagal.
+
+Ketentuan:
+- Periksa setiap `{ data, error }`.
+- Jangan menganggap operasi berhasil hanya karena tidak terjadi exception.
+- Jangan menelan error penting.
+- Jangan mengembalikan `success: true` sebelum seluruh operasi wajib berhasil.
+- Jangan menyalin token baru ke `app_settings`.
+- API GET hanya boleh mengembalikan masked preview.
+- API POST harus memiliki otorisasi Admin pada tenant yang tepat.
+- Berikan error yang dapat ditindaklanjuti tanpa membocorkan data rahasia.
+
+## C. API undangan pengguna
+
+Perbaiki `api/invitations.ts` secara menyeluruh.
+
+Temuan sebelumnya:
+- User dibuat menggunakan service-role client tetapi sinkronisasi profil dilakukan melalui token Admin pemanggil.
+- Beberapa error sinkronisasi diabaikan.
+- Akun Auth dapat terbentuk tetapi profil atau access grant tidak terbentuk.
+- Password sementara dibuat menggunakan `Math.random()`.
+- Alur pembuatan akun belum menjamin email undangan dikirim.
+
+Implementasikan alur undangan yang aman:
+
+**Superadmin**
+- Dapat membuat tenant.
+- Dapat mengundang Admin pertama tenant.
+- Dapat mengundang pengguna lain hanya berdasarkan kebijakan platform.
+
+**Admin**
+- Hanya dapat mengundang Musammi pada tenant miliknya.
+- Tidak dapat membuat Superadmin.
+- Tidak boleh mengundang pengguna ke tenant lain.
+
+**Musammi**
+- Tidak boleh membuat undangan pengguna.
+
+Gunakan mekanisme Supabase Auth Admin API yang sesuai untuk invitation/email activation.
+
+Ketentuan:
+- Jangan menggunakan password sementara yang dapat ditebak.
+- Jangan menggunakan `Math.random()` untuk kredensial atau token keamanan.
+- Invitation token harus memiliki masa berlaku, sekali pakai, dan terikat pada email serta role yang benar.
+- Validasi email, role, tenant, dan status akun.
+- Gunakan service role hanya di server.
+- Semua proses pembuatan dan sinkronisasi profil/grant harus konsisten.
+- Periksa seluruh hasil insert/update/upsert.
+- Jika provisioning gagal di tengah jalan, lakukan kompensasi yang aman atau gunakan status pending yang jelas.
+- Jangan meninggalkan user Auth tanpa profil/grant yang valid.
+- Hubungkan penerimaan undangan dengan halaman `/invite`.
+- Halaman `/invite` harus dapat menerima token, memvalidasi undangan, mengatur kredensial pengguna, dan menyelesaikan aktivasi.
+- Tampilkan status undangan berhasil, kedaluwarsa, sudah dipakai, atau tidak valid.
+
+---
+
+# 7. FASE P0 — PERBAIKI RAPORT SNAPSHOT DAN INTEGRITAS HISTORI
+
+Audit:
+- tabel `report_cards`
+- `rpc_publish_report_card`
+- seluruh fungsi amendment
+- halaman rekap nilai
+- halaman raport
+- alur verifikasi publik.
+
+Raport terbit harus benar-benar immutable.
+
+Ketentuan:
+
+1. Snapshot raport yang sudah `published` tidak dapat diubah melalui UPDATE biasa.
+2. Snapshot raport tidak dapat dihapus melalui akses biasa.
+3. Perubahan setelah diterbitkan harus menghasilkan versi baru.
+4. Versi baru wajib mempunyai relasi ke versi sebelumnya.
+5. Alasan amendment wajib diisi.
+6. Hash snapshot dihitung dari payload yang konsisten dan kanonis.
+7. Hash tidak boleh berasal dari field yang dapat berubah tanpa validasi.
+8. Verifikasi harus membandingkan data snapshot dan hash yang tersimpan.
+9. Riwayat versi harus tetap tersedia.
+10. Perubahan harus dicatat di audit log.
+11. Versi lama tidak boleh kehilangan isi snapshot aslinya.
+
+Jangan mengubah payload versi lama ketika membuat amendment. Gunakan mekanisme append-only untuk mencatat versi berikutnya.
+
+Periksa juga fitur verifikasi raport publik. Jika fitur tersebut memang termasuk cakupan rilis saat ini, implementasikan endpoint dan halaman verifikasi yang sesungguhnya. Pastikan data publik yang ditampilkan tidak membocorkan informasi santri yang seharusnya privat.
+
+Jika belum siap, jangan mengklaim fitur telah tersedia.
+
+---
+
+# 8. FASE P1 — PERBAIKI TRANSAKSI OPERASIONAL HALAQAH
+
+Fokus pada halaman:
+
+`pages/Operasional/SesiHalaqahPage.tsx`
+
+Juga periksa:
+- `pages/Attendance.tsx`
+- `pages/BukuAbsensiPage.tsx`
+- `pages/AttendanceBook.tsx`
+- `pages/SetoranHarianPage.tsx`
+- `hooks/useSupabaseData.tsx`
+- fungsi RPC sesi, absensi, dan setoran.
+
+## A. Perbaiki penggunaan sessionId
+
+Temuan:
+Route `/app/sessions/:sessionId/attendance` dan `/app/sessions/:sessionId/recitations` menggunakan parameter `sessionId`, tetapi kode frontend mengubahnya menjadi Number dan memperlakukannya seperti `halaqahId`.
+
+Padahal ID pada `halaqah_sessions` adalah UUID.
+
+Perbaiki:
+- Ambil record sesi berdasarkan UUID `sessionId`.
+- Gunakan `halaqah_id` dari record tersebut.
+- Gunakan `session_date` dan `session_slot` dari record tersebut.
+- Jangan mengubah UUID menjadi angka.
+- Tangani ID tidak valid, sesi tidak ditemukan, dan sesi milik tenant lain.
+
+## B. Perbaiki alur pembukaan sesi
+
+`rpc_open_halaqah_session` mengembalikan objek JSON dengan `session_id`, `organization_id`, dan `roster`.
+
+Pastikan frontend mengambil `data.session_id`, bukan meneruskan keseluruhan objek ke parameter `p_session_id` pada `rpc_save_attendance_batch`.
+
+Periksa properti `error` dari hasil RPC. Jangan menggunakan try/catch sebagai satu-satunya cara mendeteksi error Supabase.
+
+Jika pembukaan sesi gagal, jangan tampilkan notifikasi berhasil.
+
+## C. Perbaiki roster snapshot
+
+Roster harus diambil dari keanggotaan halaqah yang valid pada tanggal sesi.
+
+Gunakan model canonical:
+- `halaqah_student_memberships`
+- `halaqah_musammi_assignments`
+- `student_enrollments`
+
+Jangan hanya mengandalkan `halaqah_santri` apabila V2 sudah menjadi sumber data utama.
+
+Jika riwayat keanggotaan tersedia tetapi tidak ada anggota yang aktif pada tanggal tersebut, hasilnya harus kosong. Jangan melakukan fallback ke seluruh anggota halaqah saat ini.
+
+Roster sesi yang sudah dibuka harus konsisten dengan snapshot database.
+
+Perubahan anggota setelah sesi dibuka tidak boleh mengubah snapshot sesi lama.
+
+## D. Perbaiki absensi
+
+Alur absensi harus memiliki keadaan:
+
+- Belum dibuka.
+- Sesi terbuka.
+- Belum diisi.
+- Sebagian terisi.
+- Lengkap.
+- Terkirim.
+- Terkunci.
+- Koreksi pasca-kunci.
+
+Status awal setiap santri harus `Belum diisi`, bukan otomatis `Hadir`.
+
+Pengguna boleh memakai fitur "Tandai Semua Hadir", tetapi harus ada konfirmasi dan tindakan tersebut belum dianggap tersimpan sebelum server mengonfirmasi keberhasilan.
+
+Pastikan:
+- Validasi status.
+- Tidak ada data ganda.
+- Tidak ada perubahan absensi antar halaqah.
+- Data Musammi tidak tercampur dengan data santri.
+- Batch harus atomik.
+- Request ganda tidak menggandakan data.
+- Sesi terkunci tidak bisa diubah tanpa proses koreksi.
+- Alasan koreksi wajib disimpan di database.
+- Audit log dibuat secara terpercaya.
+
+## E. Perbaiki penguncian sesi
+
+Temuan:
+Frontend menggunakan direct upsert untuk mengubah status sesi menjadi `locked`. Hasil operasi tidak selalu diperiksa, dan terdapat jalur catch yang justru mengirim notifikasi seolah sesi berhasil diselesaikan.
+
+Perbaiki:
+- Gunakan RPC khusus untuk mengunci sesi.
+- Periksa seluruh error.
+- Hanya aktor yang berhak dapat mengunci sesi.
+- Sesi tidak dapat dikunci jika absensi belum lengkap.
+- Sesi yang terkunci tidak dapat dibuka ulang tanpa prosedur khusus.
+- Koreksi wajib menggunakan alasan.
+- Server memvalidasi status transisi.
+- Audit log wajib tercatat.
+- Jangan memberi notifikasi sukses jika database gagal.
+
+## F. Perbaiki riwayat sesi dan query setoran
+
+Query V2 pada `fetchV2SessionAndLedger` saat ini belum membatasi seluruh data berdasarkan slot waktu sesi.
+
+Perbaiki agar:
+- Setoran dibatasi berdasarkan `session_id` jika tersedia.
+- Tanggal, slot waktu, halaqah, dan organisasi harus sesuai.
+- Sesi pagi dan sore tidak tercampur.
+- Riwayat lama tetap benar.
+- Data dari halaqah lain tidak dapat ikut dihitung.
+
+---
+
+# 9. FASE P1 — SATUKAN SUMBER DATA LEGACY DAN V2
+
+Audit dan rapikan `hooks/useSupabaseData.tsx`.
+
+Temuan saat ini:
+- Aplikasi masih menggunakan banyak tabel lama.
+- Data absensi dan setoran disimpan ke tabel lama lalu disinkronkan ke tabel V2.
+- Error sinkronisasi V2 masih ada yang diabaikan.
+- Proses absensi melakukan delete sebelum insert.
+- Jika insert gagal setelah delete, data lama dapat hilang.
+- Jika data enrollment tahun ajaran kosong, aplikasi masih memiliki fallback yang menampilkan semua santri aktif.
+
+Tentukan sumber data utama untuk setiap domain:
+
+| Domain | Sumber utama yang dituju |
+|---|---|
+| Identitas pengguna | `user_profiles` dan `access_grants` |
+| Identitas santri | `santri` atau entitas induk yang telah ditentukan |
+| Enrollment tahunan | `student_enrollments` |
+| Keanggotaan halaqah | `halaqah_student_memberships` |
+| Penugasan Musammi | `halaqah_musammi_assignments` |
+| Sesi | `halaqah_sessions` |
+| Absensi | `attendance_records` |
+| Setoran | `recitation_entries` |
+| Revisi setoran | `recitation_revisions` |
+| Target | `target_plans` |
+| Rubrik | `rubric_versions` |
+| Ujian/remedial | `exam_attempts` |
+| Raport | `report_cards` |
+| Audit | `audit_logs` |
+
+Tabel legacy tetap dipertahankan sebagai sumber histori atau jembatan selama proses transisi.
+
+Ketentuan:
+- Tentukan satu sumber utama yang jelas untuk tiap domain.
+- Jangan mengandalkan dual-write yang error-nya ditelan.
+- Gunakan RPC transaksional ketika beberapa tabel harus berubah bersama.
+- Buat proses rekonsiliasi legacy dan V2.
+- Sediakan laporan jumlah data yang berhasil, gagal, dan belum tersinkron.
+- Jangan menghapus data lama.
+- Jangan membuat data ganda.
+- Jangan mengasumsikan migration V2 sudah diterapkan pada database produksi.
+- Bandingkan struktur aktual database dengan migration script sebelum menggunakan kolom atau tabel baru.
+- Jika tabel V2 belum tersedia, tampilkan error konfigurasi yang jelas. Jangan melaporkan sukses dengan berpindah diam-diam ke jalur yang menghasilkan data tidak konsisten.
+
+**Penting mengenai enrollment:** tidak adanya enrollment pada tahun ajaran aktif tidak boleh membuat seluruh santri otomatis dianggap aktif dalam tahun itu. Buat keadaan empty/setup yang jelas dan pertahankan histori tahun sebelumnya.
+
+**Penting mengenai performa:** hindari mengambil ribuan atau puluhan ribu baris untuk semua domain hanya agar seluruh halaman dapat ditampilkan. Terapkan query sesuai kebutuhan halaman dan pagination yang tepat.
+
+---
+
+# 10. FASE P1 — PERBAIKI PENUGASAN MUSAMMI
+
+Gunakan `halaqah_musammi_assignments` sebagai dasar penugasan Musammi setelah migrasi V2 diverifikasi.
+
+Dukung:
+- Musammi utama.
+- Musammi pengganti.
+- Tanggal mulai penugasan.
+- Tanggal akhir penugasan.
+- Status aktif/nonaktif.
+- Tahun ajaran.
+- Riwayat pergantian Musammi.
+
+Jangan hanya menggunakan `h.musammi.user_id` pada tabel lama.
+
+Perbaiki query dan UI agar Musammi melihat seluruh halaqah yang ditugaskan kepadanya melalui assignment yang valid, bukan sekadar halaqah yang memiliki relasi `musammi_id` lama.
+
+Hak akses harus memeriksa assignment pada database, bukan hanya hasil filter frontend.
+
+Pastikan data historis tetap dapat dibaca sesuai kebutuhan laporan tanpa memberikan hak input baru ke assignment yang sudah berakhir.
+
+---
+
+# 11. FASE P1 — PERBAIKI ROUTING DAN PERMISSION ENGINE
+
+Audit `App.tsx`, `lib/permissions.ts`, dan `components/layouts/SaaSLayouts.tsx`.
+
+Pertahankan pemisahan:
+
+- `PublicLayout`
+- `PlatformLayout`
+- `TenantLayout`
+
+Gunakan satu konfigurasi route dan permission sebagai sumber utama.
+
+Temuan yang wajib diperbaiki:
+
+1. `isRouteAllowed()` saat ini memiliki fallback yang memberikan izin kepada Admin/Superadmin untuk route yang tidak ditemukan.
+2. `PATH_ALIAS_MAP` memiliki ketidaksesuaian beberapa tujuan route.
+3. `App.tsx` masih memetakan beberapa route ke halaman yang secara semantik berbeda.
+4. `/invite` masih diarahkan ke komponen Login, belum menjadi alur penerimaan undangan yang sesungguhnya.
+5. Metadata route dan route nyata harus selalu cocok.
+
+Ketentuan:
+
+- Route tidak dikenal harus ditolak (`default deny`).
+- Setiap route harus mencantumkan role yang diperbolehkan.
+- Setiap route memiliki page component yang benar.
+- Setiap route memiliki breadcrumb yang benar.
+- Setiap route memiliki layout yang benar.
+- Sidebar tidak boleh menjadi satu-satunya mekanisme keamanan.
+- URL lama harus memiliki redirect yang benar jika masih digunakan.
+- Deep link harus bekerja ketika halaman di-refresh.
+- Route Musammi tidak boleh membuka halaman Admin.
+- Route Superadmin harus tetap dipisahkan dari ruang tenant.
+- Support Access harus tervalidasi oleh server.
+
+`sessionStorage` untuk Support Access hanya boleh dianggap sebagai state antarmuka, bukan bukti otorisasi. Server harus memeriksa sesi support yang sebenarnya pada setiap operasi tenant yang relevan.
+
+---
+
+# 12. FASE P2 — REFACTORING ARSITEKTUR FRONTEND
+
+Setelah masalah keamanan dan data utama diperbaiki, rapikan struktur frontend.
+
+Saat ini beberapa halaman seperti `SesiHalaqahPage.tsx` dan `PlatformConsolePage.tsx` memiliki ukuran besar dan mencampur banyak tanggung jawab.
+
+Pecah secara bertahap tanpa menghilangkan fitur.
+
+Usulan pembagian:
+
+**Sesi Halaqah**
+- SessionWorkspacePage
+- SessionContextSelector
+- SessionSummary
+- AttendanceWorkspace
+- AttendanceRoster
+- AttendanceStatusControl
+- RecitationForm
+- RecitationLedger
+- RecitationReview
+- RecitationRevisionHistory
+- StudentProgressPanel
+- SessionHistory
+
+**Platform Console**
+- PlatformDashboard
+- TenantDirectory
+- TenantDetail
+- TenantProvisioningWizard
+- PlatformUsers
+- PlatformAuditLogs
+- SupportAccess
+- PlatformSettings
+
+**Data hooks berdasarkan domain**
+- `useAuth`
+- `useOrganization`
+- `useAcademicYear`
+- `useStudents`
+- `useEnrollments`
+- `useMusammi`
+- `useHalaqah`
+- `useSessions`
+- `useAttendance`
+- `useRecitations`
+- `useTargets`
+- `useEvaluations`
+- `useExams`
+- `useReports`
+- `useAuditLogs`
+
+Gunakan struktur ini sebagai arahan, bukan alasan membuat abstraksi yang tidak diperlukan.
+
+Prinsip:
+- Pisahkan UI dan business logic.
+- Hindari satu hook memuat seluruh database.
+- Jangan membuat banyak context yang saling bergantung tanpa kebutuhan.
+- Gunakan TypeScript types untuk menggantikan `any` secara bertahap.
+- Gunakan satu cara penanganan error yang konsisten.
+- Pastikan setiap komponen memiliki tanggung jawab yang jelas.
+
+---
+
+# 13. FASE P2 — PENYEMPURNAAN UI/UX SELURUH APLIKASI
+
+Tujuan desain:
+
+**Clean Enterprise SaaS & Academic Precision**
+
+Pertahankan identitas visual biru akademik yang sudah ada. Jangan mengganti karakter aplikasi secara ekstrem.
+
+Gunakan prinsip:
+- Minimalis.
+- Bersih.
+- Profesional.
+- Konsisten.
+- Mudah dipahami pengguna lembaga pendidikan.
+- Tidak terlalu banyak nested card.
+- Tidak memaksakan ikon dekoratif.
+- Mengutamakan keterbacaan dan efisiensi kerja.
+
+## A. Design tokens
+
+Gunakan satu sistem token konsisten.
+
+Palet dasar yang disarankan:
+
+- Primary: `#2563EB`
+- Primary hover: `#1D4ED8`
+- Canvas: `#F8FAFC`
+- Surface: `#FFFFFF`
+- Text utama: `#0F172A`
+- Text sekunder: `#475569`
+- Border: `#E2E8F0`
+- Success: `#16A34A`
+- Warning: `#D97706`
+- Danger: `#DC2626`
+- Info: `#0284C7`
+
+Gunakan warna status yang memiliki kontras jelas. Jangan hanya memakai warna sebagai satu-satunya penanda status.
+
+Gunakan tipografi yang konsisten:
+- Page title sekitar 24–28 px.
+- Section title sekitar 18–20 px.
+- Body 14–16 px.
+- Label 12–14 px.
+- Caption sekitar 12 px.
+
+Gunakan angka tabular untuk nilai, statistik, juz, halaman, dan tanggal.
+
+## B. Komponen standar
+
+Rapikan dan gunakan komponen bersama:
+
+**Layout**
+- AppShell
+- PublicLayout
+- PlatformLayout
+- TenantLayout
+- Sidebar
+- Header
+- MobileNavigation
+- PageContainer
+
+**Page composition**
+- PageShell
+- PageHeader
+- Breadcrumbs
+- SectionHeader
+- PageActions
+
+**Data display**
+- DataTable
+- TableToolbar
+- TablePagination
+- StatusBadge
+- MetricCard
+- EmptyState
+- LoadingState
+- ErrorState
+
+**Filters**
+- FilterBar
+- SearchInput
+- FilterSelect
+- DateRangeFilter
+- ActiveFilterChips
+- AdvancedFilterDrawer
+
+**Forms**
+- FormField
+- TextInput
+- SelectInput
+- DateInput
+- TextArea
+- FormActions
+
+**Feedback**
+- Toast
+- ConfirmDialog
+- Drawer
+- Modal
+- LoadingIndicator
+
+**Tahfidz-specific**
+- AttendanceGrid
+- AttendanceRow
+- QuranRangeInput
+- RecitationForm
+- RecitationStatus
+- TargetProgress
+- StudentProgressCard
+
+Jangan menggandakan implementasi komponen yang sebenarnya sudah tersedia.
+
+## C. Standarisasi DataTable
+
+Komponen DataTable saat ini masih sederhana.
+
+Tingkatkan secara bertahap agar mendukung:
+- Search.
+- Sorting.
+- Pagination.
+- Filter.
+- Loading.
+- Empty state.
+- Error state.
+- Row actions.
+- Batch actions bila diperlukan.
+- Responsif.
+- Column alignment.
+- Tabular numbers.
+- Empty state dengan CTA sesuai role.
+
+Untuk data besar, gunakan server-side pagination. Jangan memuat semua data ke browser.
+
+## D. Standarisasi formulir
+
+Semua formulir harus memiliki:
+- Label di atas input.
+- Penanda wajib isi.
+- Validasi yang jelas.
+- Helper text.
+- Error message pada field yang bermasalah.
+- Tombol Simpan.
+- Tombol Batal.
+- Loading ketika menyimpan.
+- Pencegahan double submit.
+- Konfirmasi untuk tindakan destruktif.
+
+Jangan menggunakan alert atau confirm native browser.
+
+## E. Empty, error, dan loading states
+
+Tiga kondisi ini wajib dibedakan.
+
+**Loading:** tampilkan indikator atau skeleton.
+
+**Empty:** data berhasil dimuat tetapi memang belum tersedia. Berikan penjelasan dan tindakan yang sesuai role.
+
+**Error:** database atau API gagal. Tampilkan pesan error yang dapat ditindaklanjuti dan tombol mencoba kembali.
+
+Jangan mengubah setiap error database menjadi array kosong lalu menampilkan "Tidak Ada Data".
+
+## F. Bahasa UI
+
+Hindari bahasa teknis di antarmuka.
+
+Contoh:
+
+- `Sesi Halaqah, Absensi Batch & Transaksi Setoran Terstruktur` → `Sesi Halaqah`
+- `Roster Snapshot Sesi` → `Daftar Santri Sesi`
+- `Status Siklus Sesi` → `Status Sesi`
+- `Transaksi Setoran Terstruktur` → `Catatan Setoran`
+- `Kunci Sesi (Lock)` → `Kunci Sesi`
+- `Review Recitation` → `Validasi Setoran`
+
+Pengguna tidak perlu mengetahui nama tabel, nama RPC, nama API, nama file, atau istilah internal arsitektur.
+
+## G. Layout berdasarkan role
+
+**Superadmin**
+- Fokus pada kesehatan platform.
+- Daftar tenant.
+- Status tenant.
+- Aktivitas global.
+- Support Access.
+- Audit.
+- Pengaturan platform.
+
+**Admin**
+- Fokus pada operasional lembaga.
+- Tahun ajaran.
+- Santri.
+- Musammi.
+- Halaqah.
+- Absensi.
+- Setoran.
+- Ujian.
+- Raport.
+- Laporan.
+- Pengaturan.
+
+**Musammi**
+- Mobile-first.
+- Dashboard aktivitas hari ini.
+- Halaqah saya.
+- Jadwal saya.
+- Sesi.
+- Absensi.
+- Setoran.
+- Santri binaan.
+- Riwayat.
+- Profil.
+
+Tidak boleh menampilkan menu Admin kepada Musammi hanya karena route guard belum sempurna.
+
+## H. Penyederhanaan workspace Musammi
+
+Ruang kerja Musammi harus fokus pada urutan:
+
+`Pilih Halaqah → Pilih Tanggal dan Waktu → Buka Sesi → Isi Absensi → Catat Setoran → Selesaikan Sesi`
+
+Jadikan tugas utama terlihat jelas.
+
+Hindari menampilkan seluruh konfigurasi dan analitik Admin dalam satu halaman kerja Musammi.
+
+Pada HP:
+- Gunakan satu kolom.
+- Tombol mudah disentuh.
+- Status absensi mudah dipilih.
+- Hindari tabel terlalu lebar.
+- Tombol simpan mudah dijangkau.
+- Informasi penting tidak tersembunyi dalam modal bertingkat.
+
+---
+
+# 14. FASE P2 — PENYEMPURNAAN MODUL AKADEMIK
+
+Audit semua modul dan pastikan fungsi utamanya tetap bekerja.
+
+## A. Tahun Ajaran dan Semester
+
+Pastikan:
+- Tahun ajaran mempunyai status lifecycle yang jelas.
+- Hanya tahun ajaran yang dipilih yang menjadi konteks operasional.
+- Semester terhubung dengan tahun ajaran yang benar.
+- Penutupan tahun ajaran harus memeriksa prasyarat.
+- Histori tahun sebelumnya tetap bisa dibuka.
+- Tidak ada data tahun sebelumnya tercampur ke tahun berjalan.
+- Proses kenaikan kelas memiliki review sebelum konfirmasi.
+- Arsip halaqah tidak menghilangkan histori.
+
+## B. Santri dan Enrollment
+
+Pastikan:
+- Identitas santri terpisah dari enrollment tahunan.
+- Histori penempatan kelas dipertahankan.
+- Santri yang belum memiliki enrollment tidak otomatis masuk ke seluruh kelas atau halaqah.
+- Detail santri memuat data identitas, kelas, halaqah, absensi, setoran, ujian, dan progres sesuai hak akses.
+- Perubahan data tidak menghapus histori.
+
+## C. Musammi dan Halaqah
+
+Pastikan:
+- Profil Musammi terpisah dari akun Auth.
+- Status undangan dan status akun terlihat jelas.
+- Assignment utama dan pengganti didukung.
+- Riwayat perpindahan halaqah tersedia.
+- Deteksi bentrok jadwal berjalan.
+- Santri hanya dapat memiliki keanggotaan yang valid sesuai aturan.
+- Relasi antar-tenant tidak dapat tercampur.
+
+## D. Setoran dan Murajaah
+
+Jenis setoran:
+- Ziyadah.
+- Sabqi.
+- Manzil/Murajaah.
+- Tasmi atau Ujian jika memang didukung dalam aturan produk.
+
+Validasi:
+- Surat 1–114.
+- Jumlah ayat sesuai metadata surah.
+- Urutan surat dan ayat valid.
+- Perhitungan halaman tetap sesuai metode yang sudah dipakai aplikasi.
+- Kesalahan kecil dan besar tervalidasi.
+- Nilai sesuai rubrik aktif.
+- Target dan periode yang relevan digunakan.
+- Histori transaksi tidak ditimpa.
+
+Status transaksi hanya boleh ditampilkan apabila status tersebut benar-benar tersimpan di database.
+
+## E. Target dan Rubrik
+
+Pastikan:
+- Target dapat memiliki versi.
+- Rubrik dapat memiliki versi.
+- Perubahan versi tidak merusak histori.
+- Periode efektif jelas.
+- Simulasi skor akurat.
+- Bobot dan penalti tervalidasi.
+- Hanya Admin dapat mengubah konfigurasi.
+- Musammi hanya membaca informasi yang diperlukan.
+
+Jangan mengubah formula lama sebelum membandingkan hasil lama dan baru dengan data contoh yang sama.
+
+## F. Ujian dan Remedial
+
+Pastikan:
+- Ujian bulanan dan semester dibedakan dengan jelas.
+- Setiap percobaan memiliki identitas tersendiri.
+- Remedial tidak menimpa nilai ujian sebelumnya.
+- Skor mentah dan skor akhir dapat ditelusuri.
+- Riwayat attempt tetap tersedia.
+- Perhitungan nilai akhir dan predikat sesuai aturan yang ada.
+
+## G. Raport
+
+Pastikan:
+- Raport mengambil data pada tahun ajaran dan semester yang benar.
+- Preview dan PDF menampilkan data yang konsisten.
+- Nilai dan predikat tidak berbeda antara buku nilai dan raport.
+- Snapshot diterbitkan secara terkontrol.
+- Amendment membuat versi baru.
+- Histori versi lama tetap utuh.
+- Hash verifikasi dapat diuji.
+
+## H. Laporan dan analitik
+
+Pastikan:
+- Semua laporan dibatasi organisasi dan periode yang tepat.
+- Grafik sesuai data sumber.
+- Total laporan sama dengan data detail.
+- Filter tanggal, tahun ajaran, semester, kelas, dan halaqah bekerja.
+- Export PDF/Excel/print menghasilkan data yang sama dengan layar.
+- Tidak terjadi perhitungan ganda akibat migrasi legacy/V2.
+
+---
+
+# 15. FASE P3 — TESTING DAN QUALITY ASSURANCE
+
+Tidak boleh menganggap pekerjaan selesai hanya karena `npm run lint` dan `npm run build` berhasil.
+
+Buat pengujian otomatis dengan tingkat yang sesuai:
+
+1. Unit test untuk fungsi perhitungan.
+2. Integration test untuk API dan data layer.
+3. Database security test untuk RLS dan RPC.
+4. Component test untuk formulir dan state.
+5. End-to-end test untuk workflow utama.
+6. Smoke test deployment.
+
+Jika belum ada test framework, evaluasi dan tambahkan perangkat testing yang sesuai seperti Vitest, React Testing Library, dan Playwright. Gunakan versi yang cocok dengan proyek dan jangan memasang dependensi berlebihan.
+
+## A. Test skenario keamanan
+
+Buat minimal dua tenant contoh: Tenant A dan Tenant B.
+
+Uji:
+
+1. Admin A tidak dapat membaca data Tenant B.
+2. Admin A tidak dapat mengubah data Tenant B.
+3. Musammi A tidak dapat membaca halaqah di luar assignment.
+4. Musammi A tidak dapat mengubah absensi halaqah lain.
+5. Musammi tidak dapat mengubah target atau rubrik.
+6. Musammi tidak dapat menerbitkan atau mengubah raport.
+7. Grant yang dicabut langsung membuat akses ditolak.
+8. Role lama pada `profiles` tidak dapat menghidupkan kembali grant yang dicabut.
+9. Superadmin tidak dapat masuk ke tenant tanpa Support Access.
+10. Superadmin `read_only` tidak dapat melakukan perubahan.
+11. Superadmin `read_write` tetap harus mematuhi validasi tenant dan audit.
+12. Pengguna tanpa autentikasi tidak dapat memanggil endpoint privat.
+13. Pengguna tidak dapat membaca token integrasi.
+14. Audit log tidak dapat dipalsukan atau ditulis untuk tenant lain.
+
+Semua test ini harus diuji pada database/RLS sebenarnya di lingkungan test atau staging, bukan hanya simulasi frontend.
+
+## B. Test operasional
+
+Uji:
+
+1. Pembukaan sesi.
+2. Pengambilan roster.
+3. Perubahan anggota setelah sesi dibuka.
+4. Pengisian absensi.
+5. Penandaan semua hadir.
+6. Penyimpanan batch.
+7. Request ganda.
+8. Penguncian sesi.
+9. Koreksi setelah sesi dikunci.
+10. Input setoran.
+11. Simpan draft.
+12. Submit setoran.
+13. Validasi setoran.
+14. Pengembalian setoran.
+15. Riwayat revisi.
+16. Sesi dengan tanggal dan slot waktu berbeda.
+17. Halaqah berbeda dengan tanggal yang sama.
+18. Musammi utama dan pengganti.
+19. Kegagalan sinkronisasi.
+20. Kegagalan database saat penyimpanan.
+
+Jangan pernah menampilkan notifikasi berhasil jika transaksi wajib gagal.
+
+## C. Test akademik
+
+Uji:
+- Enrollment tahun ajaran.
+- Perpindahan kelas.
+- Mutasi santri.
+- Perubahan halaqah.
+- Penutupan tahun ajaran.
+- Target versi baru.
+- Rubrik versi baru.
+- Penilaian ujian.
+- Remedial.
+- Agregasi nilai.
+- Penerbitan raport.
+- Amendment.
+- Verifikasi hash.
+- Export laporan.
+
+Bandingkan hasil formula lama dan baru. Perbedaan yang tidak direncanakan harus diselesaikan sebelum release.
+
+## D. Test responsive UI/UX
+
+Periksa ukuran berikut:
+- Desktop 1440 × 900.
+- Laptop 1280 × 800.
+- Tablet 768 × 1024.
+- Mobile 390 × 844.
+
+Pastikan:
+- Tidak ada elemen keluar viewport.
+- Sidebar bekerja.
+- Modal dapat digunakan.
+- Tabel tidak menutupi konten penting.
+- Form tidak terpotong.
+- Tombol mudah disentuh.
+- Navigasi mobile jelas.
+- Loading, empty, dan error state dapat dikenali.
+- Tidak ada horizontal overflow yang tidak diperlukan.
+
+Target aksesibilitas: WCAG 2.2 AA sejauh relevan dan dapat diuji.
+
+---
+
+# 16. FASE P3 — DEPLOYMENT DAN KEAMANAN PRODUKSI
+
+Periksa kompatibilitas deployment secara nyata.
+
+Repository mempunyai konfigurasi Vercel dan Netlify. Jangan mengklaim keduanya siap hanya karena file konfigurasi tersedia.
+
+Verifikasi:
+- Routing SPA.
+- Fungsi API.
+- Format handler.
+- Environment variables.
+- Build output.
+- Secret storage.
+- Rewrite dan redirect.
+- CORS.
+- Timeout.
+- Error handling.
+- Logging.
+- Database connection.
+
+Khusus Netlify, pastikan file handler yang diarahkan oleh `netlify.toml` benar-benar tersedia dalam format dan direktori yang dikenali Netlify Functions.
+
+Khusus Vercel, pastikan semua endpoint di `/api/*` dapat berjalan sebagai serverless functions dan tidak bergantung pada Express server yang terus hidup.
+
+Jangan menyatakan kompatibel penuh sebelum masing-masing deployment diuji.
+
+Environment variable rahasia harus berada di server. Jangan menambahkan `SUPABASE_SERVICE_ROLE_KEY`, token Telegram, atau token WhatsApp ke environment variable `VITE_*`.
+
+Siapkan checklist deployment:
+- Backup.
+- Staging.
+- Apply migration yang telah direview.
+- Smoke test.
+- Role test.
+- Test integrasi.
+- Validasi laporan.
+- Monitoring error.
+- Rollback plan.
+
+Jangan melakukan deployment produksi, perubahan data produksi, atau penerapan migration yang destruktif tanpa persetujuan eksplisit pemilik proyek.
+
+---
+
+# 17. ATURAN PENTING DALAM MENGERJAKAN PERBAIKAN
+
+1. Jangan hanya menulis rekomendasi. Lakukan perubahan kode yang memang dapat dikerjakan.
+2. Jangan mengklaim pekerjaan selesai tanpa bukti implementasi.
+3. Jangan membuat fitur palsu yang hanya mengubah tampilan.
+4. Jangan menelan error database dengan `catch {}` tanpa penanganan yang tepat.
+5. Periksa `{ error }` dari setiap operasi Supabase.
+6. Jangan menganggap query kosong berarti database kosong.
+7. Jangan membuat fallback yang melewati otorisasi.
+8. Jangan menggunakan data dari tenant lain sebagai fallback.
+9. Jangan memasukkan secret ke frontend.
+10. Jangan memberikan akses melalui frontend sebagai pengganti RLS.
+11. Jangan mengubah rumus hafalan, nilai, dan raport tanpa regression test.
+12. Jangan menghapus tabel atau kolom yang masih digunakan data lama.
+13. Jangan melakukan migration yang merusak histori.
+14. Jangan mengubah empat atau lima modul besar sekaligus tanpa verifikasi.
+15. Jangan menyembunyikan menu sebagai satu-satunya kontrol keamanan.
+16. Jangan mengubah keputusan produk tiga role.
+17. Jangan mengaktifkan portal wali santri.
+18. Jangan menambah dependency apabila tidak diperlukan.
+19. Jangan melakukan push, merge, atau deploy ke production tanpa izin.
+20. Jika ada pekerjaan yang tidak bisa diverifikasi karena akses database atau kredensial tidak tersedia, tuliskan dengan jelas dan sediakan prosedur verifikasi. Jangan mengarang hasil test.
+
+## Strategi database dan migration
+
+Periksa skema database yang sebenarnya sebelum menulis migration baru.
+
+Jika perbaikan membutuhkan migration:
+- Buat migration yang incremental dan idempotent.
+- Hindari perubahan destruktif.
+- Pertahankan kompatibilitas data legacy.
+- Sertakan validasi sebelum dan sesudah migration.
+- Sertakan strategi rollback yang aman jika memungkinkan.
+- Jelaskan dampak dan prasyarat.
+- Jangan menjalankannya langsung pada database produksi.
+- Jangan menulis ulang seluruh skema hanya untuk menyesuaikan frontend.
+
+Untuk perubahan RLS, RPC, constraint, atau indeks, sertakan SQL yang dapat direview dan jelaskan alasannya.
+
+---
+
+# 18. STRATEGI PELAKSANAAN BERDASARKAN PR
+
+Kerjakan secara bertahap dalam unit perubahan yang kecil agar mudah diperiksa.
+
+Urutan yang disarankan:
+
+**PR 001 — Database Security Audit and RLS**
+- Helper role.
+- Tenant scope.
+- RLS seluruh tabel.
+- Audit log policy.
+- Secret protection.
+
+**PR 002 — RPC Authorization Hardening**
+- Seluruh SECURITY DEFINER.
+- Tenant checks.
+- Assignment checks.
+- Session state checks.
+- Transaction locking.
+- Audit trail.
+
+**PR 003 — API and Secret Security**
+- Telegram.
+- WhatsApp.
+- Integrations.
+- Rate limit.
+- Remove client secrets.
+- Remove browser fallback.
+
+**PR 004 — Invitation and User Lifecycle**
+- Undangan server-side.
+- User/profile/grant synchronization.
+- Invitation acceptance.
+- Expiry and token validation.
+
+**PR 005 — Report Integrity**
+- Snapshot.
+- Amendment.
+- Hash.
+- Public verification jika termasuk scope.
+
+**PR 006 — Session and Attendance Correctness**
+- UUID session routing.
+- Roster snapshot.
+- RPC result handling.
+- Batch attendance.
+- Lock and correction.
+
+**PR 007 — Recitation and Academic Data Integrity**
+- Canonical ledger.
+- Draft/submit/review.
+- Revision history.
+- Quran validation.
+- Atomic synchronization.
+
+**PR 008 — V2 Data Source and Reconciliation**
+- Enrollment.
+- Membership.
+- Assignment.
+- Legacy reconciliation.
+- Remove misleading fallback.
+
+**PR 009 — Routing and Permission**
+- Central route map.
+- Default deny.
+- Route/page matching.
+- Invitation route.
+- Support session validation.
+
+**PR 010 — Frontend Modularization**
+- Domain hooks.
+- Component separation.
+- Type safety.
+- Error handling.
+
+**PR 011 — Shared Design System**
+- DataTable.
+- FilterBar.
+- Forms.
+- Dialog.
+- Feedback states.
+- Responsive primitives.
+
+**PR 012 — Master Data UI**
+- Santri.
+- Enrollment.
+- Musammi.
+- Halaqah.
+- Tahun Ajaran.
+- Kelas dan atribut administrasi.
+
+**PR 013 — Musammi Workspace**
+- Dashboard.
+- Halaqah.
+- Jadwal.
+- Absensi.
+- Setoran.
+- Riwayat.
+
+**PR 014 — Academic Evaluation**
+- Targets.
+- Rubrics.
+- Evaluations.
+- Exams.
+- Remedial.
+- Gradebook.
+- Report cards.
+
+**PR 015 — Reports and Platform Console**
+- Tenant.
+- Platform.
+- Analytics.
+- Audit.
+- Public verification.
+
+**PR 016 — Automated QA and Responsive**
+- Unit.
+- Integration.
+- RLS.
+- E2E.
+- Screenshot.
+- Accessibility.
+
+**PR 017 — Production Readiness**
+- Build.
+- Lint.
+- Test.
+- Staging.
+- Smoke test.
+- Deployment checklist.
+
+Jangan memaksakan seluruh pekerjaan ke satu commit besar. Setiap PR harus memiliki perubahan yang terukur dan dapat diverifikasi.
+
+---
+
+# 19. DEFINITION OF DONE
+
+Sebuah perbaikan hanya boleh disebut selesai apabila memenuhi semua kriteria yang relevan:
+
+## Keamanan
+- RLS bekerja.
+- RPC tidak bisa melewati otorisasi.
+- Tenant A tidak dapat mengakses Tenant B.
+- Musammi hanya mengakses assignment miliknya.
+- Grant revoked benar-benar menutup akses.
+- Secret tidak dapat dibaca dari browser.
+- API privat memerlukan autentikasi dan otorisasi.
+- Support Access tervalidasi server.
+
+## Integritas data
+- Tidak ada dual-write yang error-nya diabaikan.
+- Data tidak hilang ketika insert gagal.
+- Tidak ada duplikasi transaksi.
+- Histori tetap utuh.
+- Status transaksi sesuai dengan data database.
+- Perhitungan nilai tidak berubah tanpa persetujuan.
+- Raport terbit immutable.
+
+## Fungsional
+- Seluruh alur utama dapat diselesaikan.
+- Formulir dan filter bekerja.
+- Sesi dan absensi benar.
+- Setoran dan validasi benar.
+- Ujian dan remedial benar.
+- Raport dan laporan konsisten.
+- Undangan bekerja sampai aktivasi akun.
+
+## UI/UX
+- Tampilan konsisten.
+- Bahasa mudah dipahami.
+- Loading, empty, dan error state terpisah.
+- Tidak ada navigasi yang salah.
+- Musammi nyaman menggunakan HP.
+- Admin nyaman mengelola data.
+- Superadmin memiliki konteks platform yang jelas.
+
+## Quality Assurance
+- `npm run lint` berhasil.
+- `npm run build` berhasil.
+- Automated tests berhasil.
+- Database security tests berhasil di lingkungan pengujian.
+- E2E workflow utama berhasil.
+- Responsive test berhasil.
+- Tidak ada error kritis yang belum diselesaikan.
+
+Jika ada kriteria yang belum dapat diverifikasi, tandai sebagai BELUM TERVERIFIKASI, bukan SELESAI.
+
+---
+
+# 20. FORMAT LAPORAN HASIL PEKERJAAN
+
+Setelah setiap fase selesai, berikan laporan dengan format berikut:
+
+### A. Ringkasan pekerjaan
+- Masalah yang ditemukan.
+- Perbaikan yang dilakukan.
+- Dampak terhadap sistem.
+
+### B. File yang diubah
+Daftar file beserta alasan perubahan.
+
+### C. Database
+- Tabel yang terdampak.
+- RLS yang diubah.
+- RPC yang diubah.
+- Migration yang dibuat.
+- Risiko dan cara penerapannya.
+
+### D. Bug yang diperbaiki
+Tuliskan bug, penyebab, cara perbaikan, dan status pengujiannya.
+
+### E. UI/UX
+Sertakan screenshot sebelum dan sesudah jika environment mendukung.
+
+### F. Hasil testing
+
+Buat tabel:
+
+| Pengujian | Hasil | Bukti/Detail |
+|---|---|---|
+| TypeScript lint | Pass/Fail/Not run | Output aktual |
+| Production build | Pass/Fail/Not run | Output aktual |
+| Unit test | Pass/Fail/Not run | Output aktual |
+| Integration test | Pass/Fail/Not run | Output aktual |
+| RLS test | Pass/Fail/Not run | Output aktual |
+| RPC test | Pass/Fail/Not run | Output aktual |
+| E2E test | Pass/Fail/Not run | Output aktual |
+| Responsive test | Pass/Fail/Not run | Output aktual |
+
+### G. Temuan yang tersisa
+Pisahkan:
+- Kritis.
+- Tinggi.
+- Menengah.
+- Rendah.
+- Belum dapat diverifikasi.
+
+### H. Status fase
+Gunakan:
+- Selesai dan terverifikasi.
+- Selesai sebagian.
+- Menunggu akses atau konfigurasi.
+- Belum dikerjakan.
+- Diblokir.
+
+---
+
+# 21. INSTRUKSI MULAI BEKERJA
+
+Mulai dengan memeriksa HEAD terbaru branch `main`, bukan hanya mengandalkan audit sebelumnya.
+
+Lakukan langkah berikut:
+
+1. Inventaris seluruh struktur dan perubahan repository terbaru.
+2. Verifikasi ulang setiap temuan audit yang disebutkan dalam prompt ini.
+3. Buat daftar file dan fungsi yang terkena dampak.
+4. Periksa kesesuaian skema migration dengan database yang tersedia.
+5. Prioritaskan dan perbaiki seluruh P0.
+6. Uji keamanan melalui database dan API, bukan hanya frontend.
+7. Lanjutkan ke P1 setelah P0 benar-benar terverifikasi.
+8. Lanjutkan ke P2 untuk arsitektur dan UI/UX.
+9. Selesaikan testing dan dokumentasi.
+10. Laporkan hasil secara jujur dan terstruktur.
+
+**Mulai dari Fase P0. Jangan mendahulukan redesign dashboard atau penambahan fitur baru sebelum keamanan dan integritas data beres.**
+
+Tujuan akhirnya adalah menjadikan Lajnah Quran sebagai aplikasi SaaS manajemen Tahfidz yang aman, konsisten, stabil, mudah digunakan, dan dapat diandalkan untuk operasional lembaga pendidikan secara nyata.
+
+Kerjakan perbaikan berdasarkan kode dan struktur database yang benar-benar ada. Jangan hanya menyesuaikan kode agar sesuai dokumen rencana. Jika dokumen dan implementasi berbeda, verifikasi kebutuhan produk terlebih dahulu dan dokumentasikan keputusan yang diambil.

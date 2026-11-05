@@ -172,12 +172,12 @@ export const SAAS_ROUTE_MAP: SaaSRouteConfig[] = [
     id: 'tenant_sessions',
     path: '/app/sessions',
     pageKey: 'SesiHalaqah',
-    label: 'Sesi & Ruang Halaqah',
+    label: 'Sesi Halaqah',
     group: 'operasional',
     parentGroupLabel: 'Sesi & Absensi',
     roles: ['admin', 'musammi', 'superadmin'],
-    breadcrumb: ['Operasional', 'Sesi & Ruang Halaqah'],
-    description: 'Buka sesi halaqah, bekukan roster aktif, isi absensi dan transaksi setoran Al-Qur\'an.',
+    breadcrumb: ['Operasional', 'Sesi Halaqah'],
+    description: 'Buka sesi halaqah, kelola daftar santri sesi, isi absensi, dan catat setoran Al-Qur\'an.',
     keywords: ['sesi', 'halaqah', 'jadwal', 'musammi', 'mulai sesi'],
     showInSidebar: true,
   },
@@ -484,6 +484,7 @@ export const PATH_ALIAS_MAP: Record<string, string> = {
   '/app/structure/marhalah': '/app/academic-years',
   '/app/structure/classes': '/app/structure/homeroom',
   '/app/exams': '/app/exams-semester',
+  '/app/enrollment-promotion': '/app/Enrollment-promotion',
   '/app/settings/organization': '/app/settings',
   '/app/settings/methodology': '/app/settings',
   '/app/settings/integrations': '/app/settings',
@@ -524,7 +525,7 @@ export function isRouteAllowed(
     resolveRouteByPageKey(pageOrPath);
 
   if (!route) {
-    return role === 'superadmin' || role === 'admin';
+    return false;
   }
 
   // Superadmin secara default berada di Platform Shell (/platform/*).

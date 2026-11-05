@@ -42,18 +42,43 @@ export async function processIntegrationSecrets(
     .eq("id", userData.user.id)
     .maybeSingle();
 
-  const role = (profile?.role || "").toLowerCase();
-  if (!["admin", "admin_mahad", "super_admin", "superadmin"].includes(role) || !profile?.organization_id) {
+  let effectiveRole = (profile?.role || "").toLowerCase();
+  let effectiveOrgId = profile?.organization_id || null;
+
+  try {
+    const { data: grants } = await client
+      .from("access_grants")
+      .select("role, organization_id, status")
+      .eq("user_id", userData.user.id);
+
+    if (Array.isArray(grants) && grants.length > 0) {
+      const activeGrant = grants.find((g: any) => g.status === "active");
+      if (!activeGrant) {
+        return { status: 403, data: { error: "Akses Anda sedang ditangguhkan atau dicabut." } };
+      }
+      effectiveRole = (activeGrant.role || effectiveRole).toLowerCase();
+      effectiveOrgId = activeGrant.organization_id || effectiveOrgId;
+    }
+  } catch {
+    // Fallback ke profiles jika tabel access_grants belum dimigrasikan
+  }
+
+  const targetOrgId = body?.organizationId || effectiveOrgId;
+  if (!["admin", "admin_mahad", "super_admin", "superadmin"].includes(effectiveRole) || !targetOrgId) {
     return { status: 403, data: { error: "Hanya Admin Lembaga yang dapat mengelola integrasi." } };
   }
 
-  const orgId = profile.organization_id;
+  const orgId = targetOrgId;
 
   if (method === "GET") {
-    const { data: secrets } = await client
+    const { data: secrets, error: getErr } = await client
       .from("integration_secrets")
       .select("provider, secret_key_name, masked_preview, status, updated_at")
       .eq("organization_id", orgId);
+
+    if (getErr && getErr.code !== "42P01") {
+      return { status: 500, data: { error: getErr.message } };
+    }
 
     return { status: 200, data: { secrets: secrets || [] } };
   }
@@ -71,40 +96,50 @@ export async function processIntegrationSecrets(
 
     for (const item of updates) {
       const masked = maskSecret(item.val);
-      try {
-        await client.from("integration_secrets").upsert(
-          {
-            organization_id: orgId,
-            provider: item.provider,
-            secret_key_name: item.key,
-            secret_value: item.val,
-            masked_preview: masked,
-            status: "active",
-            updated_by: userData.user.id,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "organization_id,provider,secret_key_name" }
-        );
-      } catch {
-        // Fallback jika tabel integration_secrets belum dimigrasikan
+      const { error: secretErr } = await client.from("integration_secrets").upsert(
+        {
+          organization_id: orgId,
+          provider: item.provider,
+          secret_key_name: item.key,
+          secret_value: item.val,
+          masked_preview: masked,
+          status: "active",
+          updated_by: userData.user.id,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "organization_id,provider,secret_key_name" }
+      );
+
+      if (secretErr && secretErr.code !== "42P01") {
+        return {
+          status: 500,
+          data: { error: `Gagal menyimpan rahasia integrasi (${item.key}): ${secretErr.message}` },
+        };
       }
 
-      // Sinkronkan ke app_settings untuk backward compatibility
-      await client.from("app_settings").upsert(
+      // Simpan HANYA nilai ter-masking di app_settings agar secret mentah tidak pernah bocor ke browser
+      const { error: settingsErr } = await client.from("app_settings").upsert(
         {
           organization_id: orgId,
           key: item.key,
-          value: item.val,
+          value: masked,
         },
         { onConflict: "organization_id,key" }
       );
+
+      if (settingsErr && settingsErr.code !== "42P01") {
+        return {
+          status: 500,
+          data: { error: `Gagal memperbarui status pengaturan (${item.key}): ${settingsErr.message}` },
+        };
+      }
     }
 
     try {
       await client.from("audit_logs").insert({
         organization_id: orgId,
         actor_id: userData.user.id,
-        actor_role: "admin",
+        actor_role: effectiveRole === "superadmin" || effectiveRole === "super_admin" ? "superadmin" : "admin",
         action: "update_integration_secrets",
         resource_type: "integration_secrets",
         after_state: { updated_keys: updates.map((u) => u.key) },

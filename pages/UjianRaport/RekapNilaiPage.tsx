@@ -545,6 +545,10 @@ const RekapNilaiPage: React.FC = () => {
         const existingSnap = publishedSnapshotsBySantri[item.santri.id];
         const nextVersion = existingSnap ? (Number(existingSnap.version_no) || 1) + 1 : 1;
 
+        if (existingSnap && (!amendmentReason || amendmentReason.trim().length < 5)) {
+            throw new Error('Alasan revisi (amendment) wajib diisi minimal 5 karakter.');
+        }
+
         const { error: rpcErr } = await (supabase as any).rpc('rpc_publish_report_card', {
             p_org_id: orgId,
             p_academic_year_id: selectedAcademicYear?.id,
@@ -553,18 +557,30 @@ const RekapNilaiPage: React.FC = () => {
             p_final_score: item.finalScore,
             p_predikat: item.predikat,
             p_snapshot_json: snapshotPayload,
-            p_amendment_reason: amendmentReason || (existingSnap ? `Amendment v${nextVersion}` : 'Publikasi awal v1')
+            p_amendment_reason: amendmentReason?.trim() || (existingSnap ? null : 'Publikasi awal v1')
         });
 
         if (rpcErr) {
+            // Hanya fallback bila fungsi RPC belum dibuat di database (42883 / PGRST202).
+            // Jika error berasal dari penolakan hak akses atau validasi immutability, lempar error!
+            const isMissingRpc =
+                rpcErr.code === '42883' ||
+                rpcErr.code === 'PGRST202' ||
+                String(rpcErr.message || '').includes('Could not find the function');
+
+            if (!isMissingRpc) {
+                throw new Error(rpcErr.message || 'Gagal menerbitkan snapshot raport.');
+            }
+
             if (existingSnap?.id) {
-                await (supabase as any)
+                const { error: updErr } = await (supabase as any)
                     .from('report_cards')
                     .update({ status: 'amended', updated_at: new Date().toISOString() })
                     .eq('id', existingSnap.id);
+                if (updErr) throw updErr;
             }
 
-            await (supabase as any).from('report_cards').insert({
+            const { error: insErr } = await (supabase as any).from('report_cards').insert({
                 organization_id: orgId,
                 academic_year_id: selectedAcademicYear?.id,
                 semester_name: selectedSemester,
@@ -575,10 +591,11 @@ const RekapNilaiPage: React.FC = () => {
                 predikat: item.predikat,
                 snapshot_json: snapshotPayload,
                 parent_report_card_id: existingSnap?.id || null,
-                amendment_reason: amendmentReason || null,
+                amendment_reason: amendmentReason?.trim() || null,
                 published_by: userProfile?.id || null,
                 published_at: new Date().toISOString()
             });
+            if (insErr) throw insErr;
 
             await (supabase as any).from('audit_logs').insert({
                 organization_id: orgId,
@@ -587,7 +604,7 @@ const RekapNilaiPage: React.FC = () => {
                 action: existingSnap ? 'amend_report_card' : 'publish_report_card',
                 resource_type: 'report_cards',
                 resource_id: `${item.santri.id}-v${nextVersion}`,
-                reason: amendmentReason || `Publikasi Snapshot Raport v${nextVersion}`,
+                reason: amendmentReason?.trim() || `Publikasi Snapshot Raport v${nextVersion}`,
                 after_state: { santri_id: item.santri.id, version_no: nextVersion, final_score: item.finalScore }
             });
         }
@@ -611,15 +628,27 @@ const RekapNilaiPage: React.FC = () => {
             let publishedCount = 0;
 
             for (const item of targets) {
+                const existingSnap = publishedSnapshotsBySantri[item.santri.id];
+                if (existingSnap) {
+                    // Jangan menimpa snapshot yang sudah terbit tanpa alasan amendment eksplisit
+                    continue;
+                }
                 await publishSingleStudentSnapshot(item, orgId);
                 publishedCount++;
             }
 
             await fetchReportCards();
-            NotificationStore.addNotification(
-                `Berhasil membekukan (publish) snapshot raport immutable untuk ${publishedCount} santri.`,
-                'success'
-            );
+            if (publishedCount === 0) {
+                NotificationStore.addNotification(
+                    'Seluruh santri terpilih sudah memiliki snapshot terbit. Gunakan tombol Amend pada baris santri untuk menerbitkan revisi beserta alasan audit.',
+                    'info'
+                );
+            } else {
+                NotificationStore.addNotification(
+                    `Berhasil membekukan (publish) snapshot raport resmi untuk ${publishedCount} santri.`,
+                    'success'
+                );
+            }
         } catch (err: any) {
             console.error(err);
             NotificationStore.addNotification('Gagal mempublikasikan snapshot raport: ' + (err.message || 'Terjadi kesalahan'), 'error');
@@ -630,11 +659,15 @@ const RekapNilaiPage: React.FC = () => {
 
     const handleConfirmAmendment = async (reason?: string) => {
         if (!amendingItem || !selectedAcademicYear) return;
+        if (!reason || reason.trim().length < 5) {
+            NotificationStore.addNotification('Alasan revisi (amendment) wajib diisi minimal 5 karakter.', 'error');
+            return;
+        }
         setIsSaving(true);
         try {
             const orgId = await getOrgId();
             if (!orgId) throw new Error('Organisasi tidak ditemukan');
-            await publishSingleStudentSnapshot(amendingItem, orgId, reason || 'Revisi pasca-terbit (Amendment)');
+            await publishSingleStudentSnapshot(amendingItem, orgId, reason.trim());
             await fetchReportCards();
             NotificationStore.addNotification(
                 `Amendment Raport untuk ${amendingItem.santri.nama} berhasil diterbitkan sebagai versi baru.`,
@@ -849,6 +882,15 @@ const RekapNilaiPage: React.FC = () => {
                                                             label={Number(pubSnap.version_no) > 1 ? `AMENDED v${pubSnap.version_no}` : `PUBLISHED v1`}
                                                             tone={Number(pubSnap.version_no) > 1 ? 'warning' : 'success'}
                                                         />
+                                                        {pubSnap.verification_code && (
+                                                            <a
+                                                                href={`/verify/${encodeURIComponent(pubSnap.verification_code)}`}
+                                                                className="font-mono text-[10px] font-semibold text-blue-600 hover:underline"
+                                                                title={`Hash SHA-256: ${pubSnap.snapshot_hash || '-'}`}
+                                                            >
+                                                                {pubSnap.verification_code}
+                                                            </a>
+                                                        )}
                                                         {pubSnap.amendment_reason && (
                                                             <span className="text-[10px] text-slate-400 max-w-[120px] truncate" title={pubSnap.amendment_reason}>
                                                                 {pubSnap.amendment_reason}

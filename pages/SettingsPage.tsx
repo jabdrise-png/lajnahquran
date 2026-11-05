@@ -228,24 +228,29 @@ const SettingsPage: React.FC = () => {
     const handleSaveNotifikasi = async () => {
         setIsSaving(true);
         try {
-            try {
-                const { data: { session } } = await supabase.auth.getSession();
-                const token = session?.access_token;
-                if (token) {
-                    await fetch('/api/integrations', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            Authorization: `Bearer ${token}`
-                        },
-                        body: JSON.stringify({
-                            telegramBotToken: telegramBotToken && !telegramBotToken.includes('••••') ? telegramBotToken : undefined,
-                            fonnteApiToken: fonnteApiToken && !fonnteApiToken.includes('••••') ? fonnteApiToken : undefined
-                        })
-                    });
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            const hasNewSecret =
+                (telegramBotToken && !telegramBotToken.includes('••••')) ||
+                (fonnteApiToken && !fonnteApiToken.includes('••••'));
+
+            if (token && hasNewSecret) {
+                const resp = await fetch('/api/integrations', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        telegramBotToken: telegramBotToken && !telegramBotToken.includes('••••') ? telegramBotToken : undefined,
+                        fonnteApiToken: fonnteApiToken && !fonnteApiToken.includes('••••') ? fonnteApiToken : undefined
+                    })
+                });
+                const contentType = resp.headers.get('content-type') || '';
+                if (!resp.ok && contentType.includes('application/json')) {
+                    const errBody = await resp.json().catch(() => ({}));
+                    throw new Error(errBody.error || `Gagal menyimpan token integrasi di server (${resp.status}).`);
                 }
-            } catch {
-                // Fallback jika berjalan tanpa fungsi serverless
             }
 
             const maskSecret = (val: string) => {

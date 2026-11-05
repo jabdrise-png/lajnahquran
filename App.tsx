@@ -40,6 +40,8 @@ import PengaturanNilaiPage from './pages/UjianRaport/PengaturanNilaiPage';
 import LaporanRekapPage from './pages/Laporan/LaporanRekapPage';
 import SettingsPage from './pages/SettingsPage';
 import WebsiteEditorPage from './pages/WebsiteEditorPage';
+import AcceptInvitePage from './pages/AcceptInvitePage';
+import VerifyReportPage from './pages/VerifyReportPage';
 
 import type { Page } from './types';
 import { supabase } from './lib/supabaseClient';
@@ -86,12 +88,40 @@ const App: React.FC = () => {
           .eq('id', userId)
           .single();
 
+        let resolvedRole = profile?.role || 'pending';
+        let isBlockedOrPending = resolvedRole === 'pending';
+
+        // Periksa status keanggotaan di access_grants bila sudah dimigrasikan
+        try {
+          const { data: grants } = await (supabase as any)
+            .from('access_grants')
+            .select('role, status, organization_id')
+            .eq('user_id', userId);
+
+          if (Array.isArray(grants) && grants.length > 0) {
+            const activeGrant = grants.find((g: any) => g.status === 'active');
+            if (!activeGrant) {
+              // Semua grant berstatus invited / suspended / revoked -> blokir akses operasional
+              isBlockedOrPending = true;
+              resolvedRole = 'pending';
+            } else {
+              resolvedRole = activeGrant.role || resolvedRole;
+              isBlockedOrPending = false;
+            }
+          }
+        } catch {
+          // Fallback ke profiles bila access_grants belum ada
+        }
+
         if (profile) {
-          setUserProfile({ name: profile.full_name || 'Admin', role: profile.role });
-          if (profile.role === 'super_admin' || profile.role === 'superadmin') {
+          setUserProfile({ name: profile.full_name || 'Admin', role: resolvedRole });
+          if (
+            !isBlockedOrPending &&
+            (resolvedRole === 'super_admin' || resolvedRole === 'superadmin')
+          ) {
             setIsSuperAdmin(true);
             setIsPending(false);
-          } else if (profile.role === 'pending') {
+          } else if (isBlockedOrPending) {
             setIsPending(true);
             setIsSuperAdmin(false);
           } else {
@@ -208,16 +238,16 @@ const App: React.FC = () => {
     );
   }
 
-  if (session && isPending) {
+  if (session && isPending && location.pathname !== '/invite') {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-neutral p-4">
         <div className="bg-white p-8 rounded-xl shadow-lg border border-slate-200 max-w-md text-center">
           <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Lock size={32} className="text-yellow-600" />
           </div>
-          <h2 className="text-xl font-bold text-slate-800 mb-2">Akun Menunggu Persetujuan</h2>
+          <h2 className="text-xl font-bold text-slate-800 mb-2">Akun Menunggu Aktivasi / Ditangguhkan</h2>
           <p className="text-slate-600 mb-6 text-sm leading-relaxed">
-            Pendaftaran Anda berhasil, namun akun ini belum diaktifkan oleh Admin Lembaga.
+            Akun ini belum diaktifkan atau akses keanggotaan Anda sedang ditangguhkan oleh Admin Lembaga.
           </p>
           <button
             onClick={handleLogout}
@@ -247,12 +277,14 @@ const App: React.FC = () => {
   return (
     <Routes>
       {/* =====================================================================
-          1. PUBLIC SHELL ROUTES (/ , /login, /invite)
+          1. PUBLIC SHELL ROUTES (/ , /login, /invite, /verify)
          ===================================================================== */}
       <Route element={<PublicLayout session={session} isSuperAdmin={isSuperAdmin} />}>
         <Route path="/" element={<LandingPage onLoginClick={() => navigate('/login')} />} />
         <Route path="/login" element={<Login onBack={() => navigate('/')} />} />
-        <Route path="/invite" element={<Login onBack={() => navigate('/')} />} />
+        <Route path="/invite" element={<AcceptInvitePage />} />
+        <Route path="/verify" element={<VerifyReportPage />} />
+        <Route path="/verify/:code" element={<VerifyReportPage />} />
       </Route>
 
       {/* =====================================================================
@@ -315,6 +347,7 @@ const App: React.FC = () => {
 
         {/* Operasional Harian (Sesi, Absensi, Setoran & Evaluasi) */}
         <Route path="sessions" element={<SesiHalaqahPage />} />
+        <Route path="sessions/:sessionId" element={<SesiHalaqahPage />} />
         <Route path="sessions/:sessionId/attendance" element={<SesiHalaqahPage />} />
         <Route path="sessions/:sessionId/recitations" element={<SesiHalaqahPage />} />
         <Route path="my-halaqah" element={<SesiHalaqahPage />} />
@@ -354,6 +387,7 @@ const App: React.FC = () => {
         <Route path="students" element={<SantriPage />} />
         <Route path="students/:studentId" element={<SantriPage />} />
         <Route path="Enrollment-promotion" element={<KenaikanKelasPage />} />
+        <Route path="enrollment-promotion" element={<KenaikanKelasPage />} />
         <Route path="musammi" element={<MusammiPage />} />
         <Route path="halaqah" element={<HalaqahPage />} />
         <Route path="halaqah/:halaqahId" element={<HalaqahPage />} />

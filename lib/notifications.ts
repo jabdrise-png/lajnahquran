@@ -77,13 +77,7 @@ export function generateMessageText(stats: AttendanceStats, students: StudentRec
     return msg;
 }
 
-const isMaskedToken = (val?: string | null) => {
-    if (!val) return true;
-    const clean = String(val).trim();
-    return !clean || clean.includes('••') || clean.includes('**');
-};
-
-export async function sendMessageTelegram(botToken: string, chatId: string, text: string) {
+export async function sendMessageTelegram(_botToken: string, chatId: string, text: string) {
     if (!chatId) return false;
     try {
         const { data: sessionData } = await supabase.auth.getSession();
@@ -97,7 +91,6 @@ export async function sendMessageTelegram(botToken: string, chatId: string, text
             body: JSON.stringify({
                 chatId,
                 message: text,
-                botToken: !isMaskedToken(botToken) ? botToken : undefined,
                 parseMode: 'Markdown'
             })
         });
@@ -108,39 +101,19 @@ export async function sendMessageTelegram(botToken: string, chatId: string, text
                 NotificationStore.addNotification(`Pesan Telegram berhasil dikirim ke ${chatId}`, 'success');
                 return true;
             }
-            if (proxyData.error) {
-                NotificationStore.addNotification(`Gagal mengirim Telegram ke ${chatId}: ${proxyData.error}`, 'error');
-                return false;
-            }
-        }
-    } catch (e) {
-        if (isMaskedToken(botToken)) return false;
-    }
-
-    if (isMaskedToken(botToken)) return false;
-    const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
-    try {
-        const response = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chat_id: chatId, text: text, parse_mode: "Markdown" }),
-        });
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error("Telegram API Error:", errorText);
-            NotificationStore.addNotification(`Gagal mengirim Telegram ke ${chatId}`, 'error');
+            const errMsg = proxyData.error || 'Gagal mengirim pesan melalui server.';
+            NotificationStore.addNotification(`Gagal mengirim Telegram ke ${chatId}: ${errMsg}`, 'error');
             return false;
         }
-        NotificationStore.addNotification(`Pesan Telegram berhasil dikirim ke ${chatId}`, 'success');
-        return true;
+        NotificationStore.addNotification(`Gagal mengirim Telegram ke ${chatId}: Respons server tidak valid`, 'error');
+        return false;
     } catch (e: any) {
-        console.error("Failed to send Telegram message", e);
-        NotificationStore.addNotification(`Gagal mengirim Telegram ke ${chatId}: ${e.message}`, 'error');
+        NotificationStore.addNotification(`Gagal mengirim Telegram ke ${chatId}: ${e?.message || 'Koneksi gagal'}`, 'error');
         return false;
     }
 }
 
-export async function sendMessageFonnte(apiToken: string, targetNetwork: string, text: string) {
+export async function sendMessageFonnte(_apiToken: string, targetNetwork: string, text: string) {
     if (!targetNetwork) return false;
     try {
         const { data: sessionData } = await supabase.auth.getSession();
@@ -153,8 +126,7 @@ export async function sendMessageFonnte(apiToken: string, targetNetwork: string,
             headers,
             body: JSON.stringify({
                 target: targetNetwork,
-                message: text,
-                apiToken: !isMaskedToken(apiToken) ? apiToken : undefined
+                message: text
             })
         });
         const contentType = proxyRes.headers.get('content-type') || '';
@@ -164,38 +136,14 @@ export async function sendMessageFonnte(apiToken: string, targetNetwork: string,
                 NotificationStore.addNotification(`Pesan WA berhasil dikirim ke ${targetNetwork}`, 'success');
                 return true;
             }
-            if (proxyData.error) {
-                NotificationStore.addNotification(`Gagal mengirim WA (Fonnte) ke ${targetNetwork}: ${proxyData.error}`, 'error');
-                return false;
-            }
-        }
-    } catch (e) {
-        if (isMaskedToken(apiToken)) return false;
-    }
-
-    if (isMaskedToken(apiToken)) return false;
-    const url = "https://api.fonnte.com/send";
-    const payload = new URLSearchParams();
-    payload.append('target', targetNetwork);
-    payload.append('message', text);
-
-    try {
-        const response = await fetch(url, {
-            method: "POST",
-            headers: { "Authorization": apiToken, "Content-Type": "application/x-www-form-urlencoded" },
-            body: payload.toString(),
-        });
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error("Fonnte API Error:", errorText);
-            NotificationStore.addNotification(`Gagal mengirim WA (Fonnte) ke ${targetNetwork}`, 'error');
+            const errMsg = proxyData.error || 'Gagal mengirim pesan melalui server.';
+            NotificationStore.addNotification(`Gagal mengirim WA (Fonnte) ke ${targetNetwork}: ${errMsg}`, 'error');
             return false;
         }
-        NotificationStore.addNotification(`Pesan WA berhasil dikirim ke ${targetNetwork}`, 'success');
-        return true;
+        NotificationStore.addNotification(`Gagal mengirim WA ke ${targetNetwork}: Respons server tidak valid`, 'error');
+        return false;
     } catch (e: any) {
-        console.error("Failed to send Fonnte message", e);
-        NotificationStore.addNotification(`Gagal mengirim WA ke ${targetNetwork}: ${e.message}`, 'error');
+        NotificationStore.addNotification(`Gagal mengirim WA ke ${targetNetwork}: ${e?.message || 'Koneksi gagal'}`, 'error');
         return false;
     }
 }

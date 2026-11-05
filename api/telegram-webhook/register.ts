@@ -40,24 +40,42 @@ export async function processTelegramWebhookRegister(
     .eq("id", userData.user.id)
     .maybeSingle();
 
-  const role = (profile?.role || "").toLowerCase();
-  if (!profile || !["admin", "admin_mahad", "super_admin", "superadmin"].includes(role)) {
+  let role = (profile?.role || "").toLowerCase();
+  let orgId = profile?.organization_id || null;
+
+  try {
+    const { data: grants } = await userClient
+      .from("access_grants")
+      .select("role, organization_id, status")
+      .eq("user_id", userData.user.id);
+
+    if (Array.isArray(grants) && grants.length > 0) {
+      const activeGrant = grants.find((g: any) => g.status === "active");
+      if (!activeGrant) {
+        return { status: 403, data: { error: "Akses ditolak: Status keanggotaan tidak aktif." } };
+      }
+      role = (activeGrant.role || role).toLowerCase();
+      orgId = activeGrant.organization_id || orgId;
+    }
+  } catch {
+    // fallback if access_grants not migrated yet
+  }
+
+  if (!["admin", "admin_mahad", "super_admin", "superadmin"].includes(role)) {
     return {
       status: 403,
       data: { error: "Akses ditolak: Hanya Admin Lembaga yang dapat mendaftarkan webhook." },
     };
   }
 
-  const { webhookUrl, botToken: explicitToken } = body || {};
+  const { webhookUrl } = body || {};
   if (!webhookUrl) {
     return { status: 400, data: { error: "webhookUrl is required" } };
   }
 
-  let BOT_TOKEN = !isMaskedToken(explicitToken)
-    ? String(explicitToken).trim()
-    : getEnv("TELEGRAM_BOT_TOKEN") || getEnv("VITE_TELEGRAM_BOT_TOKEN");
+  let BOT_TOKEN = "";
 
-  if (!BOT_TOKEN && profile.organization_id) {
+  if (orgId) {
     const secretReader = serviceRoleKey
       ? createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
       : userClient;
@@ -66,7 +84,7 @@ export async function processTelegramWebhookRegister(
       const { data: secretRow } = await secretReader
         .from("integration_secrets")
         .select("secret_value")
-        .eq("organization_id", profile.organization_id)
+        .eq("organization_id", orgId)
         .eq("secret_key_name", "TELEGRAM_BOT_TOKEN")
         .maybeSingle();
       if (secretRow?.secret_value && !isMaskedToken(secretRow.secret_value)) {
@@ -80,7 +98,7 @@ export async function processTelegramWebhookRegister(
       const { data: settings } = await userClient
         .from("app_settings")
         .select("value")
-        .eq("organization_id", profile.organization_id)
+        .eq("organization_id", orgId)
         .eq("key", "TELEGRAM_BOT_TOKEN")
         .maybeSingle();
       if (settings?.value && !isMaskedToken(settings.value)) {
@@ -89,8 +107,12 @@ export async function processTelegramWebhookRegister(
     }
   }
 
+  if (!BOT_TOKEN) {
+    BOT_TOKEN = getEnv("TELEGRAM_BOT_TOKEN");
+  }
+
   if (!BOT_TOKEN || isMaskedToken(BOT_TOKEN)) {
-    return { status: 400, data: { error: "Token Bot Telegram belum dikonfigurasi di server." } };
+    return { status: 400, data: { error: "Token Bot Telegram belum dikonfigurasi di server. Simpan token terlebih dahulu." } };
   }
 
   const webhookPayload: Record<string, any> = { url: webhookUrl };
