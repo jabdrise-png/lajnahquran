@@ -71,18 +71,13 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
 
     // 1. Filter Data
     const filteredData = useMemo(() => {
-        let base = attendance;
-        if (userProfile?.role === 'pengajar') {
-            const userWaliClasses = waliKelas.filter(w => w.user_id === userProfile.id).map(w => ({ marhalah: w.marhalah, kelas: w.kelas }));
-            base = base.filter(record => record.peran === 'Santri' && userWaliClasses.some(wc => wc.marhalah === record.marhalah && wc.kelas === record.kelas));
-        }
-        return base.filter(record => {
+        return attendance.filter(record => {
             if (dateRange.start && record.date < dateRange.start) return false;
             if (dateRange.end && record.date > dateRange.end) return false;
             if (selectedMarhalah !== 'all' && record.marhalah !== selectedMarhalah) return false;
             return true;
         });
-    }, [attendance, dateRange, selectedMarhalah, userProfile, waliKelas]);
+    }, [attendance, dateRange, selectedMarhalah]);
 
     // 2. Aggregate Data per Class
     const classRecapData = useMemo(() => {

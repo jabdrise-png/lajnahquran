@@ -8,127 +8,17 @@ import { useSupabaseData } from '../../hooks/useSupabaseData';
 import { Marhalah, WaliKelas } from '../../types';
 import { Plus, Trash, Download, Edit, Upload, FileSpreadsheet, FileText, Search, ChevronRight } from 'lucide-react';
 import { parseSpreadsheet, exportToExcel, exportToPDF } from '../../lib/utils';
-import { supabase, supabaseUrl, supabaseAnonKey } from '../../lib/supabaseClient';
+import { supabase } from '../../lib/supabaseClient';
+import { StatusBadge } from '../../components/ui/SaaSPrimitives';
+import { NotificationStore } from '../../lib/NotificationStore';
 
 const WaliKelasPage: React.FC = () => {
-    const { getOrgId, selectedAcademicYear, masterKelas , globalMarhalahs, fetchData , masterMarhalahs, masterKelasRelasi} = useSupabaseData();
+    const { getOrgId, selectedAcademicYear, masterKelas, globalMarhalahs, fetchData, masterMarhalahs, masterKelasRelasi } = useSupabaseData();
     const [waliList, setWaliList] = useState<WaliKelas[]>([]);
     const [loading, setLoading] = useState(true);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 100;
-
-    const [authProfiles, setAuthProfiles] = useState<any[]>([]);
-
-    useEffect(() => {
-        const fetchAuthProfiles = async () => {
-            const orgId = await getOrgId();
-            if (!orgId) return;
-            const { data } = await supabase
-                .from('profiles')
-                .select('id, full_name, email')
-                .eq('organization_id', orgId)
-                .eq('role', 'pengajar');
-            if (data) setAuthProfiles(data);
-        };
-        fetchAuthProfiles();
-    }, [getOrgId]);
-
-    // Account Creation Modal State
-    const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
-    const [accountData, setAccountData] = useState({
-        email: '',
-        password: '',
-        full_name: '',
-        wali_id: ''
-    });
-    const [isCreatingAccount, setIsCreatingAccount] = useState(false);
-
-    const openAccountModal = (w: any | null = null) => {
-        setAccountData({
-            email: '',
-            password: '',
-            full_name: w ? w.nama : '',
-            wali_id: w ? w.id.toString() : ''
-        });
-        setIsAccountModalOpen(true);
-    };
-
-    const handleCreateAccount = async () => {
-        if (!accountData.email || !accountData.password || !accountData.full_name) {
-            alert('Semua field akun wajb diisi.');
-            return;
-        }
-
-        const orgId = await getOrgId();
-        if(!orgId) return;
-
-        setIsCreatingAccount(true);
-        try {
-            const { createClient } = await import('@supabase/supabase-js');
-            
-            
-            const tempSupabase = createClient(supabaseUrl, supabaseAnonKey, {
-                auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'temp-auth-key-' + Math.random().toString(36).substring(7) }
-            });
-
-            const { data: authData, error: authError } = await tempSupabase.auth.signUp({
-                email: accountData.email,
-                password: accountData.password,
-                options: {
-                    data: {
-                        full_name: accountData.full_name,
-                        target_organization_id: orgId,
-                        role: 'pengajar'
-                    }
-                }
-            });
-
-            if (authError) throw authError;
-            if (!authData.user) throw new Error("Gagal membuat user auth.");
-
-            // Tunggu sebentar untuk trigger Supabase
-            await new Promise(res => setTimeout(res, 1500));
-
-            const { error: profileError } = await supabase
-                .from('profiles')
-                .update({ role: 'pengajar' })
-                .eq('id', authData.user.id)
-                .eq('organization_id', orgId);
-            
-            if (profileError) {
-                console.error("Gagal update role profil", profileError);
-            }
-
-            if (accountData.wali_id) {
-                const { error: waliError } = await (supabase as any)
-                    .from('wali_kelas')
-                    .update({ user_id: authData.user.id })
-                    .eq('id', parseInt(accountData.wali_id))
-                    .eq('organization_id', orgId);
-                if (waliError) throw waliError;
-            }
-
-            alert("Akun Pengajar berhasil dibuat!");
-            setIsAccountModalOpen(false);
-            
-            const { data } = await supabase
-                .from('profiles')
-                .select('id, full_name, email')
-                .eq('organization_id', orgId)
-                .eq('role', 'pengajar');
-            if (data) setAuthProfiles(data);
-            await fetchWali();
-            
-        } catch (e: any) {
-            console.error(e);
-            alert("Gagal membuat akun: " + e.message);
-        } finally {
-            setIsCreatingAccount(false);
-        }
-    };
-
-    
     // Filters
     const [filterMarhalah, setFilterMarhalah] = useState<string | 'all'>('all');
     const [filterKelas, setFilterKelas] = useState<string | 'all'>('all');
@@ -217,11 +107,11 @@ const WaliKelasPage: React.FC = () => {
     const handleSubmit = async () => {
         try {
             const orgId = await getOrgId();
-            if (!selectedAcademicYear) return alert("Tahun ajaran belum dipilih");
-            if (!formData.nama) return alert("Nama wajib diisi");
+            if (!selectedAcademicYear) return NotificationStore.addNotification("Tahun ajaran belum dipilih", "error");
+            if (!formData.nama) return NotificationStore.addNotification("Nama wajib diisi", "error");
             
             const finalKelas = isCustomKelas ? customKelas : formData.kelas;
-            if (!finalKelas) return alert("Kelas wajib diisi");
+            if (!finalKelas) return NotificationStore.addNotification("Kelas wajib diisi", "error");
             
             
             const m_id = masterMarhalahs.find((m: any) => m.nama === formData.marhalah)?.id || null;
@@ -261,22 +151,42 @@ const WaliKelasPage: React.FC = () => {
                 }
                 if (error) throw error;
             }
+
+            // Sinkronisasi dua arah ke master_kelas_relasi (wali_kelas_name, wali_kelas_phone) & santri (wali_kelas_nama)
+            try {
+                if (k_id) {
+                    await (supabase as any)
+                        .from('master_kelas_relasi')
+                        .update({
+                            wali_kelas_name: formData.nama,
+                            wali_kelas_phone: formData.no_hp || null,
+                        })
+                        .eq('id', k_id)
+                        .eq('organization_id', orgId);
+                }
+                await (supabase as any)
+                    .from('santri')
+                    .update({ wali_kelas_nama: formData.nama })
+                    .eq('organization_id', orgId)
+                    .eq('kelas', finalKelas);
+            } catch {}
+
             await fetchWali();
+            if (fetchData) await fetchData();
             setIsModalOpen(false);
-            alert("Data berhasil disimpan!");
+            NotificationStore.addNotification("Atribut Wali Kelas berhasil disimpan dan disinkronkan ke struktur kelas.", "success");
         } catch (error: any) {
             console.error(error);
-            alert("Gagal menyimpan data: " + error.message);
+            NotificationStore.addNotification("Gagal menyimpan data: " + error.message, "error");
         }
     };
 
     const handleDelete = async (id: number) => {
-        if(confirm("Hapus Wali Kelas?")) {
-            const orgId = await getOrgId();
-            if (!orgId) return;
-            await supabase.from('wali_kelas').delete().eq('id', id).eq('organization_id', orgId);
-            fetchWali();
-        }
+        const orgId = await getOrgId();
+        if (!orgId) return;
+        await supabase.from('wali_kelas').delete().eq('id', id).eq('organization_id', orgId);
+        fetchWali();
+        NotificationStore.addNotification("Atribut Wali Kelas berhasil dihapus.", "info");
     };
 
     // Import/Export
@@ -291,7 +201,7 @@ const WaliKelasPage: React.FC = () => {
         try {
             const orgId = await getOrgId();
             if(!selectedAcademicYear) {
-                alert("Pilih tahun ajaran terlebih dahulu");
+                NotificationStore.addNotification("Pilih tahun ajaran terlebih dahulu", "error");
                 return;
             }
             const excelData = await parseSpreadsheet(file);
@@ -313,8 +223,8 @@ const WaliKelasPage: React.FC = () => {
                 }
             }
             await fetchWali();
-            alert(`Import selesai. Sukses: ${success}, Gagal: ${fail}`);
-        } catch(e: any) { alert(`Import gagal: ${e.message}`); }
+            NotificationStore.addNotification(`Import selesai. Sukses: ${success}, Gagal: ${fail}`, fail > 0 ? 'info' : 'success');
+        } catch(e: any) { NotificationStore.addNotification(`Import gagal: ${e.message}`, 'error'); }
         finally { if(fileInputRef.current) fileInputRef.current.value = ''; }
     };
 
@@ -333,11 +243,14 @@ const WaliKelasPage: React.FC = () => {
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 mt-2">
                 <div>
+                    <div className="flex items-center gap-2 mb-1.5">
+                        <StatusBadge label="ATRIBUT ADMINISTRATIF KELAS (NON-LOGIN)" tone="primary" />
+                    </div>
                     <h1 className="text-[24px] font-extrabold text-slate-900 tracking-tight leading-none mb-2">
-                        Data Wali Kelas
+                        Atribut Wali Kelas
                     </h1>
                     <p className="text-[13px] text-slate-500 font-medium">
-                        Kelola data wali kelas, kelas yang diampu, dan nomor kontak.
+                        Sesuai Arsitektur 3-Role (Superadmin, Admin, Musammi), Wali Kelas dikelola sebagai atribut teks administratif pada struktur kelas & raport.
                     </p>
                 </div>
             </div>
@@ -361,13 +274,6 @@ const WaliKelasPage: React.FC = () => {
                             <FileText size={14} className="mr-2 text-red-600"/> Export PDF
                         </button>
                     </ActionDropdown>
-
-                    <button 
-                        onClick={() => openAccountModal(null)} 
-                        className="inline-flex h-10 items-center justify-center rounded-xl bg-emerald-600 px-4 sm:px-5 text-[13px] font-bold text-white shadow-[0_2px_12px_rgba(16,185,129,0.25)] transition-all hover:bg-emerald-700 hover:-translate-y-0.5 active:translate-y-0"
-                    >
-                        Akun Wali Kelas
-                    </button>
                     
                     <button 
                         onClick={() => openModal(null)} 
@@ -545,13 +451,8 @@ const WaliKelasPage: React.FC = () => {
                         </div>
                     </div>
                      
-                    <div>
-                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Akun Login Terkait (Opsional)</label>
-                        <select className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-[13px] font-semibold text-slate-800 cursor-pointer" value={formData.user_id || ''} onChange={e => setFormData({...formData, user_id: e.target.value || null})}>
-                            <option value="">-- Tidak dikaitkan --</option>
-                            {authProfiles.map(p => <option key={p.id} value={p.id}>{p.full_name} ({p.email})</option>)}
-                        </select>
-                        <p className="text-[11px] text-slate-400 mt-1">Mengaitkan profil wali kelas dengan akun pengguna akan membatasi akses tampilan mereka sesuai dengan kelas yang mereka pandu.</p>
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600">
+                        Nama Wali Kelas ini otomatis disinkronkan ke struktur <span className="font-semibold text-slate-800">master_kelas_relasi</span> dan atribut santri pada kelas terkait untuk keperluan cetak raport.
                     </div>
                     <div className="flex justify-end gap-3 pt-6 border-t border-slate-200/80">
                         <button onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-xl text-[13px] font-bold text-slate-600 hover:bg-slate-100 transition-colors">Batal</button>
@@ -559,72 +460,8 @@ const WaliKelasPage: React.FC = () => {
                     </div>
                 </div>
             </Modal>
-        
-            <Modal isOpen={isAccountModalOpen} onClose={() => setIsAccountModalOpen(false)} title="Buat Akun Akses Pengajar">
-                <div className="space-y-4">
-                    <p className="text-[13px] text-slate-500 mb-2">
-                        Akun ini digunakan oleh pengajar / wali kelas untuk masuk ke aplikasi, melihat daftar kelas mereka, dan mengelola halaqah.
-                    </p>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Email <span className="text-red-500">*</span></label>
-                        <input
-                            type="email"
-                            className="w-full border-slate-300 rounded-md shadow-sm"
-                            value={accountData.email}
-                            onChange={(e) => setAccountData({ ...accountData, email: e.target.value })}
-                            placeholder="nama@email.com"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Password <span className="text-red-500">*</span></label>
-                        <input
-                            type="password"
-                            className="w-full border-slate-300 rounded-md shadow-sm"
-                            value={accountData.password}
-                            onChange={(e) => setAccountData({ ...accountData, password: e.target.value })}
-                            placeholder="Minimal 6 karakter"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Nama Lengkap <span className="text-red-500">*</span></label>
-                        <input
-                            type="text"
-                            className="w-full border-slate-300 rounded-md shadow-sm"
-                            value={accountData.full_name}
-                            onChange={(e) => setAccountData({ ...accountData, full_name: e.target.value })}
-                            placeholder="Nama Lengkap Pengajar"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Kaitkan ke Profil Wali Kelas (Opsional)</label>
-                        <select
-                            className="w-full border-slate-300 rounded-md shadow-sm"
-                            value={accountData.wali_id}
-                            onChange={(e) => setAccountData({ ...accountData, wali_id: e.target.value })}
-                        >
-                            <option value="">-- Buat akun saja (bisa dikaitkan nanti) --</option>
-                            {waliList.map((m) => (
-                                <option key={m.id} value={m.id}>
-                                    {m.nama} - {m.kelas}
-                                </option>
-                            ))}
-                        </select>
-                        {accountData.wali_id && (
-                            <p className="text-[12px] text-emerald-600 mt-2 flex items-center">
-                                Profil {waliList.find(m => m.id.toString() === accountData.wali_id)?.nama} akan langsung dikaitkan.
-                            </p>
-                        )}
-                    </div>
-
-                    <div className="flex justify-end pt-5 gap-3 border-t">
-                        <button onClick={() => setIsAccountModalOpen(false)} className="px-5 py-2.5 rounded-lg text-[13px] font-semibold text-slate-600 hover:bg-slate-100 transition-colors">Batal</button>
-                        <button onClick={handleCreateAccount} disabled={isCreatingAccount} className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg text-[13px] font-semibold hover:bg-emerald-700 hover:-translate-y-0.5 disabled:opacity-50 disabled:translate-y-0 transition-all shadow-[0_2px_12px_rgba(16,185,129,0.25)]">{isCreatingAccount ? 'Membuat Akun...' : 'Buat Akun'}</button>
-                    </div>
-                </div>
-            </Modal>
         </div>
     );
-
 };
 
 export default WaliKelasPage;

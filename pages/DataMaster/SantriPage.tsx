@@ -1,4 +1,5 @@
-import React, { useState, useRef, useMemo } from 'react'; 
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { MarhalahLabel, KelasLabel } from '../../components/Labels';
 import Card from '../../components/Card';
 import Modal from '../../components/Modal';
@@ -10,8 +11,12 @@ import { Plus, Trash, Upload, Download, Search, Edit, FileText, FileSpreadsheet,
 import { parseSpreadsheet, exportToExcel, exportToPDF } from '../../lib/utils';
 import * as XLSX from 'xlsx';
 import { supabase } from '../../lib/supabaseClient';
+import { StatusBadge } from '../../components/ui/SaaSPrimitives';
+import { NotificationStore } from '../../lib/NotificationStore';
 
 const SantriPage: React.FC = () => {
+    const { studentId } = useParams<{ studentId?: string }>();
+    const navigate = useNavigate();
 
     const handleWA = (phone: string) => {
         const clean = phone.replace(/\D/g, '');
@@ -19,13 +24,15 @@ const SantriPage: React.FC = () => {
         window.open(`https://wa.me/${final}`, '_blank');
     };
 
-    const { allSantri, fetchData, loading, error, getOrgId, masterKelas, globalMarhalahs, masterMarhalahs, masterKelasRelasi, userProfile, waliKelas, appSettings } = useSupabaseData();
-    const { selectedAcademicYear } = useAcademicYear();
+    const { allSantri, santri, halaqah, setoranHarian, fetchData, loading, error, getOrgId, masterKelas, globalMarhalahs, masterMarhalahs, masterKelasRelasi } = useSupabaseData();
+    const { selectedAcademicYear, academicYears } = useAcademicYear();
     
     // State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [editingPerson, setEditingPerson] = useState<Santri | null>(null);
+    const [detailSantri, setDetailSantri] = useState<Santri | null>(null);
+    const [studentEnrollmentHistory, setStudentEnrollmentHistory] = useState<any[]>([]);
     const [formData, setFormData] = useState({
         nama: '', kode: '', marhalah: '', 
         kelas: '',
@@ -37,6 +44,7 @@ const SantriPage: React.FC = () => {
     const [filterKelas, setFilterKelas] = useState<string | 'all'>('all');
     const [filterSearch, setFilterSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('active');
+    const [filterUnenrolledOnly, setFilterUnenrolledOnly] = useState(false);
     const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
 
     const handleSort = (key: string) => {
@@ -59,15 +67,49 @@ const SantriPage: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 100;
 
-    // Derived Data
+    // Derived Data (Identitas Master Santri vs Enrollment Tahun Ajaran Aktif)
     const activeSantri = useMemo(() => {
-        let baseSantri = allSantri;
-        if (userProfile?.role === 'pengajar') {
-            const userWaliClasses = waliKelas.filter(w => w.user_id === userProfile.id).map(w => ({ marhalah: w.marhalah, kelas: w.kelas }));
-            baseSantri = baseSantri.filter(s => userWaliClasses.some(wc => wc.marhalah === s.marhalah && wc.kelas === s.kelas));
+        return allSantri;
+    }, [allSantri]);
+
+    const enrolledIdSet = useMemo(() => {
+        const ids = new Set<number>();
+        (santri || []).forEach((s) => {
+            if (s.kelas && s.kelas !== '-') {
+                ids.add(s.id);
+            }
+        });
+        return ids;
+    }, [santri]);
+
+    const unenrolledCount = useMemo(() => {
+        return activeSantri.filter((s) => (s.status || 'active') === 'active' && !enrolledIdSet.has(s.id)).length;
+    }, [activeSantri, enrolledIdSet]);
+
+    const openDetailTimeline = async (person: Santri) => {
+        setDetailSantri(person);
+        try {
+            const orgId = await getOrgId();
+            if (!orgId) return;
+            const { data } = await (supabase.from('student_classes' as any) as any)
+                .select('*')
+                .eq('organization_id', orgId)
+                .eq('santri_id', person.id)
+                .order('academic_year_id', { ascending: false });
+            setStudentEnrollmentHistory(data || []);
+        } catch {
+            setStudentEnrollmentHistory([]);
         }
-        return baseSantri;
-    }, [allSantri, userProfile, waliKelas]);
+    };
+
+    useEffect(() => {
+        if (studentId && allSantri && allSantri.length > 0) {
+            const target = allSantri.find((s) => String(s.id) === String(studentId));
+            if (target && detailSantri?.id !== target.id) {
+                openDetailTimeline(target);
+            }
+        }
+    }, [studentId, allSantri]);
 
     const availableFilterKelas = useMemo(() => {
         if (filterMarhalah === 'all') return [];
@@ -95,6 +137,7 @@ const SantriPage: React.FC = () => {
 
     const filteredData = useMemo(() => {
         let result = activeSantri.filter(item => {
+            if (filterUnenrolledOnly && enrolledIdSet.has(item.id)) return false;
             if (filterMarhalah !== 'all' && item.marhalah !== filterMarhalah) return false;
             if (filterKelas !== 'all' && item.kelas !== filterKelas) return false;
             if (filterSearch && !item.nama.toLowerCase().includes(filterSearch.toLowerCase()) && item.id.toString() !== filterSearch.trim()) return false;
@@ -140,7 +183,7 @@ const SantriPage: React.FC = () => {
         }
 
         return result;
-    }, [activeSantri, filterMarhalah, filterKelas, filterSearch, filterStatus, globalMarhalahs, sortConfig]);
+    }, [activeSantri, filterUnenrolledOnly, enrolledIdSet, filterMarhalah, filterKelas, filterSearch, filterStatus, globalMarhalahs, sortConfig]);
 
     const paginatedData = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
@@ -188,10 +231,16 @@ const SantriPage: React.FC = () => {
     };
 
     const handleSubmit = async () => {
-        if (!formData.nama) return alert("Nama wajib diisi");
+        if (!formData.nama) {
+            NotificationStore.addNotification("Nama wajib diisi", "error");
+            return;
+        }
         
         const finalKelas = formData.kelas;
-        if (!finalKelas) return alert("Kelas wajib diisi");
+        if (!finalKelas) {
+            NotificationStore.addNotification("Kelas wajib diisi", "error");
+            return;
+        }
 
         setIsSubmitting(true);
         try {
@@ -282,36 +331,52 @@ const SantriPage: React.FC = () => {
                         await (supabase.from('student_classes' as any) as any).insert(classPayload);
                     }
                 }
+
+                // Dual-write ke tabel kanonikal student_enrollments (Fase 3 & Fase 6 Blueprint)
+                try {
+                    await (supabase.from('student_enrollments' as any) as any).upsert(
+                        {
+                            organization_id: orgId,
+                            student_id: santriId,
+                            academic_year_id: selectedAcademicYear.id,
+                            marhalah_id: m_id,
+                            kelas_id: k_id,
+                            status: formData.status === 'active' ? 'active' : 'withdrawn',
+                            enrolled_at: new Date().toISOString().split('T')[0],
+                        },
+                        { onConflict: 'organization_id,student_id,academic_year_id' }
+                    );
+                } catch {}
             }
 
             await fetchData();
             setIsModalOpen(false);
-            alert(`Berhasil ${editingPerson ? 'memperbarui' : 'menambahkan'} data santri ${formData.nama}!`);
+            NotificationStore.addNotification(`Berhasil ${editingPerson ? 'memperbarui' : 'menambahkan'} data santri & enrollment ${formData.nama}!`, 'success');
         } catch (e: any) {
-            alert(`Error: ${e.message}`);
+            NotificationStore.addNotification(`Error: ${e.message}`, 'error');
         } finally {
             setIsSubmitting(false);
         }
     };
 
     const handleDelete = async (id: number) => {
-        if (!confirm('Hapus data santri ini? (Jika santri memiliki riwayat nilai/absensi, statusnya akan dinonaktifkan agar histori terjaga)')) return;
         try {
             const orgId = await getOrgId();
             const { error } = await supabase.from('santri').delete().eq('id', id).eq('organization_id', orgId);
             if (error) {
-                // Jika tertahan foreign key atau constraint histori, lakukan soft-deactivate
                 const { error: softErr } = await supabase
                     .from('santri')
                     .update({ status: 'non-aktif' })
                     .eq('id', id)
                     .eq('organization_id', orgId);
                 if (softErr) throw error;
-                alert('Santri memiliki riwayat akademik aktif; status santri telah diubah menjadi Non-Aktif agar histori nilai/absensi tidak hilang.');
+                NotificationStore.addNotification('Santri memiliki riwayat akademik aktif; status santri telah diubah menjadi Non-Aktif agar histori nilai/absensi tidak hilang.', 'info');
+            } else {
+                NotificationStore.addNotification('Data santri berhasil dihapus.', 'success');
             }
             await fetchData();
         } catch (e: any) {
-            alert(`Error: ${e.message}`);
+            NotificationStore.addNotification(`Error: ${e.message}`, 'error');
         }
     };
 
@@ -401,7 +466,7 @@ const SantriPage: React.FC = () => {
             const orgId = await getOrgId();
             const csvData = await parseSpreadsheet(file);
             if (!csvData || csvData.length === 0) {
-                alert('File kosong atau format tidak sesuai.');
+                NotificationStore.addNotification('File kosong atau format tidak sesuai.', 'error');
                 return;
             }
 
@@ -513,22 +578,33 @@ const SantriPage: React.FC = () => {
                             classPayload.marhalah = safeLegacyMarhalah;
                             await (supabase.from('student_classes' as any) as any).insert(classPayload);
                         }
+                        try {
+                            await (supabase.from('student_enrollments' as any) as any).upsert(
+                                {
+                                    organization_id: orgId,
+                                    student_id: newSantri.id,
+                                    academic_year_id: selectedAcademicYear.id,
+                                    marhalah_id: m_id,
+                                    kelas_id: k_id,
+                                    status: 'active',
+                                    enrolled_at: new Date().toISOString().split('T')[0],
+                                },
+                                { onConflict: 'organization_id,student_id,academic_year_id' }
+                            );
+                        } catch {}
                     }
                 }
             }
 
             await fetchData();
             
-            let resultMessage = `Hasil Import Santri:\n• Berhasil: ${success} santri\n• Gagal/Ditolak: ${errors.length} baris`;
+            let resultMessage = `Hasil Import Santri: Berhasil ${success} santri, Gagal/Ditolak ${errors.length} baris.`;
             if (errors.length > 0) {
-                resultMessage += `\n\nDetail Kesalahan:\n` + errors.slice(0, 10).join('\n');
-                if (errors.length > 10) {
-                    resultMessage += `\n...dan ${errors.length - 10} kesalahan lainnya.`;
-                }
+                resultMessage += ` Detail: ` + errors.slice(0, 3).join('; ');
             }
-            alert(resultMessage);
+            NotificationStore.addNotification(resultMessage, errors.length > 0 ? 'info' : 'success');
         } catch (e: any) {
-            alert(`Import gagal: ${e.message}`);
+            NotificationStore.addNotification(`Import gagal: ${e.message}`, 'error');
         } finally {
             if (fileInputRef.current) fileInputRef.current.value = '';
         }
@@ -549,13 +625,19 @@ const SantriPage: React.FC = () => {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20 max-w-[1400px] font-sans">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 mt-2">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-4 mt-2">
                 <div>
+                    <div className="flex items-center gap-2 mb-1.5">
+                        <StatusBadge label="IDENTITAS INDUK & ENROLLMENT TAHUNAN" tone="primary" />
+                        {selectedAcademicYear && (
+                            <StatusBadge label={`TA ${selectedAcademicYear.name}`} tone="success" />
+                        )}
+                    </div>
                     <h1 className="text-[24px] font-extrabold text-slate-900 tracking-tight leading-none mb-2">
-                        Data Santri
+                        Data Santri & Enrollment
                     </h1>
                     <p className="text-[13px] text-slate-500 font-medium">
-                        Kelola data induk santri dan penempatan kelas
+                        Identitas induk santri terpisah dari penempatan kelas tahunan (`student_enrollments`). Klik nama santri untuk melihat linimasa progres & riwayat kelas.
                     </p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3">
@@ -586,6 +668,34 @@ const SantriPage: React.FC = () => {
                         <Plus size={16} strokeWidth={2.5}/> Tambah Data
                     </button>
                 </div>
+            </div>
+
+            {/* Banner Kesiapan Enrollment Tahun Ajaran Aktif */}
+            <div className={`p-4 rounded-xl border flex flex-wrap items-center justify-between gap-3 ${unenrolledCount > 0 ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-emerald-50/70 border-emerald-200 text-emerald-900'}`}>
+                <div className="flex items-center gap-3">
+                    <StatusBadge
+                        label={unenrolledCount > 0 ? `${unenrolledCount} BELUM TER-ENROLL` : 'ENROLLMENT LENGKAP'}
+                        tone={unenrolledCount > 0 ? 'warning' : 'success'}
+                    />
+                    <span className="text-xs font-medium">
+                        {unenrolledCount > 0
+                            ? `Terdapat ${unenrolledCount} santri aktif yang belum memiliki penempatan kelas pada Tahun Ajaran ${selectedAcademicYear?.name || 'ini'}.`
+                            : `Seluruh ${enrolledIdSet.size} santri aktif telah memiliki penempatan kelas pada Tahun Ajaran ${selectedAcademicYear?.name || 'ini'}.`}
+                    </span>
+                </div>
+                {unenrolledCount > 0 && (
+                    <button
+                        type="button"
+                        onClick={() => setFilterUnenrolledOnly((prev) => !prev)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                            filterUnenrolledOnly
+                                ? 'bg-amber-900 text-white border-amber-900'
+                                : 'bg-white text-amber-900 border-amber-300 hover:bg-amber-100'
+                        }`}
+                    >
+                        {filterUnenrolledOnly ? 'Tampilkan Semua Santri' : 'Filter Belum Ter-enroll'}
+                    </button>
+                )}
             </div>
 
             {/* Content Wrap */}
@@ -676,7 +786,7 @@ const SantriPage: React.FC = () => {
                                 <tr key={s.id} className="hover:bg-blue-50/30 transition-colors group">
                                     <td className="px-6 py-4 text-[12px] font-medium text-slate-500 text-center">{(currentPage - 1) * itemsPerPage + idx + 1}</td>
                                     <td className="px-6 py-4 border-l border-slate-100/80 text-[12px] font-medium text-slate-400 text-center group-hover:text-blue-500 transition-colors">#{s.id}</td>
-                                    <td className="px-6 py-4 border-l border-slate-100/80">
+                                    <td className="px-6 py-4 border-l border-slate-100/80 cursor-pointer" onClick={() => openDetailTimeline(s)}>
                                         <div className="flex items-center gap-4">
                                             <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 flex items-center justify-center shadow-sm">
                                                 <span className="text-[12px] font-extrabold text-blue-600">
@@ -685,7 +795,12 @@ const SantriPage: React.FC = () => {
                                             </div>
                                             <div>
                                                 <p className="text-[14px] font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{s.nama}</p>
-                                                {s.kode && <p className="text-[11px] font-medium text-slate-500 mt-0.5">NIS: {s.kode}</p>}
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    {s.kode && <span className="text-[11px] font-medium text-slate-500">NIS: {s.kode}</span>}
+                                                    {!enrolledIdSet.has(s.id) && (
+                                                        <StatusBadge label="BELUM ENROLL TA AKTIF" tone="warning" />
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     </td>
@@ -727,7 +842,14 @@ const SantriPage: React.FC = () => {
                                         )}
                                     </td>
                                     <td className="px-6 py-4 border-l border-slate-100/80 text-right">
-                                        <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="flex justify-end gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                            <button
+                                                onClick={() => openDetailTimeline(s)}
+                                                className="px-2.5 h-9 inline-flex items-center justify-center rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-200 text-[11px] font-bold transition-all shadow-sm"
+                                                title="Lihat Linimasa & Riwayat Enrollment"
+                                            >
+                                                Linimasa
+                                            </button>
                                             <button onClick={() => openModal(s)} className="h-9 w-9 inline-flex items-center justify-center rounded-xl bg-slate-50 text-slate-500 hover:bg-blue-500 hover:text-white transition-all shadow-sm">
                                                 <Edit size={14} strokeWidth={2.5}/>
                                             </button>
@@ -871,6 +993,119 @@ const SantriPage: React.FC = () => {
                         </button>
                     </div>
                 </div>
+            </Modal>
+
+            {/* Modal Linimasa Progres & Riwayat Enrollment Santri */}
+            <Modal
+                isOpen={Boolean(detailSantri)}
+                onClose={() => {
+                    setDetailSantri(null);
+                    if (studentId) navigate('/app/students', { replace: true });
+                }}
+                title={`Profil Induk & Linimasa Santri — ${detailSantri?.nama || ''}`}
+            >
+                {detailSantri && (
+                    <div className="space-y-4">
+                        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <div className="text-sm font-bold text-slate-900">{detailSantri.nama}</div>
+                                <div className="text-xs text-slate-500 mt-0.5">
+                                    ID #{detailSantri.id} • NIS: {detailSantri.kode || '-'} • Wali: {detailSantri.nama_wali || '-'}
+                                </div>
+                            </div>
+                            <StatusBadge
+                                label={(detailSantri.status || 'active') === 'active' ? 'SANTRI AKTIF' : 'NON-AKTIF'}
+                                tone={(detailSantri.status || 'active') === 'active' ? 'success' : 'neutral'}
+                            />
+                        </div>
+
+                        <div>
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
+                                1. Riwayat Enrollment Tahunan (Penempatan Kelas)
+                            </h4>
+                            <div className="border border-slate-200 rounded-lg overflow-hidden">
+                                <table className="w-full text-left border-collapse text-xs">
+                                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
+                                        <tr>
+                                            <th className="px-3.5 py-2">Tahun Ajaran</th>
+                                            <th className="px-3.5 py-2">Marhalah</th>
+                                            <th className="px-3.5 py-2">Kelas</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-200">
+                                        {studentEnrollmentHistory.map((row: any) => {
+                                            const ayObj = (academicYears || []).find((a) => a.id === row.academic_year_id);
+                                            return (
+                                                <tr key={row.id || row.academic_year_id}>
+                                                    <td className="px-3.5 py-2 font-semibold text-slate-800">
+                                                        {ayObj?.name || `TA #${row.academic_year_id}`}
+                                                    </td>
+                                                    <td className="px-3.5 py-2 text-slate-600">{row.marhalah}</td>
+                                                    <td className="px-3.5 py-2 font-bold text-blue-700">Kelas {row.kelas}</td>
+                                                </tr>
+                                            );
+                                        })}
+                                        {studentEnrollmentHistory.length === 0 && (
+                                            <tr>
+                                                <td colSpan={3} className="px-3.5 py-4 text-center text-slate-400">
+                                                    Penempatan aktif saat ini: {detailSantri.marhalah} — Kelas {detailSantri.kelas}
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
+                                2. Keanggotaan Halaqah & Ringkasan Setoran
+                            </h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="p-3 rounded-lg border border-slate-200 bg-white">
+                                    <div className="text-[11px] font-semibold text-slate-500 uppercase">Halaqah Binaan</div>
+                                    <div className="text-xs font-bold text-slate-900 mt-1">
+                                        {(halaqah || [])
+                                            .filter((h) => (h.active_santri || h.santri).some((st) => st.id === detailSantri.id))
+                                            .map((h) => `${h.nama} (${h.musammi?.nama || '-'})`)
+                                            .join(', ') || 'Belum tergabung di halaqah aktif'}
+                                    </div>
+                                </div>
+                                <div className="p-3 rounded-lg border border-slate-200 bg-white">
+                                    <div className="text-[11px] font-semibold text-slate-500 uppercase">Transaksi Setoran Tercatat</div>
+                                    <div className="text-xs font-bold text-slate-900 mt-1">
+                                        {(setoranHarian || []).filter((st: any) => st.santri_id === detailSantri.id).length} kali setoran pada periode aktif
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const target = detailSantri;
+                                    setDetailSantri(null);
+                                    if (studentId) navigate('/app/students', { replace: true });
+                                    openModal(target);
+                                }}
+                                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold"
+                            >
+                                Edit Santri / Penempatan Kelas
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setDetailSantri(null);
+                                    if (studentId) navigate('/app/students', { replace: true });
+                                }}
+                                className="px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                            >
+                                Tutup
+                            </button>
+                        </div>
+                    </div>
+                )}
             </Modal>
         </div>
     );

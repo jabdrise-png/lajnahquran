@@ -122,7 +122,7 @@ const UjianBulananPage: React.FC = () => {
 
     const handleSave = async () => {
         if (!selectedPeriode) {
-            alert('Pilih periode ujian terlebih dahulu.');
+            NotificationStore.addNotification('Pilih periode ujian terlebih dahulu.', 'error');
             return;
         }
         setIsSaving(true);
@@ -141,12 +141,12 @@ const UjianBulananPage: React.FC = () => {
             }
             if (recordsToSave.length > 0) {
                 await saveUjianBulanan(recordsToSave);
-                alert('Data berhasil disimpan!');
+                NotificationStore.addNotification('Data ujian bulanan berhasil disimpan!', 'success');
             } else {
-                alert('Tidak ada data untuk disimpan.');
+                NotificationStore.addNotification('Tidak ada data untuk disimpan.', 'info');
             }
         } catch (e: any) {
-            alert('Gagal menyimpan: ' + e.message);
+            NotificationStore.addNotification('Gagal menyimpan: ' + e.message, 'error');
         } finally {
             setIsSaving(false);
         }
@@ -163,16 +163,16 @@ const UjianBulananPage: React.FC = () => {
         await saveAppSetting(appSettingKey, JSON.stringify(updated));
         setNewUjianKe(updated.length + 1);
         setNewUjianBulan('');
+        NotificationStore.addNotification('Periode ujian bulanan ditambahkan.', 'success');
     };
 
     const handleDeleteUjian = async (id: string) => {
-        if (window.confirm('Hapus ujian ini? Data nilai yang sudah tersimpan mungkin tidak akan terlihat.')) {
-            const updated = ubPeriods.filter(p => p.id !== id);
-            await saveAppSetting(appSettingKey, JSON.stringify(updated));
-            if (selectedPeriode === id) {
-                setSelectedPeriode('');
-            }
+        const updated = ubPeriods.filter(p => p.id !== id);
+        await saveAppSetting(appSettingKey, JSON.stringify(updated));
+        if (selectedPeriode === id) {
+            setSelectedPeriode('');
         }
+        NotificationStore.addNotification('Periode ujian bulanan dihapus.', 'info');
     };
 
     const handleDownloadTemplate = () => {
@@ -314,12 +314,12 @@ const UjianBulananPage: React.FC = () => {
             }
             if (recordsToSave.length > 0) {
                 await saveUjianBulanan(recordsToSave);
-                alert(`${recordsToSave.length} data berhasil diimport.`);
+                NotificationStore.addNotification(`${recordsToSave.length} data berhasil diimport.`, 'success');
             } else {
-                alert('Tidak ada data valid yang ditemukan.');
+                NotificationStore.addNotification('Tidak ada data valid yang ditemukan.', 'error');
             }
         } catch (error) {
-            alert('Gagal membaca file: ' + error);
+            NotificationStore.addNotification('Gagal membaca file: ' + error, 'error');
         }
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
@@ -327,14 +327,7 @@ const UjianBulananPage: React.FC = () => {
     const [currentPageNum, setCurrentPageNum] = useState(0);
     const rowsPerPage = 50;
 
-    const allFilteredSantri = (() => {
-                let baseSantri = santri;
-                if (userProfile?.role === 'pengajar') {
-                    const userWaliClasses = waliKelas.filter(w => w.user_id === userProfile.id).map(w => ({ marhalah: w.marhalah, kelas: w.kelas }));
-                    baseSantri = baseSantri.filter(s => userWaliClasses.some(wc => wc.marhalah === s.marhalah && wc.kelas === s.kelas));
-                }
-                return baseSantri;
-            })().filter(s => {
+    const allFilteredSantri = santri.filter(s => {
         if (!s.kelas || s.kelas === 'Belum Ada Kelas' || s.kelas === '-') return false;
         if (selectedMarhalah !== 'All' && s.marhalah !== selectedMarhalah) return false;
         if (selectedKelas !== 'All' && s.kelas !== selectedKelas) return false;
@@ -371,7 +364,7 @@ const UjianBulananPage: React.FC = () => {
                         <Settings2 size={16} className="mr-2.5" strokeWidth={2.5}/> Kelola Ujian
                     </button>
                     {selectedSantriIds.length > 0 && (
-                        <button onClick={() => { if (selectedSantriIds.length === 0) alert('Pilih minimal satu santri.'); else setIsTelegramModalOpen(true); }} disabled={isSendingTelegram} className="bg-[#229ED9] border border-transparent text-white px-3 py-2.5 rounded-xl flex items-center justify-center hover:bg-[#1C88BA] shadow-sm hover:shadow active:bg-[#1875A0] transition-all focus:ring-4 focus:ring-[#229ED9]/20 disabled:opacity-50 disabled:cursor-not-allowed" title="Kirim Laporan ke Telegram">
+                        <button onClick={() => { if (selectedSantriIds.length === 0) NotificationStore.addNotification('Pilih minimal satu santri.', 'error'); else setIsTelegramModalOpen(true); }} disabled={isSendingTelegram} className="bg-[#229ED9] border border-transparent text-white px-3 py-2.5 rounded-xl flex items-center justify-center hover:bg-[#1C88BA] shadow-sm hover:shadow active:bg-[#1875A0] transition-all focus:ring-4 focus:ring-[#229ED9]/20 disabled:opacity-50 disabled:cursor-not-allowed" title="Kirim Laporan ke Telegram">
                             {isSendingTelegram ? <span className="animate-pulse">⏳</span> : <Send size={18} strokeWidth={2.5} />}
                         </button>
                     )}

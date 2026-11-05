@@ -1,20 +1,48 @@
-import React, { useState, useEffect } from 'react'; 
-import { MarhalahLabel, KelasLabel } from '../components/Labels';
+import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSupabaseData } from '../hooks/useSupabaseData';
+import { supabase } from '../lib/supabaseClient';
+import { NotificationStore } from '../lib/NotificationStore';
+import { StatusBadge } from '../components/ui/SaaSPrimitives';
 import { 
-    Settings, Bell, User, Key, Save, Trash2, Plus, Library, Edit, 
-    MessageCircle, MessageSquare, ShieldCheck, GraduationCap, Clock, Hash, Activity, Database
+    Save, Trash2, Plus, Edit
 } from 'lucide-react';
 
+type SettingsTab = 'organization' | 'methodology' | 'integrations';
+
 const SettingsPage: React.FC = () => {
+    const location = useLocation();
+    const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { 
         appSettings, saveAppSetting, loading, 
         masterKelas, addMasterKelas, deleteMasterKelas,
         globalMarhalahs, globalWaktuHalaqah, globalJenisHalaqah, globalAttendanceStatus, globalPredikatNilai,
-        orgName: initialOrgName, orgLogo: initialOrgLogo, updateOrganization
-    , masterMarhalahs, masterKelasRelasi, addMasterMarhalah, updateMasterMarhalah, deleteMasterMarhalah, addMasterKelasRelasi, updateMasterKelasRelasi, deleteMasterKelasRelasi } = useSupabaseData();
-    
-    // Notifikasi states
+        orgName: initialOrgName, orgLogo: initialOrgLogo, updateOrganization,
+        masterMarhalahs, masterKelasRelasi, addMasterMarhalah, updateMasterMarhalah, deleteMasterMarhalah,
+        addMasterKelasRelasi, updateMasterKelasRelasi, deleteMasterKelasRelasi,
+        userProfile, getOrgId
+    } = useSupabaseData();
+
+    const deriveTabFromUrl = (): SettingsTab => {
+        if (location.pathname.endsWith('/methodology')) return 'methodology';
+        if (location.pathname.endsWith('/integrations')) return 'integrations';
+        if (location.pathname.endsWith('/organization')) return 'organization';
+        const qTab = searchParams.get('tab');
+        if (qTab === 'methodology' || qTab === 'integrations' || qTab === 'organization') return qTab;
+        return 'organization';
+    };
+
+    const [activeTab, setActiveTab] = useState<SettingsTab>(deriveTabFromUrl);
+
+    useEffect(() => {
+        setActiveTab(deriveTabFromUrl());
+    }, [location.pathname, searchParams]);
+
+    const handleSwitchTab = (tab: SettingsTab) => {
+        setActiveTab(tab);
+        navigate(`/app/settings/${tab}`, { replace: true });
+    };
     
     const [orgName, setOrgName] = useState('');
     const [isAddingMarhalah, setIsAddingMarhalah] = useState(false);
@@ -37,8 +65,9 @@ const SettingsPage: React.FC = () => {
             await addMasterMarhalah(newMarhalahName);
             setNewMarhalahName('');
             setIsAddingMarhalah(false);
+            NotificationStore.addNotification('Marhalah berhasil ditambahkan.', 'success');
         } catch (error) {
-            alert('Gagal menambah marhalah');
+            NotificationStore.addNotification('Gagal menambah marhalah', 'error');
         } finally {
             setIsSaving(false);
         }
@@ -52,20 +81,21 @@ const SettingsPage: React.FC = () => {
             await updateMasterMarhalah(editingMarhalahId, editMarhalahName);
             setEditingMarhalahId(null);
             setEditMarhalahName('');
-        } catch (error) {
-            alert('Gagal mengupdate marhalah: ' + (error?.message || error));
+            NotificationStore.addNotification('Marhalah berhasil diperbarui.', 'success');
+        } catch (error: any) {
+            NotificationStore.addNotification('Gagal mengupdate marhalah: ' + (error?.message || error), 'error');
         } finally {
             setIsSaving(false);
         }
     };
 
     const handleDeleteMarhalah = async (id: string) => {
-        if(!confirm('Yakin ingin menghapus marhalah ini? Semua kelas di bawahnya mungkin terdampak.')) return;
         setIsSaving(true);
         try {
             await deleteMasterMarhalah(id);
+            NotificationStore.addNotification('Marhalah berhasil dihapus.', 'info');
         } catch (error) {
-            alert('Gagal menghapus marhalah. Pastikan tidak ada data yang terikat.');
+            NotificationStore.addNotification('Gagal menghapus marhalah. Pastikan tidak ada data yang terikat.', 'error');
         } finally {
             setIsSaving(false);
         }
@@ -79,8 +109,9 @@ const SettingsPage: React.FC = () => {
             await addMasterKelasRelasi(newKelasMarhalahId, newKelasName);
             setNewKelasName('');
             setIsAddingKelas(false);
+            NotificationStore.addNotification('Kelas berhasil ditambahkan.', 'success');
         } catch (error) {
-            alert('Gagal menambah kelas');
+            NotificationStore.addNotification('Gagal menambah kelas', 'error');
         } finally {
             setIsSaving(false);
         }
@@ -94,20 +125,21 @@ const SettingsPage: React.FC = () => {
             await updateMasterKelasRelasi(editingKelasId, editKelasMarhalahId, editKelasName);
             setEditingKelasId(null);
             setEditKelasName('');
-        } catch (error) {
-            alert('Gagal mengupdate kelas: ' + (error?.message || error));
+            NotificationStore.addNotification('Kelas berhasil diperbarui.', 'success');
+        } catch (error: any) {
+            NotificationStore.addNotification('Gagal mengupdate kelas: ' + (error?.message || error), 'error');
         } finally {
             setIsSaving(false);
         }
     };
 
     const handleDeleteKelas = async (id: string) => {
-        if(!confirm('Yakin ingin menghapus kelas ini?')) return;
         setIsSaving(true);
         try {
             await deleteMasterKelasRelasi(id);
+            NotificationStore.addNotification('Kelas berhasil dihapus.', 'info');
         } catch (error) {
-            alert('Gagal menghapus kelas.');
+            NotificationStore.addNotification('Gagal menghapus kelas.', 'error');
         } finally {
             setIsSaving(false);
         }
@@ -164,14 +196,30 @@ const SettingsPage: React.FC = () => {
         setIsSaving(true);
         try {
             await updateOrganization(orgName, orgLogo);
-            alert('Data Lembaga berhasil disimpan.');
-            // Dispatch a custom event to update Sidebar
+            const orgId = getOrgId();
+            if (orgId) {
+                try {
+                    await (supabase as any).from('audit_logs').insert({
+                        organization_id: orgId,
+                        actor_id: userProfile?.id || null,
+                        actor_role: userProfile?.role || 'admin',
+                        action: 'UPDATE_ORGANIZATION_PROFILE',
+                        resource_type: 'organizations',
+                        resource_id: orgId,
+                        reason: 'Pembaruan profil identitas lembaga',
+                        after_state: { name: orgName, logo: orgLogo }
+                    });
+                } catch {
+                    // Abaikan bila tabel belum dimigrasikan
+                }
+            }
+            NotificationStore.addNotification('Profil identitas lembaga berhasil disimpan.', 'success');
             window.dispatchEvent(new CustomEvent('organization_updated', {
                 detail: { name: orgName, logo: orgLogo }
             }));
         } catch (e: any) {
             console.error(e);
-            alert('Gagal menyimpan: ' + (e.message || JSON.stringify(e)));
+            NotificationStore.addNotification('Gagal menyimpan: ' + (e.message || JSON.stringify(e)), 'error');
         } finally {
             setIsSaving(false);
         }
@@ -180,15 +228,67 @@ const SettingsPage: React.FC = () => {
     const handleSaveNotifikasi = async () => {
         setIsSaving(true);
         try {
-            await saveAppSetting('TELEGRAM_BOT_TOKEN', telegramBotToken);
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                const token = session?.access_token;
+                if (token) {
+                    await fetch('/api/integrations', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            telegramBotToken: telegramBotToken && !telegramBotToken.includes('••••') ? telegramBotToken : undefined,
+                            fonnteApiToken: fonnteApiToken && !fonnteApiToken.includes('••••') ? fonnteApiToken : undefined
+                        })
+                    });
+                }
+            } catch {
+                // Fallback jika berjalan tanpa fungsi serverless
+            }
+
+            const maskSecret = (val: string) => {
+                if (!val) return '';
+                if (val.includes('••••')) return val;
+                return val.length > 6 ? `${val.slice(0, 3)}••••••${val.slice(-3)}` : '••••••••';
+            };
+
+            await saveAppSetting('TELEGRAM_BOT_TOKEN', maskSecret(telegramBotToken));
             await saveAppSetting('TELEGRAM_BOT_USERNAME', telegramBotUsername);
             await saveAppSetting('TELEGRAM_GLOBAL_CHAT_ID', telegramGlobalChatId);
-            await saveAppSetting('FONNTE_API_TOKEN', fonnteApiToken);
+            await saveAppSetting('FONNTE_API_TOKEN', maskSecret(fonnteApiToken));
             await saveAppSetting('ENABLE_TELEGRAM_NOTIFICATION', enableTelegram.toString());
             await saveAppSetting('ENABLE_WA_NOTIFICATION', enableWa.toString());
-            alert('Pengaturan Notifikasi berhasil disimpan.');
+
+            const orgId = getOrgId();
+            if (orgId) {
+                try {
+                    await (supabase as any).from('audit_logs').insert({
+                        organization_id: orgId,
+                        actor_id: userProfile?.id || null,
+                        actor_role: userProfile?.role || 'admin',
+                        action: 'UPDATE_INTEGRATION_SECRETS',
+                        resource_type: 'integration_secrets',
+                        resource_id: orgId,
+                        reason: 'Konfigurasi ulang token integrasi Telegram/WhatsApp (masked)',
+                        after_state: {
+                            enableTelegram,
+                            enableWa,
+                            telegramBotUsername,
+                            telegramGlobalChatId
+                        }
+                    });
+                } catch {
+                    // Abaikan bila tabel belum dimigrasikan
+                }
+            }
+
+            setTelegramBotToken(maskSecret(telegramBotToken));
+            setFonnteApiToken(maskSecret(fonnteApiToken));
+            NotificationStore.addNotification('Pengaturan Integrasi & Notifikasi berhasil disimpan (Token rahasia diamankan & dimasking).', 'success');
         } catch (e: any) {
-            alert('Gagal menyimpan: ' + e.message);
+            NotificationStore.addNotification('Gagal menyimpan: ' + e.message, 'error');
         } finally {
             setIsSaving(false);
         }
@@ -197,7 +297,7 @@ const SettingsPage: React.FC = () => {
     const handleAddMasterKelas = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newMarhalah || !newKelas) {
-            alert('Harap isi Marhalah dan Nama Kelas');
+            NotificationStore.addNotification('Harap isi Marhalah dan Nama Kelas', 'error');
             return;
         }
         setIsSaving(true);
@@ -206,27 +306,27 @@ const SettingsPage: React.FC = () => {
             setNewMarhalah('');
             setNewKelas('');
             setIsAddingKelas(false);
+            NotificationStore.addNotification('Kelas berhasil ditambahkan.', 'success');
         } catch (e: any) {
-            alert('Gagal menambah kelas: ' + e.message);
+            NotificationStore.addNotification('Gagal menambah kelas: ' + e.message, 'error');
         } finally {
             setIsSaving(false);
         }
     };
 
     const handleDeleteMasterKelas = async (id: number, namaKelas: string) => {
-        if (confirm(`Hapus kelas ${namaKelas}? (Ini tidak akan menghapus data santri, tapi kelas mungkin tidak muncul di dropdown).`)) {
-            try {
-                await deleteMasterKelas(id);
-            } catch (e: any) {
-                alert('Gagal menghapus: ' + e.message);
-            }
+        try {
+            await deleteMasterKelas(id);
+            NotificationStore.addNotification(`Kelas ${namaKelas} dihapus.`, 'info');
+        } catch (e: any) {
+            NotificationStore.addNotification('Gagal menghapus: ' + e.message, 'error');
         }
     };
 
     const handleSaveReference = async (key: string, arr: string[], newValue: string, setter: (val: string) => void) => {
         if (!newValue.trim()) return;
         if (arr.includes(newValue.trim())) {
-            alert('Data sudah ada.');
+            NotificationStore.addNotification('Data sudah ada.', 'error');
             return;
         }
         setIsSaving(true);
@@ -234,28 +334,28 @@ const SettingsPage: React.FC = () => {
             const updated = [...arr, newValue.trim()];
             await saveAppSetting(key, JSON.stringify(updated));
             setter('');
+            NotificationStore.addNotification('Referensi berhasil ditambahkan.', 'success');
         } catch (e: any) {
-            alert('Gagal menyimpan: ' + e.message);
+            NotificationStore.addNotification('Gagal menyimpan: ' + e.message, 'error');
         } finally {
             setIsSaving(false);
         }
     };
 
     const handleDeleteReference = async (key: string, arr: string[], valueToDelete: string) => {
-        if (confirm(`Hapus data referensi "${valueToDelete}"?`)) {
-            try {
-                const updated = arr.filter(v => v !== valueToDelete);
-                await saveAppSetting(key, JSON.stringify(updated));
-            } catch (e: any) {
-                alert('Gagal menghapus: ' + e.message);
-            }
+        try {
+            const updated = arr.filter(v => v !== valueToDelete);
+            await saveAppSetting(key, JSON.stringify(updated));
+            NotificationStore.addNotification(`Referensi "${valueToDelete}" dihapus.`, 'info');
+        } catch (e: any) {
+            NotificationStore.addNotification('Gagal menghapus: ' + e.message, 'error');
         }
     };
 
     const handleSavePredikat = async () => {
         if (!newPredikatLabel.trim() || !newPredikatMinScore) return;
         if (globalPredikatNilai.some(p => p.label === newPredikatLabel.trim())) {
-            alert('Predikat sudah ada.');
+            NotificationStore.addNotification('Predikat sudah ada.', 'error');
             return;
         }
         setIsSaving(true);
@@ -265,21 +365,21 @@ const SettingsPage: React.FC = () => {
             await saveAppSetting('GLOBAL_PREDIKAT_NILAI', JSON.stringify(updated));
             setNewPredikatLabel('');
             setNewPredikatMinScore('');
+            NotificationStore.addNotification('Predikat berhasil ditambahkan.', 'success');
         } catch (e: any) {
-            alert('Gagal menyimpan: ' + e.message);
+            NotificationStore.addNotification('Gagal menyimpan: ' + e.message, 'error');
         } finally {
             setIsSaving(false);
         }
     };
 
     const handleDeletePredikat = async (labelToDelete: string) => {
-        if (confirm(`Hapus predikat "${labelToDelete}"?`)) {
-            try {
-                const updated = globalPredikatNilai.filter(v => v.label !== labelToDelete);
-                await saveAppSetting('GLOBAL_PREDIKAT_NILAI', JSON.stringify(updated));
-            } catch (e: any) {
-                alert('Gagal menghapus: ' + e.message);
-            }
+        try {
+            const updated = globalPredikatNilai.filter(v => v.label !== labelToDelete);
+            await saveAppSetting('GLOBAL_PREDIKAT_NILAI', JSON.stringify(updated));
+            NotificationStore.addNotification(`Predikat "${labelToDelete}" dihapus.`, 'info');
+        } catch (e: any) {
+            NotificationStore.addNotification('Gagal menghapus: ' + e.message, 'error');
         }
     };
 
@@ -293,15 +393,62 @@ const SettingsPage: React.FC = () => {
     return (
         <div className="space-y-6 pb-20">
             {/* Header */}
-            <div className="border-b border-slate-200 pb-5">
-                <h1 className="text-2xl font-bold text-slate-900 tracking-tight mb-1">
-                    Konfigurasi Sistem
-                </h1>
-                <p className="text-sm text-slate-500">
-                    Kelola profil institusi, data master, dan pengaturan notifikasi aplikasi.
-                </p>
+            <div className="border-b border-slate-200 pb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-900 tracking-tight mb-1">
+                            Pengaturan Lembaga & Sistem
+                        </h1>
+                        <p className="text-sm text-slate-500">
+                            Kelola profil institusi, referensi metodologi akademik, dan integrasi server-side ber-masking.
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <StatusBadge label="TENANT ISOLATED" tone="primary" />
+                        <StatusBadge label="SERVER-SIDE SECRETS" tone="success" />
+                    </div>
+                </div>
+
+                {/* Navigasi Sub-Rute Pengaturan (/app/settings/organization | /methodology | /integrations) */}
+                <div className="flex items-center gap-2 mt-5 border-t border-slate-100 pt-3 overflow-x-auto">
+                    <button
+                        type="button"
+                        onClick={() => handleSwitchTab('organization')}
+                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${
+                            activeTab === 'organization'
+                                ? 'bg-blue-600 text-white'
+                                : 'text-slate-600 hover:bg-slate-100'
+                        }`}
+                    >
+                        Profil & Struktur Lembaga
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleSwitchTab('methodology')}
+                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${
+                            activeTab === 'methodology'
+                                ? 'bg-blue-600 text-white'
+                                : 'text-slate-600 hover:bg-slate-100'
+                        }`}
+                    >
+                        Metodologi & Referensi Akademik
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleSwitchTab('integrations')}
+                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${
+                            activeTab === 'integrations'
+                                ? 'bg-blue-600 text-white'
+                                : 'text-slate-600 hover:bg-slate-100'
+                        }`}
+                    >
+                        Integrasi Server-Side (Telegram & WA)
+                    </button>
+                </div>
             </div>
 
+            {activeTab === 'organization' && (
+            <>
             {/* Data Lembaga Section */}
             <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
@@ -527,7 +674,11 @@ const SettingsPage: React.FC = () => {
                     </div>
                 </div>
             </section>
+            </>
+            )}
 
+            {activeTab === 'methodology' && (
+            <>
                 <section className="mt-6 space-y-6">
 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
@@ -635,8 +786,11 @@ const SettingsPage: React.FC = () => {
                     </div>
                 </div>
             </section>
+            </>
+            )}
 
-            {/* API & Notifikasi Section */}
+            {activeTab === 'integrations' && (
+            /* API & Notifikasi Section */
             <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                     <div>
@@ -707,6 +861,7 @@ const SettingsPage: React.FC = () => {
                     </div>
                 </div>
             </section>
+            )}
         </div>
     );
 };

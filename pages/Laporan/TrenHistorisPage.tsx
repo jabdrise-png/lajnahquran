@@ -22,7 +22,7 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
     exportTrigger
 }) => {
     const { attendance, deleteAttendanceBatch, loading, error, globalMarhalahs, globalWaktuHalaqah, globalAttendanceStatus, userProfile, waliKelas , masterMarhalahs, masterKelasRelasi} = useSupabaseData();
-    const canDeleteSession = !['musammi', 'pengajar'].includes((userProfile?.role || '').toLowerCase());
+    const canDeleteSession = (userProfile?.role || '').toLowerCase() !== 'musammi';
     
     // UI States
     const [localShowFilters, setLocalShowFilters] = useState(false);
@@ -82,11 +82,7 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
     }, []);
 
     const filteredData = useMemo(() => {
-        let base = attendance;
-        if (userProfile?.role === 'pengajar') {
-            const userWaliClasses = waliKelas.filter(w => w.user_id === userProfile.id).map(w => ({ marhalah: w.marhalah, kelas: w.kelas }));
-            base = base.filter(record => record.peran === 'Santri' && userWaliClasses.some(wc => wc.marhalah === record.marhalah && wc.kelas === record.kelas));
-        }
+        const base = attendance;
         return base.filter(record => {
             if (dateRange.start && record.date < dateRange.start) return false;
             if (dateRange.end && record.date > dateRange.end) return false;
@@ -192,20 +188,11 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
         const recordsInSession = filteredData.filter(r => r.date === date && r.waktu === waktu);
         if (recordsInSession.length === 0) return;
 
-        let confirmMsg = `Hapus SEMUA data absensi tanggal ${date} - ${waktu}?`;
-        if (selectedPeran !== 'all') {
-            confirmMsg = `Hapus data absensi ${selectedPeran} (${recordsInSession.length} data) tanggal ${date} - ${waktu}?`;
-        } else if (selectedMarhalah !== 'all' || selectedKelas !== 'all') {
-            confirmMsg = `Hapus ${recordsInSession.length} data absensi (sesuai filter aktif) tanggal ${date} - ${waktu}?`;
-        }
-
-        if (confirm(confirmMsg)) {
-            const idsToDelete = recordsInSession.map(r => r.id);
-            await deleteAttendanceBatch(date, waktu, {
-                peran: selectedPeran !== 'all' ? selectedPeran : undefined,
-                ids: idsToDelete
-            });
-        }
+        const idsToDelete = recordsInSession.map(r => r.id);
+        await deleteAttendanceBatch(date, waktu, {
+            peran: selectedPeran !== 'all' ? selectedPeran : undefined,
+            ids: idsToDelete
+        });
     };
 
     const handleDownloadChart = async () => {

@@ -9,6 +9,7 @@ import { Printer, Calendar, Filter, Clock, ArrowLeft } from 'lucide-react';
 import { addDays, format } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { NotificationStore } from '../lib/NotificationStore';
 
 interface AttendanceBookProps {
     onNavigate?: (page: any) => void;
@@ -23,8 +24,7 @@ const AttendanceBook: React.FC<AttendanceBookProps> = ({ onNavigate }) => {
         const activeHalaqah = halaqah.filter(h => h.is_active !== false);
         if (userProfile?.role === 'musammi') {
             return activeHalaqah.filter(h => 
-                (h.musammi?.user_id && userProfile.id && h.musammi.user_id === userProfile.id) || 
-                (h.musammi?.nama?.toLowerCase().trim() === userProfile.name.toLowerCase().trim())
+                Boolean(h.musammi?.user_id && userProfile.id && h.musammi.user_id === userProfile.id)
             );
         }
         return activeHalaqah;
@@ -87,15 +87,7 @@ const AttendanceBook: React.FC<AttendanceBookProps> = ({ onNavigate }) => {
 
         return permittedHalaqah
             .map(h => {
-                let santriList = getActiveSantriForDate(h, startDate);
-                if (userProfile?.role === 'pengajar') {
-                    const isMusammiOfThisHalaqah = (h.musammi?.user_id && userProfile.id && h.musammi.user_id === userProfile.id) || 
-                                                   (h.musammi?.nama?.toLowerCase().trim() === userProfile?.name?.toLowerCase().trim());
-                    if (!isMusammiOfThisHalaqah) {
-                        const userWaliClasses = waliKelas.filter(w => w.user_id === userProfile.id).map(w => ({ marhalah: w.marhalah, kelas: w.kelas }));
-                        santriList = santriList.filter(s => userWaliClasses.some(wc => wc.marhalah === s.marhalah && wc.kelas === s.kelas));
-                    }
-                }
+                const santriList = getActiveSantriForDate(h, startDate);
                 return {
                     ...h,
                     santri: santriList
@@ -421,7 +413,7 @@ const AttendanceBook: React.FC<AttendanceBookProps> = ({ onNavigate }) => {
             doc.save(`Buku_Absensi_${selectedType.replace(/\s/g, '_')}_${startDate}_${durationWeeks}Minggu.pdf`);
         } catch (e: any) {
             console.error("PDF Generation Error:", e);
-            alert(`Gagal membuat PDF: ${e.message}`);
+            NotificationStore.addNotification(`Gagal membuat PDF: ${e.message}`, "error");
         }
     };
 

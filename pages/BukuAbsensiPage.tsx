@@ -1,6 +1,9 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useSupabaseData } from '../hooks/useSupabaseData';
 import ActionDropdown from '../components/ActionDropdown';
+import Modal from '../components/Modal';
+import { supabase } from '../lib/supabaseClient';
+import { NotificationStore } from '../lib/NotificationStore';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import {
@@ -12,7 +15,7 @@ import {
   ChevronDown,
   Check
 } from 'lucide-react';
-import type { Page } from '../types';
+import type { Page, Peran, Waktu } from '../types';
 
 interface BukuAbsensiPageProps {
   onNavigate?: (page: Page) => void;
@@ -34,13 +37,74 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
     halaqah,
     santri,
     attendance,
+    addAttendanceRecords,
     userProfile,
     globalWaktuHalaqah,
+    globalAttendanceStatus,
     masterMarhalahs,
     orgName,
     orgLogo,
     loading
   } = useSupabaseData();
+
+  const isAdminUser = userProfile?.role === 'admin' || userProfile?.role === 'superadmin';
+  const [correctionTarget, setCorrectionTarget] = useState<{
+    student: StudentRow;
+    dateStr: string;
+    session: string;
+    currentStatus: string;
+    newStatus: string;
+    reason: string;
+  } | null>(null);
+  const [isSavingCorrection, setIsSavingCorrection] = useState(false);
+
+  const handleSaveCorrection = async () => {
+    if (!correctionTarget || !correctionTarget.newStatus || !correctionTarget.reason.trim()) return;
+    setIsSavingCorrection(true);
+    try {
+      await addAttendanceRecords([
+        {
+          date: correctionTarget.dateStr,
+          waktu: correctionTarget.session as Waktu,
+          personId: correctionTarget.student.id,
+          peran: correctionTarget.student.peran as Peran,
+          status: correctionTarget.newStatus as any,
+          halaqahId: correctionTarget.student.halaqahId
+        }
+      ]);
+
+      if (userProfile?.organization_id) {
+        await (supabase as any).from('audit_logs').insert({
+          organization_id: userProfile.organization_id,
+          actor_user_id: userProfile.id,
+          action: 'ADMIN_ATTENDANCE_BOOK_CORRECTION',
+          entity_type: 'attendance_records',
+          entity_id: `${correctionTarget.student.peran}_${correctionTarget.student.id}_${correctionTarget.dateStr}_${correctionTarget.session}`,
+          reason: correctionTarget.reason.trim(),
+          diff_json: {
+            person_id: correctionTarget.student.id,
+            person_name: correctionTarget.student.nama,
+            peran: correctionTarget.student.peran,
+            halaqah_id: correctionTarget.student.halaqahId,
+            date: correctionTarget.dateStr,
+            slot: correctionTarget.session,
+            before_status: correctionTarget.currentStatus || 'Belum diisi',
+            after_status: correctionTarget.newStatus
+          }
+        });
+      }
+
+      NotificationStore.addNotification(
+        `Koreksi kehadiran ${correctionTarget.student.nama} (${correctionTarget.dateStr} - ${correctionTarget.session}) berhasil disimpan & dicatat di Audit Log.`,
+        'success'
+      );
+      setCorrectionTarget(null);
+    } catch (err: any) {
+      NotificationStore.addNotification(err?.message || 'Gagal menyimpan koreksi absensi.', 'error');
+    } finally {
+      setIsSavingCorrection(false);
+    }
+  };
 
   // ---------------------------------------------------------------------------
   // 1. RENTANG TANGGAL (Dari Tanggal s.d. Sampai Tanggal Saja)
@@ -138,14 +202,13 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
   const [filterPeran, setFilterPeran] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Batasi halaqah berdasarkan role user
+  // Batasi halaqah berdasarkan role user (wajib via user_id sesuai Blueprint Fase 2)
   const permittedHalaqah = useMemo(() => {
     if (!halaqah) return [];
     const active = halaqah.filter(h => h.is_active !== false);
     if (userProfile?.role === 'musammi') {
       return active.filter(h =>
-        (h.musammi?.user_id && userProfile.id && h.musammi.user_id === userProfile.id) ||
-        (h.musammi?.nama?.toLowerCase().trim() === userProfile.name?.toLowerCase().trim())
+        Boolean(h.musammi?.user_id && userProfile.id && h.musammi.user_id === userProfile.id)
       );
     }
     return active;
@@ -486,6 +549,11 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Buku Absensi</h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
             Rekapitulasi kehadiran santri dalam format matriks tanggal dan sesi halaqah.
+            {isAdminUser && (
+              <span className="ml-1.5 text-blue-600 font-medium">
+                (Admin: Klik sel status pada matriks untuk koreksi kehadiran teraudit)
+              </span>
+            )}
           </p>
         </div>
 
@@ -975,14 +1043,39 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
 
                       {/* Sel Kehadiran Tiap Hari & Sesi */}
                       {daysInRange.map((day, dayIdx) =>
-                        activeWaktuSessions.map((session, sessIdx) => (
-                          <td
-                            key={`${dayIdx}_${sessIdx}`}
-                            className="py-2.5 px-1 text-center border-r border-slate-100 min-w-[32px]"
-                          >
-                            {renderStatusCell(student.id, student.peran, day, session)}
-                          </td>
-                        ))
+                        activeWaktuSessions.map((session, sessIdx) => {
+                          const dateStr = format(day, 'yyyy-MM-dd');
+                          const keyWithRole = `${student.id}_${student.peran}_${dateStr}_${session.toLowerCase().trim()}`;
+                          const keySimple = `${student.id}_${dateStr}_${session.toLowerCase().trim()}`;
+                          const existingSt = attendanceLookup.get(keyWithRole) || attendanceLookup.get(keySimple) || '';
+
+                          return (
+                            <td
+                              key={`${dayIdx}_${sessIdx}`}
+                              onClick={() => {
+                                if (!isAdminUser) return;
+                                setCorrectionTarget({
+                                  student,
+                                  dateStr,
+                                  session,
+                                  currentStatus: existingSt,
+                                  newStatus: existingSt || (globalAttendanceStatus?.[0] || 'Hadir'),
+                                  reason: ''
+                                });
+                              }}
+                              title={
+                                isAdminUser
+                                  ? `Klik untuk koreksi kehadiran ${student.nama} (${dateStr} - ${session})`
+                                  : undefined
+                              }
+                              className={`py-2.5 px-1 text-center border-r border-slate-100 min-w-[32px] ${
+                                isAdminUser ? 'cursor-pointer hover:bg-blue-50/70 transition-colors' : ''
+                              }`}
+                            >
+                              {renderStatusCell(student.id, student.peran, day, session)}
+                            </td>
+                          );
+                        })
                       )}
 
                       {/* Rekapitulasi: Hadir, Izin, Sakit, Alpa, Terlambat, Persentase */}
@@ -1012,6 +1105,97 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
           </div>
         </div>
       )}
+
+      {/* Modal Koreksi Kehadiran Teraudit (Admin) */}
+      <Modal
+        isOpen={Boolean(correctionTarget)}
+        onClose={() => setCorrectionTarget(null)}
+        title="Koreksi Kehadiran Buku Absensi (Teraudit)"
+      >
+        {correctionTarget && (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs space-y-1">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Peserta:</span>
+                <span className="font-semibold text-slate-900">
+                  {correctionTarget.student.nama} ({correctionTarget.student.peran})
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Halaqah:</span>
+                <span className="font-medium text-slate-800">{correctionTarget.student.halaqahNama}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Tanggal & Sesi:</span>
+                <span className="font-semibold text-slate-800">
+                  {correctionTarget.dateStr} — {correctionTarget.session}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Status Saat Ini:</span>
+                <span className="font-semibold text-slate-700">
+                  {correctionTarget.currentStatus || 'Belum diisi (-)'}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Status Kehadiran Baru
+              </label>
+              <select
+                value={correctionTarget.newStatus}
+                onChange={e =>
+                  setCorrectionTarget(prev => (prev ? { ...prev, newStatus: e.target.value } : null))
+                }
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-800 focus:border-blue-600 focus:outline-none"
+              >
+                {(globalAttendanceStatus?.length
+                  ? globalAttendanceStatus
+                  : ['Hadir', 'Izin', 'Sakit', 'Alpa', 'Terlambat']
+                ).map(st => (
+                  <option key={st} value={st}>
+                    {st}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Alasan Koreksi (Wajib untuk Audit Log) <span className="text-rose-500">*</span>
+              </label>
+              <textarea
+                rows={3}
+                value={correctionTarget.reason}
+                onChange={e =>
+                  setCorrectionTarget(prev => (prev ? { ...prev, reason: e.target.value } : null))
+                }
+                placeholder="Contoh: Koreksi berdasarkan surat keterangan dokter / konfirmasi musyrif..."
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-800 focus:border-blue-600 focus:outline-none"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setCorrectionTarget(null)}
+                className="px-4 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={!correctionTarget.reason.trim() || isSavingCorrection}
+                onClick={handleSaveCorrection}
+                className="px-4 py-2 rounded-lg bg-blue-600 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {isSavingCorrection ? 'Menyimpan...' : 'Simpan Koreksi & Catat Audit'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Kolom Tanda Tangan Cetak Fisik */}
       <div className="hidden print:grid grid-cols-2 gap-8 pt-8 mt-6 text-center text-xs text-slate-800">

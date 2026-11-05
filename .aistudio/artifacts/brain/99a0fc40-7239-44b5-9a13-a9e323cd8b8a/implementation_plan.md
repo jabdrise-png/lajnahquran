@@ -1,0 +1,195 @@
+# Transformasi Arsitektur Lajnah Quran SaaS Multi-Tenant (3-Role & Serverless-Ready)
+
+Rencana induk perombakan aplikasi **Lajnah Quran** menjadi platform manajemen akademik Tahfidz berstandar **Enterprise SaaS Multi-Tenant** dengan **tiga role kanonikal (`superadmin`, `admin`, `musammi`)**, arsitektur **100% Serverless-Ready untuk Vercel & Netlify**, evolusi terstruktur dari halaman-halaman eksisting ke standar internasional (**ISO/IEC 25010, ISO 27001/27017/27018, OWASP ASVS 5.0, WCAG 2.2 AA, AWS SaaS Lens**), serta disiplin visual minimalis.
+
+---
+
+## User Review & Keputusan Kritis yang Dikonfirmasi (Hasil Revisi)
+
+> [!IMPORTANT]
+> Berdasarkan tinjauan dan catatan Anda pada draf sebelumnya, berikut adalah penyempurnaan arsitektur yang telah diperbarui di dalam rencana ini:
+
+- **Revisi 1 — Arsitektur Serverless-Ready (Kompatibel Penuh dengan Vercel, Netlify & Supabase)**:
+  - **Mengapa `server.ts` murni tidak cukup untuk Vercel/Netlify?** File `server.ts` yang menjalankan `app.listen(3000)` dengan middleware Vite adalah server Node.js *long-running* (cocok untuk preview lokal/VPS), namun **Vercel** dan **Netlify** bekerja secara *serverless* (menjalankan frontend sebagai *Static SPA CDN* + fungsi *stateless* per request).
+  - **Solusi Arsitektur Hibrida Serverless**:
+    1. **Supabase RPC (`SECURITY DEFINER`) sebagai Mesin Transaksi Utama**: Seluruh operasi bisnis inti (pembukaan sesi, batch absensi, transaksi & revisi setoran, *support access session*, penerbitan raport *snapshot*, rekonsiliasi tahun ajaran, dan pencatatan `audit_logs`) dieksekusi langsung di dalam PostgreSQL melalui fungsi RPC terproteksi—sehingga berjalan instan di Vercel/Netlify tanpa bergantung pada server Node.js.
+    2. **Modular API Handler (`api/` Serverless Functions + Supabase Edge Functions)**: Untuk operasi yang wajib memegang *secret key* pihak ketiga (undangan akun via Supabase Auth Admin API & pengiriman webhook/pesan Telegram/Fonnte), logika server dipisahkan ke modul handler murni yang diekspor ganda ke `/api/*` (otomatis menjadi **Vercel Serverless Functions** & **Netlify Functions** lengkap dengan `vercel.json` dan `netlify.toml`) sekaligus tetap di-mount oleh `server.ts` untuk preview lokal.
+- **Revisi 2 — Evolusi Halaman Eksisting ke Standar Enterprise SaaS**:
+  - Struktur halaman dirancang dengan **memodernisasi dan menyatukan halaman-halaman yang sudah ada** (`Dashboard`, `TahunAjaranPage`, `SantriPage`, `MusammiPage`, `HalaqahPage`, `Attendance`, `BukuAbsensiPage`, `SetoranHarianPage`, `PerkembanganInputPage`, `PengaturanEvaluasiPage`, `UjianBulananPage`, `UjianSemesterPage`, `RaportPage`, `RingkasanGlobalPage`, `TrenHistorisPage`, `StatistikPerkembangan`, `InformasiPage`, `Users`, `SettingsPage`) ke dalam struktur rute standar `/platform/*` dan `/app/*` (dengan *auto-redirect* dari URL lama agar tidak ada tautan yang rusak).
+- **Revisi 3 — Disiplin Penggunaan Ikon (Minimalis, Kontekstual & Tanpa Ikon Paksaan)**:
+  - Ikon hanya digunakan apabila benar-benar presisi, proporsional, dan memiliki fungsi navigasi/interaksi yang jelas (seperti navigasi utama *Sidebar*, input pencarian, indikator urut kolom, dan tombol aksi utama).
+  - **Dilarang menggunakan ikon dekoratif atau memaksakan ikon** pada *status badge*, judul seksi, sel tabel, atau label teks jika tipografi bersih dan warna semantik sudah menyampaikan informasi dengan jelas.
+
+---
+
+## 1. Gambaran Umum & Konsep Inti
+
+- **Apa yang Dilakukan Sistem**: Menyediakan platform SaaS manajemen pendidikan Tahfidz Al-Qur'an lintas lembaga (*multi-tenant*) yang memisahkan secara tegas tata kelola platform global (**Superadmin**), pengelolaan akademik & operasional lembaga (**Admin Lembaga**), serta pelaksanaan harian halaqah, absensi, dan setoran hafalan (**Musammi**).
+- **Tiga Role Kanonikal & Batas Kewenangan**:
+  1. **`superadmin` (Lingkup Platform Global — `/platform/*`)**: Mengelola siklus hidup organisasi/tenant, paket layanan, kesehatan sistem, log audit platform, akun Superadmin/undangan Admin pertama, serta *Support Access Session* (*break-glass* berbatas waktu, wajib alasan, dan *read-only* secara default). Tidak mengintervensi nilai, absensi, atau raport harian tenant secara langsung.
+  2. **`admin` (Lingkup Satu Organisasi/Tenant — `/app/*`)**: Mengonfigurasi profil lembaga, tahun ajaran & semester, struktur marhalah & kelas (termasuk atribut administratif Wali Kelas/Musyrif), *enrollment* santri tahunan, staf & undangan Musammi, kelompok & jadwal halaqah, target hafalan & versi rubrik penilaian, validasi setoran, pelaksanaan ujian/remedial, penerbitan raport *snapshot*, serta pengumuman & laporan lembaga.
+  3. **`musammi` (Lingkup Halaqah yang Ditugaskan — `/app/*`)**: Hanya mengakses halaqah dan santri binaan yang memiliki penugasan (*assignment*) aktif pada tahun ajaran berjalan. Membuka dan menyelesaikan sesi halaqah, mengisi absensi sesi, mencatat transaksi setoran (*ziyadah/sabaq*, *sabqi*, *manzil*) terstruktur berdasarkan surat & ayat, serta memantau progres santri binaannya.
+
+---
+
+## 2. Pengalaman Pengguna (UX), Evolusi Halaman & Sistem Desain
+
+### A. Pemetaan & Standarisasi Halaman Eksisting ke Rute Enterprise SaaS
+
+Navigasi menggunakan **React Router 7 Nested Layouts** (`PublicLayout`, `PlatformLayout`, `TenantLayout`) yang digerakkan oleh satu konfigurasi izin terpusat (*Single Route Permission Config*), mendukung *URL Search Params* untuk filter/pencarian/tab, dan memetakan halaman lama secara mulus ke standar baru:
+
+| Kelompok Modul | Halaman Saat Ini (Eksisting) | Rute Standar Enterprise SaaS Baru | Peningkatan Standar Internasional yang Diterapkan |
+| :--- | :--- | :--- | :--- |
+| **Platform Console (`superadmin`)** | `AdminDashboard.tsx`, `WebsiteEditorPage.tsx`, `AdminGalleryPage.tsx` | `/platform/dashboard`, `/platform/tenants`, `/platform/tenants/:id`, `/platform/support-sessions`, `/platform/audit`, `/platform/settings` | Pemisahan penuh shell Superadmin dari shell lembaga; *provisioning* tenant baru; *Support Access Session* berbatas waktu dengan banner peringatan & log audit. |
+| **Beranda & Informasi** | `Dashboard.tsx`, `InformasiPage.tsx` | `/app/dashboard`, `/app/announcements`, `/app/profile` | Beranda kontekstual per role (Admin melihat KPI lembaga & sesi belum lengkap; Musammi melihat jadwal halaqah hari ini & tombol lanjutkan sesi). |
+| **Persiapan & Struktur Akademik** | `TahunAjaranPage.tsx` + tab Kelas/Marhalah | `/app/academic-years`, `/app/structure/marhalah`, `/app/structure/classes` | Siklus status tahun ajaran (`draft -> setup -> active -> closing -> closed`), relasi berbasis ID/UUID, dan penyimpanan nama Wali Kelas/Musyrif sebagai atribut administratif kelas. |
+| **Master Santri & Enrollment** | `SantriPage.tsx`, `KenaikanKelasPage.tsx`, `SantriDetailProgressView.tsx` | `/app/students`, `/app/students/:id` | Pemisahan identitas induk santri dari penempatan kelas tahunan (`student_enrollments`); santri tanpa enrollment aktif muncul di peringatan setup, bukan otomatis masuk semua sesi. |
+| **Master Musammi & Halaqah** | `MusammiPage.tsx`, `HalaqahPage.tsx` | `/app/musammi`, `/app/halaqah`, `/app/halaqah/:id`, `/app/schedule` | Undangan akun Musammi secara *serverless* (tanpa `signUp` browser + *delay*), riwayat keanggotaan halaqah (`valid_from`/`valid_to`), dan deteksi bentrok jadwal. |
+| **Sesi, Absensi & Buku Absensi** | `Attendance.tsx`, `BukuAbsensiPage.tsx`, `AttendanceBook.tsx` | `/app/sessions`, `/app/sessions/:id/attendance`, `/app/attendance` (Admin) & `/app/my-halaqah`, `/app/my-schedule` (Musammi) | Pembekuan *roster snapshot* saat sesi dibuka; status awal peserta wajib *"Belum diisi"* (bukan otomatis Hadir); penyimpanan batch idempoten; koreksi pasca-kunci wajib alasan. |
+| **Setoran & Evaluasi Berkala** | `SetoranHarianPage.tsx`, `PerkembanganInputPage.tsx`, `PerkembanganMasterDataPage.tsx`, `PengaturanEvaluasiPage.tsx` | `/app/sessions/:id/recitations`, `/app/recitations`, `/app/targets`, `/app/evaluations`, `/app/settings/rubrics` | Transaksi setoran terstruktur (`ziyadah`, `sabqi`, `manzil`) dengan validasi surat/ayat Al-Qur'an, kalkulasi halaman otomatis, siklus status (`draft -> submitted -> accepted/returned/voided`), dan target/rubrik berversi. |
+| **Ujian, Buku Nilai & Raport** | `UjianBulananPage.tsx`, `UjianSemesterPage.tsx`, `RaportPage.tsx`, `RaportDocument.tsx` | `/app/exams`, `/app/exams/:id`, `/app/gradebook`, `/app/report-cards` | Pemisahan periode ujian, *attempt* nilai, dan remedial tanpa menimpa nilai lama; penerbitan raport membekukan `snapshot_json` (*immutable*) dengan alur *amendment* teraudit. |
+| **Laporan Analitik & Sistem Lembaga** | `RingkasanGlobalPage.tsx`, `TrenHistorisPage.tsx`, `LaporanPerKelasPage.tsx`, `StatistikPerkembangan.tsx`, `Users.tsx`, `SettingsPage.tsx` | `/app/reports`, `/app/users`, `/app/settings/organization`, `/app/settings/methodology`, `/app/settings/integrations`, `/app/settings/audit` | Filter seragam tersimpan di URL, paginasi terukur, manajemen akses anggota lembaga, penyimpanan token rahasia Telegram/Fonnte di sisi server, serta penangguhan `WaliSantriReport.tsx`. |
+
+### B. Identitas Visual, Tipografi & Disiplin Ikon Minimalis (WCAG 2.2 AA)
+
+- **Aesthetic Direction**: *Clean Enterprise SaaS & Academic Precision* — tata letak presisi untuk layar desktop 1440px dan responsif di tablet/mobile (target sentuh minimum $\ge 40\text{px}$ desktop / $\ge 44\text{px}$ mobile), satu tingkat elevasi kartu (*single-elevation depth* dengan *hairline border* `1px solid #E2E8F0`), tanpa *nested cards* yang menumpuk.
+- **Disiplin Ikon Ketat (Hanya Jika Tepat & Fungsional)**:
+  - **Kapan Menggunakan Ikon**: Hanya pada navigasi level atas di *Sidebar*, indikator kontrol input (pencarian, pemilih tanggal, panah pengurutan kolom tabel, tombol tutup modal), dan tombol aksi primer yang memang terbantu oleh ikon standar yang sangat jelas.
+  - **Kapan Tidak Menggunakan Ikon**: *Status badge* (`Aktif`, `Draft`, `Selesai`, `Diterima`), header kartu/seksi, tab filter, dan isi sel tabel ditampilkan menggunakan **tipografi bersih tanpa ikon tambahan**. Tidak ada ikon hiasan yang dipaksakan.
+- **Palet Warna Semantik (60-30-10)**:
+  - **60% Canvas Netral**: `#F8FAFC` (Slate 50) untuk latar ruang kerja dan `#FFFFFF` untuk permukaan tabel/kartu.
+  - **30% Struktur & Teks**: `#0F172A` (Slate 900) untuk tipografi utama, `#475569` (Slate 600) untuk teks sekunder, dan `#E2E8F0` (Slate 200) untuk pembatas struktural.
+  - **10% Aksen Fungsional & Status (Mengandalkan Teks Jelas + Kontras Warna WCAG AA)**:
+    - Primary Action: `#2563EB` (Biru Akademik)
+    - Nominal / Active / Accepted / Published: `#16A34A` (Hijau Emerald pada latar lembut `#F0FDF4` dengan teks `#15803D`)
+    - Warning / Draft / Pending Review / Remedial: `#D97706` (Amber pada latar `#FFFBEB` dengan teks `#B45309`)
+    - Danger / Alpa / Voided / Suspended: `#DC2626` (Crimson pada latar `#FEF2F2` dengan teks `#B91C1C`)
+- **Tipografi & Disiplin Angka Tabular (2+1 Font Rule)**:
+  - **Display & Navigasi**: `Plus Jakarta Sans` (SemiBold/Bold 600–700).
+  - **Body & Tabel Operasional**: `Plus Jakarta Sans` / `DM Sans` (Regular/Medium 400–500, 13px–15px).
+  - **Angka, Skor, Juz/Ayat & Timestamp**: Wajib menggunakan `font-variant-numeric: tabular-nums` dan `JetBrains Mono` pada kode santri, rentang ayat, nilai ujian, dan metrik persentase agar kolom angka sejajar vertikal.
+
+---
+
+## 3. Keputusan Produk Utama & Trade-Off Arsitektur
+
+- **Keputusan 1: Arsitektur "Supabase RPC-First + Serverless API Adapter" untuk Vercel & Netlify**
+  - *Pendekatan*:
+    1. Menempatkan seluruh logika transaksi multi-tabel dan otorisasi di dalam **PostgreSQL RPC Functions (`SECURITY DEFINER`)** pada Supabase. Karena frontend berkomunikasi langsung ke Supabase melalui HTTPS menggunakan JWT user aktif, 95% fitur berjalan 100% *serverless* tanpa memerlukan proses Node.js yang terus hidup.
+    2. Untuk 5% operasi yang membutuhkan *server-only secret* (seperti `SUPABASE_SERVICE_ROLE_KEY` untuk undangan email tanpa me-logout sesi Admin, atau pengiriman pesan Telegram/Fonnte menggunakan token terenkripsi), kita menyediakan **Serverless API Handler standar** di `/api/*` beserta konfigurasi `vercel.json` dan `netlify.toml` (serta *fallback* RPC aman), yang juga di-mount secara otomatis oleh `server.ts` saat dijalankan di lingkungan preview lokal.
+  - *Mengapa*: Menjamin aplikasi dapat di-deploy langsung ke **Vercel** atau **Netlify** hanya dengan *git push* tanpa biaya server VPS tambahan dan tanpa error *timeout/cold-start* pada operasi akademik harian.
+- **Keputusan 2: Pemisahan `user_profiles` dan `access_grants` (3 Role Kanonikal)**
+  - *Pendekatan*: Memisahkan profil identitas global (`user_profiles`) dari izin akses (`access_grants` dengan `role IN ('superadmin', 'admin', 'musammi')` dan `status IN ('invited', 'active', 'suspended', 'revoked')`). Data lama pada `profiles` dimigrasikan otomatis: `super_admin` $\rightarrow$ `superadmin`, `admin`/`admin_mahad` $\rightarrow$ `admin`, `musammi` $\rightarrow$ `musammi` + `musammi_staff`, `pending` $\rightarrow$ status `invited`, sedangkan data `wali_kelas` & `musyrif` dipertahankan sebagai atribut teks administratif pada Kelas dan Santri.
+  - *Mengapa*: Menghilangkan kerancuan antara status akun dan role otorisasi, serta menutup celah eskalasi hak akses dari sisi client.
+- **Keputusan 3: Roster Snapshot Sesi, Transaksi Setoran Terstruktur & Raport Immutable**
+  - *Pendekatan*:
+    - Sesi halaqah membekukan daftar santri aktif saat dibuka dengan status awal `"Belum diisi"` (`unmarked`).
+    - Setoran disimpan dengan nomor surat & ayat tervalidasi (`surah_start_no`, `ayah_start`, `surah_end_no`, `ayah_end`, `calculated_pages`) dan status siklus (`draft -> submitted -> accepted/returned/voided`) beserta histori revisi `recitation_revisions`.
+    - Raport yang telah diterbitkan (`published`) disimpan sebagai `snapshot_json` permanen; revisi pasca-terbit wajib membuat versi *amendment* baru dengan alasan.
+  - *Mengapa*: Menjamin integritas data historis dan auditabilitas penuh sesuai standar ISO/IEC 25010 dan AWS SaaS Lens.
+
+---
+
+## 4. Arsitektur Teknis, Strategi Data & Peta Jalan Fase Implementasi
+
+### A. Diagram Arsitektur Serverless-Ready (Vercel / Netlify + Supabase)
+
+```
+┌──────────────────────────────────────────────────────────────────────────────────────────┐
+│                 STATIC SPA FRONTEND (Vite Build — Hosted on Vercel / Netlify)            │
+│                                                                                          │
+│  ┌──────────────────────┐   ┌───────────────────────────┐   ┌─────────────────────────┐  │
+│  │    PublicLayout      │   │      PlatformLayout       │   │      TenantLayout       │  │
+│  │  /, /login, /invite  │   │  /platform/* (superadmin) │   │ /app/* (admin, musammi) │  │
+│  └──────────┬───────────┘   └─────────────┬─────────────┘   └────────────┬────────────┘  │
+│             │                             │                              │               │
+│             ▼                             ▼                              ▼               │
+│  ┌────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │         Shared Design System & Permission Engine (Route Metadata + Guards)         │  │
+│  │   PageShell · PageHeader · FilterBar (URL Sync) · DataTable · FormField · Modal    │  │
+│  └──────────────────────────┬─────────────────────────────────────────┬───────────────┘  │
+│                             │                                         │                  │
+│        95% Operasi Akademik & Transaksi               5% Operasi Secret & Integrasi      │
+│           (Direct HTTPS + User JWT)                      (Serverless Function Call)      │
+└─────────────────────────────┼─────────────────────────────────────────┼──────────────────┘
+                              │                                         │
+                              ▼                                         ▼
+┌───────────────────────────────────────────┐   ┌──────────────────────────────────────────┐
+│     SUPABASE POSTGREST & RPC ENGINE       │   │  SERVERLESS API FUNCTIONS (/api/*)       │
+│  (100% Serverless pada Cloud Supabase)    │   │  (Vercel Functions / Netlify / server.ts)│
+│                                           │   │                                          │
+│  • rpc_open_halaqah_session (Snapshot)    │   │  • POST /api/invitations (Auth Admin)    │
+│  • rpc_save_attendance_batch (Idempotent) │   │  • POST /api/integrations/secrets        │
+│  • rpc_submit_recitation_with_revision    │   │  • POST /api/notify/telegram & whatsapp  │
+│  • rpc_publish_report_card_snapshot       │   │  • POST /api/telegram-webhook            │
+│  • rpc_manage_support_session             │   │  (Dilengkapi vercel.json & netlify.toml) │
+│  • rpc_close_academic_year_reconcile      │   └───────────────────────┬──────────────────┘
+└─────────────────────┬─────────────────────┘                           │
+                      │                                                 │
+                      └────────────────────────┬────────────────────────┘
+                                               ▼
+┌──────────────────────────────────────────────────────────────────────────────────────────┐
+│              POSTGRESQL MULTI-TENANT SCHEMA + ROW LEVEL SECURITY (RLS)                   │
+│                                                                                          │
+│  ┌──────────────────────────┐  ┌──────────────────────────┐  ┌────────────────────────┐  │
+│  │ Identity & Governance    │  │ Academic Structure       │  │ Daily Operations       │  │
+│  │ • organizations          │  │ • academic_years         │  │ • halaqah_sessions     │  │
+│  │ • user_profiles          │  │ • semesters              │  │ • attendance_records   │  │
+│  │ • access_grants (3 role) │  │ • marhalah / classes     │  │ • recitation_entries   │  │
+│  │ • support_access_sessions│  │ • students               │  │ • recitation_revisions │  │
+│  │ • audit_logs             │  │ • student_enrollments    │  ├────────────────────────┤  │
+│  │ • integration_secrets    │  │ • musammi_staff          │  │ Quality & Assessment   │  │
+│  └──────────────────────────┘  │ • halaqahs               │  │ • target_plans         │  │
+│                                │ • halaqah_student_member.│  │ • rubric_versions      │  │
+│  Composite Tenant FKs:         │ • halaqah_musammi_assign.│  │ • evaluations / exams  │  │
+│  (organization_id, id)         └──────────────────────────┘  │ • report_cards         │  │
+│                                                              └────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### B. Pemodelan Data & Skema Migrasi Otomatis Multi-Tenant
+
+Seluruh tabel *tenant-scoped* wajib memiliki `organization_id UUID NOT NULL` dan diikat menggunakan **Composite Foreign Key `(organization_id, parent_id)`** serta bermigrasi otomatis dari tabel lama tanpa kehilangan data:
+
+1. **Identitas, Tenant & Governance**:
+   - `organizations`: Ditambahkan kolom `slug` (UNIQUE), `status` (`trial`, `active`, `suspended`, `archived`), `timezone`, `locale`, `plan_id`, `setup_state` (JSONB checklist kesiapan operasional).
+   - `user_profiles` & `access_grants`: Memisahkan identitas global user dari keanggotaan tenant (`role IN ('superadmin', 'admin', 'musammi')`, `status IN ('invited', 'active', 'suspended', 'revoked')`). Constraint menjamin `organization_id IS NULL` hanya untuk `superadmin` dan `NOT NULL` untuk `admin`/`musammi`.
+   - `support_access_sessions` & `audit_logs`: Mencatat sesi bantuan lintas tenant Superadmin (wajib alasan & waktu kedaluwarsa) serta jejak audit perubahan data sensitif.
+   - `integration_secrets`: Menyimpan konfigurasi dan token Telegram/WhatsApp per tenant yang hanya dapat dibaca oleh fungsi server/RPC terotorisasi, bukan diekspos sebagai teks biasa di `app_settings` client.
+2. **Struktur Akademik, Enrollment & Penugasan**:
+   - `academic_years` & `semesters`: Siklus status `draft`, `setup`, `active`, `closing`, `closed`.
+   - `marhalah` & `classes`: Tabel `classes` menyimpan atribut administratif `wali_kelas_name` dan `musyrif_name` (dimigrasikan otomatis dari tabel `wali_kelas` dan `musyrif` lama).
+   - `students` & `student_enrollments`: Memisahkan biodata induk santri dari penempatan kelas per tahun ajaran (dimigrasikan otomatis dari `santri` dan `student_classes`).
+   - `musammi_staff`, `halaqahs`, `halaqah_student_memberships`, `halaqah_musammi_assignments`: Menggantikan PK komposit `(halaqah_id, santri_id)` dengan ID keanggotaan tersendiri dan periode `valid_from`/`valid_to`.
+3. **Operasional Sesi, Absensi, Setoran, Ujian & Raport**:
+   - `halaqah_sessions` & `attendance_records`: Sesi aktual dengan *snapshot* peserta berstatus awal `unmarked` (`Belum diisi`) dan `idempotency_key` untuk mencegah duplikasi saat sinyal tidak stabil.
+   - `recitation_entries` & `recitation_revisions`: Normalisasi `setoran_harian` dengan `academic_year_id`, `session_id`, `kind` (`ziyadah`, `sabqi`, `manzil`), referensi surat/ayat Al-Qur'an, `status` validasi, dan tabel riwayat revisi *append-only*.
+   - `target_plans`, `rubric_versions`, `evaluations`, `exams`, `exam_attempts`, `report_cards`: Menyimpan versi target/rubrik, riwayat *attempt* ujian/remedial, serta *snapshot* raport final yang *immutable*.
+
+### C. Pemetaan Interaksi Komponen & State (End-to-End Working Handlers)
+
+| Alur / Komponen Utama | Interaksi Pengguna | Mutasi State, Validasi & Operasi RPC / Serverless |
+| :--- | :--- | :--- |
+| **Platform Tenant & Support Access (`/platform/*`)** | Superadmin membuat tenant baru, mengundang Admin, atau membuka sesi bantuan (*Support Access*) dengan mengisi alasan & durasi. | Memanggil `rpc_create_tenant_with_admin` / `rpc_start_support_session`. Mengaktifkan `TenantContextBar` dengan hitung mundur kedaluwarsa dan mencatat setiap aksi ke `audit_logs`. |
+| **Manajemen Tahun Ajaran & Enrollment (`/app/academic-years`, `/app/students`)** | Admin mengubah status tahun ajaran (`draft -> setup -> active -> closing -> closed`) dan menempatkan santri ke kelas/halaqah. | Memvalidasi prasyarat kesiapan akademik. Saat `closed`, seluruh mutasi dikunci. Santri tanpa *enrollment* pada tahun aktif tidak masuk ke *roster* sesi melainkan ditampilkan pada *setup alert*. |
+| **Undangan & Penugasan Musammi (`/app/musammi`, `/app/users`)** | Admin membuat profil staf Musammi, mengirim undangan akun, dan menugaskan ke Halaqah. | Memanggil endpoint serverless `/api/invitations` (atau RPC undangan terverifikasi) tanpa `signUp` anonim + delay di browser. Membuat `access_grants` (`role: 'musammi'`) dan menautkan `musammi_staff` ke `halaqah_musammi_assignments`. |
+| **Siklus Sesi, Absensi & Setoran (`/app/sessions/:id/*`)** | Musammi membuka sesi halaqah, mengisi absensi santri, menginput setoran surat/ayat, dan mengunci sesi. | `rpc_open_halaqah_session` membekukan *roster* santri aktif dengan status awal `unmarked`. Input setoran memvalidasi urutan nomor surat & ayat Al-Qur'an (1–114) dan menghitung jumlah halaman otomatis. Penyimpanan absensi memakai `rpc_save_attendance_batch` dengan `idempotency_key`. |
+| **Review Setoran & Koreksi Admin (`/app/attendance`, `/app/recitations`)** | Admin meninjau setoran (`accept`/`return`/`void`) atau mengoreksi absensi sesi yang sudah ditutup. | Membuka `ConfirmDialog` dengan input `reason` wajib. Memanggil `rpc_review_recitation_entry` yang memperbarui status dan menyisipkan baris *append-only* ke `recitation_revisions` dan `audit_logs`. |
+| **Ujian, Remedial & Penerbitan Raport (`/app/exams`, `/app/report-cards`)** | Admin menjadwalkan ujian, penguji menginput nilai per *attempt*/remedial, Admin menerbitkan raport semester. | Menyimpan setiap percobaan ujian sebagai `exam_attempts` terpisah. Saat klik *Publish Raport*, `rpc_publish_report_card` membekukan hasil ke `report_cards.snapshot_json` (`status: 'published'`), dan membuka alur *Amendment* jika diperlukan revisi pasca-terbit. |
+
+### D. Urutan Tahapan Eksekusi (Fase 1 s/d Fase 8)
+
+1. **Fase 1 & 2 — Fondasi Database, Migrasi Otomatis, 3-Role Access Grants, RPC Transaksional & RLS Ketat**:
+   - Menyusun skrip SQL komprehensif (`/database/supabase_saas_v2_migration.sql`) yang membangun tabel-tabel baru, *composite tenant foreign keys*, fungsi RPC transaksional (`SECURITY DEFINER`), kebijakan RLS per role/assignment, serta **migrasi otomatis** dari tabel lama (`profiles`, `santri`, `student_classes`, `musammi`, `wali_kelas`, `musyrif`, `halaqah`, `halaqah_santri`, `attendance`, `setoran_harian`, `ujian_bulanan`, `ujian_semester`).
+2. **Fase 3 — Serverless API Adapter (`api/` + `vercel.json` + `netlify.toml` + `server.ts`)**:
+   - Memisahkan endpoint API ke handler modular yang berjalan secara *serverless* di Vercel dan Netlify sekaligus tetap kompatibel dengan `server.ts` lokal, serta memindahkan pembacaan token rahasia dari client ke server/RPC.
+3. **Fase 4 — Sistem Desain Terpadu (Shared UI Minimalis) & Arsitektur React Router 7**:
+   - Membangun komponen standar (`PageShell`, `PageHeader`, `Breadcrumbs`, `TenantContextBar`, `FilterBar` dengan sinkronisasi URL, `DataTable` generik, `FormField`, `ConfirmDialog`, `StatusBadge` tipografi bersih tanpa ikon paksaan) serta mengimplementasikan `PublicLayout`, `PlatformLayout`, dan `TenantLayout` beserta *Route Permission Map* terpusat.
+4. **Fase 5 — Implementasi Platform Shell Superadmin (`/platform/*`)**:
+   - Membangun halaman Dashboard Platform, Manajemen Organisasi/Tenant & Detail Tenant, Akun Platform, Paket & Entitlements, Support Access Sessions, Audit Platform, Health Monitor, dan Pengaturan Platform.
+5. **Fase 6 — Modernisasi Modul Fondasi Akademik & Master Data Admin (`/app/*`)**:
+   - Memodernisasi halaman Persiapan Tahun Ajaran & Semester (termasuk wizard penutupan tahun), Struktur Marhalah & Kelas (dengan atribut administratif Wali Kelas/Musyrif), Data Santri & Enrollment Tahunan, Data Musammi & Undangan Serverless, serta Halaqah & Jadwal.
+6. **Fase 7 — Modernisasi Operasional Sesi, Absensi & Transaksi Setoran (`/app/sessions/*`, `/app/my-*`)**:
+   - Membangun alur kerja Musammi (`Beranda Musammi`, `Halaqah Saya`, `Jadwal Saya`, `Sesi Halaqah`, `Input Absensi Batch`, `Input Setoran Al-Qur'an Terstruktur`, `Progres Santri Binaan`, `Riwayat Saya`) serta halaman monitoring, validasi, dan koreksi teraudit untuk Admin.
+7. **Fase 8 — Modernisasi Target Berversi, Rubrik, Ujian/Remedial, Raport Immutable & Pengaturan Lembaga**:
+   - Memodernisasi modul Target Hafalan Berversi, Pengaturan Rubrik & Simulasi, Evaluasi Periodik, Manajemen Ujian & Attempt Remedial, Buku Nilai (`Gradebook`), Penerbitan & Amendment Raport Snapshot, Laporan Analitik Terpadu, Pengumuman, serta Pengaturan Lembaga/Metodologi/Integrasi/Audit, diakhiri dengan verifikasi penuh `lint_applet` dan `compile_applet`.

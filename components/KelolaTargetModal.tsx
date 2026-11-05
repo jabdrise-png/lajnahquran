@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, Save, Plus, Trash2, Copy, CheckCircle2 } from 'lucide-react';
 import { useSupabaseData } from '../hooks/useSupabaseData';
+import { NotificationStore } from '../lib/NotificationStore';
 import { createPortal } from 'react-dom';
 import { MurojaahRule, TargetMurojaahConfig, ClassTarget } from '../types';
 
@@ -260,7 +261,7 @@ const KelolaTargetModal: React.FC<KelolaTargetModalProps> = ({ isOpen, onClose }
             onClose();
         } catch (error: any) {
             console.error('Error saving targets:', error);
-            alert(`Gagal menyimpan target: ${error?.message || JSON.stringify(error)}`);
+            NotificationStore.addNotification(`Gagal menyimpan target: ${error?.message || JSON.stringify(error)}`, 'error');
         } finally {
             setIsSaving(false);
         }

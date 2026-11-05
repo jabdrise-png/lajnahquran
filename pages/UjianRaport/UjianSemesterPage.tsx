@@ -2,9 +2,12 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom'; 
 import * as XLSX from 'xlsx';
 import { MarhalahLabel, KelasLabel } from '../../components/Labels';
-import { Search, Save, Download, Upload, Filter, Edit2, Play, Award, X, PenTool, AlertTriangle, BookOpen, CheckCircle, FileSpreadsheet } from 'lucide-react';
+import { Search, Save, Download, Upload, Filter, Edit2, Play, Award, X, PenTool, AlertTriangle, BookOpen, CheckCircle, FileSpreadsheet, History } from 'lucide-react';
 import { useSupabaseData } from '../../hooks/useSupabaseData';
 import { exportToExcel, parseSpreadsheet, getPredikat } from '../../lib/utils';
+import { supabase } from '../../lib/supabaseClient';
+import { NotificationStore } from '../../lib/NotificationStore';
+import { StatusBadge } from '../../components/ui/SaaSPrimitives';
 import Modal from '../../components/Modal';
 
 const parseJuzList = (materi: string): number[] => {
@@ -41,7 +44,7 @@ const calculateJuzScore = (shogir: number = 0, kabir: number = 0, settings: any)
 };
 
 const UjianSemesterPage: React.FC = () => {
-    const { santri, ujianSemester, saveUjianSemester, selectedAcademicYear, appSettings, loading, masterKelas, globalMarhalahs, userProfile, waliKelas, globalPredikatNilai , masterMarhalahs, masterKelasRelasi} = useSupabaseData();
+    const { santri, ujianSemester, saveUjianSemester, selectedAcademicYear, appSettings, loading, masterKelas, globalMarhalahs, userProfile, waliKelas, globalPredikatNilai , masterMarhalahs, masterKelasRelasi, getOrgId} = useSupabaseData();
     
     const selectedSemester = selectedAcademicYear?.active_semester || 'Ganjil';
     const [selectedMarhalah, setSelectedMarhalah] = useState('All');
@@ -55,6 +58,11 @@ const UjianSemesterPage: React.FC = () => {
     const [isImportMenuOpen, setIsImportMenuOpen] = useState(false);
     
     const [editingSantri, setEditingSantri] = useState<number | null>(null);
+    const [isRemedialAttempt, setIsRemedialAttempt] = useState(false);
+    const [attemptNote, setAttemptNote] = useState('');
+    const [examAttempts, setExamAttempts] = useState<any[]>([]);
+    const [historySantriId, setHistorySantriId] = useState<number | null>(null);
+
     const [modalData, setModalData] = useState<{
         shogir: Record<number, number>;
         kabir: Record<number, number>;
@@ -63,6 +71,28 @@ const UjianSemesterPage: React.FC = () => {
     }>({ shogir: {}, kabir: {}, isCustom: {}, customNilai: {} });
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const fetchExamAttempts = async () => {
+        if (!selectedAcademicYear?.id) return;
+        try {
+            const orgId = getOrgId();
+            if (!orgId) return;
+            const { data } = await (supabase as any)
+                .from('exam_attempts')
+                .select('*')
+                .eq('organization_id', orgId)
+                .eq('academic_year_id', selectedAcademicYear.id)
+                .eq('semester_name', selectedSemester)
+                .order('attempt_no', { ascending: true });
+            if (data) setExamAttempts(data);
+        } catch {
+            // Abaikan bila tabel exam_attempts belum dimigrasikan
+        }
+    };
+
+    useEffect(() => {
+        fetchExamAttempts();
+    }, [selectedAcademicYear?.id, selectedSemester]);
 
     const settingsObj = useMemo(() => ({
         nilaiAwalJuz: appSettings.find(s => s.key === 'NILAI_AWAL_JUZ')?.value || '100',
@@ -122,13 +152,13 @@ const UjianSemesterPage: React.FC = () => {
         }));
     };
 
-    const handleOpenInputNilai = (santriId: number) => {
+    const handleOpenInputNilai = (santriId: number, remedialMode: boolean = false) => {
         const data = localData[santriId];
         if (!data) return;
         
         const juzList = parseJuzList(data.materi_juz);
         if (juzList.length === 0) {
-            alert('Silakan isi Materi Ujian (Juz) terlebih dahulu (misal: 1-5 atau 30).');
+            NotificationStore.addNotification('Silakan isi Materi Ujian (Juz) terlebih dahulu (misal: 1-5 atau 30).', 'error');
             return;
         }
 
@@ -138,6 +168,8 @@ const UjianSemesterPage: React.FC = () => {
             isCustom: data.is_custom_nilai || {},
             customNilai: data.custom_nilai || {}
         });
+        setIsRemedialAttempt(remedialMode);
+        setAttemptNote('');
         setEditingSantri(santriId);
     };
 
@@ -205,6 +237,37 @@ const UjianSemesterPage: React.FC = () => {
         }));
 
         try {
+            const orgId = getOrgId();
+            const existingStudentAttempts = examAttempts.filter((a: any) => Number(a.santri_id) === Number(editingSantri));
+
+            // Jika belum ada Attempt #1 di exam_attempts padahal sudah ada nilai sebelumnya dan ini mode Remedial, bekukan Attempt #1 dulu
+            if (orgId && existingStudentAttempts.length === 0 && isRemedialAttempt && data.nilai_akhir !== null && data.nilai_akhir !== undefined) {
+                try {
+                    await (supabase as any).from('exam_attempts').insert({
+                        organization_id: orgId,
+                        academic_year_id: selectedAcademicYear.id,
+                        semester_name: selectedSemester,
+                        exam_type: 'semester',
+                        santri_id: editingSantri,
+                        attempt_no: 1,
+                        is_remedial: false,
+                        materi_juz: data.materi_juz,
+                        detail_json: {
+                            khoto_shogir: data.khoto_shogir || {},
+                            khoto_kabir: data.khoto_kabir || {},
+                            is_custom_nilai: data.is_custom_nilai || {},
+                            custom_nilai: data.custom_nilai || {}
+                        },
+                        final_score: data.nilai_akhir,
+                        predikat: getPredikat(data.nilai_akhir, globalPredikatNilai || []),
+                        notes: 'Attempt #1 (Ujian Utama Sebelum Remedial)',
+                        examiner_id: userProfile?.id || null
+                    });
+                } catch {
+                    // Abaikan bila tabel belum tersedia
+                }
+            }
+
             await saveUjianSemester([{
                 santri_id: editingSantri,
                 academic_year_id: selectedAcademicYear.id,
@@ -216,9 +279,62 @@ const UjianSemesterPage: React.FC = () => {
                 custom_nilai: updatedData.custom_nilai,
                 nilai_akhir: updatedData.nilai_akhir
             }]);
+
+            // Catat attempt baru ke exam_attempts V2 + audit_logs
+            if (orgId) {
+                try {
+                    const baseAttemptCount = existingStudentAttempts.length === 0 && isRemedialAttempt && data.nilai_akhir !== null ? 1 : existingStudentAttempts.length;
+                    const nextAttemptNo = baseAttemptCount + 1;
+                    const isRem = isRemedialAttempt || nextAttemptNo > 1;
+
+                    await (supabase as any).from('exam_attempts').insert({
+                        organization_id: orgId,
+                        academic_year_id: selectedAcademicYear.id,
+                        semester_name: selectedSemester,
+                        exam_type: 'semester',
+                        santri_id: editingSantri,
+                        attempt_no: nextAttemptNo,
+                        is_remedial: isRem,
+                        materi_juz: updatedData.materi_juz,
+                        detail_json: {
+                            khoto_shogir: updatedData.khoto_shogir,
+                            khoto_kabir: updatedData.khoto_kabir,
+                            is_custom_nilai: updatedData.is_custom_nilai,
+                            custom_nilai: updatedData.custom_nilai
+                        },
+                        final_score: updatedData.nilai_akhir,
+                        predikat: getPredikat(updatedData.nilai_akhir, globalPredikatNilai || []),
+                        notes: attemptNote.trim() || (isRem ? `Attempt #${nextAttemptNo} (Remedial Semester)` : 'Attempt #1 (Ujian Semester Utama)'),
+                        examiner_id: userProfile?.id || null
+                    });
+
+                    await (supabase as any).from('audit_logs').insert({
+                        organization_id: orgId,
+                        actor_id: userProfile?.id || null,
+                        actor_role: userProfile?.role || 'admin',
+                        action: isRem ? 'RECORD_REMEDIAL_EXAM_ATTEMPT' : 'RECORD_EXAM_ATTEMPT',
+                        resource_type: 'exam_attempts',
+                        resource_id: `${editingSantri}-attempt-${nextAttemptNo}`,
+                        reason: attemptNote.trim() || (isRem ? `Remedial Ujian Semester Attempt #${nextAttemptNo}` : 'Input Nilai Ujian Semester'),
+                        before_state: { nilai_akhir: data.nilai_akhir },
+                        after_state: { attempt_no: nextAttemptNo, is_remedial: isRem, nilai_akhir: updatedData.nilai_akhir }
+                    });
+
+                    await fetchExamAttempts();
+                } catch {
+                    // Abaikan bila tabel exam_attempts belum dimigrasikan
+                }
+            }
+
+            NotificationStore.addNotification(
+                isRemedialAttempt
+                    ? 'Nilai Remedial berhasil disimpan & Attempt sebelumnya tetap tercatat di histori.'
+                    : 'Nilai Ujian Semester berhasil disimpan.',
+                'success'
+            );
         } catch (error) {
             console.error(error);
-            alert('Gagal menyimpan nilai ke database');
+            NotificationStore.addNotification('Gagal menyimpan nilai ke database', 'error');
         }
 
         setIsSavingModal(false);
@@ -226,7 +342,10 @@ const UjianSemesterPage: React.FC = () => {
     };
 
     const handleSaveAll = async () => {
-        if (!selectedAcademicYear) return alert('Tahun ajaran belum dipilih.');
+        if (!selectedAcademicYear) {
+            NotificationStore.addNotification('Tahun ajaran belum dipilih.', 'error');
+            return;
+        }
         
         setIsSaving(true);
         try {
@@ -250,12 +369,12 @@ const UjianSemesterPage: React.FC = () => {
             }
             if (recordsToSave.length > 0) {
                 await saveUjianSemester(recordsToSave);
-                alert('Data berhasil disimpan!');
+                NotificationStore.addNotification('Data ujian semester berhasil disimpan!', 'success');
             } else {
-                alert('Tidak ada data untuk disimpan.');
+                NotificationStore.addNotification('Tidak ada data untuk disimpan.', 'info');
             }
         } catch (e: any) {
-            alert('Gagal menyimpan: ' + e.message);
+            NotificationStore.addNotification('Gagal menyimpan: ' + e.message, 'error');
         } finally {
             setIsSaving(false);
         }
@@ -299,7 +418,7 @@ const UjianSemesterPage: React.FC = () => {
         try {
             const data = await parseSpreadsheet(file);
             if (!data || data.length === 0) {
-                alert('Data CSV/Excel kosong atau format tidak sesuai.');
+                NotificationStore.addNotification('Data CSV/Excel kosong atau format tidak sesuai.', 'error');
                 return;
             }
 
@@ -307,12 +426,6 @@ const UjianSemesterPage: React.FC = () => {
             let updatedCount = 0;
 
             for (const row of data) {
-                // Header in utils uses lowercase matching
-                // Wait, exportToExcel from utils just dumps array of objects. 
-                // However, parseSpreadsheet converts headers to lowercase.
-                // In handleExport, we output: 'ID', 'NIS', 'Nama', 'Materi Juz', 'Nilai Akhir'.
-                 // So they will become 'id', 'nis', 'nama', 'materi juz', 'nilai akhir'.
-
                 const importedId = row['id'];
                 const importedNama = row['nama'];
 
@@ -335,14 +448,14 @@ const UjianSemesterPage: React.FC = () => {
             }
             
             setLocalData(newLocalData);
-            alert(`Berhasil mengimpor data untuk ${updatedCount} santri.`);
+            NotificationStore.addNotification(`Berhasil mengimpor data untuk ${updatedCount} santri.`, 'success');
             
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
             }
         } catch (error) {
             console.error('Error importing:', error);
-            alert('Gagal mengimpor file.');
+            NotificationStore.addNotification('Gagal mengimpor file.', 'error');
             if (fileInputRef.current) fileInputRef.current.value = '';
         }
     };
@@ -350,14 +463,7 @@ const UjianSemesterPage: React.FC = () => {
     const [currentPageNum, setCurrentPageNum] = useState(0);
     const rowsPerPage = 50;
 
-    const allFilteredSantri = (() => {
-                let baseSantri = santri;
-                if (userProfile?.role === 'pengajar') {
-                    const userWaliClasses = waliKelas.filter(w => w.user_id === userProfile.id).map(w => ({ marhalah: w.marhalah, kelas: w.kelas }));
-                    baseSantri = baseSantri.filter(s => userWaliClasses.some(wc => wc.marhalah === s.marhalah && wc.kelas === s.kelas));
-                }
-                return baseSantri;
-            })().filter(s => {
+    const allFilteredSantri = santri.filter(s => {
         if (!s.kelas || s.kelas === 'Belum Ada Kelas' || s.kelas === '-') return false;
         if (selectedMarhalah !== 'All' && s.marhalah !== selectedMarhalah) return false;
         if (selectedKelas !== 'All' && s.kelas !== selectedKelas) return false;
@@ -450,7 +556,7 @@ const UjianSemesterPage: React.FC = () => {
 
     const handleExportRemedial = () => {
         if (remedialData.length === 0) {
-            alert('Tidak ada data santri yang perlu remedial.');
+            NotificationStore.addNotification('Tidak ada data santri yang perlu remedial.', 'info');
             return;
         }
 
@@ -730,12 +836,27 @@ const UjianSemesterPage: React.FC = () => {
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-center">
-                                                    <button 
-                                                        onClick={() => handleOpenInputNilai(s.id)}
-                                                        className="text-slate-700 bg-slate-100 border border-slate-200 hover:bg-slate-200 px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center transition-colors active:bg-slate-300 focus:ring-4 focus:ring-slate-100 whitespace-nowrap"
-                                                    >
-                                                        Input Nilai
-                                                    </button>
+                                                    <div className="flex items-center justify-center gap-1.5">
+                                                        <button 
+                                                            onClick={() => handleOpenInputNilai(s.id, false)}
+                                                            className="text-slate-700 bg-slate-100 border border-slate-200 hover:bg-slate-200 px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center transition-colors active:bg-slate-300 focus:ring-4 focus:ring-slate-100 whitespace-nowrap"
+                                                        >
+                                                            Input Nilai
+                                                        </button>
+                                                        {examAttempts.some((a: any) => Number(a.santri_id) === Number(s.id)) && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setHistorySantriId(s.id)}
+                                                                className="p-2 text-blue-600 bg-blue-50 border border-blue-200 hover:bg-blue-100 rounded-xl text-xs font-bold inline-flex items-center gap-1 transition-colors"
+                                                                title="Lihat Riwayat Attempt Ujian & Remedial"
+                                                            >
+                                                                <History size={14} />
+                                                                <span className="text-[10px]">
+                                                                    #{examAttempts.filter((a: any) => Number(a.santri_id) === Number(s.id)).length}
+                                                                </span>
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             </tr>
                                         );
@@ -776,9 +897,14 @@ const UjianSemesterPage: React.FC = () => {
             ) : activeTab === 'remedial' ? (
                 <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 overflow-hidden flex flex-col relative z-[0]">
                     <div className="p-5 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white relative">
-                        <h3 className="text-lg font-bold text-slate-800">
-                            Daftar Santri Remedial
-                        </h3>
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-800">
+                                Daftar Santri Remedial & Pencatatan Attempt Baru
+                            </h3>
+                            <p className="text-xs text-slate-500 mt-1">
+                                Setiap input remedial menyimpan Attempt baru (<span className="font-mono">exam_attempts</span>) tanpa menimpa histori nilai Attempt #1.
+                            </p>
+                        </div>
                     </div>
 
                     <div className="overflow-x-auto">
@@ -792,13 +918,14 @@ const UjianSemesterPage: React.FC = () => {
                                     <th className="px-6 py-4 border-b border-r border-slate-200/80 font-bold min-w-[180px] text-left">Juz yang Rasib</th>
                                     <th className="px-6 py-4 border-b border-r border-slate-200/80 font-bold w-32 text-center">Nilai</th>
                                     <th className="px-6 py-4 border-b border-r border-slate-200/80 font-bold w-36 text-center">Jumlah Juz Rasib</th>
-                                    <th className="px-6 py-4 border-b border-slate-200/80 font-bold w-32 text-center">Aksi</th>
+                                    <th className="px-6 py-4 border-b border-slate-200/80 font-bold w-48 text-center">Aksi Remedial</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white">
                                 {remedialData.length > 0 ? (
                                     remedialData.map((item, idx) => {
                                         const n = item.rasibJuzList.length;
+                                        const studentAttempts = examAttempts.filter((a: any) => Number(a.santri_id) === Number(item.santri.id));
                                         return (
                                             <React.Fragment key={item.santri.id}>
                                                 {item.rasibJuzList.map((r, rIdx) => (
@@ -821,7 +948,12 @@ const UjianSemesterPage: React.FC = () => {
                                                                     rowSpan={n} 
                                                                     className="px-6 py-4 font-bold text-slate-800 align-middle border-b border-r border-slate-200/80 bg-white"
                                                                 >
-                                                                    {item.santri.nama}
+                                                                    <div>{item.santri.nama}</div>
+                                                                    {studentAttempts.length > 0 && (
+                                                                        <div className="mt-1">
+                                                                            <StatusBadge label={`ATTEMPT #${studentAttempts.length}`} tone="warning" />
+                                                                        </div>
+                                                                    )}
                                                                 </td>
                                                                 <td 
                                                                     rowSpan={n} 
@@ -862,12 +994,24 @@ const UjianSemesterPage: React.FC = () => {
                                                                     rowSpan={n} 
                                                                     className="px-6 py-4 text-center align-middle border-b border-slate-200/80 bg-white"
                                                                 >
-                                                                    <button 
-                                                                        onClick={() => handleOpenInputNilai(item.santri.id)}
-                                                                        className="text-slate-700 bg-slate-100 border border-slate-200 hover:bg-slate-200 px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center transition-colors active:bg-slate-300 focus:ring-4 focus:ring-slate-100 whitespace-nowrap"
-                                                                    >
-                                                                        Input Nilai
-                                                                    </button>
+                                                                    <div className="flex items-center justify-center gap-1.5">
+                                                                        <button 
+                                                                            onClick={() => handleOpenInputNilai(item.santri.id, true)}
+                                                                            className="text-amber-800 bg-amber-50 border border-amber-200 hover:bg-amber-100 px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center transition-colors whitespace-nowrap"
+                                                                        >
+                                                                            Input Remedial
+                                                                        </button>
+                                                                        {studentAttempts.length > 0 && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => setHistorySantriId(item.santri.id)}
+                                                                                className="p-2 text-blue-600 bg-blue-50 border border-blue-200 hover:bg-blue-100 rounded-xl text-xs font-bold"
+                                                                                title="Lihat Riwayat Attempt"
+                                                                            >
+                                                                                <History size={14} />
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
                                                                 </td>
                                                             </>
                                                         )}
@@ -997,12 +1141,42 @@ const UjianSemesterPage: React.FC = () => {
             )}
 
             {editingSantri && editingSantriData && (
-                <Modal isOpen={!!editingSantri} onClose={() => setEditingSantri(null)} title="Input Nilai Ujian Semester" maxWidth="2xl">
+                <Modal
+                    isOpen={!!editingSantri}
+                    onClose={() => setEditingSantri(null)}
+                    title={isRemedialAttempt ? 'Input Nilai Remedial Ujian Semester (Attempt Baru)' : 'Input Nilai Ujian Semester'}
+                    maxWidth="2xl"
+                >
                     <div className="space-y-5">
-                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                            <div className="text-base font-bold text-slate-800">{editingSantriData.nama}</div>
-                            <div className="text-sm font-medium text-slate-500 mt-1">Materi: Juz {localData[editingSantri].materi_juz}</div>
+                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div>
+                                <div className="text-base font-bold text-slate-800">{editingSantriData.nama}</div>
+                                <div className="text-sm font-medium text-slate-500 mt-0.5">Materi: Juz {localData[editingSantri].materi_juz}</div>
+                            </div>
+                            <label className="inline-flex items-center gap-2 text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={isRemedialAttempt}
+                                    onChange={(e) => setIsRemedialAttempt(e.target.checked)}
+                                    className="rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                                />
+                                <span>Catat sebagai Attempt Remedial</span>
+                            </label>
                         </div>
+
+                        <div>
+                            <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+                                Catatan Penguji / Alasan Remedial (Tercatat di exam_attempts)
+                            </label>
+                            <input
+                                type="text"
+                                value={attemptNote}
+                                onChange={(e) => setAttemptNote(e.target.value)}
+                                placeholder={isRemedialAttempt ? 'Contoh: Perbaikan ujian Juz yang rasib setelah pembinaan...' : 'Catatan pelaksanaan ujian (opsional)...'}
+                                className="w-full border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-medium text-slate-700 bg-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                            />
+                        </div>
+
                         <div className="border border-slate-200/80 rounded-xl">
                             <table className="w-full text-left text-sm text-slate-600">
                                 <thead className="bg-slate-50 text-slate-500 text-[11px] uppercase tracking-wider font-bold sticky top-[-24px] z-10 shadow-sm shadow-slate-200/50">
@@ -1087,9 +1261,68 @@ const UjianSemesterPage: React.FC = () => {
                                     Batal
                                 </button>
                                 <button onClick={handleSaveModal} disabled={isSavingModal} className="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-xl text-[13px] hover:bg-blue-700 shadow-sm transition-all focus:ring-4 focus:ring-blue-500/20 flex items-center disabled:opacity-50">
-                                    <Save size={16} className="mr-2" /> {isSavingModal ? 'Menyimpan...' : 'Simpan Nilai'}
+                                    <Save size={16} className="mr-2" /> {isSavingModal ? 'Menyimpan...' : (isRemedialAttempt ? 'Simpan Attempt Remedial' : 'Simpan Nilai')}
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </Modal>
+            )}
+
+            {/* Modal Riwayat Attempt Ujian & Remedial */}
+            {historySantriId && (
+                <Modal
+                    isOpen={!!historySantriId}
+                    onClose={() => setHistorySantriId(null)}
+                    title={`Riwayat Attempt Ujian & Remedial — ${santri.find(s => s.id === historySantriId)?.nama || ''}`}
+                    maxWidth="2xl"
+                >
+                    <div className="space-y-4">
+                        <p className="text-xs text-slate-500">
+                            Histori seluruh percobaan ujian semester utama dan remedial (<span className="font-mono">exam_attempts</span>) yang tidak pernah ditimpa.
+                        </p>
+                        <div className="divide-y divide-slate-200 border border-slate-200 rounded-xl overflow-hidden">
+                            {examAttempts
+                                .filter((a: any) => Number(a.santri_id) === Number(historySantriId))
+                                .map((att: any) => (
+                                    <div key={att.id} className="p-4 bg-white hover:bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-bold text-slate-900">
+                                                    Attempt #{att.attempt_no}
+                                                </span>
+                                                <StatusBadge
+                                                    label={att.is_remedial ? 'REMEDIAL' : 'UJIAN UTAMA'}
+                                                    tone={att.is_remedial ? 'warning' : 'primary'}
+                                                />
+                                                <span className="text-xs font-mono text-slate-500">
+                                                    Materi: Juz {att.materi_juz || '-'}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-slate-600 mt-1">{att.notes || '-'}</p>
+                                            <div className="text-[11px] font-mono text-slate-400 mt-1">
+                                                {att.created_at ? new Date(att.created_at).toLocaleString('id-ID') : '-'}
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-lg font-extrabold font-mono text-slate-900">
+                                                {att.final_score ?? '-'}
+                                            </div>
+                                            <div className="text-[11px] font-bold text-slate-500">
+                                                {att.predikat || '-'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                        </div>
+                        <div className="flex justify-end pt-2">
+                            <button
+                                type="button"
+                                onClick={() => setHistorySantriId(null)}
+                                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                            >
+                                Tutup
+                            </button>
                         </div>
                     </div>
                 </Modal>

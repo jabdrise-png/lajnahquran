@@ -1,5 +1,6 @@
 import { NotificationStore } from './NotificationStore';
 import { AttendanceStatus } from '../types';
+import { supabase } from './supabaseClient';
 
 interface AttendanceStats {
     total: number;
@@ -76,16 +77,27 @@ export function generateMessageText(stats: AttendanceStats, students: StudentRec
     return msg;
 }
 
+const isMaskedToken = (val?: string | null) => {
+    if (!val) return true;
+    const clean = String(val).trim();
+    return !clean || clean.includes('••') || clean.includes('**');
+};
+
 export async function sendMessageTelegram(botToken: string, chatId: string, text: string) {
     if (!chatId) return false;
     try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const jwt = sessionData?.session?.access_token;
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (jwt) headers['Authorization'] = `Bearer ${jwt}`;
+
         const proxyRes = await fetch('/api/notify/telegram', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({
                 chatId,
                 message: text,
-                botToken: botToken || undefined,
+                botToken: !isMaskedToken(botToken) ? botToken : undefined,
                 parseMode: 'Markdown'
             })
         });
@@ -96,12 +108,16 @@ export async function sendMessageTelegram(botToken: string, chatId: string, text
                 NotificationStore.addNotification(`Pesan Telegram berhasil dikirim ke ${chatId}`, 'success');
                 return true;
             }
+            if (proxyData.error) {
+                NotificationStore.addNotification(`Gagal mengirim Telegram ke ${chatId}: ${proxyData.error}`, 'error');
+                return false;
+            }
         }
     } catch (e) {
-        // Fallback to direct call below
+        if (isMaskedToken(botToken)) return false;
     }
 
-    if (!botToken) return false;
+    if (isMaskedToken(botToken)) return false;
     const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
     try {
         const response = await fetch(url, {
@@ -127,13 +143,18 @@ export async function sendMessageTelegram(botToken: string, chatId: string, text
 export async function sendMessageFonnte(apiToken: string, targetNetwork: string, text: string) {
     if (!targetNetwork) return false;
     try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const jwt = sessionData?.session?.access_token;
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (jwt) headers['Authorization'] = `Bearer ${jwt}`;
+
         const proxyRes = await fetch('/api/notify/whatsapp', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({
                 target: targetNetwork,
                 message: text,
-                apiToken: apiToken || undefined
+                apiToken: !isMaskedToken(apiToken) ? apiToken : undefined
             })
         });
         const contentType = proxyRes.headers.get('content-type') || '';
@@ -143,12 +164,16 @@ export async function sendMessageFonnte(apiToken: string, targetNetwork: string,
                 NotificationStore.addNotification(`Pesan WA berhasil dikirim ke ${targetNetwork}`, 'success');
                 return true;
             }
+            if (proxyData.error) {
+                NotificationStore.addNotification(`Gagal mengirim WA (Fonnte) ke ${targetNetwork}: ${proxyData.error}`, 'error');
+                return false;
+            }
         }
     } catch (e) {
-        // Fallback to direct call below
+        if (isMaskedToken(apiToken)) return false;
     }
 
-    if (!apiToken) return false;
+    if (isMaskedToken(apiToken)) return false;
     const url = "https://api.fonnte.com/send";
     const payload = new URLSearchParams();
     payload.append('target', targetNetwork);

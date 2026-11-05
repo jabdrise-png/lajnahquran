@@ -1,22 +1,20 @@
 
 import React, { useState, useMemo, useEffect } from 'react'; 
 import { MarhalahLabel, KelasLabel } from '../components/Labels';
-import Card from '../components/Card';
 import { useSupabaseData } from '../hooks/useSupabaseData';
 import { Marhalah, HalaqahType, Waktu, Peran } from '../types';
 import type { Halaqah as HalaqahData, Person } from '../types';
-// Removed globalJenisHalaqah import
 import { format } from 'date-fns';
 import { generateMessageText, sendMessageTelegram, sendMessageFonnte } from '../lib/notifications';
+import { supabase } from '../lib/supabaseClient';
+import { NotificationStore } from '../lib/NotificationStore';
+import { ConfirmDialog } from '../components/ui/SaaSPrimitives';
+import Modal from '../components/Modal';
 import { 
   Calendar, 
   ChevronDown, 
   Search,
-  ChevronRight,
-  Filter,
   CheckCircle2,
-  AlertCircle,
-  XCircle,
   Clock
 } from "lucide-react";
 
@@ -30,7 +28,7 @@ const statusColorMap: Record<string, string> = {
 
 const AttendanceRow: React.FC<{
     person: Person;
-    role: Peran; // Explicitly pass role to prevent ambiguity
+    role: Peran;
     halaqahId: number;
     status: string;
     globalAttendanceStatus: string[];
@@ -55,12 +53,15 @@ const AttendanceRow: React.FC<{
           </div>
           
           <div className="flex-shrink-0 ml-4 relative">
-            <div className={`absolute left-2.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full pointer-events-none z-10 ${statusColorMap[status] || 'bg-slate-500'}`} />
+            <div className={`absolute left-2.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full pointer-events-none z-10 ${status ? (statusColorMap[status] || 'bg-slate-500') : 'bg-slate-300'}`} />
             <select 
               value={status}
               onChange={(e) => onStatusChange(person.id, role, halaqahId, e.target.value)}
-              className="appearance-none h-9 w-[110px] rounded-lg border border-slate-200/80 bg-white pl-6 pr-8 text-[12px] font-semibold text-slate-700 shadow-[0_1px_2px_rgba(0,0,0,0.02)] outline-none cursor-pointer transition-all hover:border-slate-300 hover:shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+              className={`appearance-none h-9 w-[128px] rounded-lg border pl-6 pr-8 text-[12px] font-semibold shadow-[0_1px_2px_rgba(0,0,0,0.02)] outline-none cursor-pointer transition-all hover:border-slate-300 hover:shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 ${
+                status ? 'border-slate-200/80 bg-white text-slate-700' : 'border-dashed border-slate-300 bg-slate-50 text-slate-500'
+              }`}
             >
+              <option value="">Belum diisi</option>
               {globalAttendanceStatus?.map(s => (
                 <option key={s} value={s}>{s}</option>
               ))}
@@ -76,21 +77,43 @@ const HalaqahCard: React.FC<{
     attendanceData: Record<string, { status: string; halaqahId: number }>;
     globalAttendanceStatus: string[];
     onStatusChange: (personId: number, role: Peran, halaqahId: number, status: string) => void;
-}> = React.memo(({ halaqah, attendanceData, globalAttendanceStatus, onStatusChange }) => {
+    onMarkCardRemainingHadir: (halaqah: HalaqahData) => void;
+}> = React.memo(({ halaqah, attendanceData, globalAttendanceStatus, onStatusChange, onMarkCardRemainingHadir }) => {
     
-    // Helper to generate composite key
     const getKey = (id: number, role: Peran) => `${role}_${id}`;
+
+    const unmarkedInCard = useMemo(() => {
+        let count = 0;
+        if (halaqah.musammi && halaqah.musammi.id > 0) {
+            if (!attendanceData[getKey(halaqah.musammi.id, Peran.Musammi)]?.status) count++;
+        }
+        halaqah.santri.forEach(s => {
+            if (!attendanceData[getKey(s.id, Peran.Santri)]?.status) count++;
+        });
+        return count;
+    }, [halaqah, attendanceData]);
 
     return (
         <div className="rounded-2xl border border-slate-200/60 bg-white shadow-[0_1px_3px_0_rgba(0,0,0,0.02),0_4px_16px_0_rgba(0,0,0,0.02)] overflow-hidden flex flex-col h-full">
             {/* Card Header */}
-            <div className="p-5 border-b border-slate-200/60 bg-slate-50/30 flex justify-between items-start">
+            <div className="p-5 border-b border-slate-200/60 bg-slate-50/30 flex justify-between items-start gap-2">
               <div>
                 <h2 className="text-[16px] font-bold text-slate-900 tracking-tight">{halaqah.nama}</h2>
                 <p className="text-[13px] text-slate-500 font-medium mt-0.5"><MarhalahLabel text={halaqah.marhalah} id={halaqah.marhalah_id} /> - {halaqah.jenis}</p>
               </div>
-              <div className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600 border border-slate-200/60">
-                {halaqah.santri.length + (halaqah.musammi && halaqah.musammi.id > 0 ? 1 : 0)} Anggota
+              <div className="flex flex-col items-end gap-1.5">
+                <div className="inline-flex items-center rounded-md bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600 border border-slate-200/60">
+                  {halaqah.santri.length + (halaqah.musammi && halaqah.musammi.id > 0 ? 1 : 0)} Anggota
+                </div>
+                {unmarkedInCard > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => onMarkCardRemainingHadir(halaqah)}
+                    className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-md transition-colors"
+                  >
+                    Tandai {unmarkedInCard} Belum Diisi → Hadir
+                  </button>
+                )}
               </div>
             </div>
 
@@ -110,7 +133,7 @@ const HalaqahCard: React.FC<{
                             person={halaqah.musammi}
                             role={Peran.Musammi}
                             halaqahId={halaqah.id}
-                            status={attendanceData[getKey(halaqah.musammi.id, Peran.Musammi)]?.status || (globalAttendanceStatus?.[0] || 'Hadir')}
+                            status={attendanceData[getKey(halaqah.musammi.id, Peran.Musammi)]?.status || ''}
                             globalAttendanceStatus={globalAttendanceStatus}
                             onStatusChange={onStatusChange}
                         />
@@ -134,7 +157,7 @@ const HalaqahCard: React.FC<{
                             person={s}
                             role={Peran.Santri}
                             halaqahId={halaqah.id}
-                            status={attendanceData[getKey(s.id, Peran.Santri)]?.status || (globalAttendanceStatus?.[0] || 'Hadir')}
+                            status={attendanceData[getKey(s.id, Peran.Santri)]?.status || ''}
                             globalAttendanceStatus={globalAttendanceStatus}
                             onStatusChange={onStatusChange}
                         />
@@ -154,11 +177,13 @@ interface AttendanceProps {
 
 const Attendance: React.FC<AttendanceProps> = ({ onNavigate }) => {
     const { halaqah, attendance, addAttendanceRecords, loading, error, appSettings, waliKelas, musyrifs, globalMarhalahs, globalWaktuHalaqah, globalJenisHalaqah, globalAttendanceStatus, userProfile , masterMarhalahs, masterKelasRelasi} = useSupabaseData();
-    // FIX: Using string key (Composite key: "Role_ID") to prevent collision between Musammi ID 1 and Santri ID 1
     const [attendanceData, setAttendanceData] = useState<Record<string, {status: string, halaqahId: number}>>({});
     const [isSaving, setIsSaving] = useState(false);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [draftRestoredInfo, setDraftRestoredInfo] = useState<{ count: number; time: string } | null>(null);
+    const [isBulkHadirConfirmOpen, setIsBulkHadirConfirmOpen] = useState(false);
+    const [isAuditReasonModalOpen, setIsAuditReasonModalOpen] = useState(false);
+    const [auditCorrectionReason, setAuditCorrectionReason] = useState('');
     
     // Filters
     const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -303,8 +328,7 @@ const Attendance: React.FC<AttendanceProps> = ({ onNavigate }) => {
         const activeHalaqah = halaqah.filter(h => h.is_active === true);
         if (userProfile?.role === 'musammi') {
             return activeHalaqah.filter(h => 
-                (h.musammi?.user_id && userProfile.id && h.musammi.user_id === userProfile.id) || 
-                (h.musammi?.nama?.toLowerCase().trim() === userProfile.name.toLowerCase().trim())
+                Boolean(h.musammi?.user_id && userProfile.id && h.musammi.user_id === userProfile.id)
             );
         }
         return activeHalaqah;
@@ -371,12 +395,87 @@ const Attendance: React.FC<AttendanceProps> = ({ onNavigate }) => {
         return filteredHalaqah.slice(0, visibleCount);
     }, [filteredHalaqah, visibleCount]);
 
+    const unmarkedTotalCount = useMemo(() => {
+        let count = 0;
+        filteredHalaqah.forEach(h => {
+            if (h.musammi && h.musammi.id > 0) {
+                if (!attendanceData[`${Peran.Musammi}_${h.musammi.id}`]?.status) count++;
+            }
+            h.santri.forEach((s: Person) => {
+                if (!attendanceData[`${Peran.Santri}_${s.id}`]?.status) count++;
+            });
+        });
+        return count;
+    }, [filteredHalaqah, attendanceData]);
+
+    const handleMarkCardRemainingHadir = (h: HalaqahData) => {
+        setAttendanceData(prev => {
+            const updated = { ...prev };
+            if (h.musammi && h.musammi.id > 0) {
+                const mKey = `${Peran.Musammi}_${h.musammi.id}`;
+                if (!updated[mKey]?.status) {
+                    updated[mKey] = { status: 'Hadir', halaqahId: h.id };
+                }
+            }
+            h.santri.forEach((s: Person) => {
+                const sKey = `${Peran.Santri}_${s.id}`;
+                if (!updated[sKey]?.status) {
+                    updated[sKey] = { status: 'Hadir', halaqahId: h.id };
+                }
+            });
+            if (draftStorageKey) {
+                try {
+                    localStorage.setItem(draftStorageKey, JSON.stringify({
+                        date: selectedDate,
+                        waktu: selectedWaktu,
+                        data: updated,
+                        lastModified: format(new Date(), 'HH:mm')
+                    }));
+                } catch {}
+            }
+            return updated;
+        });
+        setHasUnsavedChanges(true);
+    };
+
+    const handleMarkAllRemainingHadir = () => {
+        setAttendanceData(prev => {
+            const updated = { ...prev };
+            filteredHalaqah.forEach(h => {
+                if (h.musammi && h.musammi.id > 0) {
+                    const mKey = `${Peran.Musammi}_${h.musammi.id}`;
+                    if (!updated[mKey]?.status) {
+                        updated[mKey] = { status: 'Hadir', halaqahId: h.id };
+                    }
+                }
+                h.santri.forEach((s: Person) => {
+                    const sKey = `${Peran.Santri}_${s.id}`;
+                    if (!updated[sKey]?.status) {
+                        updated[sKey] = { status: 'Hadir', halaqahId: h.id };
+                    }
+                });
+            });
+            if (draftStorageKey) {
+                try {
+                    localStorage.setItem(draftStorageKey, JSON.stringify({
+                        date: selectedDate,
+                        waktu: selectedWaktu,
+                        data: updated,
+                        lastModified: format(new Date(), 'HH:mm')
+                    }));
+                } catch {}
+            }
+            return updated;
+        });
+        setHasUnsavedChanges(true);
+        setIsBulkHadirConfirmOpen(false);
+        NotificationStore.addNotification('Seluruh peserta yang belum diisi telah ditandai Hadir.', 'info');
+    };
+
     const handleStatusChange = (personId: number, role: Peran, halaqahId: number, status: string) => {
-        // Use composite key to ensure uniqueness
         const key = `${role}_${personId}`;
         setAttendanceData(prev => {
             const updated = { ...prev, [key]: { status, halaqahId } };
-            // Lapisan 3: Simpan draf otomatis ke localStorage secara realtime
             if (draftStorageKey) {
                 try {
                     localStorage.setItem(draftStorageKey, JSON.stringify({
@@ -401,7 +500,6 @@ const Attendance: React.FC<AttendanceProps> = ({ onNavigate }) => {
         setDraftRestoredInfo(null);
         setHasUnsavedChanges(false);
 
-        // Kembalikan ke data yang tersimpan dari database
         const datePrefix = selectedDate.substring(0, 10);
         const matching = (attendance || []).filter(a => {
             const attDate = a.date ? a.date.substring(0, 10) : '';
@@ -418,46 +516,67 @@ const Attendance: React.FC<AttendanceProps> = ({ onNavigate }) => {
         setAttendanceData(prefilledFromDb);
     };
 
-    const handleSaveAll = async () => {
-        setIsSaving(true);
-        
+    const handleSaveAll = async (confirmedReason?: string) => {
+        if (selectedWaktu === 'all') {
+            NotificationStore.addNotification('Silakan pilih waktu absensi yang spesifik terlebih dahulu.', 'error');
+            return;
+        }
+
         const allPeopleToRecord: { person: Person; role: Peran; halaqahId: number }[] = [];
         filteredHalaqah.forEach(h => {
-            allPeopleToRecord.push({ person: h.musammi, role: Peran.Musammi, halaqahId: h.id });
-            h.santri.forEach(s => {
+            if (h.musammi && h.musammi.id > 0) {
+                allPeopleToRecord.push({ person: h.musammi, role: Peran.Musammi, halaqahId: h.id });
+            }
+            h.santri.forEach((s: Person) => {
                 allPeopleToRecord.push({ person: s, role: Peran.Santri, halaqahId: h.id });
             });
         });
 
-        const recordsToSave = allPeopleToRecord.map(({ person, role, halaqahId }) => {
-            // Retrieve status using composite key
-            const key = `${role}_${person.id}`;
-            const status = attendanceData[key]?.status || (globalAttendanceStatus?.[0] || 'Hadir');
-
-            return {
-                date: selectedDate,
-                waktu: selectedWaktu as Waktu,
-                personId: person.id,
-                peran: role,
-                status: status,
-                halaqahId: halaqahId
-            }
-        });
+        const recordsToSave = allPeopleToRecord
+            .map(({ person, role, halaqahId }) => {
+                const key = `${role}_${person.id}`;
+                const status = attendanceData[key]?.status || '';
+                return {
+                    date: selectedDate,
+                    waktu: selectedWaktu as Waktu,
+                    personId: person.id,
+                    peran: role,
+                    status: status,
+                    halaqahId: halaqahId
+                };
+            })
+            .filter(r => Boolean(r.status));
 
         if (recordsToSave.length === 0) {
-            alert('Tidak ada data absensi untuk disimpan.');
-            setIsSaving(false);
+            NotificationStore.addNotification('Belum ada status kehadiran yang dipilih. Pilih status atau klik "Tandai Semua Belum Diisi → Hadir".', 'error');
             return;
         }
 
-        if (selectedWaktu === 'all') {
-            alert('Silakan pilih waktu absensi yang spesifik.');
-            setIsSaving(false);
+        if (savedRecordCount > 0 && !confirmedReason) {
+            setIsAuditReasonModalOpen(true);
             return;
         }
+
+        setIsSaving(true);
 
         try {
             await addAttendanceRecords(recordsToSave);
+
+            if (savedRecordCount > 0 && confirmedReason && userProfile?.organization_id) {
+                await (supabase as any).from('audit_logs').insert({
+                    organization_id: userProfile.organization_id,
+                    actor_user_id: userProfile.id,
+                    action: 'UPDATE_ATTENDANCE_BATCH',
+                    entity_type: 'attendance_records',
+                    entity_id: `${selectedDate}_${selectedWaktu}`,
+                    reason: confirmedReason,
+                    diff_json: {
+                        date: selectedDate,
+                        slot: selectedWaktu,
+                        updated_count: recordsToSave.length
+                    }
+                });
+            }
             
             // Fire-and-forget notification logic
             const sendNotificationsAsync = async () => {
@@ -491,7 +610,7 @@ const Attendance: React.FC<AttendanceProps> = ({ onNavigate }) => {
                                 nama = `${h.musammi.nama} (Musammi)`;
                                 break;
                             }
-                            const s = h.santri.find(x => x.id === r.personId);
+                            const s = h.santri.find((x: Person) => x.id === r.personId);
                             if (s && r.peran === Peran.Santri) {
                                 nama = s.nama;
                                 kelas = s.kelas || '';
@@ -508,8 +627,6 @@ const Attendance: React.FC<AttendanceProps> = ({ onNavigate }) => {
 
                     if (enableWa && fonnteApiToken) {
                         const affectedMarhalahs = new Set<string>();
-                        
-                        // Map class to students
                         const classToStudentsMap: Record<string, typeof allRecords> = {};
                         const marhalahToStudentsMap: Record<string, typeof allRecords> = {};
 
@@ -522,7 +639,7 @@ const Attendance: React.FC<AttendanceProps> = ({ onNavigate }) => {
                                     break;
                                 }
 
-                                const s = h.santri.find(x => x.id === r.personId);
+                                const s = h.santri.find((x: Person) => x.id === r.personId);
                                 if (s && r.peran === Peran.Santri) {
                                     affectedMarhalahs.add(h.marhalah);
                                     
@@ -539,7 +656,6 @@ const Attendance: React.FC<AttendanceProps> = ({ onNavigate }) => {
                             }
                         });
 
-                        // 1. Send to Musyrif (Per Marhalah)
                         affectedMarhalahs.forEach(m => {
                             const myMusyrif = musyrifs?.filter(mu => mu.marhalah === m && mu.no_hp);
                             if (!myMusyrif || myMusyrif.length === 0) return;
@@ -565,7 +681,7 @@ const Attendance: React.FC<AttendanceProps> = ({ onNavigate }) => {
                                         nama = `${h.musammi.nama} (Musammi)`;
                                         break;
                                     }
-                                    const s = h.santri.find(x => x.id === r.personId);
+                                    const s = h.santri.find((x: Person) => x.id === r.personId);
                                     if (s && r.peran === Peran.Santri) { nama = s.nama; kelas = s.kelas || ''; break; }
                                 }
                                 return { nama, kelas, status: r.status };
@@ -578,7 +694,6 @@ const Attendance: React.FC<AttendanceProps> = ({ onNavigate }) => {
                             });
                         });
                         
-                        // 2. Send to Wali Kelas (Per Kelas)
                         Object.keys(classToStudentsMap).forEach(compKey => {
                             const [m, c] = compKey.split('|');
                             const wali = waliKelas?.find(wk => wk.marhalah === m && wk.kelas === c && wk.no_hp);
@@ -601,7 +716,7 @@ const Attendance: React.FC<AttendanceProps> = ({ onNavigate }) => {
                             const classStudents = classRecords.map(r => {
                                 let nama = 'Unknown';
                                 for (const h of filteredHalaqah) {
-                                    const s = h.santri.find(x => x.id === r.personId);
+                                    const s = h.santri.find((x: Person) => x.id === r.personId);
                                     if (s && r.peran === Peran.Santri) { nama = s.nama; break; }
                                 }
                                 return { nama, kelas: c, status: r.status };
@@ -616,17 +731,18 @@ const Attendance: React.FC<AttendanceProps> = ({ onNavigate }) => {
             };
             sendNotificationsAsync();
 
-            // Bersihkan draf lokal dan status belum tersimpan setelah berhasil disimpan
             if (draftStorageKey) {
                 localStorage.removeItem(draftStorageKey);
             }
             setHasUnsavedChanges(false);
             setDraftRestoredInfo(null);
+            setIsAuditReasonModalOpen(false);
+            setAuditCorrectionReason('');
 
-            alert('Absensi berhasil disimpan!');
+            NotificationStore.addNotification('Absensi berhasil disimpan.', 'success');
         } catch(e: any) {
             console.error("Failed to save attendance:", e);
-            alert(`Gagal menyimpan absensi: ${e.message}`);
+            NotificationStore.addNotification(`Gagal menyimpan absensi: ${e.message}`, 'error');
         } finally {
             setIsSaving(false);
         }
@@ -644,40 +760,49 @@ const Attendance: React.FC<AttendanceProps> = ({ onNavigate }) => {
                 <div className="flex flex-wrap items-center gap-2.5">
                   <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Absensi Harian</h1>
                   {hasUnsavedChanges && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
                       Perubahan belum disimpan
                     </span>
                   )}
                   {selectedWaktu !== 'all' && (
                     savedRecordCount > 0 ? (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-[12px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                         <CheckCircle2 size={13} className="text-emerald-600" />
                         Tersimpan ({savedRecordCount} orang)
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-medium bg-slate-100 text-slate-500 border border-slate-200/80">
-                        Belum diisi
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-medium bg-slate-100 text-slate-500 border border-slate-200/80">
+                        Belum diisi ({unmarkedTotalCount} peserta)
                       </span>
                     )
                   )}
                 </div>
-                <p className="text-[14px] text-slate-500 mt-1">Pencatatan kehadiran Musammi dan Santri per Halaqah.</p>
+                <p className="text-[14px] text-slate-500 mt-1">Pencatatan kehadiran Musammi dan Santri per Halaqah (status awal wajib eksplisit, tidak otomatis Hadir).</p>
               </div>
               
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2.5">
+                {unmarkedTotalCount > 0 && selectedWaktu !== 'all' && (
+                  <button
+                    type="button"
+                    onClick={() => setIsBulkHadirConfirmOpen(true)}
+                    className="inline-flex h-11 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-4 text-[12px] font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors"
+                  >
+                    Tandai Semua Belum Diisi ({unmarkedTotalCount}) → Hadir
+                  </button>
+                )}
                 <button 
-                  onClick={handleSaveAll} 
+                  onClick={() => handleSaveAll()} 
                   disabled={isSaving}
                   className="inline-flex w-full sm:w-auto h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-[13px] font-semibold text-white shadow-[0_2px_12px_rgba(37,99,235,0.25)] transition-all hover:bg-blue-700 hover:-translate-y-0.5 disabled:bg-slate-400 disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed"
                 >
-                  {isSaving ? 'Menyimpan...' : (savedRecordCount > 0 ? 'Perbarui Absensi' : 'Simpan Absensi')}
+                  {isSaving ? 'Menyimpan...' : (savedRecordCount > 0 ? 'Perbarui Absensi (Teraudit)' : 'Simpan Absensi')}
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Lapisan 3: Notifikasi Pemulihan Draf Otomatis (Clean, Simple, Konsisten) */}
+          {/* Lapisan 3: Notifikasi Pemulihan Draf Otomatis */}
           {draftRestoredInfo && (
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-xl border border-blue-200/90 bg-blue-50/70 text-slate-800 shadow-2xs">
               <div className="flex items-center gap-3">
@@ -715,10 +840,8 @@ const Attendance: React.FC<AttendanceProps> = ({ onNavigate }) => {
             </div>
           )}
 
-          {/* Filter Toolbar: Bagian Atas & Bagian Bawah */}
+          {/* Filter Toolbar */}
           <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_1px_3px_0_rgba(0,0,0,0.02),0_4px_16px_0_rgba(0,0,0,0.02)] space-y-3">
-            
-            {/* Bagian Atas: Tanggal (lebar normal) & Cari santri (lebar full ke kanan) */}
             <div className="flex flex-col sm:flex-row items-center gap-3">
               {/* Tanggal */}
               <div className="relative group w-full sm:w-56 md:w-64 shrink-0">
@@ -731,7 +854,7 @@ const Attendance: React.FC<AttendanceProps> = ({ onNavigate }) => {
                 />
               </div>
 
-              {/* Cari Santri (lebar full ke kanan) */}
+              {/* Cari Santri */}
               <div className="relative group w-full flex-1">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-hover:text-blue-500 transition-colors pointer-events-none" />
                 <input 
@@ -744,7 +867,6 @@ const Attendance: React.FC<AttendanceProps> = ({ onNavigate }) => {
               </div>
             </div>
 
-            {/* Bagian Bawah: Marhalah, Jenis halaqah, Waktu halaqah, Pilih halaqah (lebar normal) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {/* Marhalah */}
               <div className="relative w-full">
@@ -815,7 +937,8 @@ const Attendance: React.FC<AttendanceProps> = ({ onNavigate }) => {
                     halaqah={h} 
                     attendanceData={attendanceData} 
                     globalAttendanceStatus={globalAttendanceStatus}
-                    onStatusChange={handleStatusChange} 
+                    onStatusChange={handleStatusChange}
+                    onMarkCardRemainingHadir={handleMarkCardRemainingHadir}
                 />
             )}
             {filteredHalaqah.length === 0 && (
@@ -837,6 +960,59 @@ const Attendance: React.FC<AttendanceProps> = ({ onNavigate }) => {
                   </button>
               </div>
           )}
+
+          {/* Konfirmasi Tandai Semua Belum Diisi -> Hadir */}
+          <ConfirmDialog
+            isOpen={isBulkHadirConfirmOpen}
+            onCancel={() => setIsBulkHadirConfirmOpen(false)}
+            onConfirm={handleMarkAllRemainingHadir}
+            title="Tandai Semua Belum Diisi Menjadi Hadir?"
+            description={`Sebanyak ${unmarkedTotalCount} peserta yang statusnya masih "Belum diisi" pada filter saat ini akan ditandai sebagai "Hadir". Peserta yang sudah ditandai Sakit, Izin, Alpa, atau Terlambat tidak akan berubah.`}
+            confirmLabel="Ya, Tandai Hadir"
+            tone="primary"
+          />
+
+          {/* Modal Alasan Koreksi Absensi (Audit Log) */}
+          <Modal
+            isOpen={isAuditReasonModalOpen}
+            onClose={() => setIsAuditReasonModalOpen(false)}
+            title="Alasan Pembaruan / Koreksi Absensi (Teraudit)"
+          >
+            <div className="space-y-4">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Sesi waktu <strong>{selectedWaktu}</strong> pada tanggal <strong>{selectedDate}</strong> sudah memiliki data absensi tersimpan ({savedRecordCount} peserta). Sesuai kebijakan audit, setiap perubahan pada absensi yang sudah tersimpan wajib mencantumkan alasan koreksi.
+              </p>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Alasan Koreksi Absensi <span className="text-rose-500">*</span>
+                </label>
+                <textarea
+                  rows={3}
+                  value={auditCorrectionReason}
+                  onChange={e => setAuditCorrectionReason(e.target.value)}
+                  placeholder="Contoh: Surat izin sakit menyusul dari musyrif asrama..."
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-800 focus:border-blue-600 focus:outline-none"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsAuditReasonModalOpen(false)}
+                  className="px-4 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={!auditCorrectionReason.trim() || isSaving}
+                  onClick={() => handleSaveAll(auditCorrectionReason.trim())}
+                  className="px-4 py-2 rounded-lg bg-blue-600 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {isSaving ? 'Menyimpan...' : 'Simpan Koreksi & Catat Audit'}
+                </button>
+              </div>
+            </div>
+          </Modal>
         </div>
     );
 };

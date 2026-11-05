@@ -182,6 +182,28 @@ const KenaikanKelasPage: React.FC = () => {
 
             if (error) throw error;
 
+            // Dual-write ke tabel kanonikal V2 student_enrollments (Fase 3 & Fase 6 Blueprint)
+            try {
+                if (sourceYearId && Number(sourceYearId) !== Number(targetYearId)) {
+                    await (supabase.from('student_enrollments' as any) as any)
+                        .update({ status: 'promoted', left_at: new Date().toISOString().split('T')[0] })
+                        .eq('organization_id', orgId)
+                        .eq('academic_year_id', sourceYearId)
+                        .in('student_id', selectedStudentIds);
+                }
+                const enrollmentRows = selectedStudentIds.map(id => ({
+                    organization_id: orgId,
+                    student_id: id,
+                    academic_year_id: Number(targetYearId),
+                    marhalah_id: mId || null,
+                    kelas_id: kId || null,
+                    status: 'active',
+                    enrolled_at: new Date().toISOString().split('T')[0],
+                }));
+                await (supabase.from('student_enrollments' as any) as any)
+                    .upsert(enrollmentRows, { onConflict: 'organization_id,student_id,academic_year_id' });
+            } catch {}
+
             // Sinkronkan juga kolom marhalah & kelas di tabel santri jika target tahun ajaran adalah tahun ajaran aktif
             const targetAy = academicYears.find(ay => ay.id === Number(targetYearId));
             if (targetAy?.is_active || Number(targetYearId) === Number(selectedAcademicYear?.id)) {

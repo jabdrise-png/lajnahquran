@@ -1,13 +1,26 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { FileText, Save, Search, Plus, Trash, Edit, Check, X, Filter, Loader2, Clock, Settings } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { Save, Search, Plus, Trash, Edit, Filter, Loader2, Clock, History, ShieldCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
 import { useSupabaseData } from '../hooks/useSupabaseData';
 import Modal from '../components/Modal';
+import { StatusBadge, ConfirmDialog, BadgeTone } from '../components/ui/SaaSPrimitives';
+import { NotificationStore } from '../lib/NotificationStore';
 import { SURAHS } from '../lib/surahs';
 import { sendCustomTelegramMessage } from '../lib/telegram';
 import { calculateHalamanSetoran, parseRentangHafalanString } from '../lib/quranPageMap';
+import { quranMetadata } from '../lib/quranUtils';
 
+function findSurahMetadata(query: string) {
+    if (!query || !query.trim()) return null;
+    const cleaned = query.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!cleaned) return null;
+    const found = quranMetadata.find(s => {
+        const sClean = s.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+        return sClean === cleaned || sClean.includes(cleaned) || cleaned.includes(sClean);
+    });
+    return found ? { nomor: found.id, latin: found.name, ayat: found.ayat } : null;
+}
 
 function AddSetoranForm({ 
     initialData, 
@@ -235,11 +248,26 @@ function AddSetoranForm({
             <hr className="border-slate-100" />
 
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-slate-900">Materi Hafalan</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-slate-900">Materi Hafalan (Tervalidasi Mushaf 114 Surat)</h3>
+                <select
+                  value={addForm.recitation_status || 'submitted'}
+                  onChange={e => setAddForm({ ...addForm, recitation_status: e.target.value })}
+                  className="text-xs font-semibold rounded-md border border-slate-300 bg-slate-50 px-2.5 py-1 text-slate-700"
+                >
+                  <option value="submitted">Status: Submitted (Kirim Ledger)</option>
+                  <option value="draft">Status: Draft (Simpan Sementara)</option>
+                </select>
+              </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div className="space-y-2">
-                  <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider">Mulai</label>
+                  <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    Mulai {(() => {
+                      const meta = findSurahMetadata(addForm.surat_mulai || addForm.surat || '');
+                      return meta ? `(${meta.nomor}. ${meta.latin} — Maks ${meta.ayat} Ayat)` : '';
+                    })()}
+                  </label>
                   <div className="flex gap-3">
                     <input 
                         type="text" 
@@ -250,7 +278,9 @@ function AddSetoranForm({
                         className="w-2/3 bg-white border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 block p-2.5 outline-none transition-all shadow-sm"
                     />
                     <input 
-                        type="text" 
+                        type="number" 
+                        min="1"
+                        max={findSurahMetadata(addForm.surat_mulai || addForm.surat || '')?.ayat || 286}
                         list="ayats"
                         placeholder="Ayat"
                         value={addForm.ayat_mulai || addForm.ayat || ''}
@@ -260,7 +290,12 @@ function AddSetoranForm({
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider">Selesai</label>
+                  <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    Selesai {(() => {
+                      const meta = findSurahMetadata(addForm.surat_selesai || addForm.surat_mulai || addForm.surat || '');
+                      return meta ? `(${meta.nomor}. ${meta.latin} — Maks ${meta.ayat} Ayat)` : '';
+                    })()}
+                  </label>
                   <div className="flex gap-3">
                     <input 
                         type="text" 
@@ -271,7 +306,9 @@ function AddSetoranForm({
                         className="w-2/3 bg-white border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 block p-2.5 outline-none transition-all shadow-sm"
                     />
                     <input 
-                        type="text" 
+                        type="number" 
+                        min="1"
+                        max={findSurahMetadata(addForm.surat_selesai || addForm.surat_mulai || addForm.surat || '')?.ayat || 286}
                         list="ayats"
                         placeholder="Ayat"
                         value={addForm.ayat_selesai || ''}
@@ -283,7 +320,7 @@ function AddSetoranForm({
               </div>
 
               <p className="text-[11px] text-slate-400">
-                Tips: bisa ketik rentang (mis: Annaba 1 - annas 6)
+                Tips: bisa ketik rentang langsung (mis: Annaba 1 - annas 6). Sistem memvalidasi batas ayat per surat secara otomatis.
               </p>
             </div>
 
@@ -445,7 +482,7 @@ export default function SetoranHarianPage() {
 
 
 
-        const [currentPage, setCurrentPage] = useState(1);
+    const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 50;
     const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [selectedWaktu, setSelectedWaktu] = useState<string>('');
@@ -453,13 +490,49 @@ export default function SetoranHarianPage() {
     const [filterKelas, setFilterKelas] = useState<string | 'all'>('all');
     const [filterJenis, setFilterJenis] = useState<string | 'all'>('all');
     const [filterPeran, setFilterPeran] = useState<string | 'all'>('all');
+    const [filterLedgerStatus, setFilterLedgerStatus] = useState<string>('all');
+
+    // Fase 7: V2 Recitation Ledger Entries, Revision History & Admin Review states
+    const isAdminUser = userProfile?.role === 'admin' || userProfile?.role === 'superadmin';
+    const [v2Entries, setV2Entries] = useState<any[]>([]);
+    const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
+    const [revisionModalEntry, setRevisionModalEntry] = useState<any | null>(null);
+    const [revisionList, setRevisionList] = useState<any[]>([]);
+    const [loadingRevisions, setLoadingRevisions] = useState(false);
+    const [reviewModalEntry, setReviewModalEntry] = useState<{
+        legacyRecord: any;
+        v2Entry: any | null;
+        studentName: string;
+        newStatus: 'accepted' | 'returned' | 'voided';
+        reason: string;
+    } | null>(null);
+    const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+
+    const fetchV2EntriesForDate = useCallback(async () => {
+        if (!userProfile?.organization_id || !selectedDate) return;
+        try {
+            const { data } = await (supabase as any)
+                .from('recitation_entries')
+                .select('*')
+                .eq('organization_id', userProfile.organization_id)
+                .order('created_at', { ascending: false })
+                .limit(500);
+            if (data) setV2Entries(data);
+        } catch (err) {
+            console.warn('Could not load v2 recitation_entries:', err);
+        }
+    }, [userProfile?.organization_id, selectedDate]);
+
+    useEffect(() => {
+        fetchV2EntriesForDate();
+    }, [fetchV2EntriesForDate]);
 
     useEffect(() => {
         if (globalWaktuHalaqah && globalWaktuHalaqah.length > 0 && !selectedWaktu) {
             setSelectedWaktu(globalWaktuHalaqah[0]);
         }
     }, [globalWaktuHalaqah, selectedWaktu]);
-        const [selectedHalaqahId, setSelectedHalaqahId] = useState<number | 'all'>('all');
+    const [selectedHalaqahId, setSelectedHalaqahId] = useState<number | 'all'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedSantriIds, setSelectedSantriIds] = useState<Set<string>>(new Set());
     const [pendingAttendance, setPendingAttendance] = useState<Record<string, string>>({});
@@ -640,8 +713,7 @@ export default function SetoranHarianPage() {
         let base = halaqah.filter(h => h.is_active === true);
         if (userProfile?.role === 'musammi') {
             base = base.filter(h => 
-                (h.musammi?.user_id && userProfile.id && h.musammi.user_id === userProfile.id) || 
-                (h.musammi?.nama?.toLowerCase().trim() === userProfile.name.toLowerCase().trim())
+                Boolean(h.musammi?.user_id && userProfile.id && h.musammi.user_id === userProfile.id)
             );
         }
         if (filterMarhalah !== 'all') {
@@ -710,16 +782,13 @@ export default function SetoranHarianPage() {
             result = result.filter(s => s.isMusammi);
         }
 
-        if (userProfile?.role === 'pengajar') {
-            const userWaliClasses = waliKelas.filter(w => w.user_id === userProfile.id).map(w => ({ marhalah: w.marhalah, kelas: w.kelas }));
+        if (userProfile?.role === 'musammi') {
             const userMusammiHalaqahs = halaqah.filter(h => 
-                (h.musammi?.user_id && userProfile.id && h.musammi.user_id === userProfile.id) || 
-                (h.musammi?.nama?.toLowerCase().trim() === userProfile?.name?.toLowerCase().trim())
+                Boolean(h.musammi?.user_id && userProfile.id && h.musammi.user_id === userProfile.id)
             ).map(h => h.id);
 
             result = result.filter(s => 
                 s.isMusammi || 
-                userWaliClasses.some(wc => wc.marhalah === s.marhalah && wc.kelas === s.kelas) ||
                 (s.halaqah_info && userMusammiHalaqahs.includes(s.halaqah_info.id))
             );
         }
@@ -792,16 +861,132 @@ export default function SetoranHarianPage() {
         return map;
     }, [attendance, selectedDate, selectedWaktu]);
 
+    // Map legacy setoran record to matching V2 recitation_entries record
+    const resolveV2EntryForRecord = useCallback((r: any) => {
+        if (!v2Entries || v2Entries.length === 0) return null;
+        return v2Entries.find(e =>
+            Number(e.student_id) === Number(r.santri_id) &&
+            Number(e.halaqah_id) === Number(r.halaqah_id) &&
+            (e.start_surah === (r.surat_mulai || r.surat) || !r.surat_mulai)
+        ) || null;
+    }, [v2Entries]);
+
+    const handleOpenRevisions = async (r: any, sName: string) => {
+        const matchedV2 = resolveV2EntryForRecord(r);
+        setRevisionModalEntry({ record: r, v2Entry: matchedV2, studentName: sName });
+        setLoadingRevisions(true);
+        try {
+            if (matchedV2?.id) {
+                const { data } = await (supabase as any)
+                    .from('recitation_revisions')
+                    .select('*')
+                    .eq('recitation_entry_id', matchedV2.id)
+                    .order('created_at', { ascending: false });
+                setRevisionList(data || []);
+            } else {
+                setRevisionList([]);
+            }
+        } catch {
+            setRevisionList([]);
+        } finally {
+            setLoadingRevisions(false);
+        }
+    };
+
+    const handleSubmitAdminReview = async () => {
+        if (!reviewModalEntry || !reviewModalEntry.reason.trim()) return;
+        setIsSubmittingReview(true);
+        try {
+            const { legacyRecord, v2Entry, newStatus, reason } = reviewModalEntry;
+            if (v2Entry?.id) {
+                const { error: rpcErr } = await (supabase as any).rpc('rpc_review_recitation_entry', {
+                    p_entry_id: v2Entry.id,
+                    p_new_status: newStatus,
+                    p_reason: reason.trim()
+                });
+                if (rpcErr) {
+                    await (supabase as any)
+                        .from('recitation_entries')
+                        .update({ status: newStatus, updated_at: new Date().toISOString() })
+                        .eq('id', v2Entry.id);
+                    await (supabase as any)
+                        .from('recitation_revisions')
+                        .insert({
+                            organization_id: userProfile?.organization_id,
+                            recitation_entry_id: v2Entry.id,
+                            changed_by: userProfile?.id,
+                            reason: reason.trim(),
+                            before_json: v2Entry,
+                            after_json: { ...v2Entry, status: newStatus }
+                        });
+                }
+            }
+
+            if (userProfile?.organization_id) {
+                await (supabase as any).from('audit_logs').insert({
+                    organization_id: userProfile.organization_id,
+                    actor_user_id: userProfile.id,
+                    action: `REVIEW_RECITATION_${newStatus.toUpperCase()}`,
+                    entity_type: 'recitation_entries',
+                    entity_id: String(v2Entry?.id || legacyRecord.id),
+                    reason: reason.trim(),
+                    diff_json: {
+                        legacy_id: legacyRecord.id,
+                        student_id: legacyRecord.santri_id,
+                        new_status: newStatus
+                    }
+                });
+            }
+
+            await fetchV2EntriesForDate();
+            NotificationStore.addNotification(`Setoran berhasil divalidasi sebagai ${newStatus.toUpperCase()}.`, 'success');
+            setReviewModalEntry(null);
+        } catch (err: any) {
+            NotificationStore.addNotification(err?.message || 'Gagal menyimpan review setoran.', 'error');
+        } finally {
+            setIsSubmittingReview(false);
+        }
+    };
+
     const handleSaveAdd = async (formData: any) => {
-        if (!formData.santri_id) return alert('Pilih Santri');
+        if (!formData.santri_id) {
+            NotificationStore.addNotification('Silakan pilih santri terlebih dahulu.', 'error');
+            return;
+        }
+
+        // Fase 7: Validasi nomor surat (1-114) & batas maksimum ayat per surat
+        const sMulaiName = formData.surat_mulai || formData.surat || '';
+        const sSelesaiName = formData.surat_selesai || sMulaiName;
+        const startMeta = findSurahMetadata(sMulaiName);
+        const endMeta = findSurahMetadata(sSelesaiName);
+        const aMulaiNum = parseInt(formData.ayat_mulai || formData.ayat || '1', 10) || 1;
+        const aSelesaiNum = parseInt(formData.ayat_selesai || String(aMulaiNum), 10) || aMulaiNum;
+
+        if (startMeta && (aMulaiNum < 1 || aMulaiNum > startMeta.ayat)) {
+            NotificationStore.addNotification(
+                `Ayat mulai (${aMulaiNum}) melebihi batas ayat Surat ${startMeta.latin} (Maksimal ${startMeta.ayat} ayat).`,
+                'error'
+            );
+            return;
+        }
+        if (endMeta && (aSelesaiNum < 1 || aSelesaiNum > endMeta.ayat)) {
+            NotificationStore.addNotification(
+                `Ayat selesai (${aSelesaiNum}) melebihi batas ayat Surat ${endMeta.latin} (Maksimal ${endMeta.ayat} ayat).`,
+                'error'
+            );
+            return;
+        }
+
         try {
             const santriId = parseInt(formData.santri_id);
             const santriData = tableData.find(s => s.id === santriId);
             const halaqahIdToUse = santriData?.halaqah_info?.id;
             
-            if (!halaqahIdToUse) return alert('Halaqah tidak valid untuk santri ini');
+            if (!halaqahIdToUse) {
+                NotificationStore.addNotification('Halaqah tidak valid untuk santri ini.', 'error');
+                return;
+            }
 
-            // Implicitly add attendance if not already present, respecting pending 'Terlambat' / 'Hadir' status
             const pendingKey = `${santriData.isMusammi ? 'Musammi' : 'Santri'}-${halaqahIdToUse}-${santriId}`;
             const pendingStatus = pendingAttendance[pendingKey];
             const existingAtt = attendance.find(a => a.personId === santriId && a.date === selectedDate && a.halaqahId === halaqahIdToUse && a.waktu === formData.waktu);
@@ -867,6 +1052,9 @@ export default function SetoranHarianPage() {
                     keterangan: formData.keterangan
                 });
             }
+
+            await fetchV2EntriesForDate();
+
             // Tele notification logic
             try {
                 const telEnable = appSettings.find(s => s.key === 'SETORAN_TELEGRAM_NOTIF_ENABLE')?.value === 'true';
@@ -903,10 +1091,11 @@ export default function SetoranHarianPage() {
             }
 
             setIsAddModalOpen(false);
-            setAddForm({ santri_id: '', waktu: '', surat: '', ayat: '', skema: defaultSkema, nilai: NILAI_OPTIONS[0] || 'Mumtaz', keterangan: '', jumlah_halaman: '', kesalahan_kabir: '0', kesalahan_shoghir: '0' });
-        } catch (e) {
+            setAddForm({ santri_id: '', waktu: '', surat_mulai: '', ayat_mulai: '', surat_selesai: '', ayat_selesai: '', skema: defaultSkema, nilai: NILAI_OPTIONS[0] || 'Mumtaz', keterangan: '', jumlah_halaman: '', kesalahan_kabir: '0', kesalahan_shoghir: '0' });
+            NotificationStore.addNotification('Catatan setoran harian berhasil disimpan.', 'success');
+        } catch (e: any) {
             console.error(e);
-            alert("Gagal menyimpan");
+            NotificationStore.addNotification(e?.message || 'Gagal menyimpan setoran.', 'error');
         }
     };
 
@@ -927,28 +1116,37 @@ export default function SetoranHarianPage() {
             kesalahan_kabir: r.kesalahan_kabir || '0',
             kesalahan_shoghir: r.kesalahan_shoghir || '0',
             keterangan: r.keterangan || ''
-        });
+        } as any);
         setIsAddModalOpen(true);
     };
 
     const handleSaveEdit = async (id: number) => {
         try {
             await updateSetoranHarianRecord(id, editingState);
+            await fetchV2EntriesForDate();
             setEditingRecordId(null);
-        } catch (e) {
+            NotificationStore.addNotification('Perubahan setoran disimpan & tercatat di histori revisi.', 'success');
+        } catch (e: any) {
             console.error(e);
-            alert("Gagal merubah data");
+            NotificationStore.addNotification(e?.message || 'Gagal merubah data.', 'error');
         }
     };
 
     const handleDelete = async (id: number) => {
-        if(confirm("Hapus catatan setoran harian ini?")) {
-            try {
-                await deleteSetoranHarianRecord(id);
-            } catch (e) {
-                console.error(e);
-                alert("Gagal menghapus data");
-            }
+        setDeleteTargetId(id);
+    };
+
+    const confirmDeleteRecord = async () => {
+        if (!deleteTargetId) return;
+        try {
+            await deleteSetoranHarianRecord(deleteTargetId);
+            await fetchV2EntriesForDate();
+            NotificationStore.addNotification('Catatan setoran di-void & dicatat pada histori revisi.', 'info');
+        } catch (e: any) {
+            console.error(e);
+            NotificationStore.addNotification(e?.message || 'Gagal menghapus data.', 'error');
+        } finally {
+            setDeleteTargetId(null);
         }
     };
 
@@ -1028,10 +1226,10 @@ export default function SetoranHarianPage() {
             }
             setDraftRestoredInfo(null);
             setPendingAttendance({});
-            alert("Data kehadiran berhasil disimpan");
-        } catch (e) {
+            NotificationStore.addNotification('Data kehadiran berhasil disimpan.', 'success');
+        } catch (e: any) {
             console.error(e);
-            alert("Gagal menyimpan data kehadiran");
+            NotificationStore.addNotification(e?.message || 'Gagal menyimpan data kehadiran.', 'error');
         } finally {
             setIsSaving(false);
         }
@@ -1227,6 +1425,21 @@ export default function SetoranHarianPage() {
                             ))}
                         </select>
                     </div>
+                    <div className="flex-1 min-w-[150px]">
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">Status Ledger</label>
+                        <select
+                            value={filterLedgerStatus}
+                            onChange={(e) => setFilterLedgerStatus(e.target.value)}
+                            className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 text-[13px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all cursor-pointer"
+                        >
+                            <option value="all">Semua Status Ledger</option>
+                            <option value="submitted">Submitted</option>
+                            <option value="accepted">Accepted (Valid)</option>
+                            <option value="returned">Returned (Revisi)</option>
+                            <option value="voided">Voided (Batal)</option>
+                            <option value="draft">Draft</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -1313,14 +1526,25 @@ export default function SetoranHarianPage() {
                                     <th className="px-2 py-3 font-semibold text-slate-700 text-center w-16 leading-tight" title="Jumlah Halaman">Jml Hal</th>
                                     <th className="px-2 py-3 font-semibold text-slate-700 text-center w-16 leading-tight" title="Khoto Kabir / Khoto Shoghir">Kb/Sh</th>
                                     <th className="px-3 py-3 font-semibold text-slate-700 w-16 text-center">Nilai</th>
+                                    <th className="px-3 py-3 font-semibold text-slate-700 w-24 text-center">Status Ledger</th>
                                     <th className="px-3 py-3 font-semibold text-slate-700 w-32">Keterangan</th>
-                                    <th className="px-4 py-3 font-semibold text-slate-700 text-right w-16">Aksi</th>
+                                    <th className="px-4 py-3 font-semibold text-slate-700 text-right w-24">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {paginatedData.map(s => {
                                     const actualHalaqahId = s.halaqah_info?.id;
-                                    const records = activeSetoranRecordsMap.get(s.id) || [];
+                                    const rawRecords = activeSetoranRecordsMap.get(s.id) || [];
+                                    const records = filterLedgerStatus === 'all'
+                                        ? rawRecords
+                                        : rawRecords.filter(r => {
+                                            const v2 = resolveV2EntryForRecord(r);
+                                            const st = (v2?.status || 'submitted').toLowerCase();
+                                            return st === filterLedgerStatus;
+                                        });
+                                    if (filterLedgerStatus !== 'all' && records.length === 0) {
+                                        return null;
+                                    }
                                     const attRecord = attendanceMap.get(`${s.isMusammi ? 'Musammi' : 'Santri'}-${actualHalaqahId}-${s.id}`);
                                     const explicitStatus = attRecord?.status;
                                     const currentStatus = pendingAttendance[`${s.isMusammi ? 'Musammi' : 'Santri'}-${actualHalaqahId}-${s.id}`] || explicitStatus || '';
@@ -1350,7 +1574,7 @@ export default function SetoranHarianPage() {
                                                     <select
                                                         value={currentStatus}
                                                         onChange={(e) => handleAttendanceChange(s.id, actualHalaqahId, s.isMusammi, e.target.value)}
-                                                        className={`text-[11px] p-1 border rounded w-[75px] text-center font-medium ${
+                                                        className={`text-[11px] p-1 border rounded w-[85px] text-center font-medium ${
                                                             !currentStatus 
                                                                 ? 'bg-slate-100 text-slate-500 border-slate-200' 
                                                                 : isHadir 
@@ -1360,15 +1584,15 @@ export default function SetoranHarianPage() {
                                                                 : 'bg-red-50 text-red-600 border-red-200'
                                                         }`}
                                                     >
-                                                        <option value="" disabled>-</option>
+                                                        <option value="">Belum diisi</option>
                                                         {globalAttendanceStatus.map(st => <option key={st} value={st}>{st}</option>)}
                                                     </select>
                                                 </td>
-                                                <td colSpan={7} className="px-4 py-3 text-slate-400 italic text-center">
+                                                <td colSpan={8} className="px-4 py-3 text-slate-400 italic text-center">
                                                     {!s.isMusammi ? ( canInputSetoran ? (
                                                         <button 
                                                             onClick={() => { setAddForm({...addForm, santri_id: s.id.toString(), waktu: selectedWaktu}); setIsAddModalOpen(true); }} 
-                                                            className="text-blue-600 hover:underline inline-flex items-center gap-1 font-medium bg-blue-50 px-3 py-1.5 rounded-full text-xs shadow-2xs transition-all hover:bg-blue-100"
+                                                            className="text-blue-600 hover:underline inline-flex items-center gap-1 font-medium bg-blue-50 px-3 py-1.5 rounded-md text-xs shadow-2xs transition-all hover:bg-blue-100"
                                                         >
                                                             <Plus size={14}/> Input Setoran
                                                         </button>
@@ -1382,85 +1606,128 @@ export default function SetoranHarianPage() {
 
                                     return (
                                         <React.Fragment key={`${s.id}-${actualHalaqahId}-fragment`}>
-                                            {records.map((r, idx) => (
-                                        <tr key={`${r.id}-${actualHalaqahId}`} className="hover:bg-slate-50/50">
-                                            {idx === 0 && (
-                                                <>
-                                                    <td className="px-4 py-3 text-center border-r border-slate-100 align-middle" rowSpan={records.length}>
-                                                        <input 
-                                                            type="checkbox" 
-                                                            checked={selectedSantriIds.has(`${s.isMusammi ? 'Musammi' : 'Santri'}-${actualHalaqahId}-${s.id}`)}
-                                                            onChange={(e) => handleSelectSantri(`${s.isMusammi ? 'Musammi' : 'Santri'}-${actualHalaqahId}-${s.id}`, e.target.checked)}
-                                                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                                                        />
-                                                    </td>
-                                                    <td className="px-4 py-3 font-medium text-slate-900 border-r border-slate-100 align-middle" rowSpan={records.length}>
-                                                        {s.nama} {s.isMusammi && <span className="ml-2 inline-block px-1.5 py-0.5 bg-blue-100 text-blue-700 text-[10px] rounded uppercase">Musammi</span>}
-                                                        {selectedHalaqahId === 'all' && s.halaqah_info && (
-                                                            <span className="block text-xs text-slate-500 font-normal mt-1">{s.halaqah_info.nama}</span>
+                                            {records.map((r, idx) => {
+                                                const v2Entry = resolveV2EntryForRecord(r);
+                                                const ledgerStatus = (v2Entry?.status || 'submitted').toLowerCase();
+                                                const badgeTone: BadgeTone =
+                                                    ledgerStatus === 'accepted'
+                                                        ? 'success'
+                                                        : ledgerStatus === 'returned'
+                                                        ? 'warning'
+                                                        : ledgerStatus === 'voided'
+                                                        ? 'danger'
+                                                        : ledgerStatus === 'draft'
+                                                        ? 'neutral'
+                                                        : 'primary';
+
+                                                return (
+                                                    <tr key={`${r.id}-${actualHalaqahId}`} className="hover:bg-slate-50/50">
+                                                        {idx === 0 && (
+                                                            <>
+                                                                <td className="px-4 py-3 text-center border-r border-slate-100 align-middle" rowSpan={records.length}>
+                                                                    <input 
+                                                                        type="checkbox" 
+                                                                        checked={selectedSantriIds.has(`${s.isMusammi ? 'Musammi' : 'Santri'}-${actualHalaqahId}-${s.id}`)}
+                                                                        onChange={(e) => handleSelectSantri(`${s.isMusammi ? 'Musammi' : 'Santri'}-${actualHalaqahId}-${s.id}`, e.target.checked)}
+                                                                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                                                    />
+                                                                </td>
+                                                                <td className="px-4 py-3 font-medium text-slate-900 border-r border-slate-100 align-middle" rowSpan={records.length}>
+                                                                    {s.nama} {s.isMusammi && <span className="ml-2 inline-block px-1.5 py-0.5 bg-blue-100 text-blue-700 text-[10px] rounded uppercase">Musammi</span>}
+                                                                    {selectedHalaqahId === 'all' && s.halaqah_info && (
+                                                                        <span className="block text-xs text-slate-500 font-normal mt-1">{s.halaqah_info.nama}</span>
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-2 py-3 border-r border-slate-100 align-middle text-center" rowSpan={records.length}>
+                                                                    <select
+                                                                        value={currentStatus}
+                                                                        onChange={(e) => handleAttendanceChange(s.id, actualHalaqahId, s.isMusammi, e.target.value)}
+                                                                        className={`text-[11px] p-1 border rounded w-[85px] text-center font-medium ${
+                                                                            !currentStatus 
+                                                                                ? 'bg-slate-100 text-slate-500 border-slate-200' 
+                                                                                : isHadir 
+                                                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                                                                                : isTerlambat 
+                                                                                ? 'bg-amber-50 text-amber-700 border-amber-300' 
+                                                                                : 'bg-red-50 text-red-600 border-red-200'
+                                                                        }`}
+                                                                    >
+                                                                        <option value="">Belum diisi</option>
+                                                                        {globalAttendanceStatus.map(st => <option key={st} value={st}>{st}</option>)}
+                                                                    </select>
+                                                                </td>
+                                                            </>
                                                         )}
-                                                    </td>
-                                                    <td className="px-2 py-3 border-r border-slate-100 align-middle text-center" rowSpan={records.length}>
-                                                        <select
-                                                            value={currentStatus}
-                                                            onChange={(e) => handleAttendanceChange(s.id, actualHalaqahId, s.isMusammi, e.target.value)}
-                                                            className={`text-[11px] p-1 border rounded w-[75px] text-center font-medium ${
-                                                                !currentStatus 
-                                                                    ? 'bg-slate-100 text-slate-500 border-slate-200' 
-                                                                    : isHadir 
-                                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                                                                    : isTerlambat 
-                                                                    ? 'bg-amber-50 text-amber-700 border-amber-300' 
-                                                                    : 'bg-red-50 text-red-600 border-red-200'
-                                                            }`}
-                                                        >
-                                                            <option value="" disabled>-</option>
-                                                            {globalAttendanceStatus.map(st => <option key={st} value={st}>{st}</option>)}
-                                                        </select>
-                                                    </td>
-                                                </>
-                                            )}
-                                            
-                                            
-                                                <>
-                                                    <td className="px-4 py-3 text-slate-700">
-                                                        <span className="inline-block px-2 py-1 bg-slate-100 text-slate-600 rounded text-xs truncate max-w-[100px]">{r.skema}</span>
-                                                    </td>
-                                                    <td className="px-4 py-3 text-slate-700">
-                                                        <span className="font-bold text-slate-700">{r.surat_mulai || r.surat || '-'}</span> {r.ayat_mulai || r.ayat ? <span className="text-slate-500">: {r.ayat_mulai || r.ayat}</span> : ''}
-                                                        {r.surat_selesai ? <span className="text-slate-300 mx-2">-</span> : ''}
-                                                        {r.surat_selesai ? <><span className="font-bold text-slate-700">{r.surat_selesai}</span> {r.ayat_selesai ? <span className="text-slate-500">: {r.ayat_selesai}</span> : ''}</> : ''}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-center font-medium text-slate-600">{r.jumlah_halaman || '-'}</td>
-                                                    <td className="px-4 py-3 text-center">
-                                                        {(r.kesalahan_kabir !== undefined && r.kesalahan_kabir !== null) || (r.kesalahan_shoghir !== undefined && r.kesalahan_shoghir !== null) ? (
-                                                            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-slate-50 border border-slate-100 rounded text-xs font-semibold">
-                                                                <span className="text-red-500">{r.kesalahan_kabir || '0'}</span>
-                                                                <span className="text-slate-300">/</span>
-                                                                <span className="text-amber-500">{r.kesalahan_shoghir || '0'}</span>
-                                                            </div>
-                                                        ) : '-'}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-slate-700 font-medium">{r.nilai}</td>
-                                                    <td className="px-4 py-3 text-slate-500 text-xs">{r.keterangan || '-'}</td>
-                                                    <td className="px-4 py-3 text-right">
-                                                        <div className="flex justify-end items-center gap-1.5 opacity-70 hover:opacity-100 transition-opacity">
-                                                            {idx === 0 && canInputSetoran && !s.isMusammi && (
-                                                                <button 
-                                                                    onClick={() => { setAddForm({...addForm, santri_id: s.id.toString(), waktu: selectedWaktu}); setIsAddModalOpen(true); }} 
-                                                                    title="Tambah Setoran Lainnya" 
-                                                                    className="text-emerald-600 p-1 bg-emerald-50 hover:bg-emerald-100 rounded"
+                                                        <td className="px-4 py-3 text-slate-700">
+                                                            <span className="inline-block px-2 py-1 bg-slate-100 text-slate-600 rounded text-xs truncate max-w-[100px]">{r.skema}</span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-slate-700">
+                                                            <span className="font-bold text-slate-700">{r.surat_mulai || r.surat || '-'}</span> {r.ayat_mulai || r.ayat ? <span className="text-slate-500">: {r.ayat_mulai || r.ayat}</span> : ''}
+                                                            {r.surat_selesai ? <span className="text-slate-300 mx-2">-</span> : ''}
+                                                            {r.surat_selesai ? <><span className="font-bold text-slate-700">{r.surat_selesai}</span> {r.ayat_selesai ? <span className="text-slate-500">: {r.ayat_selesai}</span> : ''}</> : ''}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-center font-medium text-slate-600">{r.jumlah_halaman || '-'}</td>
+                                                        <td className="px-4 py-3 text-center">
+                                                            {(r.kesalahan_kabir !== undefined && r.kesalahan_kabir !== null) || (r.kesalahan_shoghir !== undefined && r.kesalahan_shoghir !== null) ? (
+                                                                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-slate-50 border border-slate-100 rounded text-xs font-semibold">
+                                                                    <span className="text-red-500">{r.kesalahan_kabir || '0'}</span>
+                                                                    <span className="text-slate-300">/</span>
+                                                                    <span className="text-amber-500">{r.kesalahan_shoghir || '0'}</span>
+                                                                </div>
+                                                            ) : '-'}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-slate-700 font-medium text-center">{r.nilai}</td>
+                                                        <td className="px-3 py-3 text-center">
+                                                            <StatusBadge
+                                                                label={ledgerStatus.toUpperCase()}
+                                                                tone={badgeTone}
+                                                            />
+                                                        </td>
+                                                        <td className="px-4 py-3 text-slate-500 text-xs">{r.keterangan || '-'}</td>
+                                                        <td className="px-4 py-3 text-right">
+                                                            <div className="flex justify-end items-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity">
+                                                                {idx === 0 && canInputSetoran && !s.isMusammi && (
+                                                                    <button 
+                                                                        onClick={() => { setAddForm({...addForm, santri_id: s.id.toString(), waktu: selectedWaktu}); setIsAddModalOpen(true); }} 
+                                                                        title="Tambah Setoran Lainnya" 
+                                                                        className="text-emerald-600 p-1 bg-emerald-50 hover:bg-emerald-100 rounded"
+                                                                    >
+                                                                        <Plus size={14}/>
+                                                                    </button>
+                                                                )}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleOpenRevisions(r, s.nama)}
+                                                                    title="Histori Revisi Ledger"
+                                                                    className="text-slate-600 p-1 bg-slate-100 hover:bg-slate-200 rounded"
                                                                 >
-                                                                    <Plus size={14}/>
+                                                                    <History size={14} />
                                                                 </button>
-                                                            )}
-                                                            <button onClick={() => handleEditClick(r)} title="Edit" className="text-blue-600 p-1 bg-blue-50 hover:bg-blue-100 rounded"><Edit size={14}/></button>
-                                                            <button onClick={() => handleDelete(r.id)} title="Hapus" className="text-red-600 p-1 bg-red-50 hover:bg-red-100 rounded"><Trash size={14}/></button>
-                                                        </div>
-                                                    </td>
-                                                </>
-</tr>
-                                            ))}
+                                                                {isAdminUser && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() =>
+                                                                            setReviewModalEntry({
+                                                                                legacyRecord: r,
+                                                                                v2Entry,
+                                                                                studentName: s.nama,
+                                                                                newStatus: 'accepted',
+                                                                                reason: ''
+                                                                            })
+                                                                        }
+                                                                        title="Review / Validasi Setoran (Admin)"
+                                                                        className="text-indigo-600 p-1 bg-indigo-50 hover:bg-indigo-100 rounded"
+                                                                    >
+                                                                        <ShieldCheck size={14} />
+                                                                    </button>
+                                                                )}
+                                                                <button onClick={() => handleEditClick(r)} title="Edit" className="text-blue-600 p-1 bg-blue-50 hover:bg-blue-100 rounded"><Edit size={14}/></button>
+                                                                <button onClick={() => handleDelete(r.id)} title="Hapus / Void" className="text-red-600 p-1 bg-red-50 hover:bg-red-100 rounded"><Trash size={14}/></button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </React.Fragment>
                                     );
                                 })}
@@ -1492,7 +1759,7 @@ export default function SetoranHarianPage() {
                 </div>
             )}
 
-            <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title="Tambah Catatan Setoran" noPadding>
+            <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title="Tambah / Edit Catatan Setoran" noPadding>
                 <AddSetoranForm 
                     initialData={addForm}
                     onSave={handleSaveAdd}
@@ -1509,6 +1776,143 @@ export default function SetoranHarianPage() {
                     isSaving={isSaving}
                 />
             </Modal>
+
+            {/* Modal Histori Revisi Append-Only (Fase 7) */}
+            <Modal
+                isOpen={Boolean(revisionModalEntry)}
+                onClose={() => setRevisionModalEntry(null)}
+                title="Histori Revisi Setoran (Append-Only Audit Trail)"
+            >
+                {revisionModalEntry && (
+                    <div className="space-y-4">
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs space-y-1">
+                            <div className="flex justify-between">
+                                <span className="text-slate-500">Santri:</span>
+                                <span className="font-semibold text-slate-900">{revisionModalEntry.studentName}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-slate-500">Materi Saat Ini:</span>
+                                <span className="font-semibold text-slate-800">
+                                    {revisionModalEntry.record.skema} — {revisionModalEntry.record.surat_mulai || revisionModalEntry.record.surat}:{revisionModalEntry.record.ayat_mulai || revisionModalEntry.record.ayat}
+                                    {revisionModalEntry.record.surat_selesai ? ` s/d ${revisionModalEntry.record.surat_selesai}:${revisionModalEntry.record.ayat_selesai}` : ''}
+                                </span>
+                            </div>
+                        </div>
+
+                        {loadingRevisions ? (
+                            <p className="text-xs text-slate-500 py-4 text-center">Memuat jejak revisi...</p>
+                        ) : revisionList.length === 0 ? (
+                            <div className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-xs text-slate-500">
+                                Belum ada riwayat perubahan/revisi pada catatan setoran ini.
+                            </div>
+                        ) : (
+                            <div className="space-y-2.5 max-h-72 overflow-y-auto">
+                                {revisionList.map((rev: any) => (
+                                    <div key={rev.id} className="rounded-lg border border-slate-200 p-3 text-xs space-y-1.5 bg-white">
+                                        <div className="flex items-center justify-between">
+                                            <span className="font-semibold text-slate-800">{rev.reason || 'Pembaruan Setoran'}</span>
+                                            <span className="text-[11px] text-slate-400">
+                                                {rev.created_at ? format(new Date(rev.created_at), 'dd MMM yyyy HH:mm') : '-'}
+                                            </span>
+                                        </div>
+                                        {rev.after_json && (
+                                            <div className="text-[11px] text-slate-600 bg-slate-50 rounded p-2 font-mono">
+                                                Status: {rev.after_json.status || 'submitted'} | Hal: {rev.after_json.pages ?? rev.after_json.jumlah_halaman ?? '-'} | Nilai: {rev.after_json.grade ?? rev.after_json.nilai ?? '-'}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </Modal>
+
+            {/* Modal Review / Validasi Admin (Fase 7) */}
+            <Modal
+                isOpen={Boolean(reviewModalEntry)}
+                onClose={() => setReviewModalEntry(null)}
+                title="Review & Validasi Ledger Setoran (Admin)"
+            >
+                {reviewModalEntry && (
+                    <div className="space-y-4">
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs space-y-1">
+                            <div className="flex justify-between">
+                                <span className="text-slate-500">Santri:</span>
+                                <span className="font-semibold text-slate-900">{reviewModalEntry.studentName}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-slate-500">Rentang Hafalan:</span>
+                                <span className="font-semibold text-slate-800">
+                                    {reviewModalEntry.legacyRecord.surat_mulai || reviewModalEntry.legacyRecord.surat}:{reviewModalEntry.legacyRecord.ayat_mulai || reviewModalEntry.legacyRecord.ayat}
+                                    {reviewModalEntry.legacyRecord.surat_selesai ? ` - ${reviewModalEntry.legacyRecord.surat_selesai}:${reviewModalEntry.legacyRecord.ayat_selesai}` : ''}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Keputusan Validasi Ledger</label>
+                            <select
+                                value={reviewModalEntry.newStatus}
+                                onChange={e =>
+                                    setReviewModalEntry(prev =>
+                                        prev ? { ...prev, newStatus: e.target.value as 'accepted' | 'returned' | 'voided' } : null
+                                    )
+                                }
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-800 focus:border-blue-600 focus:outline-none"
+                            >
+                                <option value="accepted">ACCEPTED — Setoran Sah & Terverifikasi</option>
+                                <option value="returned">RETURNED — Kembalikan ke Musammi untuk Revisi</option>
+                                <option value="voided">VOIDED — Batalkan Entri Ledger</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                                Alasan / Catatan Review (Wajib untuk Audit Trail) <span className="text-rose-500">*</span>
+                            </label>
+                            <textarea
+                                rows={3}
+                                value={reviewModalEntry.reason}
+                                onChange={e =>
+                                    setReviewModalEntry(prev => (prev ? { ...prev, reason: e.target.value } : null))
+                                }
+                                placeholder="Tuliskan catatan verifikasi atau alasan pengembalian..."
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-800 focus:border-blue-600 focus:outline-none"
+                            />
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                            <button
+                                type="button"
+                                onClick={() => setReviewModalEntry(null)}
+                                className="px-4 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="button"
+                                disabled={!reviewModalEntry.reason.trim() || isSubmittingReview}
+                                onClick={handleSubmitAdminReview}
+                                className="px-4 py-2 rounded-lg bg-blue-600 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                            >
+                                {isSubmittingReview ? 'Menyimpan...' : 'Simpan Keputusan Review'}
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+
+            {/* Konfirmasi Hapus / Void Setoran */}
+            <ConfirmDialog
+                isOpen={Boolean(deleteTargetId)}
+                onCancel={() => setDeleteTargetId(null)}
+                onConfirm={confirmDeleteRecord}
+                title="Batalkan (Void) Catatan Setoran?"
+                description="Catatan setoran harian ini akan dihapus dari daftar aktif dan ditandai sebagai VOIDED pada ledger revisi."
+                confirmLabel="Ya, Void Setoran"
+                tone="danger"
+            />
         </div>
     );
 }

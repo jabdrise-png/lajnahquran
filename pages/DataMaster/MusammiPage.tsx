@@ -8,11 +8,12 @@ import { useSupabaseData } from '../../hooks/useSupabaseData';
 import { Marhalah, Musammi } from '../../types';
 import { Plus, Trash, Upload, Download, Search, Edit, FileSpreadsheet, FileText, ChevronRight } from 'lucide-react';
 import { parseSpreadsheet, exportToExcel, exportToPDF } from '../../lib/utils';
-import { createClient } from '@supabase/supabase-js';
-import { supabase, supabaseUrl, supabaseAnonKey } from '../../lib/supabaseClient';
+import { supabase } from '../../lib/supabaseClient';
+import { StatusBadge } from '../../components/ui/SaaSPrimitives';
+import { NotificationStore } from '../../lib/NotificationStore';
 
 const MusammiPage: React.FC = () => {
-    const { musammi, santri, fetchData, loading, error, getOrgId, selectedAcademicYear, masterKelas, globalMarhalahs , masterMarhalahs, masterKelasRelasi} = useSupabaseData();
+    const { musammi, santri, fetchData, loading, error, getOrgId, selectedAcademicYear, masterKelas, globalMarhalahs, masterMarhalahs, masterKelasRelasi } = useSupabaseData();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [editingPerson, setEditingPerson] = useState<Musammi | null>(null);
@@ -47,7 +48,7 @@ const MusammiPage: React.FC = () => {
         fetchAuthProfiles();
     }, [getOrgId]);
 
-    // Account Creation Modal State
+    // Account Creation Modal State (Serverless /api/invitations)
     const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
     const [accountData, setAccountData] = useState({
         email: '',
@@ -69,64 +70,45 @@ const MusammiPage: React.FC = () => {
 
     const handleCreateAccount = async () => {
         if (!accountData.email || !accountData.password || !accountData.full_name) {
-            alert('Semua field akun wajb diisi.');
+            NotificationStore.addNotification('Email, password, dan nama lengkap wajib diisi.', 'error');
             return;
         }
 
         const orgId = await getOrgId();
-        if(!orgId) return;
+        if (!orgId) return;
 
         setIsCreatingAccount(true);
         try {
-            const tempSupabase = createClient(supabaseUrl, supabaseAnonKey, {
-                auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'temp-auth-key-' + Math.random().toString(36).substring(7) }
-            });
-
-            const { data: authData, error: authError } = await tempSupabase.auth.signUp({
-                email: accountData.email,
-                password: accountData.password,
-                options: { 
-                    data: {
-                        target_organization_id: orgId.trim(),
-                        full_name: accountData.full_name
-                        // We will set role to musammi inside the trigger or here if we use a workaround
-                        // However, to be safe we will manually update the profile immediately after creation
-                    }
-                }
-            });
-
-            if (authError) throw authError;
-            if (!authData.user) throw new Error("Gagal membuat user auth.");
-
-            // Tunggu sebentar untuk trigger Supabase
-            await new Promise(res => setTimeout(res, 2000));
-
-            // Set role as musammi directly using standard client (since admin is executing this)
-            const { error: profileError } = await supabase
-                .from('profiles')
-                .update({ role: 'musammi' })
-                .eq('id', authData.user.id)
-                .eq('organization_id', orgId);
-            
-            if (profileError) {
-                console.error("Gagal update role profil", profileError);
-                // Lanjutkan walaupun error mungkin tidak fatal apabila kita link
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (!token) {
+                throw new Error('Sesi autentikasi Admin tidak ditemukan. Silakan muat ulang halaman.');
             }
 
-            // If a musammi is selected, link it
-            if (accountData.musammi_id) {
-                const { error: musammiError } = await (supabase as any)
-                    .from('musammi')
-                    .update({ user_id: authData.user.id })
-                    .eq('id', parseInt(accountData.musammi_id))
-                    .eq('organization_id', orgId);
-                if (musammiError) throw musammiError;
+            const resp = await fetch('/api/invitations', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    email: accountData.email.trim(),
+                    password: accountData.password,
+                    fullName: accountData.full_name.trim(),
+                    role: 'musammi',
+                    organizationId: orgId.trim(),
+                    musammiId: accountData.musammi_id ? parseInt(accountData.musammi_id, 10) : null
+                })
+            });
+
+            const json = await resp.json().catch(() => ({}));
+            if (!resp.ok) {
+                throw new Error(json.error || `Gagal membuat undangan akun Musammi (HTTP ${resp.status}).`);
             }
 
-            alert("Akun Musammi berhasil dibuat!");
+            NotificationStore.addNotification('Akun Musammi berhasil dibuat via Serverless API dan langsung ditautkan!', 'success');
             setIsAccountModalOpen(false);
             
-            // Refresh
             const { data } = await supabase
                 .from('profiles')
                 .select('id, full_name, email')
@@ -134,10 +116,9 @@ const MusammiPage: React.FC = () => {
                 .eq('role', 'musammi');
             if (data) setAuthProfiles(data);
             await fetchData();
-            
         } catch (e: any) {
             console.error(e);
-            alert("Gagal membuat akun: " + e.message);
+            NotificationStore.addNotification('Gagal membuat akun: ' + e.message, 'error');
         } finally {
             setIsCreatingAccount(false);
         }
@@ -261,6 +242,7 @@ const MusammiPage: React.FC = () => {
                 kode: formData.kode || null, no_hp: formData.no_hp || null,
                 user_id: formData.user_id || null
             };
+            let savedMusammiId = editingPerson?.id;
             if (editingPerson) {
                 delete payload.organization_id;
                 let { error } = await supabase.from('musammi').update(payload).eq('id', editingPerson.id).eq('organization_id', orgId);
@@ -271,39 +253,60 @@ const MusammiPage: React.FC = () => {
                 }
                 if (error) throw error;
             } else {
-                let { error } = await supabase.from('musammi').insert(payload);
+                let { data, error } = await supabase.from('musammi').insert(payload).select().single();
                 if (error && (error.message?.toLowerCase().includes('enum') || error.code === '22P02')) {
                     payload.marhalah = safeLegacyMarhalah;
-                    const res = await supabase.from('musammi').insert(payload);
+                    const res = await supabase.from('musammi').insert(payload).select().single();
+                    data = res.data;
                     error = res.error;
                 }
                 if (error) throw error;
+                savedMusammiId = data?.id;
             }
+
+            // Dual-write sinkronisasi ke tabel kanonikal musammi_staff (V2)
+            if (savedMusammiId) {
+                try {
+                    await (supabase as any).from('musammi_staff').upsert(
+                        {
+                            organization_id: orgId,
+                            legacy_musammi_id: savedMusammiId,
+                            user_id: formData.user_id || null,
+                            santri_id: formData.santriId !== 'null' ? parseInt(formData.santriId, 10) : null,
+                            nama: formData.nama,
+                            kode: formData.kode || null,
+                            no_hp: formData.no_hp || null,
+                            status: 'active',
+                        },
+                        { onConflict: 'organization_id,legacy_musammi_id' }
+                    );
+                } catch {}
+            }
+
             await fetchData();
             setIsModalOpen(false);
-        } catch (e: any) { alert(e.message); } 
+            NotificationStore.addNotification('Data Musammi berhasil disimpan.', 'success');
+        } catch (e: any) { NotificationStore.addNotification(e.message, 'error'); } 
         finally { setIsSubmitting(false); }
     };
 
     const handleDelete = async (id: number) => {
-        if (confirm('Hapus Data Musammi?')) {
-            const orgId = await getOrgId();
-            if (!orgId) return;
-            await supabase.from('musammi').delete().eq('id', id).eq('organization_id', orgId);
-            await fetchData();
-            setSelectedIds(prev => prev.filter(selectedId => selectedId !== id));
-        }
+        const orgId = await getOrgId();
+        if (!orgId) return;
+        await supabase.from('musammi').delete().eq('id', id).eq('organization_id', orgId);
+        await fetchData();
+        setSelectedIds(prev => prev.filter(selectedId => selectedId !== id));
+        NotificationStore.addNotification('Data Musammi berhasil dihapus.', 'success');
     };
 
     const handleBulkDelete = async () => {
         if (selectedIds.length === 0) return;
-        if (confirm(`Hapus ${selectedIds.length} data musammi terpilih?`)) {
-            const orgId = await getOrgId();
-            if (!orgId) return;
-            await supabase.from('musammi').delete().in('id', selectedIds).eq('organization_id', orgId);
-            await fetchData();
-            setSelectedIds([]);
-        }
+        const orgId = await getOrgId();
+        if (!orgId) return;
+        await supabase.from('musammi').delete().in('id', selectedIds).eq('organization_id', orgId);
+        await fetchData();
+        setSelectedIds([]);
+        NotificationStore.addNotification('Data Musammi terpilih berhasil dihapus.', 'success');
     };
 
     const toggleSelection = (id: number) => {
@@ -336,7 +339,7 @@ const MusammiPage: React.FC = () => {
         try {
             const orgId = await getOrgId();
             if (!selectedAcademicYear) {
-                alert("Pilih tahun ajaran terlebih dahulu");
+                NotificationStore.addNotification("Pilih tahun ajaran terlebih dahulu", "error");
                 return;
             }
             const csvData = await parseSpreadsheet(file);
@@ -388,8 +391,8 @@ const MusammiPage: React.FC = () => {
                 } else success++;
             }
             await fetchData();
-            alert(`Import selesai. Sukses: ${success}, Gagal: ${fail}`);
-        } catch (e: any) { alert(`Import gagal: ${e.message}`); }
+            NotificationStore.addNotification(`Import selesai. Sukses: ${success}, Gagal: ${fail}`, fail > 0 ? 'info' : 'success');
+        } catch (e: any) { NotificationStore.addNotification(`Import gagal: ${e.message}`, 'error'); }
         finally { if (fileInputRef.current) fileInputRef.current.value = ''; }
     };
 
@@ -527,11 +530,14 @@ const MusammiPage: React.FC = () => {
                                 <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 min-w-[200px]">Nama Musammi</th>
                                 <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80">Marhalah & Kelas</th>
                                 <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80">No HP</th>
+                                <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80">Status Akun Login</th>
                                 <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80 text-right">Aksi</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100/80">
-                            {paginatedData.map((m, index) => (
+                            {paginatedData.map((m, index) => {
+                                const linkedProfile = authProfiles.find((p) => p.id === m.user_id);
+                                return (
                                 <tr key={m.id} className={`hover:bg-blue-50/30 transition-colors group ${selectedIds.includes(m.id) ? 'bg-blue-50/50' : ''}`}>
                                     <td className="px-6 py-4 border-r border-slate-100/80">
                                         <input 
@@ -553,6 +559,9 @@ const MusammiPage: React.FC = () => {
                                             </div>
                                             <div>
                                                 <p className="text-[14px] font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{m.nama}</p>
+                                                {m.santri_id && (
+                                                    <span className="text-[10px] font-semibold text-blue-600">Santri Senior (#{m.santri_id})</span>
+                                                )}
                                             </div>
                                         </div>
                                     </td>
@@ -565,6 +574,27 @@ const MusammiPage: React.FC = () => {
                                     <td className="px-6 py-4 border-l border-slate-100/80 text-[13px] font-medium text-slate-600">
                                         {(m as any).no_hp || '-'}
                                     </td>
+                                    <td className="px-6 py-4 border-l border-slate-100/80">
+                                        {m.user_id ? (
+                                            <div className="flex flex-col gap-0.5">
+                                                <StatusBadge label="TERTAUT AKUN" tone="success" />
+                                                {linkedProfile?.email && (
+                                                    <span className="text-[11px] text-slate-500 font-mono">{linkedProfile.email}</span>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-2">
+                                                <StatusBadge label="BELUM ADA AKUN" tone="neutral" />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openAccountModal(m)}
+                                                    className="text-[11px] font-semibold text-blue-600 hover:underline"
+                                                >
+                                                    + Buat Akun
+                                                </button>
+                                            </div>
+                                        )}
+                                    </td>
                                     <td className="px-6 py-4 border-l border-slate-100/80 text-right">
                                         <div className="opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex justify-end gap-2">
                                             <button onClick={() => openModal(m)} className="h-9 w-9 inline-flex items-center justify-center rounded-xl bg-slate-50 text-slate-500 hover:bg-blue-500 hover:text-white transition-all shadow-sm">
@@ -576,10 +606,11 @@ const MusammiPage: React.FC = () => {
                                         </div>
                                     </td>
                                 </tr>
-                            ))}
+                                );
+                            })}
                             {paginatedData.length === 0 && (
                                 <tr>
-                                    <td colSpan={6} className="text-center py-16 text-[13px] text-slate-500 font-medium">
+                                    <td colSpan={7} className="text-center py-16 text-[13px] text-slate-500 font-medium">
                                         Tidak ada data yang ditemukan.
                                     </td>
                                 </tr>

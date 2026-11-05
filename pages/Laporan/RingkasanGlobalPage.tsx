@@ -89,12 +89,8 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
         if (permittedHalaqahIds) {
             base = base.filter(record => record.halaqahId && permittedHalaqahIds.includes(record.halaqahId));
         }
-        if (userProfile?.role === 'pengajar') {
-            const userWaliClasses = waliKelas.filter(w => w.user_id === userProfile.id).map(w => ({ marhalah: w.marhalah, kelas: w.kelas }));
-            base = base.filter(record => record.peran === 'Santri' && userWaliClasses.some(wc => wc.marhalah === record.marhalah && wc.kelas === record.kelas));
-        }
         return base;
-    }, [attendance, permittedHalaqahIds, userProfile, waliKelas]);
+    }, [attendance, permittedHalaqahIds]);
 
     // Dynamic Options
     const availableKelas = useMemo(() => {
@@ -305,10 +301,16 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
     }, [selectedStudentDetail, filteredData]);
 
     const handleEdit = (record: AttendanceRecord) => { setEditingRecord(record); setIsEditModalOpen(true); };
-    const handleDelete = async (id: number) => { if(confirm('Hapus data?')) await deleteAttendanceRecord(id); };
+    const handleDelete = async (id: number) => {
+        await deleteAttendanceRecord(id);
+        NotificationStore.addNotification('Data absensi berhasil dihapus.', 'success');
+    };
     
     const sendWA = (phone: string, text: string) => {
-        if(!phone) return alert("Nomor HP tidak tersedia.");
+        if(!phone) {
+            NotificationStore.addNotification("Nomor HP tidak tersedia.", "error");
+            return;
+        }
         let p = phone.replace(/\D/g, '');
         if(p.startsWith('0')) p = '62' + p.substring(1);
         NotificationStore.addNotification(`Membuka WhatsApp untuk mengirim pesan ke ${p}...`, 'info');
@@ -317,19 +319,29 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
 
     const handleSendTelegram = async (chatId: string, text: string) => {
         const botToken = appSettings.find(s => s.key === 'TELEGRAM_BOT_TOKEN')?.value;
-        if (!botToken) return alert("TELEGRAM_BOT_TOKEN belum diatur di Settings.");
+        if (!botToken) {
+            NotificationStore.addNotification("TELEGRAM_BOT_TOKEN belum diatur di Settings.", "error");
+            return;
+        }
         try {
             await sendCustomTelegramMessage(botToken, chatId, text);
+            NotificationStore.addNotification("Pesan Telegram terkirim.", "success");
         } catch (err: any) {
-            alert(`Gagal kirim: ${err.message}`);
+            NotificationStore.addNotification(`Gagal kirim: ${err.message}`, "error");
         }
     };
 
     const handleSendMassTelegram = async () => {
         const botToken = appSettings.find(s => s.key === 'TELEGRAM_BOT_TOKEN')?.value;
-        if (!botToken) return alert("TELEGRAM_BOT_TOKEN belum diatur.");
+        if (!botToken) {
+            NotificationStore.addNotification("TELEGRAM_BOT_TOKEN belum diatur.", "error");
+            return;
+        }
         const validMessages = generatedMessages.filter(m => m.telegramChatId);
-        if (!confirm(`Kirim ${validMessages.length} pesan ke Telegram secara massal?`)) return;
+        if (validMessages.length === 0) {
+            NotificationStore.addNotification("Tidak ada penerima Telegram yang valid.", "info");
+            return;
+        }
         
         NotificationStore.addNotification(`Mulai mengirim ${validMessages.length} pesan Telegram...`, 'info');
         for (const msg of validMessages) {
@@ -378,7 +390,10 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
             }
         });
 
-        if (messages.length === 0) return alert("Pilih minimal 1 santri untuk mengirim pesan.");
+        if (messages.length === 0) {
+            NotificationStore.addNotification("Pilih minimal 1 santri untuk mengirim pesan.", "info");
+            return;
+        }
         setGeneratedMessages(messages);
         setMessageTarget(target);
         setIsPreviewModalOpen(true);
@@ -395,7 +410,8 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
         try {
             await updateAttendanceRecord(editingRecord.id, { status: editingRecord.status, date: editingRecord.date, waktu: editingRecord.waktu });
             setIsEditModalOpen(false);
-        } catch(e:any) { alert(e.message); }
+            NotificationStore.addNotification("Data absensi berhasil diperbarui.", "success");
+        } catch(e:any) { NotificationStore.addNotification(e.message, "error"); }
         finally { setIsSubmitting(false); }
     };
 
@@ -428,9 +444,9 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
             }]);
 
             setIsAddModalOpen(false);
-            alert("Absensi berhasil ditambahkan!");
+            NotificationStore.addNotification("Absensi berhasil ditambahkan!", "success");
         } catch(e: any) {
-            alert(`Gagal: ${e.message}`);
+            NotificationStore.addNotification(`Gagal: ${e.message}`, "error");
         } finally {
             setIsSubmitting(false);
         }
@@ -1048,7 +1064,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
             <Modal isOpen={!!selectedStudentDetail} onClose={() => setSelectedStudentDetail(null)} title={`Detail Absensi: ${selectedStudentDetail?.nama}`}>
                 <div className="flex justify-between items-center mb-4">
                     <p className="text-xs text-slate-500 italic">Riwayat kehadiran per sesi.</p>
-                    {!['musammi', 'pengajar'].includes(userProfile?.role?.toLowerCase() || '') && (
+                    {(userProfile?.role?.toLowerCase() || '') !== 'musammi' && (
                         <button 
                             onClick={() => setIsAddModalOpen(true)}
                             className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center hover:bg-blue-700 transition-all shadow-sm"
@@ -1059,7 +1075,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                 </div>
                 <div className="max-h-[60vh] overflow-y-auto border border-slate-100 rounded-lg">
                     <table className="w-full text-sm text-left text-slate-500">
-                        <thead className="bg-slate-50 sticky top-0"><tr><th className="px-4 py-3 font-semibold text-slate-600">Tanggal</th><th className="px-4 py-3 font-semibold text-slate-600">Waktu</th><th className="px-4 py-3 font-semibold text-slate-600">Status</th>{!['musammi', 'pengajar'].includes(userProfile?.role?.toLowerCase() || '') && <th className="px-4 py-3 font-semibold text-slate-600 text-right">Aksi</th>}</tr></thead>
+                        <thead className="bg-slate-50 sticky top-0"><tr><th className="px-4 py-3 font-semibold text-slate-600">Tanggal</th><th className="px-4 py-3 font-semibold text-slate-600">Waktu</th><th className="px-4 py-3 font-semibold text-slate-600">Status</th>{(userProfile?.role?.toLowerCase() || '') !== 'musammi' && <th className="px-4 py-3 font-semibold text-slate-600 text-right">Aksi</th>}</tr></thead>
                         <tbody className="divide-y divide-slate-100">
                             {studentDetailData.map(r => (
                                 <tr key={r.id} className="hover:bg-slate-50 transition-colors">
@@ -1074,7 +1090,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                                             'bg-rose-50 text-rose-700 border-rose-100/50'
                                         }`}>{r.status}</span>
                                     </td>
-                                    {!['musammi', 'pengajar'].includes(userProfile?.role?.toLowerCase() || '') && (
+                                    {(userProfile?.role?.toLowerCase() || '') !== 'musammi' && (
                                         <td className="px-4 py-3 text-right flex justify-end gap-2">
                                             <button onClick={() => handleEdit(r)} className="text-blue-600 hover:bg-blue-50 p-1.5 rounded"><Edit size={14}/></button>
                                             <button onClick={() => handleDelete(r.id)} className="text-red-500 hover:bg-red-50 p-1.5 rounded"><Trash size={14}/></button>
@@ -1082,7 +1098,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                                     )}
                                 </tr>
                             ))}
-                            {studentDetailData.length === 0 && <tr><td colSpan={!['musammi', 'pengajar'].includes(userProfile?.role?.toLowerCase() || '') ? 4 : 3} className="text-center py-8 text-slate-400">Belum ada data.</td></tr>}
+                            {studentDetailData.length === 0 && <tr><td colSpan={(userProfile?.role?.toLowerCase() || '') !== 'musammi' ? 4 : 3} className="text-center py-8 text-slate-400">Belum ada data.</td></tr>}
                         </tbody>
                     </table>
                 </div>

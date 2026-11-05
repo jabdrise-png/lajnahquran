@@ -99,9 +99,14 @@ Informasi lebih lengkap silahkan lihat di website berikut: https://lajnahquran.w
     }
 };
 
+const isMaskedToken = (val?: string | null) => {
+    if (!val) return true;
+    const clean = String(val).trim();
+    return !clean || clean.includes('••') || clean.includes('**');
+};
+
 export const getTelegramUpdates = async (botToken: string, offset?: number): Promise<any[]> => {
-    if (!botToken) {
-        console.warn("Telegram Bot Token is not provided.");
+    if (isMaskedToken(botToken)) {
         return [];
     }
 
@@ -138,7 +143,7 @@ export const sendCustomTelegramMessage = async (botToken: string, chatId: string
             body: JSON.stringify({
                 chatId,
                 message,
-                botToken: botToken || undefined,
+                botToken: !isMaskedToken(botToken) ? botToken : undefined,
                 parseMode: 'Markdown'
             })
         });
@@ -156,13 +161,13 @@ export const sendCustomTelegramMessage = async (botToken: string, chatId: string
             }
         }
     } catch (proxyErr: any) {
-        if (!botToken) {
+        if (isMaskedToken(botToken)) {
             throw proxyErr;
         }
     }
 
-    if (!botToken) {
-        console.warn("Telegram Bot Token is not provided.");
+    if (isMaskedToken(botToken)) {
+        console.warn("Telegram Bot Token is not provided or masked.");
         return false;
     }
 

@@ -8,6 +8,8 @@ import { Marhalah } from '../../types';
 import { Plus, Trash, Download, Edit, Upload, FileSpreadsheet, FileText, Search, ChevronRight } from 'lucide-react';
 import { parseSpreadsheet, exportToExcel, exportToPDF } from '../../lib/utils';
 import { supabase } from '../../lib/supabaseClient';
+import { StatusBadge } from '../../components/ui/SaaSPrimitives';
+import { NotificationStore } from '../../lib/NotificationStore';
 
 export interface Musyrif {
     id: number;
@@ -18,7 +20,7 @@ export interface Musyrif {
 }
 
 const MusyrifDataPage: React.FC = () => {
-    const { getOrgId, selectedAcademicYear, masterKelas, globalMarhalahs, masterMarhalahs , masterKelasRelasi} = useSupabaseData();
+    const { getOrgId, selectedAcademicYear, masterKelas, globalMarhalahs, masterMarhalahs, masterKelasRelasi, fetchData } = useSupabaseData();
     const [musyrifList, setMusyrifList] = useState<Musyrif[]>([]);
     const [loading, setLoading] = useState(true);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -89,35 +91,55 @@ const MusyrifDataPage: React.FC = () => {
 
     const handleSubmit = async () => {
         const orgId = await getOrgId();
-        if (!selectedAcademicYear) return alert("Tahun ajaran belum dipilih");
+        if (!selectedAcademicYear) return NotificationStore.addNotification("Tahun ajaran belum dipilih", "error");
+        if (!formData.nama.trim()) return NotificationStore.addNotification("Nama Musyrif wajib diisi", "error");
         
-        const payload = { 
+        const mObj = (masterMarhalahs || []).find((m: any) => m.nama === formData.marhalah);
+        const payload: any = { 
             organization_id: orgId, 
             academic_year_id: selectedAcademicYear.id,
+            marhalah_id: mObj?.id || null,
             ...formData, 
             no_hp: formData.no_hp || null 
         };
         
         if (editingMusyrif) {
-            // @ts-ignore
             delete payload.organization_id;
             const { error } = await (supabase as any).from('musyrifs').update(payload).eq('id', editingMusyrif.id).eq('organization_id', orgId);
-            if(error) alert(error.message);
+            if(error) return NotificationStore.addNotification(error.message, "error");
         } else {
             const { error } = await (supabase as any).from('musyrifs').insert(payload);
-            if(error) alert(error.message);
+            if(error) return NotificationStore.addNotification(error.message, "error");
         }
+
+        // Sinkronisasi atribut administratif musyrif_name ke master_kelas_relasi & santri pada marhalah terkait
+        try {
+            if (mObj?.id) {
+                await (supabase as any)
+                    .from('master_kelas_relasi')
+                    .update({ musyrif_name: formData.nama.trim() })
+                    .eq('organization_id', orgId)
+                    .eq('marhalah_id', mObj.id);
+            }
+            await (supabase as any)
+                .from('santri')
+                .update({ musyrif_nama: formData.nama.trim() })
+                .eq('organization_id', orgId)
+                .eq('marhalah', formData.marhalah);
+        } catch {}
+
         await fetchMusyrif();
+        if (fetchData) await fetchData();
         setIsModalOpen(false);
+        NotificationStore.addNotification("Atribut Musyrif berhasil disimpan dan disinkronkan ke struktur marhalah/kelas.", "success");
     };
 
     const handleDelete = async (id: number) => {
-        if(confirm("Hapus Musyrif?")) {
-            const orgId = await getOrgId();
-            if (!orgId) return;
-            await (supabase as any).from('musyrifs').delete().eq('id', id).eq('organization_id', orgId);
-            fetchMusyrif();
-        }
+        const orgId = await getOrgId();
+        if (!orgId) return;
+        await (supabase as any).from('musyrifs').delete().eq('id', id).eq('organization_id', orgId);
+        fetchMusyrif();
+        NotificationStore.addNotification("Atribut Musyrif berhasil dihapus.", "info");
     };
 
     // Import/Export
@@ -137,7 +159,7 @@ const MusyrifDataPage: React.FC = () => {
         try {
             const orgId = await getOrgId();
             if(!selectedAcademicYear) {
-                alert("Pilih tahun ajaran terlebih dahulu");
+                NotificationStore.addNotification("Pilih tahun ajaran terlebih dahulu", "error");
                 return;
             }
             const csvData = await parseSpreadsheet(file);
@@ -157,8 +179,8 @@ const MusyrifDataPage: React.FC = () => {
                 } else success++;
             }
             await fetchMusyrif();
-            alert(`Import selesai. Sukses: ${success}, Gagal: ${fail}`);
-        } catch(e: any) { alert(`Import gagal: ${e.message}`); }
+            NotificationStore.addNotification(`Import selesai. Sukses: ${success}, Gagal: ${fail}`, fail > 0 ? 'info' : 'success');
+        } catch(e: any) { NotificationStore.addNotification(`Import gagal: ${e.message}`, 'error'); }
         finally { if(fileInputRef.current) fileInputRef.current.value = ''; }
     };
 
@@ -177,11 +199,14 @@ const MusyrifDataPage: React.FC = () => {
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 mt-2">
                 <div>
+                    <div className="flex items-center gap-2 mb-1.5">
+                        <StatusBadge label="ATRIBUT ADMINISTRATIF ASRAMA/MARHALAH (NON-LOGIN)" tone="primary" />
+                    </div>
                     <h1 className="text-[24px] font-extrabold text-slate-900 tracking-tight leading-none mb-2">
-                        Data Musyrif
+                        Atribut Musyrif Pembina
                     </h1>
                     <p className="text-[13px] text-slate-500 font-medium">
-                        Kelola data musyrif, marhalah yang diampu, dan nomor kontak.
+                        Sesuai Arsitektur 3-Role (Superadmin, Admin, Musammi), Musyrif dikelola sebagai atribut teks administratif pendamping marhalah/santri.
                     </p>
                 </div>
             </div>

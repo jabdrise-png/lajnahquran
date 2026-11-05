@@ -164,13 +164,13 @@ const PerkembanganMasterDataPage: React.FC = () => {
         try {
             const updated = masterPeriods.filter(p => p.id !== id);
             await saveAppSetting('EVALUATION_PERIODS', JSON.stringify(updated));
-            alert('Periode evaluasi berhasil dihapus.');
+            NotificationStore.addNotification('Periode evaluasi berhasil dihapus.', 'success');
             if (selectedMonth === id) {
                 setSelectedMonth('');
             }
         } catch (error) {
             console.error('Error deleting evaluation period:', error);
-            alert('Gagal menghapus periode evaluasi.');
+            NotificationStore.addNotification('Gagal menghapus periode evaluasi.', 'error');
         }
     };
 
@@ -267,11 +267,11 @@ const PerkembanganMasterDataPage: React.FC = () => {
                 }));
             }
             
-            alert('Target berhasil disimpan.');
+            NotificationStore.addNotification('Target berhasil disimpan.', 'success');
             setIsTargetModalOpen(false);
         } catch (error: any) {
             console.error('Error saving target', error);
-            alert(`Gagal menyimpan target: ${error?.message || JSON.stringify(error)}`);
+            NotificationStore.addNotification(`Gagal menyimpan target: ${error?.message || JSON.stringify(error)}`, 'error');
         }
     };
     
@@ -303,12 +303,12 @@ const PerkembanganMasterDataPage: React.FC = () => {
         const end = new Date(editingPeriod.endDate);
 
         if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-            alert('Tanggal mulai dan tanggal selesai harus diisi dengan format yang benar.');
+            NotificationStore.addNotification('Tanggal mulai dan tanggal selesai harus diisi dengan format yang benar.', 'error');
             return;
         }
 
         if (start > end) {
-            alert('Tanggal mulai tidak boleh lebih besar dari tanggal selesai.');
+            NotificationStore.addNotification('Tanggal mulai tidak boleh lebih besar dari tanggal selesai.', 'error');
             return;
         }
 
@@ -329,7 +329,7 @@ const PerkembanganMasterDataPage: React.FC = () => {
             setIsManageModalOpen(false);
         } catch (error: any) {
             console.error('Error saving period:', error);
-            alert('Gagal menyimpan: ' + error.message);
+            NotificationStore.addNotification('Gagal menyimpan: ' + error.message, 'error');
         }
     };
 
@@ -386,12 +386,9 @@ const PerkembanganMasterDataPage: React.FC = () => {
     };
 
     const handleDeleteLocalOption = (id: number) => {
-        if (confirm('Hapus opsi ini?')) {
-            const newSettings = localCategorySettings.filter(s => s.id !== id);
-            
-            setLocalCategorySettings(newSettings);
-            setHasUnsavedChanges(true);
-        }
+        const newSettings = localCategorySettings.filter(s => s.id !== id);
+        setLocalCategorySettings(newSettings);
+        setHasUnsavedChanges(true);
     };
 
     const handleUpdateLocalColor = (label: string, color: string) => {
@@ -432,10 +429,10 @@ const PerkembanganMasterDataPage: React.FC = () => {
             setEvalColors(updatedColors);
             await saveAppSetting('EVALUATION_COLORS', JSON.stringify(updatedColors));
             setHasUnsavedChanges(false);
-            alert("Perubahan berhasil disimpan.");
+            NotificationStore.addNotification("Perubahan berhasil disimpan.", 'success');
         } catch (error) {
             console.error(error);
-            alert("Terjadi kesalahan saat menyimpan.");
+            NotificationStore.addNotification("Terjadi kesalahan saat menyimpan.", 'error');
         }
     };
 
@@ -743,8 +740,7 @@ const PerkembanganMasterDataPage: React.FC = () => {
                 if (filterJenisHalaqah !== 'all' && (h.jenis || (h as any).jenis_halaqah) !== filterJenisHalaqah) return;
 
                 if (isMusammi) {
-                    const isMatch = (h.musammi?.user_id && userProfile?.id && h.musammi.user_id === userProfile.id) ||
-                                    (h.musammi?.nama?.toLowerCase().trim() === userProfile?.name?.toLowerCase().trim());
+                    const isMatch = Boolean(h.musammi?.user_id && userProfile?.id && h.musammi.user_id === userProfile.id);
                     if (!isMatch) return;
                 }
 
@@ -771,8 +767,7 @@ const PerkembanganMasterDataPage: React.FC = () => {
 
         return halaqah.filter(h => h.is_active !== false || evalHalaqahIds.has(h.id)).filter(h => {
             if (isMusammi) {
-                const isMatch = (h.musammi?.user_id && userProfile?.id && h.musammi.user_id === userProfile.id) ||
-                                (h.musammi?.nama?.toLowerCase().trim() === userProfile?.name?.toLowerCase().trim());
+                const isMatch = Boolean(h.musammi?.user_id && userProfile?.id && h.musammi.user_id === userProfile.id);
                 if (!isMatch) return false;
             }
             if (filterMarhalah !== 'all' && h.marhalah !== filterMarhalah) return false;
@@ -881,7 +876,7 @@ const PerkembanganMasterDataPage: React.FC = () => {
         
         const activePeriod = masterPeriods.find(p => p.id === selectedMonth);
         if (!activePeriod || !activePeriod.startDate || !activePeriod.endDate) {
-            alert("Periode evaluasi ini tidak memiliki tanggal mulai atau akhir yang valid.");
+            NotificationStore.addNotification("Periode evaluasi ini tidak memiliki tanggal mulai atau akhir yang valid.", 'error');
             return;
         }
         
@@ -894,7 +889,7 @@ const PerkembanganMasterDataPage: React.FC = () => {
                 
             if (error) throw error;
             if (!data || data.length === 0) {
-                alert("Tidak ada data setoran pada periode ini.");
+                NotificationStore.addNotification("Tidak ada data setoran pada periode ini.", 'info');
                 return;
             }
 
@@ -926,9 +921,9 @@ const PerkembanganMasterDataPage: React.FC = () => {
             });
             
             setLocalProgress(newLocalProgress);
-            alert(`Berhasil menyinkronkan data ${type === 'ziyadah' ? 'Ziyadah' : 'Murojaah'}. Silahkan klik Simpan Perubahan.`);
+            NotificationStore.addNotification(`Berhasil menyinkronkan data ${type === 'ziyadah' ? 'Ziyadah' : 'Murojaah'}. Silahkan klik Simpan Perubahan.`, 'success');
         } catch (err: any) {
-            alert("Gagal sinkronisasi: " + err.message);
+            NotificationStore.addNotification("Gagal sinkronisasi: " + err.message, 'error');
         }
     };
 
@@ -1040,12 +1035,12 @@ const PerkembanganMasterDataPage: React.FC = () => {
             if (progressUpdates.length > 0) {
                 await addStudentProgressBatch(progressUpdates);
             }
-            alert('Data berhasil disimpan!');
+            NotificationStore.addNotification('Data berhasil disimpan!', 'success');
             setLocalEvaluations({});
             setLocalProgress({});
         } catch (error) {
             console.error(error);
-            alert('Terjadi kesalahan saat menyimpan data.');
+            NotificationStore.addNotification('Terjadi kesalahan saat menyimpan data.', 'error');
         }
     };
 
@@ -1106,18 +1101,16 @@ const PerkembanganMasterDataPage: React.FC = () => {
 
     const handleUpdateCategory = async () => {
         if (!editCategoryName.trim() || newCategory === editCategoryName) return;
-        if (window.confirm(`Ganti nama kategori "${newCategory}" menjadi "${editCategoryName}"?`)) {
-            await updateEvaluationCategory(newCategory, editCategoryName);
-            setNewCategory(editCategoryName);
-            setIsEditingCategory(false);
-        }
+        await updateEvaluationCategory(newCategory, editCategoryName);
+        setNewCategory(editCategoryName);
+        setIsEditingCategory(false);
+        NotificationStore.addNotification('Kategori berhasil diperbarui.', 'success');
     };
 
     const handleDeleteCategory = async () => {
-        if (window.confirm(`Hapus kategori "${newCategory}" beserta SEMUA opsi dan data nilai terkait? Tindakan ini tidak dapat dibatalkan!`)) {
-            await deleteEvaluationCategory(newCategory);
-            setNewCategory(allCategories.length > 0 ? (allCategories.find(c => c !== newCategory) || '') : '');
-        }
+        await deleteEvaluationCategory(newCategory);
+        setNewCategory(allCategories.length > 0 ? (allCategories.find(c => c !== newCategory) || '') : '');
+        NotificationStore.addNotification('Kategori berhasil dihapus.', 'success');
     };
 
     // --- Halaqah Settings Logic ---
@@ -1131,14 +1124,14 @@ const PerkembanganMasterDataPage: React.FC = () => {
             setEditingHalaqahQuestion(null);
         } catch (error) {
             console.error('Error saving question:', error);
-            alert('Gagal menyimpan pertanyaan.');
+            NotificationStore.addNotification('Gagal menyimpan pertanyaan.', 'error');
         }
     };
 
     // --- 4. Report Generation ---
     
     const handleGeneratePreview = (target: 'wa' | 'telegram') => {
-        if (selectedSantriIds.length === 0) return alert("Pilih santri terlebih dahulu.");
+        if (selectedSantriIds.length === 0) return NotificationStore.addNotification("Pilih santri terlebih dahulu.", 'info');
         
         const messages: {name: string, phone: string, text: string, telegramChatId?: string}[] = [];
 
@@ -1296,7 +1289,7 @@ const PerkembanganMasterDataPage: React.FC = () => {
     };
 
     const sendWA = (phone: string, text: string) => {
-        if(!phone) return alert("Nomor HP tidak tersedia.");
+        if(!phone) return NotificationStore.addNotification("Nomor HP tidak tersedia.", 'error');
         let p = phone.replace(/\D/g, '');
         if(p.startsWith('0')) p = '62' + p.substring(1);
         NotificationStore.addNotification(`Membuka WhatsApp untuk mengirim pesan ke ${p}...`, 'info');
@@ -1306,28 +1299,26 @@ const PerkembanganMasterDataPage: React.FC = () => {
     const handleSendTelegram = async (chatId: string, text: string) => {
         const botToken = appSettings.find(s => s.key === 'TELEGRAM_BOT_TOKEN')?.value;
         if (!botToken) {
-            return alert('Bot token belum disetting. Silakan setting di menu Pengaturan.');
+            return NotificationStore.addNotification('Bot token belum disetting. Silakan setting di menu Pengaturan.', 'error');
         }
-        if (!chatId) return alert('Chat ID tidak tersedia untuk santri ini.');
+        if (!chatId) return NotificationStore.addNotification('Chat ID tidak tersedia untuk santri ini.', 'error');
 
         try {
             await sendCustomTelegramMessage(botToken, chatId, text);
-            alert('Pesan berhasil terkirim!');
+            NotificationStore.addNotification('Pesan berhasil terkirim!', 'success');
         } catch (e: any) {
-            alert('Gagal mengirim pesan: ' + e.message);
+            NotificationStore.addNotification('Gagal mengirim pesan: ' + e.message, 'error');
         }
     };
 
     const handleSendMassTelegram = async () => {
         const botToken = appSettings.find(s => s.key === 'TELEGRAM_BOT_TOKEN')?.value;
         if (!botToken) {
-            return alert('Bot token belum disetting. Silakan setting di menu Pengaturan.');
+            return NotificationStore.addNotification('Bot token belum disetting. Silakan setting di menu Pengaturan.', 'error');
         }
 
         const validMessages = generatedMessages.filter(m => m.telegramChatId);
-        if (validMessages.length === 0) return alert('Tidak ada santri dengan Chat ID yang valid.');
-
-        if (!confirm(`Kirim ${validMessages.length} pesan ke Telegram secara massal?`)) return;
+        if (validMessages.length === 0) return NotificationStore.addNotification('Tidak ada santri dengan Chat ID yang valid.', 'error');
 
         let successCount = 0;
         let failCount = 0;
@@ -1341,12 +1332,12 @@ const PerkembanganMasterDataPage: React.FC = () => {
             }
         }
         
-        alert(`Pengiriman massal selesai. Berhasil: ${successCount}. Gagal: ${failCount}.`);
+        NotificationStore.addNotification(`Pengiriman massal selesai. Berhasil: ${successCount}. Gagal: ${failCount}.`, 'info');
     };
 
     const copyText = (text: string) => {
         navigator.clipboard.writeText(text);
-        alert("Pesan disalin ke clipboard!");
+        NotificationStore.addNotification("Pesan disalin ke clipboard!", 'success');
     };
 
     // --- 5. Import/Export ---
@@ -1459,7 +1450,7 @@ const PerkembanganMasterDataPage: React.FC = () => {
                         }
                     }
                 }
-                alert(`Berhasil import ${success} data evaluasi halaqah.`);
+                NotificationStore.addNotification(`Berhasil import ${success} data evaluasi halaqah.`, 'success');
                 fetchData();
                 if(fileInputRef.current) fileInputRef.current.value = '';
                 return;
@@ -1545,9 +1536,9 @@ const PerkembanganMasterDataPage: React.FC = () => {
             if (evalUpdates.length > 0) await updateEvaluationBatch(evalUpdates);
             if (progressUpdates.length > 0) await addStudentProgressBatch(progressUpdates);
 
-            alert(`Berhasil import ${success} data evaluasi santri.`);
+            NotificationStore.addNotification(`Berhasil import ${success} data evaluasi santri.`, 'success');
             fetchData();
-        } catch(err) { alert('Gagal import CSV'); }
+        } catch(err) { NotificationStore.addNotification('Gagal import CSV', 'error'); }
         if(fileInputRef.current) fileInputRef.current.value = '';
     };
 
@@ -1724,13 +1715,13 @@ const PerkembanganMasterDataPage: React.FC = () => {
                                 <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-200 z-50 py-2">
                                     <button 
                                         className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center"
-                                        onClick={() => { setIsImportMenuOpen(false); alert("Fitur Import CSV perlu dihubungkan dengan handler CSV."); }}
+                                        onClick={() => { setIsImportMenuOpen(false); fileInputRef.current?.click(); }}
                                     >
                                         <Upload size={14} className="mr-2" /> Import Excel CSV
                                     </button>
                                     <button 
                                         className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center"
-                                        onClick={() => { setIsImportMenuOpen(false); alert("Fitur Download Template perlu dihubungkan dengan generator CSV."); }}
+                                        onClick={() => { setIsImportMenuOpen(false); handleDownloadTemplate(); }}
                                     >
                                         <Download size={14} className="mr-2" /> Download Template
                                     </button>
@@ -2385,13 +2376,13 @@ const PerkembanganMasterDataPage: React.FC = () => {
                     <div className="flex px-6 pt-4 border-b border-slate-200/80 bg-white gap-6">
                         <button 
                             className={`pb-3 text-[13px] font-bold border-b-2 transition-colors ${activeEvalTab === 'santri' ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-                            onClick={() => { if(hasUnsavedChanges) { if(!confirm('Ada perubahan belum disimpan. Lanjutkan?')) return; setHasUnsavedChanges(false); } setActiveEvalTab('santri'); }}
+                            onClick={() => { if(hasUnsavedChanges) { setHasUnsavedChanges(false); } setActiveEvalTab('santri'); }}
                         >
                             Evaluasi Santri
                         </button>
                         <button 
                             className={`pb-3 text-[13px] font-bold border-b-2 transition-colors ${activeEvalTab === 'halaqah' ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-                            onClick={() => { if(hasUnsavedChanges) { if(!confirm('Ada perubahan belum disimpan. Lanjutkan?')) return; setHasUnsavedChanges(false); } setActiveEvalTab('halaqah'); }}
+                            onClick={() => { if(hasUnsavedChanges) { setHasUnsavedChanges(false); } setActiveEvalTab('halaqah'); }}
                         >
                             Evaluasi Halaqah
                         </button>
@@ -2412,7 +2403,6 @@ const PerkembanganMasterDataPage: React.FC = () => {
                                                 key={c}
                                                 onClick={() => { 
     if (hasUnsavedChanges) {
-        if (!confirm('Ada perubahan yang belum disimpan. Pindah kategori akan membuang perubahan. Lanjutkan?')) return;
         setHasUnsavedChanges(false);
     }
     setNewCategory(c); 
@@ -2458,7 +2448,6 @@ const PerkembanganMasterDataPage: React.FC = () => {
                                     <button 
                                         onClick={() => { 
     if (hasUnsavedChanges) {
-        if (!confirm('Ada perubahan belum disimpan. Lanjutkan?')) return;
         setHasUnsavedChanges(false);
     }
     setIsAddingCategory(true); 
@@ -2627,7 +2616,7 @@ const PerkembanganMasterDataPage: React.FC = () => {
                                                     <p className="text-[13px] text-slate-500">Konfigurasi pertanyaan yang akan dijawab saat evaluasi halaqah.</p>
                                                 </div>
                                                 {!isAddingHalaqahQuestion && editingHalaqahQuestion?.id && (
-                                                    <button type="button" onClick={() => { if(window.confirm && window.confirm('Hapus pertanyaan ini?')) { deleteHalaqahEvalQuestion(editingHalaqahQuestion.id); setIsAddingHalaqahQuestion(true); setEditingHalaqahQuestion(null); setSelectedHalaqahQuestionId(null); } }} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"><Trash2 size={16} strokeWidth={2.5}/></button>
+                                                    <button type="button" onClick={() => { deleteHalaqahEvalQuestion(editingHalaqahQuestion.id); setIsAddingHalaqahQuestion(true); setEditingHalaqahQuestion(null); setSelectedHalaqahQuestionId(null); }} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"><Trash2 size={16} strokeWidth={2.5}/></button>
                                                 )}
                                             </div>
 
@@ -2981,9 +2970,7 @@ const PerkembanganMasterDataPage: React.FC = () => {
                                             </button>
                                             <button 
                                                 onClick={() => {
-                                                    if(confirm('Hapus periode ini? Data evaluasi yang menggunakan periode ini mungkin tidak akan tampil dengan benar.')) {
-                                                        deleteEvaluationPeriod(p.id);
-                                                    }
+                                                    deleteEvaluationPeriod(p.id);
                                                 }}
                                                 className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                                             >

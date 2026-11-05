@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { useSupabaseData } from '../hooks/useSupabaseData';
+import { NotificationStore } from '../lib/NotificationStore';
 import { Save, Plus, Trash } from 'lucide-react';
 
 interface Props {
@@ -99,11 +100,11 @@ export default function SetoranSettingsModal({ isOpen, onClose }: Props) {
                 { key: 'SETORAN_NILAI_OPTIONS', value: nilaiRanges.map(r => r.label).join(',') }
             ]);
 
-            alert('Pengaturan Setoran berhasil disimpan.');
+            NotificationStore.addNotification('Pengaturan Setoran berhasil disimpan.', 'success');
             onClose();
         } catch (error) {
             console.error('Error saving setoran settings:', error);
-            alert('Gagal menyimpan pengaturan setoran.');
+            NotificationStore.addNotification('Gagal menyimpan pengaturan setoran.', 'error');
         } finally {
             setIsSaving(false);
         }

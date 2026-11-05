@@ -64,6 +64,7 @@ export interface Santri extends Person {
     nama_wali?: string;
     no_hp_wali?: string;
     telegram_chat_id?: string;
+    musyrif_nama?: string;
     student_class_id?: number; // Added to track current class assignment
 }
 export interface Musammi extends Person {
@@ -95,6 +96,7 @@ export interface AcademicYear {
     name: string;
     active_semester: string;
     is_active: boolean;
+    lifecycle_status?: 'draft' | 'setup' | 'active' | 'closing' | 'closed' | string;
 }
 
 export interface MasterKelas {
@@ -102,6 +104,7 @@ export interface MasterKelas {
     organization_id: string;
     marhalah: Marhalah | string;
     nama_kelas: string;
+    academic_year_id?: number | null;
 }
 
 export interface MurojaahRule {
@@ -147,6 +150,7 @@ export interface Halaqah {
   waktu: Waktu[];
   no_urut: number;
   is_active?: boolean;
+  is_archived?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -262,13 +266,23 @@ export interface SetoranHarian {
     kesalahan_kabir?: number | null;
     kesalahan_shoghir?: number | null;
     keterangan?: string | null;
+    status_verifikasi?: 'draft' | 'submitted' | 'accepted' | 'returned' | 'voided' | string;
+    review_reason?: string | null;
     created_at?: string;
     updated_at?: string;
 }
 
-// UPDATE: Added sub-pages for Sidebar navigation
+// UPDATE: Added SaaS Platform & Operational sub-pages
 export type Page = 
+  | 'PlatformDashboard'
+  | 'PlatformTenants'
+  | 'PlatformAccounts'
+  | 'PlatformPlans'
+  | 'PlatformSupport'
+  | 'PlatformAudit'
+  | 'PlatformSettings'
   | 'Dashboard' 
+  | 'SesiHalaqah'
   | 'Absensi' 
   | 'Buku Absensi' 
   | 'CetakBukuFisik'
@@ -301,6 +315,7 @@ export type Page =
   | 'LaporanKelas'
   | 'LaporanWaktu'
   | 'Users'
+  | 'AuditLembaga'
   | 'Settings'
   | 'WebsiteEditor';
 
@@ -315,6 +330,9 @@ export interface MasterKelasRelasi {
     organization_id: string;
     marhalah_id: string;
     nama_kelas: string;
+    wali_kelas_name?: string;
+    wali_kelas_phone?: string;
+    musyrif_name?: string;
 }
 
 export interface AutoSyncZiyadahConfig {

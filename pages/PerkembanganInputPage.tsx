@@ -12,6 +12,7 @@ import { id as localeId } from 'date-fns/locale';
 import { getEvaluationPeriods } from '../lib/utils';
 import { AutoSyncSetoranConfig, DEFAULT_AUTO_SYNC_SETORAN_CONFIG } from '../types';
 import { calculateSyncSetoranBatch, SyncEngineResultPerSantri } from '../lib/syncEngine';
+import { NotificationStore } from '../lib/NotificationStore';
 
 const PerkembanganInputPage: React.FC = () => {
     const { 
@@ -274,15 +275,7 @@ const PerkembanganInputPage: React.FC = () => {
         return halaqah
             .filter(h => h.is_active !== false)
             .map(h => {
-                let santriList = getActiveSantriForMonth(h, filterMonth);
-                if (userProfile?.role === 'pengajar') {
-                    const isMusammiOfThisHalaqah = (h.musammi?.user_id && userProfile.id && h.musammi.user_id === userProfile.id) || 
-                                                   (h.musammi?.nama?.toLowerCase().trim() === userProfile?.name?.toLowerCase().trim());
-                    if (!isMusammiOfThisHalaqah) {
-                        const userWaliClasses = waliKelas.filter(w => w.user_id === userProfile.id).map(w => ({ marhalah: w.marhalah, kelas: w.kelas }));
-                        santriList = santriList.filter(s => userWaliClasses.some(wc => wc.marhalah === s.marhalah && wc.kelas === s.kelas));
-                    }
-                }
+                const santriList = getActiveSantriForMonth(h, filterMonth);
                 return {
                     ...h,
                     santri: santriList
@@ -290,8 +283,7 @@ const PerkembanganInputPage: React.FC = () => {
             })
             .filter(h => {
             if (userProfile?.role === 'musammi') {
-                const isMatch = (h.musammi?.user_id && userProfile.id && h.musammi.user_id === userProfile.id) || 
-                                (h.musammi?.nama?.toLowerCase().trim() === userProfile.name.toLowerCase().trim());
+                const isMatch = Boolean(h.musammi?.user_id && userProfile.id && h.musammi.user_id === userProfile.id);
                 if (!isMatch) return false;
             }
             if (filterMarhalah !== 'all') {
@@ -396,7 +388,7 @@ const PerkembanganInputPage: React.FC = () => {
     const handleDirectPullAllSetoran = () => {
         setIsMenuOpen(false);
         if (currentHalaqahSantri.length === 0) {
-            alert('Tidak ada data santri aktif dalam halaqah ini untuk ditarik.');
+            NotificationStore.addNotification('Tidak ada data santri aktif dalam halaqah ini untuk ditarik.', 'info');
             return;
         }
 
@@ -473,7 +465,7 @@ const PerkembanganInputPage: React.FC = () => {
 
     const handleApplySync = () => {
         if (santriIdsToApply.length === 0) {
-            alert('Silakan pilih minimal 1 santri untuk disinkronkan.');
+            NotificationStore.addNotification('Silakan pilih minimal 1 santri untuk disinkronkan.', 'info');
             return;
         }
 
@@ -676,10 +668,10 @@ const PerkembanganInputPage: React.FC = () => {
             setDraftRestoredInfo(null);
 
             await fetchData();
-            alert('Semua evaluasi berhasil disimpan!');
+            NotificationStore.addNotification('Semua evaluasi berhasil disimpan!', 'success');
         } catch (error) {
             console.error('Error saving evaluation:', error);
-            alert('Gagal menyimpan evaluasi.');
+            NotificationStore.addNotification('Gagal menyimpan evaluasi.', 'error');
         } finally {
             setIsSaving(false);
         }
@@ -901,8 +893,7 @@ const PerkembanganInputPage: React.FC = () => {
                         <option value="all">Pilih Halaqah</option>
                         {halaqah.filter(h => h.is_active === true).filter(h => {
                             if (userProfile?.role === 'musammi') {
-                                return (h.musammi?.user_id && userProfile.id && h.musammi.user_id === userProfile.id) || 
-                                       (h.musammi?.nama?.toLowerCase().trim() === userProfile.name.toLowerCase().trim());
+                                return Boolean(h.musammi?.user_id && userProfile.id && h.musammi.user_id === userProfile.id);
                             }
                             return true;
                         })

@@ -1,4 +1,5 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react'; 
+import React, { useMemo, useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { MarhalahLabel, KelasLabel } from '../components/Labels';
 import Card, { WidgetCard } from '../components/Card';
 import { AttendanceColumnChart, MultiLineChart } from '../components/Chart';
@@ -12,6 +13,7 @@ import { format } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
 import { ALL_ATTENDANCE_STATUS } from '../constants';
 import html2canvas from 'html2canvas';
+import { StatusBadge } from '../components/ui/SaaSPrimitives';
 
 interface DashboardProps {
     onNavigate?: (page: string) => void;
@@ -19,7 +21,8 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) => {
-    const { santri, musammi, halaqah, attendance, studentProgress, appSettings, loading, error, masterKelas , globalWaktuHalaqah, globalAttendanceStatus, classTargets , masterMarhalahs, masterKelasRelasi, getOrgId} = useSupabaseData();
+    const navigate = useNavigate();
+    const { santri, musammi, halaqah, attendance, setoranHarian, studentProgress, appSettings, loading, error, masterKelas , globalWaktuHalaqah, globalAttendanceStatus, classTargets , masterMarhalahs, masterKelasRelasi, getOrgId} = useSupabaseData();
     const { selectedAcademicYear } = useAcademicYear();
 
     const globalMarhalahs = useMemo(() => masterMarhalahs.map((m: any) => m.nama), [masterMarhalahs]);
@@ -60,12 +63,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) => {
     // --- Data Calculations ---
     
     // Role filtering for display
-    const { userProfile, waliKelas } = useSupabaseData();
+    const { userProfile } = useSupabaseData();
     const myHalaqahs = useMemo(() => {
         if (userRole === 'musammi' && userProfile) {
             return halaqah.filter(h => 
-                (h.musammi?.user_id && h.musammi.user_id === userProfile.id) || 
-                (h.musammi?.nama?.toLowerCase().trim() === userProfile.name.toLowerCase().trim())
+                Boolean(h.musammi?.user_id && h.musammi.user_id === userProfile.id)
             );
         }
         return halaqah;
@@ -76,14 +78,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) => {
             const activeSantriIds = myHalaqahs.flatMap(h => h.active_santri.map(s => s.id));
             return santri.filter(s => activeSantriIds.includes(s.id));
         }
-        if (userRole === 'pengajar' && userProfile) {
-            const myKelasNames = waliKelas.filter(w => (w.user_id && w.user_id === userProfile.id) || (w.nama && w.nama.toLowerCase().trim() === userProfile.name.toLowerCase().trim())).map(w => ({ marhalah: w.marhalah, kelas: w.kelas }));
-            return santri.filter(s => s.kelas && myKelasNames.some(wc => wc.marhalah === s.marhalah && wc.kelas === s.kelas));
-        }
         return santri;
-    }, [santri, myHalaqahs, userRole, userProfile, waliKelas]);
+    }, [santri, myHalaqahs, userRole]);
 
-    const displayHalaqahCount = userRole === 'musammi' ? myHalaqahs.length : (userRole === 'pengajar' ? waliKelas.filter(w => userProfile && ((w.user_id && w.user_id === userProfile.id) || (w.nama && w.nama.toLowerCase().trim() === userProfile.name.toLowerCase().trim()))).length : halaqah.length);
+    const displayHalaqahCount = userRole === 'musammi' ? myHalaqahs.length : halaqah.length;
 
     // 1. Dynamic Master Marhalah Distribution
     const marhalahColorPalette = [
@@ -142,7 +140,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) => {
     
     const myAttendanceStats = useMemo(() => {
         if (userRole !== 'musammi' || !userProfile) return null;
-        const myMusammi = musammi.find(m => (m.user_id && m.user_id === userProfile.id) || (m.nama?.toLowerCase().trim() === userProfile.name.toLowerCase().trim()));
+        const myMusammi = musammi.find(m => Boolean(m.user_id && m.user_id === userProfile.id));
         if (!myMusammi) return null;
 
         const myRecords = attendance.filter(a => a.peran === 'Musammi' && a.personId === myMusammi.id);
@@ -681,6 +679,146 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) => {
         </div>
       )}
 
+      {/* Panel Kontekstual Operasional Harian (Fase 7: Beranda Musammi vs Monitoring Sesi Admin) */}
+      {userRole === 'musammi' ? (
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-xs space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-blue-600">
+                BERANDA OPERASIONAL MUSAMMI
+              </div>
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 mt-0.5">
+                Jadwal & Sesi Halaqah Saya Hari Ini ({todayString})
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Pilih sesi halaqah binaan Anda untuk membuka absensi batch atau mencatat setoran Al-Qur'an terstruktur.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => navigate('/app/my-halaqah')}
+                className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700"
+              >
+                Halaqah & Progres Binaan
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/app/my-schedule')}
+                className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700"
+              >
+                Jadwal & Riwayat Saya
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/app/sessions')}
+                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold"
+              >
+                Buka Ruang Sesi →
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {myHalaqahs.map((mh) => {
+              const todayAttCount = (attendance || []).filter(
+                (a) => a.date === todayString && a.halaqahId === mh.id && a.peran === 'Santri'
+              ).length;
+              const todayRecCount = (setoranHarian || []).filter(
+                (r: any) => r.tanggal === todayString && r.halaqah_id === mh.id
+              ).length;
+              return (
+                <div
+                  key={mh.id}
+                  className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/60 flex flex-col justify-between gap-3"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="text-sm font-bold text-slate-900">{mh.nama}</div>
+                      <StatusBadge
+                        label={todayAttCount > 0 ? 'SESI TERCATAT' : 'BELUM DIISI'}
+                        tone={todayAttCount > 0 ? 'success' : 'warning'}
+                      />
+                    </div>
+                    <div className="text-xs text-slate-500 mt-1">
+                      {mh.marhalah} · {mh.active_santri?.length || mh.santri?.length || 0} Santri · Jadwal:{' '}
+                      {(mh.waktu || []).join(', ') || 'Shubuh'}
+                    </div>
+                  </div>
+                  <div className="pt-2.5 border-t border-slate-200/80 flex items-center justify-between text-xs">
+                    <span className="text-slate-600 font-medium">
+                      Hari ini: {todayAttCount} absensi · {todayRecCount} setoran
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigate(
+                          `/app/sessions?halaqahId=${mh.id}&date=${todayString}&slot=${
+                            mh.waktu?.[0] || 'Shubuh'
+                          }`
+                        )
+                      }
+                      className="font-semibold text-blue-600 hover:text-blue-800"
+                    >
+                      Lanjutkan Sesi →
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-blue-600">
+                MONITORING OPERASIONAL HARIAN ADMIN
+              </span>
+              <StatusBadge
+                label={`${
+                  halaqah.filter(
+                    (h) =>
+                      h.is_active !== false &&
+                      !(attendance || []).some(
+                        (a) => a.date === todayString && a.halaqahId === h.id
+                      )
+                  ).length
+                } HALAQAH BELUM ISI ABSENSI HARI INI`}
+                tone="warning"
+              />
+            </div>
+            <p className="text-xs sm:text-sm text-slate-600 mt-1">
+              Pantau kelengkapan sesi halaqah hari ini ({todayString}), tinjau setoran santri yang
+              diajukan Musammi, atau lakukan koreksi kehadiran teraudit.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => navigate('/app/sessions')}
+              className="px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold"
+            >
+              Monitoring Ruang Sesi
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/app/attendance')}
+              className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700"
+            >
+              Input & Koreksi Absensi
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/app/recitations')}
+              className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700"
+            >
+              Validasi Ledger Setoran
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Summary Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 xl:gap-6">
         
@@ -689,7 +827,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) => {
             <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2 text-slate-600">
                     <Users size={18} strokeWidth={2}/>
-                    <p className="text-sm sm:text-[15px] font-medium">{userRole === 'musammi' ? 'Santri Halaqah Saya' : userRole === 'pengajar' ? 'Santri Kelas Saya' : 'Total Santri'}</p>
+                    <p className="text-sm sm:text-[15px] font-medium">{userRole === 'musammi' ? 'Santri Halaqah Saya' : 'Total Santri'}</p>
                 </div>
             </div>
             
@@ -697,7 +835,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) => {
                 <p className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-800">{displaySantri.length}</p>
             </div>
             
-            {!['musammi', 'pengajar'].includes(userRole || '') && (
+            {userRole !== 'musammi' && (
               <div className="mt-4 sm:mt-6 flex-1 flex flex-col justify-end">
                   <div className="h-1.5 w-full flex rounded-full overflow-hidden bg-slate-100">
                       {marhalahDistribution.map(item => (
@@ -724,7 +862,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) => {
             )}
         </WidgetCard>
 
-        {!['musammi', 'pengajar'].includes(userRole || '') && (
+        {userRole !== 'musammi' && (
           <WidgetCard className="flex flex-col justify-between !rounded-2xl !p-4 sm:!p-6 shadow-sm hover:shadow-md transition-shadow bg-white">
               <div className="flex items-center space-x-2 text-slate-600">
                   <UserCheck size={18} strokeWidth={2}/>
@@ -748,7 +886,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) => {
             <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2 text-slate-600">
                     <BookOpen size={18} strokeWidth={2}/>
-                    <p className="text-sm sm:text-[15px] font-medium">{userRole === 'musammi' ? 'Halaqah Saya' : userRole === 'pengajar' ? 'Kelas Saya' : 'Total Halaqah'}</p>
+                    <p className="text-sm sm:text-[15px] font-medium">{userRole === 'musammi' ? 'Halaqah Saya' : 'Total Halaqah'}</p>
                 </div>
                 <div className="bg-slate-100 text-slate-600 text-xs font-semibold px-2.5 py-0.5 rounded-full">
                     Aktif
@@ -759,7 +897,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) => {
                 <p className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-800">{displayHalaqahCount}</p>
             </div>
             
-            {!['musammi', 'pengajar'].includes(userRole || '') && (
+            {userRole !== 'musammi' && (
               <div className="mt-4 sm:mt-6 flex-1 flex flex-col justify-end">
                   <button onClick={() => onNavigate && onNavigate('DataHalaqah')} className="text-xs font-semibold text-slate-500 hover:text-slate-800 flex items-center transition-colors text-left focus:outline-none">
                       Kelola kelompok belajar <ArrowUpRight size={14} className="ml-1" />

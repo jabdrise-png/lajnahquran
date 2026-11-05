@@ -102,22 +102,16 @@ const StudentProgress: React.FC<StudentProgressProps> = ({
     const sortedSantri = useMemo(() => {
         let allowedSantriIds: Set<number> | null = null;
 
-        if (userProfile?.role === 'pengajar' || userProfile?.role === 'musammi') {
+        if (userProfile?.role === 'musammi') {
             allowedSantriIds = new Set();
-            if (userProfile?.role === 'pengajar') {
-                const myKelasNames = waliKelas.filter(w => w.user_id === userProfile.id).map(w => ({ marhalah: w.marhalah, kelas: w.kelas }));
-                santri.filter(s => myKelasNames.some(wc => wc.marhalah === s.marhalah && wc.kelas === s.kelas)).forEach(s => allowedSantriIds.add(s.id));
-            }
-            
             const musammiHalaqahs = halaqah.filter(h => h.is_active === true).filter(h => 
-                (h.musammi?.user_id && userProfile.id && h.musammi.user_id === userProfile.id) || 
-                (h.musammi?.nama?.toLowerCase().trim() === userProfile?.name?.toLowerCase().trim())
+                Boolean(h.musammi?.user_id && userProfile.id && h.musammi.user_id === userProfile.id)
             );
             musammiHalaqahs.forEach(h => {
                 if (h.history) {
-                    h.history.forEach((hs: any) => { if (hs.santri) allowedSantriIds.add(hs.santri_id); });
+                    h.history.forEach((hs: any) => { if (hs.santri) allowedSantriIds!.add(hs.santri_id); });
                 } else if (h.santri) {
-                    h.santri.forEach(s => allowedSantriIds.add(s.id));
+                    h.santri.forEach(s => allowedSantriIds!.add(s.id));
                 }
             });
         }

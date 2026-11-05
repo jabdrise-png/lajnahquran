@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { NotificationStore } from '../lib/NotificationStore';
+import { ConfirmDialog } from '../components/ui/SaaSPrimitives';
 import { Trash2, Plus, Image as ImageIcon, ArrowLeft } from 'lucide-react';
 
 interface GalleryImage {
@@ -13,6 +15,7 @@ const AdminGalleryPage: React.FC = () => {
     const [images, setImages] = useState<GalleryImage[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
 
     // Form state
     const [imageUrl, setImageUrl] = useState('');
@@ -48,7 +51,10 @@ const AdminGalleryPage: React.FC = () => {
 
     const handleAddImage = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!imageUrl) return alert("URL Gambar wajib diisi");
+        if (!imageUrl) {
+            NotificationStore.addNotification("URL Gambar wajib diisi", "error");
+            return;
+        }
 
         setIsSubmitting(true);
         try {
@@ -57,12 +63,12 @@ const AdminGalleryPage: React.FC = () => {
             
             if (error) {
                 if (error.code === '42P01') {
-                    alert("Tabel 'landing_images' belum dibuat di Supabase. Silakan jalankan SQL yang diberikan.");
+                    NotificationStore.addNotification("Tabel 'landing_images' belum dibuat di Supabase. Silakan jalankan SQL yang diberikan.", "error");
                 } else {
                     throw error;
                 }
             } else {
-                alert("Gambar berhasil ditambahkan!");
+                NotificationStore.addNotification("Gambar berhasil ditambahkan!", "success");
                 setImageUrl('');
                 setTitle('');
                 setDescription('');
@@ -70,25 +76,31 @@ const AdminGalleryPage: React.FC = () => {
             }
         } catch (e: any) {
             console.error("Error adding image:", e);
-            alert("Gagal menambahkan gambar: " + e.message);
+            NotificationStore.addNotification("Gagal menambahkan gambar: " + e.message, "error");
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const handleDelete = async (id: number) => {
-        if (!confirm("Yakin ingin menghapus gambar ini?")) return;
-        
+    const handleDelete = (id: number) => {
+        setDeleteTargetId(id);
+    };
+
+    const executeDelete = async () => {
+        if (deleteTargetId === null) return;
+        const id = deleteTargetId;
+        setDeleteTargetId(null);
         try {
             const { error } = await (supabase.from('landing_images' as any) as any)
                 .delete()
                 .eq('id', id);
             
             if (error) throw error;
+            NotificationStore.addNotification("Gambar berhasil dihapus.", "success");
             fetchImages();
         } catch (e: any) {
             console.error("Error deleting image:", e);
-            alert("Gagal menghapus gambar: " + e.message);
+            NotificationStore.addNotification("Gagal menghapus gambar: " + e.message, "error");
         }
     };
 
@@ -205,6 +217,15 @@ const AdminGalleryPage: React.FC = () => {
                     </div>
                 </div>
             </div>
+            <ConfirmDialog
+                isOpen={deleteTargetId !== null}
+                title="Hapus Gambar Galeri"
+                description="Apakah Anda yakin ingin menghapus gambar ini dari galeri Landing Page?"
+                confirmLabel="Hapus Gambar"
+                tone="danger"
+                onConfirm={executeDelete}
+                onCancel={() => setDeleteTargetId(null)}
+            />
         </div>
     );
 };

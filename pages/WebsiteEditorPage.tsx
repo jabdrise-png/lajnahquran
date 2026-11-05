@@ -4,6 +4,7 @@ import { useLandingPageContent } from '../hooks/useLandingPageContent';
 import LandingPage from './LandingPage';
 import Login from './Login';
 import { LandingPageConfig } from '../types/landingPage';
+import { NotificationStore } from '../lib/NotificationStore';
 import * as Icons from 'lucide-react';
 
 const availableIcons = Object.keys(Icons).filter(key => key !== 'createReactComponent' && key !== 'default');
@@ -865,7 +866,7 @@ const WebsiteEditorPage: React.FC = () => {
                     ) : (
                        <LandingPage 
                            configOverrides={localConfig} 
-                           onLoginClick={() => alert("Preview mode: Login button ditekan.")} 
+                           onLoginClick={() => NotificationStore.addNotification("Preview mode: Tombol Login ditekan.", "info")} 
                        />
                     )}
                  </div>

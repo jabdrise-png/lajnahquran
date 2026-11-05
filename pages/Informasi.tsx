@@ -17,6 +17,9 @@ import {
     hasUnreadUpdates 
 } from '../lib/appUpdates';
 import { sanitizeHtml } from '../lib/utils';
+import { normalizeRole } from '../lib/permissions';
+import { NotificationStore } from '../lib/NotificationStore';
+import { ConfirmDialog } from '../components/ui/SaaSPrimitives';
 
 // Define Interface locally to avoid complex generic issues in some environments
 interface Informasi {
@@ -41,9 +44,14 @@ const defaultReleaseItem = (): AppUpdateItem => ({
 });
 
 const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
-    const isSuperAdmin = userRole === 'super_admin';
-    const canManagePengumuman = userRole === 'super_admin' || userRole === 'admin' || userRole === 'admin_mahad';
+    const addNotification = (msg: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') =>
+        NotificationStore.addNotification(msg, type === 'warning' ? 'error' : type);
+    const canonicalRole = normalizeRole(userRole);
+    const isSuperAdmin = canonicalRole === 'superadmin';
+    const canManagePengumuman = canonicalRole === 'superadmin' || canonicalRole === 'admin';
     const [activeTab, setActiveTab] = useState<'pengumuman' | 'pembaruan'>('pengumuman');
+    const [confirmDeleteInfoId, setConfirmDeleteInfoId] = useState<number | null>(null);
+    const [confirmDeleteReleaseId, setConfirmDeleteReleaseId] = useState<string | null>(null);
     const [informasiList, setInformasiList] = useState<Informasi[]>([]);
     const [releases, setReleases] = useState<AppUpdateRelease[]>(getStoredUpdates());
     const [loading, setLoading] = useState(true);
@@ -194,12 +202,12 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
 
     const handleSubmit = async () => {
         if (!canManagePengumuman) {
-            alert("Akses ditolak: Hanya Admin yang dapat membuat atau mengedit pengumuman.");
+            addNotification("Akses ditolak: Hanya Admin yang dapat membuat atau mengedit pengumuman.", "error");
             return;
         }
         const sanitizedContent = sanitizeHtml(formData.content);
         if (!formData.title.trim() || !sanitizedContent.trim()) {
-            alert("Judul dan Konten tidak boleh kosong.");
+            addNotification("Judul dan Konten tidak boleh kosong.", "warning");
             return;
         }
         setIsSubmitting(true);
@@ -207,7 +215,6 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error("User not authenticated.");
 
-            // Fetch Organization ID for current user
             const { data: profile } = await supabase
                 .from('profiles')
                 .select('organization_id')
@@ -217,29 +224,53 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
             if (!profile || !profile.organization_id) throw new Error("Organization ID not found for user.");
 
             if (editingInformasi) {
-                // Update
                 const { error } = await supabase
                     .from('informasi')
                     .update({ ...formData, content: sanitizedContent })
                     .eq('organization_id', profile.organization_id)
                     .eq('id', editingInformasi.id);
                 if (error) throw error;
+
+                await (supabase.from('audit_logs' as any) as any).insert({
+                    organization_id: profile.organization_id,
+                    actor_id: user.id,
+                    actor_role: canonicalRole,
+                    action: 'UPDATE_ANNOUNCEMENT',
+                    entity_type: 'informasi',
+                    entity_id: String(editingInformasi.id),
+                    reason: `Memperbarui pengumuman: ${formData.title}`,
+                    after_state: { title: formData.title, is_pinned: formData.is_pinned }
+                });
+                addNotification("Pengumuman berhasil diperbarui.", "success");
             } else {
-                // Insert
-                const { error } = await supabase
+                const { data: inserted, error } = await supabase
                     .from('informasi')
                     .insert({ 
                         ...formData, 
                         content: sanitizedContent,
                         author_email: user.email,
                         organization_id: profile.organization_id
-                    });
+                    })
+                    .select('id')
+                    .single();
                 if (error) throw error;
+
+                await (supabase.from('audit_logs' as any) as any).insert({
+                    organization_id: profile.organization_id,
+                    actor_id: user.id,
+                    actor_role: canonicalRole,
+                    action: 'CREATE_ANNOUNCEMENT',
+                    entity_type: 'informasi',
+                    entity_id: String(inserted?.id || ''),
+                    reason: `Membuat pengumuman baru: ${formData.title}`,
+                    after_state: { title: formData.title, is_pinned: formData.is_pinned }
+                });
+                addNotification("Pengumuman baru berhasil diterbitkan.", "success");
             }
             await fetchInformasi();
             closeModal();
         } catch (err: any) {
-            alert(`Error: ${err.message}`);
+            addNotification(`Error: ${err.message}`, "error");
         } finally {
             setIsSubmitting(false);
         }
@@ -247,25 +278,43 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
     
     const handleDelete = async (id: number) => {
         if (!canManagePengumuman) {
-            alert("Akses ditolak: Hanya Admin yang dapat menghapus informasi.");
+            addNotification("Akses ditolak: Hanya Admin yang dapat menghapus informasi.", "error");
             return;
         }
-        if (window.confirm("Apakah Anda yakin ingin menghapus informasi ini?")) {
-            try {
-                const { data: { user } } = await supabase.auth.getUser();
-                const { data: profile } = user
-                    ? await supabase.from('profiles').select('organization_id').eq('id', user.id).maybeSingle()
-                    : { data: null };
-                let delQuery = supabase.from('informasi').delete().eq('id', id);
-                if (profile?.organization_id) {
-                    delQuery = delQuery.eq('organization_id', profile.organization_id);
-                }
-                const { error } = await delQuery;
-                if (error) throw error;
-                await fetchInformasi();
-            } catch (err: any) {
-                alert(`Error: ${err.message}`);
+        setConfirmDeleteInfoId(id);
+    };
+
+    const executeDeleteInformasi = async () => {
+        if (confirmDeleteInfoId === null) return;
+        const id = confirmDeleteInfoId;
+        setConfirmDeleteInfoId(null);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            const { data: profile } = user
+                ? await supabase.from('profiles').select('organization_id').eq('id', user.id).maybeSingle()
+                : { data: null };
+            let delQuery = supabase.from('informasi').delete().eq('id', id);
+            if (profile?.organization_id) {
+                delQuery = delQuery.eq('organization_id', profile.organization_id);
             }
+            const { error } = await delQuery;
+            if (error) throw error;
+
+            if (profile?.organization_id && user) {
+                await (supabase.from('audit_logs' as any) as any).insert({
+                    organization_id: profile.organization_id,
+                    actor_id: user.id,
+                    actor_role: canonicalRole,
+                    action: 'DELETE_ANNOUNCEMENT',
+                    entity_type: 'informasi',
+                    entity_id: String(id),
+                    reason: `Menghapus pengumuman #${id}`
+                });
+            }
+            addNotification("Pengumuman berhasil dihapus.", "success");
+            await fetchInformasi();
+        } catch (err: any) {
+            addNotification(`Error: ${err.message}`, "error");
         }
     };
 
@@ -331,20 +380,20 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
 
     const handleSaveRelease = async () => {
         if (!isSuperAdmin) {
-            alert("Akses ditolak: Hanya Super Admin yang dapat mengelola catatan pembaruan.");
+            addNotification("Akses ditolak: Hanya Super Admin yang dapat mengelola catatan pembaruan.", "error");
             return;
         }
 
         if (!releaseFormData.version.trim()) {
-            alert("Nomor versi tidak boleh kosong (contoh: v2.5.0).");
+            addNotification("Nomor versi tidak boleh kosong (contoh: v2.5.0).", "warning");
             return;
         }
         if (!releaseFormData.title.trim()) {
-            alert("Judul pembaruan tidak boleh kosong.");
+            addNotification("Judul pembaruan tidak boleh kosong.", "warning");
             return;
         }
         if (!releaseFormData.summary.trim()) {
-            alert("Ringkasan pembaruan tidak boleh kosong.");
+            addNotification("Ringkasan pembaruan tidak boleh kosong.", "warning");
             return;
         }
 
@@ -357,7 +406,7 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
             .filter(it => it.title.length > 0);
 
         if (validItems.length === 0) {
-            alert("Harap masukkan setidaknya satu poin perubahan.");
+            addNotification("Harap masukkan setidaknya satu poin perubahan.", "warning");
             return;
         }
 
@@ -405,9 +454,10 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
 
             await saveStoredUpdates(currentList);
             setReleases(currentList);
+            addNotification("Catatan rilis berhasil disimpan.", "success");
             closeReleaseModal();
         } catch (err: any) {
-            alert(`Gagal menyimpan catatan pembaruan: ${err.message}`);
+            addNotification(`Gagal menyimpan catatan pembaruan: ${err.message}`, "error");
         } finally {
             setIsSavingRelease(false);
         }
@@ -415,22 +465,26 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
 
     const handleDeleteRelease = async (releaseId: string) => {
         if (!isSuperAdmin) {
-            alert("Akses ditolak: Hanya Super Admin yang dapat menghapus catatan pembaruan.");
+            addNotification("Akses ditolak: Hanya Super Admin yang dapat menghapus catatan pembaruan.", "error");
             return;
         }
+        setConfirmDeleteReleaseId(releaseId);
+    };
 
-        if (window.confirm("Apakah Anda yakin ingin menghapus catatan rilis ini?")) {
-            try {
-                const nextList = releases.filter(r => r.id !== releaseId);
-                // Ensure at least one latest if list is not empty
-                if (nextList.length > 0 && !nextList.some(r => r.isLatest)) {
-                    nextList[0].isLatest = true;
-                }
-                await saveStoredUpdates(nextList);
-                setReleases(nextList);
-            } catch (err: any) {
-                alert(`Gagal menghapus: ${err.message}`);
+    const executeDeleteRelease = async () => {
+        if (!confirmDeleteReleaseId) return;
+        const releaseId = confirmDeleteReleaseId;
+        setConfirmDeleteReleaseId(null);
+        try {
+            const nextList = releases.filter(r => r.id !== releaseId);
+            if (nextList.length > 0 && !nextList.some(r => r.isLatest)) {
+                nextList[0].isLatest = true;
             }
+            await saveStoredUpdates(nextList);
+            setReleases(nextList);
+            addNotification("Catatan rilis berhasil dihapus.", "success");
+        } catch (err: any) {
+            addNotification(`Gagal menghapus: ${err.message}`, "error");
         }
     };
 
@@ -673,8 +727,8 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
             {/* Tab Contents */}
             {activeTab === 'pengumuman' ? renderPengumumanContent() : renderPembaruanContent()}
 
-            {/* MODAL 1: Buat/Edit Pengumuman (Super Admin Only) */}
-            {isSuperAdmin && (
+            {/* MODAL 1: Buat/Edit Pengumuman (Admin & Super Admin) */}
+            {canManagePengumuman && (
                 <Modal isOpen={isModalOpen} onClose={closeModal} title={editingInformasi ? 'Edit Informasi' : 'Buat Informasi Baru'}>
                     <div className="space-y-4">
                         <div>
@@ -898,6 +952,26 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
                     </div>
                 </Modal>
             )}
+
+            <ConfirmDialog
+                isOpen={confirmDeleteInfoId !== null}
+                title="Hapus Pengumuman"
+                description="Apakah Anda yakin ingin menghapus pengumuman ini? Tindakan ini akan dicatat di log audit lembaga."
+                confirmLabel="Hapus Pengumuman"
+                tone="danger"
+                onConfirm={executeDeleteInformasi}
+                onCancel={() => setConfirmDeleteInfoId(null)}
+            />
+
+            <ConfirmDialog
+                isOpen={confirmDeleteReleaseId !== null}
+                title="Hapus Catatan Rilis"
+                description="Apakah Anda yakin ingin menghapus catatan rilis pembaruan sistem ini?"
+                confirmLabel="Hapus Rilis"
+                tone="danger"
+                onConfirm={executeDeleteRelease}
+                onCancel={() => setConfirmDeleteReleaseId(null)}
+            />
         </div>
     );
 };

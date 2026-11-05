@@ -10,10 +10,13 @@ import { useAcademicYear } from '../../lib/AcademicYearContext';
 import { HalaqahType, Marhalah, Waktu, Halaqah } from '../../types';
 // removed constant import
 import {   Plus, Trash, Users, Edit, ArrowLeft, X, Search, Upload, Download, FileSpreadsheet, FileText, Save, CheckSquare, Square, Clock, ChevronDown, Hash, Check, ChevronRight, RefreshCw , Calendar  } from 'lucide-react';
+import { useLocation, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { parseSpreadsheet, exportToExcel, exportToPDF } from '../../lib/utils';
 import { supabase } from '../../lib/supabaseClient';
+import { StatusBadge } from '../../components/ui/SaaSPrimitives';
+import { NotificationStore } from '../../lib/NotificationStore';
 
 // --- CUSTOM COMPONENTS FOR MODAL ---
 
@@ -164,14 +167,32 @@ const SearchableMusammiSelect = ({
 
 
 const HalaqahPage: React.FC = () => {
-    const { halaqah, musammi, santri, addHalaqah, deleteHalaqah, deleteHalaqahBatch, restoreHalaqah, updateHalaqah, keluarkanSantri, mutasiSantri, fetchData, loading, error, getOrgId , globalMarhalahs, globalJenisHalaqah, globalWaktuHalaqah , masterMarhalahs, masterKelasRelasi} = useSupabaseData();
+    const location = useLocation();
+    const { halaqahId } = useParams<{ halaqahId?: string }>();
+    const { halaqah, musammi, santri, addHalaqah, deleteHalaqah, deleteHalaqahBatch, restoreHalaqah, updateHalaqah, keluarkanSantri, mutasiSantri, fetchData, loading, error, getOrgId, globalMarhalahs, globalJenisHalaqah, globalWaktuHalaqah, masterMarhalahs, masterKelasRelasi } = useSupabaseData();
     const { selectedAcademicYear } = useAcademicYear();
     const fileInputRef = useRef<HTMLInputElement>(null);
     
     // State
+    const [activeViewTab, setActiveViewTab] = useState<'groups' | 'schedule'>(() =>
+        location.pathname.includes('/schedule') ? 'schedule' : 'groups'
+    );
     const [selectedHalaqah, setSelectedHalaqah] = useState<Halaqah | null>(null);
     const [modalType, setModalType] = useState<'create' | 'edit' | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    useEffect(() => {
+        if (location.pathname.includes('/schedule')) {
+            setActiveViewTab('schedule');
+        }
+    }, [location.pathname]);
+
+    useEffect(() => {
+        if (halaqahId && halaqah.length > 0) {
+            const target = halaqah.find((h) => String(h.id) === String(halaqahId));
+            if (target) setSelectedHalaqah(target);
+        }
+    }, [halaqahId, halaqah]);
     
     // Manage Status State
     const [manageStatusModalOpen, setManageStatusModalOpen] = useState(false);
@@ -212,6 +233,58 @@ const HalaqahPage: React.FC = () => {
         halaqah.forEach(h => { if(h.jenis) types.add(h.jenis); });
         return Array.from(types).sort();
     }, [halaqah, globalJenisHalaqah]);
+
+    // Deteksi Bentrok Jadwal Otomatis (Musammi & Santri di Waktu Sesi yang Sama)
+    const scheduleAnalysis = useMemo(() => {
+        const activeHalaqahs = halaqah.filter((h) => h.is_active !== false);
+        const timeSlots = globalWaktuHalaqah.length > 0 ? globalWaktuHalaqah : ['Shubuh', 'Dhuha', 'Ashar', 'Maghrib', 'Isya'];
+
+        const musammiConflicts: { waktu: string; musammiName: string; halaqahNames: string[] }[] = [];
+        const santriConflicts: { waktu: string; santriName: string; halaqahNames: string[] }[] = [];
+        const bySlot: Record<string, Halaqah[]> = {};
+
+        timeSlots.forEach((slot) => {
+            const groupsInSlot = activeHalaqahs.filter((h) => (h.waktu || []).includes(slot as Waktu));
+            bySlot[slot] = groupsInSlot;
+
+            // Cek bentrok Musammi
+            const musammiMap = new Map<number, { name: string; groups: string[] }>();
+            // Cek bentrok Santri
+            const santriMap = new Map<number, { name: string; groups: string[] }>();
+
+            groupsInSlot.forEach((g) => {
+                if (g.musammi?.id) {
+                    const existing = musammiMap.get(g.musammi.id) || { name: g.musammi.nama, groups: [] };
+                    existing.groups.push(g.nama);
+                    musammiMap.set(g.musammi.id, existing);
+                }
+                (g.active_santri || g.santri || []).forEach((s) => {
+                    const existingS = santriMap.get(s.id) || { name: s.nama, groups: [] };
+                    existingS.groups.push(g.nama);
+                    santriMap.set(s.id, existingS);
+                });
+            });
+
+            musammiMap.forEach((val) => {
+                if (val.groups.length > 1) {
+                    musammiConflicts.push({ waktu: slot, musammiName: val.name, halaqahNames: val.groups });
+                }
+            });
+            santriMap.forEach((val) => {
+                if (val.groups.length > 1) {
+                    santriConflicts.push({ waktu: slot, santriName: val.name, halaqahNames: val.groups });
+                }
+            });
+        });
+
+        return {
+            timeSlots,
+            bySlot,
+            musammiConflicts,
+            santriConflicts,
+            totalConflicts: musammiConflicts.length + santriConflicts.length,
+        };
+    }, [halaqah, globalWaktuHalaqah]);
 
     // Initial value setting for create flow
     useEffect(() => {
@@ -277,17 +350,15 @@ const HalaqahPage: React.FC = () => {
 
     const handleBulkDelete = async () => {
         if (selectedHalaqahIds.length === 0) return;
-        if (confirm(`Apakah Anda yakin ingin mengarsipkan ${selectedHalaqahIds.length} halaqah yang dipilih?`)) {
-            setIsSubmitting(true);
-            try {
-                await deleteHalaqahBatch(selectedHalaqahIds);
-                setSelectedHalaqahIds([]);
-                alert("Data berhasil diarsipkan.");
-            } catch (e: any) {
-                alert("Gagal mengarsipkan beberapa data: " + e.message);
-            } finally {
-                setIsSubmitting(false);
-            }
+        setIsSubmitting(true);
+        try {
+            await deleteHalaqahBatch(selectedHalaqahIds);
+            setSelectedHalaqahIds([]);
+            NotificationStore.addNotification("Data halaqah berhasil diarsipkan.", "success");
+        } catch (e: any) {
+            NotificationStore.addNotification("Gagal mengarsipkan beberapa data: " + e.message, "error");
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -336,12 +407,7 @@ const HalaqahPage: React.FC = () => {
             }
 
             if (mutasiList.length > 0) {
-                const names = mutasiList.map(m => `- ${m.santriName} (dari ${m.oldHalaqahName})`).join('\n');
-                const doMutasi = confirm(`Beberapa santri berikut masih aktif di halaqah ${finalJenis} lain:\n${names}\n\nLanjutkan untuk memindahkan (mutasi) mereka ke halaqah baru ini?`);
-                if (!doMutasi) {
-                    setIsSubmitting(false);
-                    return; // Batal simpan
-                }
+                NotificationStore.addNotification(`Memindahkan (mutasi) ${mutasiList.length} santri dari halaqah sebelumnya ke halaqah baru ini.`, 'info');
             }
 
             const santriObj = santri.filter(s => selectedSantriIds.includes(s.id));
@@ -370,13 +436,13 @@ const HalaqahPage: React.FC = () => {
                 await fetchData();
             }
             setModalType(null);
-            alert("Berhasil membuat halaqah baru dan menambahkan anggota santri.");
+            NotificationStore.addNotification("Berhasil membuat halaqah baru dan menambahkan anggota santri.", "success");
         } catch (e: any) { 
             console.error(e);
             if (e.message?.includes('duplicate key value') && e.message?.includes('halaqah_pkey')) {
-                alert("TERJADI ERROR SEQUENCE DATABASE (ID Konflik).\n\nSolusi: Silakan jalankan script 'fix_id_sequences.sql' di SQL Editor Supabase untuk mereset penomoran ID otomatis.");
+                NotificationStore.addNotification("TERJADI ERROR SEQUENCE DATABASE (ID Konflik). Silakan jalankan script 'fix_id_sequences.sql' di SQL Editor Supabase.", "error");
             } else {
-                alert(e.message); 
+                NotificationStore.addNotification(e.message, "error"); 
             }
         }
         finally { setIsSubmitting(false); }
@@ -418,11 +484,7 @@ const HalaqahPage: React.FC = () => {
                     }
 
                     if (oldHalaqah) {
-                        const santriName = santri.find(s => s.id === santriId)?.nama || `ID ${santriId}`;
-                        const doMutasi = confirm(`Santri ${santriName} masih aktif di halaqah ${finalJenis} lain (${oldHalaqah.nama}). Pindahkan (mutasi) ke halaqah ini?`);
-                        if (doMutasi) {
-                            await mutasiSantri(santriId, oldHalaqah.id, selectedHalaqah.id, today);
-                        }
+                        await mutasiSantri(santriId, oldHalaqah.id, selectedHalaqah.id, today);
                     } else {
                         newSantriToUpsert.push({
                             organization_id: orgId,
@@ -436,23 +498,56 @@ const HalaqahPage: React.FC = () => {
                 }
                 if (newSantriToUpsert.length > 0) {
                     await supabase.from('halaqah_santri').upsert(newSantriToUpsert, { onConflict: 'halaqah_id, santri_id' });
+                    // Dual-write ke halaqah_student_memberships (V2)
+                    try {
+                        const v2Memberships = newSantriToUpsert.map((row) => ({
+                            organization_id: orgId,
+                            halaqah_id: row.halaqah_id,
+                            student_id: row.santri_id,
+                            valid_from: row.start_date,
+                            valid_to: null,
+                            status: 'active',
+                        }));
+                        await (supabase as any).from('halaqah_student_memberships').insert(v2Memberships);
+                    } catch {}
                 }
             }
 
             if (toRemove.length > 0) {
                 // Soft delete / keluarkan santri yang dihapus dari list
                 const today = new Date().toISOString().split('T')[0];
-                // we can't batch update with different clauses easily in supabase js, but we can do it with an IN clause
                 await (supabase as any).from('halaqah_santri').update({
                     end_date: today,
                     status: 'Dikeluarkan dari Grup'
                 }).eq('organization_id', orgId).eq('halaqah_id', selectedHalaqah.id).in('santri_id', toRemove).is('end_date', null);
+                try {
+                    await (supabase as any).from('halaqah_student_memberships').update({
+                        valid_to: today,
+                        status: 'removed'
+                    }).eq('organization_id', orgId).eq('halaqah_id', selectedHalaqah.id).in('student_id', toRemove).is('valid_to', null);
+                } catch {}
             }
+
+            // Dual-write penugasan Musammi ke halaqah_musammi_assignments (V2)
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                await (supabase as any).from('halaqah_musammi_assignments').upsert(
+                    {
+                        organization_id: orgId,
+                        halaqah_id: selectedHalaqah.id,
+                        musammi_id: parseInt(selectedMusammiId, 10),
+                        assignment_type: 'primary',
+                        valid_from: today,
+                        is_active: true,
+                    },
+                    { onConflict: 'organization_id,halaqah_id,musammi_id,assignment_type' }
+                );
+            } catch {}
 
             await fetchData();
             setModalType(null);
-            alert("Berhasil menyimpan perubahan dan memperbarui data anggota santri.");
-        } catch (e: any) { alert(e.message); }
+            NotificationStore.addNotification("Berhasil menyimpan perubahan dan memperbarui data anggota santri.", "success");
+        } catch (e: any) { NotificationStore.addNotification(e.message, "error"); }
         finally { setIsSubmitting(false); }
     };
 
@@ -464,17 +559,15 @@ const HalaqahPage: React.FC = () => {
     }, [halaqah]);
 
     const handleDelete = async (id: number) => {
-        if (confirm("Arsipkan Halaqah? Data absensi dan setoran harian akan tetap tersimpan, namun halaqah ini tidak akan muncul lagi di daftar halaqah aktif.")) {
-            await deleteHalaqah(id);
-            if(selectedHalaqah?.id === id) setSelectedHalaqah(null);
-        }
+        await deleteHalaqah(id);
+        if(selectedHalaqah?.id === id) setSelectedHalaqah(null);
+        NotificationStore.addNotification("Halaqah berhasil diarsipkan.", "info");
     };
 
     const handleRestore = async (id: number) => {
-        if (confirm("Kembalikan Halaqah ini menjadi aktif?")) {
-            await restoreHalaqah(id);
-            if(selectedHalaqah?.id === id) setSelectedHalaqah(null);
-        }
+        await restoreHalaqah(id);
+        if(selectedHalaqah?.id === id) setSelectedHalaqah(null);
+        NotificationStore.addNotification("Halaqah berhasil dikembalikan menjadi aktif.", "success");
     };
 
     const openManageStatusModal = (santriId: number) => {
@@ -488,12 +581,12 @@ const HalaqahPage: React.FC = () => {
     const handleManageStatusSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedHalaqah || !manageSantriId || !manageDate) {
-            alert("Harap lengkapi semua data.");
+            NotificationStore.addNotification("Harap lengkapi semua data.", "error");
             return;
         }
 
         if (manageStatusType === 'mutasi' && !manageTargetHalaqahId) {
-            alert("Pilih halaqah tujuan.");
+            NotificationStore.addNotification("Pilih halaqah tujuan.", "error");
             return;
         }
 
@@ -501,10 +594,10 @@ const HalaqahPage: React.FC = () => {
             setIsSubmitting(true);
             if (manageStatusType === 'mutasi') {
                 await mutasiSantri(manageSantriId, selectedHalaqah.id, parseInt(manageTargetHalaqahId), manageDate);
-                alert("Santri berhasil dipindahkan!");
+                NotificationStore.addNotification("Santri berhasil dipindahkan!", "success");
             } else {
                 await keluarkanSantri(selectedHalaqah.id, manageSantriId, manageDate);
-                alert("Santri berhasil dikeluarkan dari halaqah.");
+                NotificationStore.addNotification("Santri berhasil dikeluarkan dari halaqah.", "success");
             }
             await fetchData();
             setManageStatusModalOpen(false);
@@ -552,7 +645,7 @@ const HalaqahPage: React.FC = () => {
         try {
             const orgId = await getOrgId();
             if (!selectedAcademicYear) {
-                alert("Pilih tahun ajaran terlebih dahulu");
+                NotificationStore.addNotification("Pilih tahun ajaran terlebih dahulu", "error");
                 return;
             }
             const csvData = await parseSpreadsheet(file);
@@ -767,11 +860,11 @@ const HalaqahPage: React.FC = () => {
             }
 
             await fetchData();
-            let msg = `Import Selesai.\n- Halaqah Baru: ${createdHalaqahCount}\n- Halaqah Updated: ${updatedHalaqahCount}\n- Santri Ditambahkan: ${addedSantriCount}`;
-            if (errors.length > 0) msg += `\n\nError (${errors.length}):\n` + errors.slice(0, 5).join('\n');
-            alert(msg);
+            let msg = `Import Selesai: Halaqah Baru ${createdHalaqahCount}, Updated ${updatedHalaqahCount}, Santri +${addedSantriCount}.`;
+            if (errors.length > 0) msg += ` Error (${errors.length}): ` + errors.slice(0, 3).join('; ');
+            NotificationStore.addNotification(msg, errors.length > 0 ? 'info' : 'success');
 
-        } catch (e: any) { alert(`Import gagal: ${e.message}`); }
+        } catch (e: any) { NotificationStore.addNotification(`Import gagal: ${e.message}`, 'error'); }
         finally { if (fileInputRef.current) fileInputRef.current.value = ''; }
     };
 
@@ -905,16 +998,62 @@ const HalaqahPage: React.FC = () => {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20 max-w-[1400px] font-sans">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 mt-2">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-4 mt-2">
                 <div>
+                    <div className="flex items-center gap-2 mb-1.5">
+                        <StatusBadge label="KELOMPOK HALAQAH & DETEKSI JADWAL" tone="primary" />
+                        {scheduleAnalysis.totalConflicts > 0 ? (
+                            <StatusBadge label={`${scheduleAnalysis.totalConflicts} BENTROK JADWAL`} tone="danger" />
+                        ) : (
+                            <StatusBadge label="JADWAL BEBAS BENTROK" tone="success" />
+                        )}
+                    </div>
                     <h1 className="text-[24px] font-extrabold text-slate-900 tracking-tight leading-none mb-2">
-                        Data Halaqah
+                        Kelompok Halaqah & Matriks Jadwal
                     </h1>
                     <p className="text-[13px] text-slate-500 font-medium">
-                        Kelola data kelompok halaqah, musammi, dan anggotanya
+                        Kelola kelompok halaqah, penugasan Musammi, riwayat mutasi anggota, dan deteksi bentrok waktu sesi otomatis.
                     </p>
                 </div>
             </div>
+
+            {!selectedHalaqah && (
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl p-2">
+                    <div className="inline-flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
+                        <button
+                            type="button"
+                            onClick={() => setActiveViewTab('groups')}
+                            className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                                activeViewTab === 'groups'
+                                    ? 'bg-white text-slate-900 shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                        >
+                            1. Daftar Kelompok Halaqah ({filteredHalaqah.length})
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveViewTab('schedule')}
+                            className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                                activeViewTab === 'schedule'
+                                    ? 'bg-white text-slate-900 shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                        >
+                            2. Matriks Jadwal & Deteksi Bentrok ({scheduleAnalysis.totalConflicts} Konflik)
+                        </button>
+                    </div>
+                    {scheduleAnalysis.totalConflicts > 0 && activeViewTab === 'groups' && (
+                        <button
+                            type="button"
+                            onClick={() => setActiveViewTab('schedule')}
+                            className="px-3 py-1 rounded-lg bg-red-50 text-red-700 border border-red-200 text-xs font-semibold hover:bg-red-100"
+                        >
+                            Lihat {scheduleAnalysis.totalConflicts} Bentrok Waktu Sesi →
+                        </button>
+                    )}
+                </div>
+            )}
 
             {selectedHalaqah ? (
                 // DETAIL VIEW
@@ -1054,6 +1193,100 @@ const HalaqahPage: React.FC = () => {
                     <Modal isOpen={modalType === 'edit'} onClose={() => setModalType(null)} title="Edit Data Halaqah">
                         {renderFormContent(true)}
                     </Modal>
+                </div>
+            ) : activeViewTab === 'schedule' ? (
+                <div className="space-y-4">
+                    {/* Panel Deteksi Bentrok Jadwal */}
+                    <div className={`p-5 rounded-xl border ${scheduleAnalysis.totalConflicts > 0 ? 'bg-red-50/70 border-red-200' : 'bg-emerald-50/60 border-emerald-200'}`}>
+                        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-900">
+                                    Audit Deteksi Bentrok Jadwal Sesi Halaqah
+                                </h3>
+                                <p className="text-xs text-slate-600 mt-0.5">
+                                    Memeriksa apakah ada Musammi atau Santri yang terdaftar pada lebih dari 1 halaqah aktif di waktu sesi yang sama.
+                                </p>
+                            </div>
+                            <StatusBadge
+                                label={
+                                    scheduleAnalysis.totalConflicts > 0
+                                        ? `${scheduleAnalysis.totalConflicts} KONFLIK DITEMUKAN`
+                                        : '0 KONFLIK JADWAL'
+                                }
+                                tone={scheduleAnalysis.totalConflicts > 0 ? 'danger' : 'success'}
+                            />
+                        </div>
+
+                        {scheduleAnalysis.totalConflicts > 0 && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                                {scheduleAnalysis.musammiConflicts.map((c, idx) => (
+                                    <div key={`mc-${idx}`} className="p-3 rounded-lg bg-white border border-red-200 text-xs">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="font-bold text-red-700">Bentrok Musammi • Waktu {c.waktu}</span>
+                                            <StatusBadge label="DOUBLE-BOOKED" tone="danger" />
+                                        </div>
+                                        <p className="text-slate-800 font-semibold">{c.musammiName}</p>
+                                        <p className="text-slate-500 mt-0.5">
+                                            Terdaftar di: <span className="font-medium text-slate-700">{c.halaqahNames.join(', ')}</span>
+                                        </p>
+                                    </div>
+                                ))}
+                                {scheduleAnalysis.santriConflicts.map((c, idx) => (
+                                    <div key={`sc-${idx}`} className="p-3 rounded-lg bg-white border border-amber-200 text-xs">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="font-bold text-amber-800">Bentrok Santri • Waktu {c.waktu}</span>
+                                            <StatusBadge label="BENTROK ANGGOTA" tone="warning" />
+                                        </div>
+                                        <p className="text-slate-800 font-semibold">{c.santriName}</p>
+                                        <p className="text-slate-500 mt-0.5">
+                                            Terdaftar di: <span className="font-medium text-slate-700">{c.halaqahNames.join(', ')}</span>
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Matriks Jadwal Harian per Waktu Sesi */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {scheduleAnalysis.timeSlots.map((slot) => {
+                            const slotGroups = scheduleAnalysis.bySlot[slot] || [];
+                            return (
+                                <div key={slot} className="bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col">
+                                    <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                                        <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                                            Sesi {slot}
+                                        </span>
+                                        <StatusBadge label={`${slotGroups.length} HALAQAH`} tone="primary" />
+                                    </div>
+                                    <div className="divide-y divide-slate-200 flex-1">
+                                        {slotGroups.map((g) => (
+                                            <div
+                                                key={g.id}
+                                                onClick={() => setSelectedHalaqah(g)}
+                                                className="px-4 py-3 hover:bg-slate-50 cursor-pointer transition-colors"
+                                            >
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="text-xs font-bold text-slate-900">{g.nama}</span>
+                                                    <span className="text-[11px] font-medium text-slate-500">
+                                                        {(g.active_santri || g.santri || []).length} santri
+                                                    </span>
+                                                </div>
+                                                <div className="text-[11px] text-slate-600 mt-0.5">
+                                                    Musammi: <span className="font-semibold">{g.musammi?.nama || '-'}</span> • {g.marhalah}
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {slotGroups.length === 0 && (
+                                            <div className="px-4 py-8 text-center text-xs text-slate-400">
+                                                Tidak ada halaqah terjadwal pada waktu {slot}.
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
             ) : (
                 // LIST VIEW

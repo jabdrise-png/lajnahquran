@@ -1,6 +1,12 @@
 import { NotificationStore } from './NotificationStore';
 import { supabase } from './supabaseClient';
 
+const isMaskedToken = (val?: string | null) => {
+    if (!val) return true;
+    const clean = String(val).trim();
+    return !clean || clean.includes('••') || clean.includes('**');
+};
+
 export const sendFonnteMessage = async (token: string, target: string, message: string, imageSource?: string): Promise<boolean> => {
     if (!target) {
         console.warn("Fonnte Target is not provided.");
@@ -20,7 +26,7 @@ export const sendFonnteMessage = async (token: string, target: string, message: 
                 body: JSON.stringify({
                     target,
                     message,
-                    apiToken: token || undefined
+                    apiToken: !isMaskedToken(token) ? token : undefined
                 })
             });
 
@@ -37,14 +43,14 @@ export const sendFonnteMessage = async (token: string, target: string, message: 
                 }
             }
         } catch (proxyErr: any) {
-            if (!token) {
+            if (isMaskedToken(token)) {
                 throw proxyErr;
             }
         }
     }
 
-    if (!token) {
-        console.warn("Fonnte Token is not provided.");
+    if (isMaskedToken(token)) {
+        console.warn("Fonnte Token is not provided or masked.");
         return false;
     }
 

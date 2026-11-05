@@ -6,6 +6,9 @@ import {
 } from 'lucide-react';
 import { useSupabaseData } from '../hooks/useSupabaseData';
 import { getEvaluationPeriods } from '../lib/utils';
+import { supabase } from '../lib/supabaseClient';
+import { NotificationStore } from '../lib/NotificationStore';
+import { StatusBadge } from '../components/ui/SaaSPrimitives';
 import { 
     MasterEvaluationPeriod, MurojaahRule, TargetMurojaahConfig,
     AutoSyncSetoranConfig, DEFAULT_AUTO_SYNC_SETORAN_CONFIG
@@ -132,7 +135,7 @@ export const PengaturanEvaluasiPage: React.FC = () => {
         deleteEvaluationCategory, updateEvaluationCategory,
         halaqahEvalQuestions, saveHalaqahEvalQuestion, deleteHalaqahEvalQuestion,
         globalMarhalahs, masterKelas, classTargets, saveClassTargetBatch, masterMarhalahs, masterKelasRelasi,
-        globalWaktuHalaqah, selectedAcademicYear
+        globalWaktuHalaqah, selectedAcademicYear, userProfile, getOrgId
     } = useSupabaseData();
 
     // =========================================================================
@@ -156,12 +159,12 @@ export const PengaturanEvaluasiPage: React.FC = () => {
         const end = new Date(editingPeriod.endDate);
 
         if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-            alert('Tanggal mulai dan tanggal selesai harus diisi dengan format yang benar.');
+            NotificationStore.addNotification('Tanggal mulai dan tanggal selesai harus diisi dengan format yang benar.', 'error');
             return;
         }
 
         if (start > end) {
-            alert('Tanggal mulai tidak boleh lebih besar dari tanggal selesai.');
+            NotificationStore.addNotification('Tanggal mulai tidak boleh lebih besar dari tanggal selesai.', 'error');
             return;
         }
 
@@ -180,31 +183,52 @@ export const PengaturanEvaluasiPage: React.FC = () => {
         try {
             await saveAppSetting('EVALUATION_PERIODS', JSON.stringify(updated));
             setEditingPeriod(periodToSave);
-            alert('Periode evaluasi berhasil disimpan.');
+            NotificationStore.addNotification('Periode evaluasi berhasil disimpan.', 'success');
         } catch (error: any) {
             console.error('Error saving period:', error);
-            alert('Gagal menyimpan periode: ' + error.message);
+            NotificationStore.addNotification('Gagal menyimpan periode: ' + error.message, 'error');
         }
     };
 
     const handleDeletePeriod = async (id: string) => {
-        if (confirm('Hapus periode ini? Data evaluasi yang menggunakan periode ini mungkin tidak akan tampil dengan benar.')) {
-            const updated = masterPeriods.filter(p => p.id !== id);
-            await saveAppSetting('EVALUATION_PERIODS', JSON.stringify(updated));
-            if (editingPeriod?.id === id) {
-                setEditingPeriod(updated[0] || null);
-            }
+        const updated = masterPeriods.filter(p => p.id !== id);
+        await saveAppSetting('EVALUATION_PERIODS', JSON.stringify(updated));
+        if (editingPeriod?.id === id) {
+            setEditingPeriod(updated[0] || null);
         }
+        NotificationStore.addNotification('Periode berhasil dihapus.', 'info');
     };
 
     // =========================================================================
-    // SECTION 2: KELOLA TARGET SETORAN
+    // SECTION 2: KELOLA TARGET SETORAN & TARGET PLANS BERVERSI (V2)
     // =========================================================================
-    const [targetActiveTab, setTargetActiveTab] = useState<'hafalan' | 'murojaah'>('hafalan');
+    const [targetActiveTab, setTargetActiveTab] = useState<'hafalan' | 'murojaah' | 'versions'>('hafalan');
     const [isSavingTargets, setIsSavingTargets] = useState(false);
+    const [targetPlansHistory, setTargetPlansHistory] = useState<any[]>([]);
+    const [targetVersionNote, setTargetVersionNote] = useState<string>('');
 
     // Active semester adjusted automatically from system active semester
     const activeSemester: 'Ganjil' | 'Genap' = (selectedAcademicYear?.active_semester === 'Genap') ? 'Genap' : 'Ganjil';
+
+    const fetchTargetPlansHistory = async () => {
+        try {
+            const orgId = getOrgId();
+            if (!orgId) return;
+            const { data } = await (supabase as any)
+                .from('target_plans')
+                .select('*')
+                .eq('organization_id', orgId)
+                .order('version_no', { ascending: false })
+                .limit(20);
+            if (data) setTargetPlansHistory(data);
+        } catch {
+            // Abaikan bila tabel target_plans belum dimigrasikan
+        }
+    };
+
+    useEffect(() => {
+        fetchTargetPlansHistory();
+    }, [selectedAcademicYear?.id, activeSemester]);
 
     const [targets, setTargets] = useState<Record<'Ganjil' | 'Genap', TargetGrid>>({
         Ganjil: {},
@@ -356,10 +380,55 @@ export const PengaturanEvaluasiPage: React.FC = () => {
 
             await saveClassTargetBatch(batchToSave);
             await saveAppSetting('TARGET_MUROJAAH_GLOBAL', JSON.stringify(murojaahRules));
-            alert(`Target untuk Semester ${activeSemester} berhasil disimpan.`);
+
+            // Simpan snapshot versi baru ke target_plans V2 + audit_logs
+            try {
+                const orgId = getOrgId();
+                if (orgId) {
+                    const semPlans = targetPlansHistory.filter((p: any) => p.semester_name === activeSemester);
+                    const nextVersion = semPlans.length > 0 ? Math.max(...semPlans.map((p: any) => Number(p.version_no) || 1)) + 1 : 1;
+
+                    await (supabase as any)
+                        .from('target_plans')
+                        .update({ status: 'archived' })
+                        .eq('organization_id', orgId)
+                        .eq('semester_name', activeSemester)
+                        .eq('status', 'published');
+
+                    await (supabase as any).from('target_plans').insert({
+                        organization_id: orgId,
+                        academic_year_id: selectedAcademicYear?.id || null,
+                        semester_name: activeSemester,
+                        version_no: nextVersion,
+                        status: 'published',
+                        targets_json: currentGrid,
+                        murojaah_rules_json: murojaahRules,
+                        notes: targetVersionNote.trim() || `Pembaruan Target Hafalan & Murojaah Semester ${activeSemester} v${nextVersion}`,
+                        created_by: userProfile?.id || null
+                    });
+
+                    await (supabase as any).from('audit_logs').insert({
+                        organization_id: orgId,
+                        actor_id: userProfile?.id || null,
+                        actor_role: userProfile?.role || 'admin',
+                        action: 'PUBLISH_TARGET_PLAN_VERSION',
+                        resource_type: 'target_plans',
+                        resource_id: `${activeSemester}-v${nextVersion}`,
+                        reason: targetVersionNote.trim() || `Publikasi Target Setoran Semester ${activeSemester} v${nextVersion}`,
+                        after_state: { version_no: nextVersion, semester_name: activeSemester, class_count: batchToSave.length }
+                    });
+
+                    setTargetVersionNote('');
+                    await fetchTargetPlansHistory();
+                }
+            } catch {
+                // Abaikan bila tabel target_plans belum dimigrasikan
+            }
+
+            NotificationStore.addNotification(`Target Setoran Semester ${activeSemester} berhasil disimpan & diterbitkan sebagai versi baru.`, 'success');
         } catch (error) {
             console.error('Error saving targets:', error);
-            alert('Gagal menyimpan target.');
+            NotificationStore.addNotification('Gagal menyimpan target setoran.', 'error');
         } finally {
             setIsSavingTargets(false);
         }
@@ -489,11 +558,10 @@ export const PengaturanEvaluasiPage: React.FC = () => {
     };
 
     const handleDeleteLocalOption = (id: number) => {
-        if (confirm('Hapus opsi ini?')) {
-            const newSettings = localCategorySettings.filter(s => s.id !== id);
-            setLocalCategorySettings(newSettings);
-            setHasUnsavedChanges(true);
-        }
+        const newSettings = localCategorySettings.filter(s => s.id !== id);
+        setLocalCategorySettings(newSettings);
+        setHasUnsavedChanges(true);
+        NotificationStore.addNotification('Opsi dihapus dari draf. Klik Simpan untuk menerapkan perubahan.', 'info');
     };
 
     const handleUpdateLocalColor = (label: string, color: string) => {
@@ -529,15 +597,18 @@ export const PengaturanEvaluasiPage: React.FC = () => {
             await updateEvaluationSettingsBatch(toInsert, toUpdate, toDelete);
             await saveAppSetting('EVALUATION_COLORS', JSON.stringify({ ...evalColors, ...localEvalColors }));
             setHasUnsavedChanges(false);
-            alert('Perubahan opsi berhasil disimpan.');
+            NotificationStore.addNotification('Perubahan opsi berhasil disimpan.', 'success');
         } catch (error) {
             console.error('Error saving evaluation settings:', error);
-            alert('Gagal menyimpan perubahan opsi.');
+            NotificationStore.addNotification('Gagal menyimpan perubahan opsi.', 'error');
         }
     };
 
     const handleAddCategory = async () => {
-        if (!newCategoryName.trim()) return alert('Masukkan nama kategori.');
+        if (!newCategoryName.trim()) {
+            NotificationStore.addNotification('Masukkan nama kategori.', 'error');
+            return;
+        }
         const cat = newCategoryName.trim();
         const firstOpt = newOption.trim() || 'Baik';
         try {
@@ -546,9 +617,9 @@ export const PengaturanEvaluasiPage: React.FC = () => {
             setIsAddingCategory(false);
             setNewCategoryName('');
             setNewOption('');
-            alert('Kategori berhasil ditambahkan.');
+            NotificationStore.addNotification('Kategori berhasil ditambahkan.', 'success');
         } catch (err: any) {
-            alert('Gagal menambahkan kategori: ' + err.message);
+            NotificationStore.addNotification('Gagal menambahkan kategori: ' + err.message, 'error');
         }
     };
 
@@ -558,22 +629,20 @@ export const PengaturanEvaluasiPage: React.FC = () => {
             await updateEvaluationCategory(newCategory, editCategoryName.trim());
             setNewCategory(editCategoryName.trim());
             setIsEditingCategory(false);
-            alert('Nama kategori berhasil diubah.');
+            NotificationStore.addNotification('Nama kategori berhasil diubah.', 'success');
         } catch (err: any) {
-            alert('Gagal mengubah nama kategori: ' + err.message);
+            NotificationStore.addNotification('Gagal mengubah nama kategori: ' + err.message, 'error');
         }
     };
 
     const handleDeleteCategory = async () => {
-        if (window.confirm(`Hapus kategori "${newCategory}" beserta SEMUA opsi dan data nilai terkait? Tindakan ini tidak dapat dibatalkan!`)) {
-            try {
-                await deleteEvaluationCategory(newCategory);
-                const remaining = allCategories.filter(c => c !== newCategory);
-                setNewCategory(remaining[0] || '');
-                alert('Kategori berhasil dihapus.');
-            } catch (err: any) {
-                alert('Gagal menghapus kategori: ' + err.message);
-            }
+        try {
+            await deleteEvaluationCategory(newCategory);
+            const remaining = allCategories.filter(c => c !== newCategory);
+            setNewCategory(remaining[0] || '');
+            NotificationStore.addNotification('Kategori berhasil dihapus.', 'info');
+        } catch (err: any) {
+            NotificationStore.addNotification('Gagal menghapus kategori: ' + err.message, 'error');
         }
     };
 
@@ -619,7 +688,7 @@ export const PengaturanEvaluasiPage: React.FC = () => {
     const handleSaveHalaqahQuestion = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
         if (!editingHalaqahQuestion?.question?.trim()) {
-            alert('Pertanyaan harus diisi.');
+            NotificationStore.addNotification('Pertanyaan harus diisi.', 'error');
             return;
         }
         try {
@@ -637,24 +706,22 @@ export const PengaturanEvaluasiPage: React.FC = () => {
             if (payload.id) {
                 setSelectedHalaqahQuestionId(payload.id);
             }
-            alert('Pertanyaan evaluasi halaqah berhasil disimpan.');
+            NotificationStore.addNotification('Pertanyaan evaluasi halaqah berhasil disimpan.', 'success');
         } catch (error: any) {
             console.error('Error saving halaqah question:', error);
-            alert('Gagal menyimpan pertanyaan: ' + error.message);
+            NotificationStore.addNotification('Gagal menyimpan pertanyaan: ' + error.message, 'error');
         }
     };
 
     const handleDeleteHalaqahQuestion = async (id: number | string) => {
-        if (window.confirm('Hapus pertanyaan ini? Data evaluasi halaqah terkait mungkin terpengaruh.')) {
-            try {
-                await deleteHalaqahEvalQuestion(id);
-                setSelectedHalaqahQuestionId(null);
-                setEditingHalaqahQuestion(null);
-                setIsAddingHalaqahQuestion(false);
-                alert('Pertanyaan berhasil dihapus.');
-            } catch (err: any) {
-                alert('Gagal menghapus pertanyaan: ' + err.message);
-            }
+        try {
+            await deleteHalaqahEvalQuestion(id);
+            setSelectedHalaqahQuestionId(null);
+            setEditingHalaqahQuestion(null);
+            setIsAddingHalaqahQuestion(false);
+            NotificationStore.addNotification('Pertanyaan berhasil dihapus.', 'info');
+        } catch (err: any) {
+            NotificationStore.addNotification('Gagal menghapus pertanyaan: ' + err.message, 'error');
         }
     };
 
@@ -738,10 +805,10 @@ export const PengaturanEvaluasiPage: React.FC = () => {
                 { key: 'SETORAN_AUTO_RANGES', value: JSON.stringify(nilaiRanges) },
                 { key: 'SETORAN_NILAI_OPTIONS', value: nilaiRanges.map(r => r.label).join(',') }
             ]);
-            alert('Pengaturan Setoran berhasil disimpan.');
+            NotificationStore.addNotification('Pengaturan Setoran berhasil disimpan.', 'success');
         } catch (error) {
             console.error('Error saving setoran settings:', error);
-            alert('Gagal menyimpan pengaturan setoran.');
+            NotificationStore.addNotification('Gagal menyimpan pengaturan setoran.', 'error');
         } finally {
             setIsSavingSetoran(false);
         }
@@ -958,10 +1025,10 @@ export const PengaturanEvaluasiPage: React.FC = () => {
             };
             await saveAppSetting('AUTO_SYNC_SETORAN_CONFIG', JSON.stringify(configToSave));
             setHasAutoSyncChanges(false);
-            alert('Pengaturan Sinkronisasi Otomatis berhasil disimpan.');
+            NotificationStore.addNotification('Pengaturan Sinkronisasi Otomatis berhasil disimpan.', 'success');
         } catch (error: any) {
             console.error('Error saving auto sync config:', error);
-            alert('Gagal menyimpan pengaturan sinkronisasi: ' + (error?.message || 'Terjadi kesalahan'));
+            NotificationStore.addNotification('Gagal menyimpan pengaturan sinkronisasi: ' + (error?.message || 'Terjadi kesalahan'), 'error');
         } finally {
             setIsSavingAutoSync(false);
         }
@@ -1155,9 +1222,27 @@ export const PengaturanEvaluasiPage: React.FC = () => {
             <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-1 gap-3">
                     <div>
-                        <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">Kelola Target Setoran</h2>
+                        <div className="flex items-center gap-2.5">
+                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">Kelola Target Setoran Berversi</h2>
+                            {targetPlansHistory.find(p => p.semester_name === activeSemester && p.status === 'published') && (
+                                <StatusBadge
+                                    label={`AKTIF v${targetPlansHistory.find(p => p.semester_name === activeSemester && p.status === 'published')?.version_no || 1}`}
+                                    tone="success"
+                                />
+                            )}
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5 font-medium">
+                            Setiap penyimpanan menerbitkan snapshot versi target baru (<span className="font-mono">target_plans</span>) untuk menjaga akurasi histori evaluasi.
+                        </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                        <input
+                            type="text"
+                            value={targetVersionNote}
+                            onChange={(e) => setTargetVersionNote(e.target.value)}
+                            placeholder="Catatan versi target (opsional)..."
+                            className="text-xs border border-slate-200 rounded-xl px-3.5 py-2 bg-white text-slate-700 w-56 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                        />
                         <button
                             type="button"
                             onClick={handleSaveTargets}
@@ -1165,12 +1250,12 @@ export const PengaturanEvaluasiPage: React.FC = () => {
                             className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer disabled:opacity-50"
                         >
                             <Save size={15} />
-                            <span>{isSavingTargets ? 'Menyimpan...' : 'Simpan Semua Target'}</span>
+                            <span>{isSavingTargets ? 'Menyimpan...' : 'Terbitkan Versi Target'}</span>
                         </button>
                     </div>
                 </div>
 
-                {/* Sub-tabs: Target Hafalan vs Target Murojaah */}
+                {/* Sub-tabs: Target Hafalan vs Target Murojaah vs Riwayat Versi */}
                 <div className="flex border-b border-slate-200 gap-6 overflow-x-auto hide-scrollbar">
                     <button
                         type="button"
@@ -1181,7 +1266,7 @@ export const PengaturanEvaluasiPage: React.FC = () => {
                                 : 'border-transparent text-slate-500 hover:text-slate-700'
                         }`}
                     >
-                        Target Hafalan
+                        Target Hafalan ({activeSemester})
                     </button>
                     <button
                         type="button"
@@ -1194,7 +1279,57 @@ export const PengaturanEvaluasiPage: React.FC = () => {
                     >
                         Target Murojaah
                     </button>
+                    <button
+                        type="button"
+                        onClick={() => setTargetActiveTab('versions')}
+                        className={`pb-3 text-xs font-bold border-b-2 transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                            targetActiveTab === 'versions'
+                                ? 'border-blue-600 text-blue-700'
+                                : 'border-transparent text-slate-500 hover:text-slate-700'
+                        }`}
+                    >
+                        <span>Riwayat Versi Target</span>
+                        <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-slate-100 text-slate-600 font-bold">
+                            {targetPlansHistory.length}
+                        </span>
+                    </button>
                 </div>
+
+                {targetActiveTab === 'versions' && (
+                    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+                        <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200/80 flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Riwayat Versi Target (target_plans)</span>
+                            <span className="text-[11px] text-slate-500">Semester Aktif: {activeSemester}</span>
+                        </div>
+                        {targetPlansHistory.length === 0 ? (
+                            <div className="p-8 text-center text-xs text-slate-400">
+                                Belum ada riwayat versi target tersimpan di tabel <span className="font-mono">target_plans</span>. Klik "Terbitkan Versi Target" untuk membuat snapshot v1.
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-slate-100">
+                                {targetPlansHistory.map((plan: any) => (
+                                    <div key={plan.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/60">
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-bold text-slate-900">
+                                                    Target Semester {plan.semester_name} — Versi v{plan.version_no}
+                                                </span>
+                                                <StatusBadge
+                                                    label={plan.status === 'published' ? 'PUBLISHED' : 'ARCHIVED'}
+                                                    tone={plan.status === 'published' ? 'success' : 'neutral'}
+                                                />
+                                            </div>
+                                            <p className="text-xs text-slate-500 mt-1">{plan.notes || '-'}</p>
+                                        </div>
+                                        <div className="text-[11px] font-mono text-slate-400">
+                                            {plan.created_at ? format(new Date(plan.created_at), 'dd MMM yyyy HH:mm') : '-'}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Content: Target Hafalan (Hanya menampilkan target hafalan saja) */}
                 {targetActiveTab === 'hafalan' && (
@@ -1330,14 +1465,14 @@ export const PengaturanEvaluasiPage: React.FC = () => {
                     <button 
                         type="button"
                         className={`pb-3 text-xs font-bold border-b-2 transition-colors cursor-pointer shrink-0 ${activeEvalTab === 'santri' ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-                        onClick={() => { if(hasUnsavedChanges && !confirm('Ada perubahan belum disimpan. Lanjutkan?')) return; setHasUnsavedChanges(false); setActiveEvalTab('santri'); }}
+                        onClick={() => { setHasUnsavedChanges(false); setActiveEvalTab('santri'); }}
                     >
                         Evaluasi Santri
                     </button>
                     <button 
                         type="button"
                         className={`pb-3 text-xs font-bold border-b-2 transition-colors cursor-pointer shrink-0 ${activeEvalTab === 'halaqah' ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-                        onClick={() => { if(hasUnsavedChanges && !confirm('Ada perubahan belum disimpan. Lanjutkan?')) return; setHasUnsavedChanges(false); setActiveEvalTab('halaqah'); }}
+                        onClick={() => { setHasUnsavedChanges(false); setActiveEvalTab('halaqah'); }}
                     >
                         Evaluasi Halaqah
                     </button>
@@ -1360,7 +1495,6 @@ export const PengaturanEvaluasiPage: React.FC = () => {
                                         key={c}
                                         type="button"
                                         onClick={() => { 
-                                            if (hasUnsavedChanges && !confirm('Ada perubahan yang belum disimpan. Pindah kategori akan membuang perubahan. Lanjutkan?')) return;
                                             setHasUnsavedChanges(false);
                                             setNewCategory(c); 
                                             setIsAddingCategory(false); 
@@ -1386,7 +1520,6 @@ export const PengaturanEvaluasiPage: React.FC = () => {
                                 <button 
                                     type="button"
                                     onClick={() => { 
-                                        if (hasUnsavedChanges && !confirm('Ada perubahan belum disimpan. Lanjutkan?')) return;
                                         setHasUnsavedChanges(false);
                                         setIsAddingCategory(true); 
                                         setNewCategory(''); 

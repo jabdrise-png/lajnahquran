@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
-import { supabase, supabaseUrl, supabaseAnonKey } from '../lib/supabaseClient';
-import { createClient } from '@supabase/supabase-js'; 
-import { Trash2, Search, ShieldCheck, Shield, Building, Plus, Edit, User, Mail, KeyRound, CheckCircle, Clock, Copy, Hash, Users as UsersIcon, BookOpen } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
+import { Trash2, Search, Building, Plus, Edit, User, Mail, KeyRound, CheckCircle, Copy, Hash } from 'lucide-react';
+import { NotificationStore } from '../lib/NotificationStore';
+import { ConfirmDialog } from '../components/ui/SaaSPrimitives';
 
 interface UserProfile {
     id: string;
@@ -35,6 +35,8 @@ const Users: React.FC = () => {
     const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null); // For editing
+    const [confirmApproveTarget, setConfirmApproveTarget] = useState<{ id: string; name: string } | null>(null);
+    const [confirmDeleteTarget, setConfirmDeleteTarget] = useState<{ id: string; name: string } | null>(null);
     
     // Form Data
     const [creationType, setCreationType] = useState<'new_org' | 'existing_org'>('new_org');
@@ -108,46 +110,79 @@ const Users: React.FC = () => {
         fetchData();
     }, []);
 
-    const handleApproveUser = async (id: string, name: string) => {
-        if(window.confirm(`Setujui pendaftaran "${name}"?\nUser ini akan mendapatkan akses sebagai Admin Ma'had.`)) {
-            try {
-                let query = supabase
-                    .from('profiles')
-                    .update({ role: 'admin' })
-                    .eq('id', id);
-                if (currentUser && currentUser.role !== 'super_admin' && currentUser.organization_id) {
-                    query = query.eq('organization_id', currentUser.organization_id);
-                }
-                const { error } = await query;
-                
-                if (error) throw error;
-                fetchData();
-            } catch (e: any) {
-                alert(`Gagal: ${e.message}`);
+    const handleApproveUser = (id: string, name: string) => {
+        setConfirmApproveTarget({ id, name });
+    };
+
+    const executeApproveUser = async () => {
+        if (!confirmApproveTarget) return;
+        const { id, name } = confirmApproveTarget;
+        setConfirmApproveTarget(null);
+        try {
+            const targetUser = users.find((u) => u.id === id);
+            let query = supabase
+                .from('profiles')
+                .update({ role: 'admin' })
+                .eq('id', id);
+            if (currentUser && currentUser.role !== 'super_admin' && currentUser.organization_id) {
+                query = query.eq('organization_id', currentUser.organization_id);
             }
+            const { error } = await query;
+            if (error) throw error;
+
+            try {
+                await (supabase.from('user_profiles' as any) as any).upsert({
+                    id,
+                    full_name: name,
+                    email: targetUser?.email || null,
+                    updated_at: new Date().toISOString(),
+                }, { onConflict: 'id' });
+
+                if (targetUser?.organization_id) {
+                    await (supabase.from('access_grants' as any) as any).upsert({
+                        user_id: id,
+                        organization_id: targetUser.organization_id,
+                        role: 'admin',
+                        status: 'active',
+                        updated_at: new Date().toISOString(),
+                    }, { onConflict: 'user_id,organization_id,role' });
+                }
+            } catch {
+                // Fallback aman jika tabel V2 belum dimigrasi
+            }
+
+            NotificationStore.addNotification(`Pengguna ${name} telah diaktifkan sebagai Admin Lembaga.`, 'success');
+            fetchData();
+        } catch (e: any) {
+            NotificationStore.addNotification(`Gagal: ${e.message}`, 'error');
         }
     };
 
-    const handleDeleteUser = async (id: string, name: string) => {
-        if(window.confirm(`PERINGATAN: Anda yakin ingin menghapus user "${name}"?\nUser ini tidak akan bisa login lagi dan aksesnya akan dicabut.`)) {
-            try {
-                let query = supabase.from('profiles').delete().eq('id', id);
-                if (currentUser && currentUser.role !== 'super_admin' && currentUser.organization_id) {
-                    query = query.eq('organization_id', currentUser.organization_id);
-                }
-                const { error } = await query;
-                if (error) throw error;
-                alert(`User ${name} berhasil dihapus.`);
-                fetchData();
-            } catch (e: any) {
-                alert(`Gagal menghapus: ${e.message}`);
+    const handleDeleteUser = (id: string, name: string) => {
+        setConfirmDeleteTarget({ id, name });
+    };
+
+    const executeDeleteUser = async () => {
+        if (!confirmDeleteTarget) return;
+        const { id, name } = confirmDeleteTarget;
+        setConfirmDeleteTarget(null);
+        try {
+            let query = supabase.from('profiles').delete().eq('id', id);
+            if (currentUser && currentUser.role !== 'super_admin' && currentUser.organization_id) {
+                query = query.eq('organization_id', currentUser.organization_id);
             }
+            const { error } = await query;
+            if (error) throw error;
+            NotificationStore.addNotification(`User ${name} berhasil dihapus.`, 'success');
+            fetchData();
+        } catch (e: any) {
+            NotificationStore.addNotification(`Gagal menghapus: ${e.message}`, 'error');
         }
     };
 
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
-        alert('ID Organisasi disalin: ' + text);
+        NotificationStore.addNotification('ID Organisasi disalin: ' + text, 'info');
     };
 
     const openAddModal = () => {
@@ -179,27 +214,27 @@ const Users: React.FC = () => {
     const handleSubmit = async () => {
         // Validation
         if (!formData.fullName) {
-            alert("Nama Lengkap wajib diisi.");
+            NotificationStore.addNotification("Nama Lengkap wajib diisi.", "error");
             return;
         }
         
         if (modalMode === 'add') {
             if (!formData.email || !formData.password) {
-                alert("Email dan Password wajib diisi untuk user baru.");
+                NotificationStore.addNotification("Email dan Password wajib diisi untuk user baru.", "error");
                 return;
             }
             if (creationType === 'new_org' && !formData.mahadName) {
-                alert("Nama Ma'had wajib diisi untuk pembuatan Ma'had baru.");
+                NotificationStore.addNotification("Nama Ma'had wajib diisi untuk pembuatan Ma'had baru.", "error");
                 return;
             }
             if (creationType === 'existing_org' && !formData.targetOrgId) {
-                alert("Silakan pilih Ma'had yang sudah ada.");
+                NotificationStore.addNotification("Silakan pilih Ma'had yang sudah ada.", "error");
                 return;
             }
         } else {
             // Edit Mode Validation
             if (!formData.mahadName && modalMode === 'edit') {
-                 alert("Nama Ma'had tidak boleh kosong.");
+                 NotificationStore.addNotification("Nama Ma'had tidak boleh kosong.", "error");
                  return;
             }
         }
@@ -208,44 +243,56 @@ const Users: React.FC = () => {
 
         try {
             if (modalMode === 'add') {
-                // --- ADD NEW USER FLOW ---
-                // PASTIKAN KEYS INI SAMA PERSIS DENGAN lib/supabaseClient.ts
-                
-                
-                
-                const tempSupabase = createClient(supabaseUrl, supabaseAnonKey, {
-                    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'temp-auth-key-' + Math.random().toString(36).substring(7) }
-                }) as any;
+                // --- ADD NEW USER FLOW (Murni Serverless /api/invitations tanpa signUp anonim + setTimeout di browser) ---
+                const { data: { session } } = await supabase.auth.getSession();
+                const token = session?.access_token;
 
-                // Prepare Metadata
-                const metaData: any = {
-                    full_name: formData.fullName,
-                    role: formData.role
-                };
-
-                if (creationType === 'new_org') {
-                    metaData.mahad_name = formData.mahadName;
-                } else {
-                    // PENTING: Kirim string kosong jika targetOrgId undefined/null,
-                    // tapi jika ada isinya, kirim sebagai string UUID.
-                    metaData.target_organization_id = formData.targetOrgId || ''; 
+                if (!token) {
+                    throw new Error('Sesi autentikasi tidak ditemukan. Silakan muat ulang halaman dan login kembali.');
                 }
 
-                // Create User in Auth
-                const { data: authData, error: authError } = await tempSupabase.auth.signUp({
-                    email: formData.email,
-                    password: formData.password,
-                    options: { data: metaData }
+                let targetOrganizationId = formData.targetOrgId || currentUser?.organization_id || '';
+                if (creationType === 'new_org' && currentUser?.role === 'super_admin') {
+                    const slug = formData.mahadName
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, '-')
+                        .replace(/(^-|-$)/g, '') + '-' + Math.floor(100 + Math.random() * 900);
+                    const { data: createdOrg, error: createOrgErr } = await supabase
+                        .from('organizations')
+                        .insert({ name: formData.mahadName, slug, status: 'active' } as any)
+                        .select('id')
+                        .single();
+                    if (createOrgErr) throw createOrgErr;
+                    if (createdOrg) {
+                        targetOrganizationId = createdOrg.id;
+                    }
+                }
+
+                if (!targetOrganizationId) {
+                    throw new Error("Organisasi tujuan wajib dipilih.");
+                }
+
+                const resp = await fetch('/api/invitations', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        email: formData.email.trim(),
+                        password: formData.password,
+                        fullName: formData.fullName.trim(),
+                        role: formData.role === 'super_admin' ? 'admin' : formData.role,
+                        organizationId: targetOrganizationId
+                    })
                 });
 
-                if (authError) throw authError;
-                if (!authData.user) throw new Error("Gagal membuat user auth.");
+                const result = await resp.json().catch(() => ({}));
+                if (!resp.ok) {
+                    throw new Error(result?.error || `Gagal membuat akun melalui endpoint serverless (/api/invitations status ${resp.status}).`);
+                }
 
-                // PENTING: Tunggu trigger database selesai memproses 'handle_new_user'
-                // Karena proses ini async di sisi server database
-                await new Promise(r => setTimeout(r, 2500));
-                
-                alert("User baru berhasil dibuat! Silakan cek tabel.");
+                NotificationStore.addNotification(`Akun ${formData.fullName} berhasil dibuat dan ditautkan ke akses lembaga.`, 'success');
 
             } else {
                 // --- EDIT USER FLOW ---
@@ -268,6 +315,29 @@ const Users: React.FC = () => {
 
                 if (profileError) throw profileError;
 
+                // Sinkronkan juga ke user_profiles, access_grants & musammi_staff (V2)
+                try {
+                    await (supabase.from('user_profiles' as any) as any).upsert({
+                        id: currentUserId,
+                        full_name: formData.fullName,
+                        email: userToEdit.email || null,
+                        is_superadmin: formData.role === 'super_admin' || formData.role === 'superadmin',
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'id' });
+
+                    if (userToEdit.organization_id && (formData.role === 'admin' || formData.role === 'musammi')) {
+                        await (supabase.from('access_grants' as any) as any).upsert({
+                            user_id: currentUserId,
+                            organization_id: userToEdit.organization_id,
+                            role: formData.role,
+                            status: 'active',
+                            updated_at: new Date().toISOString()
+                        }, { onConflict: 'user_id,organization_id,role' });
+                    }
+                } catch {
+                    // Fallback aman jika tabel V2 belum dimigrasi
+                }
+
                 // Update Org Name (Only if super_admin and org name actually changed)
                 if (currentUser?.role === 'super_admin' && userToEdit.organization_id && formData.mahadName && formData.mahadName !== userToEdit.organizations?.name) {
                     const { error: orgError } = await supabase
@@ -277,7 +347,7 @@ const Users: React.FC = () => {
                     if (orgError) throw orgError;
                 }
                 
-                alert("Data user berhasil diperbarui.");
+                NotificationStore.addNotification(`Profil dan hak akses ${formData.fullName} berhasil diperbarui.`, 'success');
             }
 
             setIsModalOpen(false);
@@ -285,7 +355,7 @@ const Users: React.FC = () => {
 
         } catch (e: any) {
             console.error(e);
-            alert(`Gagal: ${e.message}`);
+            NotificationStore.addNotification(`Gagal: ${e.message}`, 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -352,25 +422,21 @@ const Users: React.FC = () => {
                                             {user.email || '-'}
                                         </td>
                                         <td className="px-6 py-4">
-                                            {user.role === 'super_admin' ? (
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                                    <ShieldCheck size={12} className="mr-1"/> Super Admin
+                                            {user.role === 'super_admin' || user.role === 'superadmin' ? (
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-slate-900 text-white">
+                                                    Superadmin Platform
                                                 </span>
                                             ) : user.role === 'pending' ? (
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800 animate-pulse">
-                                                    <Clock size={12} className="mr-1"/> Menunggu Persetujuan
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                                                    Menunggu Persetujuan
                                                 </span>
                                             ) : user.role === 'musammi' ? (
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                                                    <UsersIcon size={12} className="mr-1"/> Musammi
-                                                </span>
-                                            ) : user.role === 'pengajar' ? (
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                                                    <BookOpen size={12} className="mr-1"/> Pengajar
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                    Musammi
                                                 </span>
                                             ) : (
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                    <Shield size={12} className="mr-1"/> Admin Ma'had
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                                                    Admin Lembaga
                                                 </span>
                                             )}
                                         </td>
@@ -568,7 +634,7 @@ const Users: React.FC = () => {
 
                     {/* --- COMMON FIELDS --- */}
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Nama Lengkap Admin</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Nama Lengkap Pengguna</label>
                         <div className="relative">
                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><User size={16} className="text-slate-400"/></div>
                             <input 
@@ -582,20 +648,21 @@ const Users: React.FC = () => {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Role / Peran</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Role Kanonik (3-Role SaaS)</label>
                         <select 
                             className="block w-full border-slate-300 rounded-md focus:ring-secondary focus:border-secondary sm:text-sm"
                             value={formData.role}
                             onChange={e => setFormData({...formData, role: e.target.value})}
                         >
-                            <option value="admin">Admin Ma'had</option>
-                            <option value="pengajar">Pengajar (Wali Kelas)</option>
-                            <option value="musammi">Grup/Instruktur (Musammi)</option>
-                            <option value="pending">Pending (Menunggu Persetujuan)</option>
+                            <option value="admin">Admin Lembaga</option>
+                            <option value="musammi">Musammi (Pengampu Halaqah)</option>
                             {currentUser?.role === 'super_admin' && (
-                                <option value="super_admin">Super Admin</option>
+                                <option value="super_admin">Superadmin Platform</option>
                             )}
                         </select>
+                        <p className="text-xs text-slate-400 mt-1">
+                            Sesuai arsitektur 3-Role SaaS, Wali Kelas & Musyrif dikelola sebagai atribut kelas/santri, bukan role login.
+                        </p>
                     </div>
 
                     <div className="pt-4 flex justify-end gap-2">
@@ -615,6 +682,26 @@ const Users: React.FC = () => {
                     </div>
                 </div>
             </Modal>
+
+            <ConfirmDialog
+                isOpen={confirmApproveTarget !== null}
+                title="Setujui Pendaftaran Pengguna"
+                description={`Setujui pendaftaran "${confirmApproveTarget?.name || ''}"? Pengguna ini akan mendapatkan akses sebagai Admin Lembaga.`}
+                confirmLabel="Setujui Akses"
+                tone="primary"
+                onConfirm={executeApproveUser}
+                onCancel={() => setConfirmApproveTarget(null)}
+            />
+
+            <ConfirmDialog
+                isOpen={confirmDeleteTarget !== null}
+                title="Hapus Pengguna"
+                description={`PERINGATAN: Anda yakin ingin menghapus pengguna "${confirmDeleteTarget?.name || ''}"? Pengguna ini tidak akan bisa login lagi dan aksesnya akan dicabut.`}
+                confirmLabel="Hapus Pengguna"
+                tone="danger"
+                onConfirm={executeDeleteUser}
+                onCancel={() => setConfirmDeleteTarget(null)}
+            />
         </div>
     );
 };

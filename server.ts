@@ -4,6 +4,12 @@ import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
+import { processInvitationPayload } from "./api/invitations";
+import { processIntegrationSecrets } from "./api/integrations";
+import { processTelegramNotification } from "./api/notify/telegram";
+import { processWhatsAppNotification } from "./api/notify/whatsapp";
+import { processTelegramWebhook } from "./api/telegram-webhook";
+import { processTelegramWebhookRegister } from "./api/telegram-webhook/register";
 
 // Initialize Supabase client for Server
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
@@ -168,49 +174,33 @@ async function startServer() {
     return { user, profile, client: userClient };
   };
 
+  // Serverless-compatible User Invitations & Account Provisioning API
+  const handleInvitationRequest = async (req: express.Request, res: express.Response) => {
+    try {
+      const result = await processInvitationPayload(req.headers.authorization, req.body);
+      return res.status(result.status).json(result.data);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || "Gagal memproses undangan akun." });
+    }
+  };
+  app.post("/api/invitations", handleInvitationRequest);
+  app.post("/api/invite-user", handleInvitationRequest);
+
+  // Serverless-compatible Integration Secrets API
+  app.all("/api/integrations", async (req, res) => {
+    try {
+      const result = await processIntegrationSecrets(req.method, req.headers.authorization, req.body);
+      return res.status(result.status).json(result.data);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || "Gagal memproses rahasia integrasi." });
+    }
+  });
+
   // Server-side proxy for Telegram notifications
   app.post("/api/notify/telegram", async (req, res) => {
     try {
-      const { chatId, message, botToken: clientBotToken, parseMode } = req.body || {};
-      if (!chatId || !message) {
-        return res.status(400).json({ error: "chatId and message are required" });
-      }
-
-      const { profile, client } = await resolveAuthenticatedContext(req);
-      let token = clientBotToken || process.env.TELEGRAM_BOT_TOKEN || process.env.VITE_TELEGRAM_BOT_TOKEN;
-
-      if (!token && client && profile?.organization_id) {
-        const { data: setting } = await client
-          .from("app_settings")
-          .select("value")
-          .eq("organization_id", profile.organization_id)
-          .eq("key", "TELEGRAM_BOT_TOKEN")
-          .maybeSingle();
-        if (setting?.value) token = setting.value;
-      }
-
-      if (!token) {
-        return res.status(400).json({ error: "Token Bot Telegram belum dikonfigurasi." });
-      }
-
-      const cleanToken = String(token).trim();
-      const cleanChatId = String(chatId).trim();
-
-      const response = await fetch(`https://api.telegram.org/bot${cleanToken}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: cleanChatId,
-          text: message,
-          parse_mode: parseMode || "Markdown",
-        }),
-      });
-
-      const result: any = await response.json();
-      if (!result.ok) {
-        return res.status(400).json({ error: result.description || "Gagal mengirim pesan Telegram" });
-      }
-      return res.json({ success: true, result });
+      const result = await processTelegramNotification(req.headers.authorization, req.body);
+      return res.status(result.status).json(result.data);
     } catch (err: any) {
       console.error("Telegram Proxy Error:", err);
       return res.status(500).json({ error: err.message || "Internal server error" });
@@ -220,46 +210,8 @@ async function startServer() {
   // Server-side proxy for Fonnte WhatsApp notifications
   app.post("/api/notify/whatsapp", async (req, res) => {
     try {
-      const { target, message, apiToken: clientApiToken } = req.body || {};
-      if (!target || !message) {
-        return res.status(400).json({ error: "target and message are required" });
-      }
-
-      const { profile, client } = await resolveAuthenticatedContext(req);
-      let token = clientApiToken || process.env.FONNTE_API_TOKEN || process.env.VITE_FONNTE_API_TOKEN;
-
-      if (!token && client && profile?.organization_id) {
-        const { data: setting } = await client
-          .from("app_settings")
-          .select("value")
-          .eq("organization_id", profile.organization_id)
-          .eq("key", "FONNTE_API_TOKEN")
-          .maybeSingle();
-        if (setting?.value) token = setting.value;
-      }
-
-      if (!token) {
-        return res.status(400).json({ error: "Token API Fonnte belum dikonfigurasi." });
-      }
-
-      const formData = new URLSearchParams();
-      formData.append("target", String(target));
-      formData.append("message", String(message));
-
-      const response = await fetch("https://api.fonnte.com/send", {
-        method: "POST",
-        headers: {
-          Authorization: String(token).trim(),
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: formData.toString(),
-      });
-
-      const result: any = await response.json();
-      if (!result.status) {
-        return res.status(400).json({ error: result.reason || "Gagal mengirim pesan melalui Fonnte" });
-      }
-      return res.json({ success: true, result });
+      const result = await processWhatsAppNotification(req.headers.authorization, req.body);
+      return res.status(result.status).json(result.data);
     } catch (err: any) {
       console.error("WhatsApp Proxy Error:", err);
       return res.status(500).json({ error: err.message || "Internal server error" });
@@ -269,148 +221,22 @@ async function startServer() {
   // Protected endpoint to register Telegram Webhook (Admin/SuperAdmin only, tenant-scoped)
   app.post("/api/telegram-webhook/register", async (req, res) => {
     try {
-        const { user, profile, client } = await resolveAuthenticatedContext(req);
-        if (!user || !profile || !["admin", "super_admin"].includes(profile.role)) {
-            return res.status(403).json({ error: "Akses ditolak: Hanya Admin Ma'had yang dapat mendaftarkan webhook." });
-        }
-
-        const { webhookUrl, botToken: explicitToken } = req.body;
-        if (!webhookUrl) {
-            return res.status(400).json({ error: "webhookUrl is required" });
-        }
-
-        let BOT_TOKEN = explicitToken || process.env.TELEGRAM_BOT_TOKEN || process.env.VITE_TELEGRAM_BOT_TOKEN;
-        if (!BOT_TOKEN && client && profile.organization_id) {
-            const { data: settings } = await client
-                .from('app_settings')
-                .select('key, value')
-                .eq('organization_id', profile.organization_id)
-                .eq('key', 'TELEGRAM_BOT_TOKEN')
-                .maybeSingle();
-            if (settings?.value) BOT_TOKEN = settings.value;
-        }
-
-        if (!BOT_TOKEN) {
-            return res.status(400).json({ error: "No Telegram Bot Token" });
-        }
-
-        const webhookPayload: Record<string, any> = { url: webhookUrl };
-        if (process.env.TELEGRAM_WEBHOOK_SECRET) {
-            webhookPayload.secret_token = process.env.TELEGRAM_WEBHOOK_SECRET;
-        }
-
-        const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/setWebhook`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(webhookPayload)
-        });
-        const data = await response.json();
-        res.json(data);
+      const result = await processTelegramWebhookRegister(req.headers.authorization, req.body);
+      return res.status(result.status).json(result.data);
     } catch (e: any) {
-        console.error("Webhook register error:", e);
-        res.status(500).json({ error: e.message });
+      console.error("Webhook register error:", e);
+      return res.status(500).json({ error: e.message });
     }
   });
 
   app.post("/api/telegram-webhook", async (req, res) => {
     try {
-        const expectedSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
-        if (expectedSecret) {
-            const headerSecret = req.headers["x-telegram-bot-api-secret-token"];
-            if (headerSecret !== expectedSecret) {
-                return res.status(401).json({ error: "Unauthorized webhook request" });
-            }
-        }
-
-        const update = req.body;
-        
-        if (update && update.message && update.message.text) {
-            const text = update.message.text.trim();
-            const chatId = update.message.chat.id.toString();
-            
-            let BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || process.env.VITE_TELEGRAM_BOT_TOKEN;
-
-            if (text.startsWith('/konek') || text.startsWith('/sync') || text.startsWith('/start')) {
-                const parts = text.split(' ');
-                let replyMarkdown = '';
-
-                if (parts.length > 1) {
-                    const identifier = parts.slice(1).join(' ').trim();
-                    
-                    // Gunakan RPC SECURITY DEFINER terlebih dahulu agar menembus RLS saat dipanggil oleh webhook anonim
-                    const { data: rpcResult, error: rpcError } = await supabase.rpc(
-                        'rpc_link_telegram_chat_id',
-                        { p_identifier: identifier, p_chat_id: chatId }
-                    );
-
-                    if (!rpcError && rpcResult && typeof rpcResult === 'object') {
-                        if (rpcResult.bot_token) {
-                            BOT_TOKEN = rpcResult.bot_token;
-                        }
-                        if (rpcResult.matched) {
-                            const names = Array.isArray(rpcResult.names) ? rpcResult.names.join(', ') : '';
-                            replyMarkdown = `✅ *Berhasil!*\n\nChat ini telah berhasil dihubungkan dengan data:\n*${names}*\n\nAnda akan menerima notifikasi otomatis dari sistem.`;
-                        } else {
-                            replyMarkdown = `❌ *Data Santri tidak ditemukan!*\n\nID, Kode Santri, atau Nomor HP *${identifier}* tidak cocok dengan data kami.\n\nPastikan Anda mendapatkan link pendaftaran yang benar dari Pengurus Madrasah, atau ketik format manual:\n\`/start <ID_ATAU_KODE_SANTRI>\`\nContoh: \`/start 12345\``;
-                        }
-                    } else {
-                        // Fallback jika RPC belum terpasang di database
-                        const { data: santriList } = await supabase.from('santri').select('id, nama, kelas, telegram_chat_id, kode');
-                        const targetSantri = santriList?.find((s) => s.id.toString() === identifier || s.kode === identifier);
-                        
-                        if (targetSantri) {
-                            if (targetSantri.telegram_chat_id !== chatId) {
-                                const { error } = await supabase.from('santri').update({ telegram_chat_id: chatId }).eq('id', targetSantri.id);
-                                if (!error) {
-                                    replyMarkdown = `✅ *Berhasil!*\n\nChat ini telah berhasil dihubungkan dengan data santri:\nNama: *${targetSantri.nama}*\nKelas: *${targetSantri.kelas}*\n\nAnda akan menerima notifikasi otomatis dari sistem.`;
-                                } else {
-                                    replyMarkdown = `❌ Terjadi kesalahan saat menyimpan data. Silakan coba lagi.`;
-                                }
-                            } else {
-                                replyMarkdown = `✅ Chat ini sudah terhubung dengan data santri:\nNama: *${targetSantri.nama}*`;
-                            }
-                        } else {
-                            replyMarkdown = `❌ *Data Santri tidak ditemukan!*\n\nID atau Kode Santri *${identifier}* tidak cocok dengan data kami.\n\nPastikan Anda mendapatkan link pendaftaran yang benar dari Pengurus Madrasah, atau ketik format manual:\n\`/start <ID_SANTRI>\`\nContoh: \`/start 12345\``;
-                        }
-                    }
-                } else {
-                    replyMarkdown = `⚠️ *Format Pendaftaran Salah*\n\nUntuk menghubungkan akun Telegram dengan data santri, silakan gunakan link otomatis yang diberikan Pengurus Madrasah, atau ketik manual dengan format:\n\`/start <ID_SANTRI>\`\nContoh: \`/start 12345\``;
-                }
-
-                if (!BOT_TOKEN) {
-                    const { data: settings } = await supabase.from('app_settings').select('key, value').eq('key', 'TELEGRAM_BOT_TOKEN').maybeSingle();
-                    if (settings?.value) BOT_TOKEN = settings.value;
-                }
-
-                if (BOT_TOKEN && replyMarkdown) {
-                    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ chat_id: chatId, text: replyMarkdown, parse_mode: 'Markdown' })
-                    }).catch(console.error);
-                }
-            } else {
-                if (!BOT_TOKEN) {
-                    const { data: settings } = await supabase.from('app_settings').select('key, value').eq('key', 'TELEGRAM_BOT_TOKEN').maybeSingle();
-                    if (settings?.value) BOT_TOKEN = settings.value;
-                }
-                if (BOT_TOKEN) {
-                    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            chat_id: chatId,
-                            text: `🤖 *Bot Sistem Informasi Tahfidz*\n\nSilakan klik link pendaftaran dari Pengurus Madrasah untuk menghubungkan akun Anda, atau ketik:\n\`/start <ID_SANTRI>\`\nContoh: \`/start 12345\``,
-                            parse_mode: 'Markdown'
-                        })
-                    }).catch(console.error);
-                }
-            }
-        }
-        res.status(200).send('OK');
+      const secretHeader = req.headers["x-telegram-bot-api-secret-token"] as string | undefined;
+      const result = await processTelegramWebhook(secretHeader, req.body);
+      return res.status(result.status).send(result.text);
     } catch (e) {
-        console.error("Webhook error:", e);
-        res.status(200).send('OK');
+      console.error("Webhook error:", e);
+      return res.status(200).send("OK");
     }
   });
 

@@ -7,6 +7,8 @@ import { useSupabaseData } from '../../hooks/useSupabaseData';
 import { exportToExcel, parseSpreadsheet, getActiveSemesterDateRange, getPredikat, getEvaluationPeriods } from '../../lib/utils';
 import { AttendanceStatus } from '../../types';
 import { supabase } from '../../lib/supabaseClient';
+import { NotificationStore } from '../../lib/NotificationStore';
+import { StatusBadge, ConfirmDialog } from '../../components/ui/SaaSPrimitives';
 
 const RekapNilaiPage: React.FC = () => {
     const { 
@@ -34,6 +36,8 @@ const RekapNilaiPage: React.FC = () => {
     const [showSignatureModal, setShowSignatureModal] = useState(false);
     
     const [attendancePercentages, setAttendancePercentages] = useState<Record<number, number>>({});
+    const [reportCardsList, setReportCardsList] = useState<any[]>([]);
+    const [amendingItem, setAmendingItem] = useState<any | null>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -96,6 +100,40 @@ const RekapNilaiPage: React.FC = () => {
         return () => { isMounted = false; };
     }, [semesterDates, getOrgId]);
 
+    const fetchReportCards = async () => {
+        if (!selectedAcademicYear?.id) return;
+        try {
+            const orgId = await getOrgId();
+            if (!orgId) return;
+            const { data } = await (supabase as any)
+                .from('report_cards')
+                .select('*')
+                .eq('organization_id', orgId)
+                .eq('academic_year_id', selectedAcademicYear.id)
+                .eq('semester_name', selectedSemester)
+                .order('version_no', { ascending: false });
+            if (data) setReportCardsList(data);
+        } catch {
+            // Abaikan bila tabel report_cards belum dimigrasikan
+        }
+    };
+
+    useEffect(() => {
+        fetchReportCards();
+    }, [selectedAcademicYear?.id, selectedSemester]);
+
+    const publishedSnapshotsBySantri = useMemo(() => {
+        const map: Record<number, any> = {};
+        reportCardsList.forEach((rc: any) => {
+            const sId = Number(rc.santri_id || rc.student_id);
+            if (!sId) return;
+            if (!map[sId] || (Number(rc.version_no) || 1) > (Number(map[sId].version_no) || 1)) {
+                map[sId] = rc;
+            }
+        });
+        return map;
+    }, [reportCardsList]);
+
     // We use student_progress table to store 'Silabus Hafalan' value. We use a synthetic month_key for it.
     const silabusMonthKey = useMemo(() => {
         if (!selectedAcademicYear) return '';
@@ -121,14 +159,7 @@ const RekapNilaiPage: React.FC = () => {
         return [];
     }, [appSettings, selectedAcademicYear, selectedSemester]);
 
-    const allFilteredSantri = (() => {
-                let baseSantri = santri;
-                if (userProfile?.role === 'pengajar') {
-                    const userWaliClasses = waliKelas.filter(w => w.user_id === userProfile.id).map(w => ({ marhalah: w.marhalah, kelas: w.kelas }));
-                    baseSantri = baseSantri.filter(s => userWaliClasses.some(wc => wc.marhalah === s.marhalah && wc.kelas === s.kelas));
-                }
-                return baseSantri;
-            })().filter(s => {
+    const allFilteredSantri = santri.filter(s => {
         if (!s.kelas || s.kelas === 'Belum Ada Kelas' || s.kelas === '-') return false;
         if (selectedMarhalah !== 'All' && s.marhalah !== selectedMarhalah) return false;
         if (selectedKelas !== 'All' && s.kelas !== selectedKelas) return false;
@@ -371,7 +402,7 @@ const RekapNilaiPage: React.FC = () => {
 
     const handlePrint = () => {
         if (selectedSantriIds.size === 0) {
-            alert('Pilih setidaknya satu siswa untuk dicetak.');
+            NotificationStore.addNotification('Pilih setidaknya satu siswa untuk dicetak.', 'info');
             return;
         }
         window.print();
@@ -431,7 +462,7 @@ const RekapNilaiPage: React.FC = () => {
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (autoSilabus) {
-            alert('Perhitungan otomatis Nilai Silabus sedang aktif. Menonaktifkan fitur import nilai silabus.');
+            NotificationStore.addNotification('Perhitungan otomatis Nilai Silabus sedang aktif. Menonaktifkan fitur import nilai silabus.', 'error');
             return;
         }
         const file = e.target.files?.[0];
@@ -441,7 +472,7 @@ const RekapNilaiPage: React.FC = () => {
         try {
             const data = await parseSpreadsheet(file);
             if (!data || data.length === 0) {
-                alert('Data CSV/Excel kosong atau format tidak sesuai.');
+                NotificationStore.addNotification('Data CSV/Excel kosong atau format tidak sesuai.', 'error');
                 setIsSaving(false);
                 return;
             }
@@ -459,7 +490,7 @@ const RekapNilaiPage: React.FC = () => {
 
                     if (!isNaN(sId) && !isNaN(nilai) && santri.some(s => s.id === sId)) {
                         recordsToSave.push({
-                            organization_id: "WILL_BE_FILLED", // Add filled by the hook
+                            organization_id: "WILL_BE_FILLED",
                             santri_id: sId,
                             month_key: silabusMonthKey,
                             progress_type: 'Silabus Hafalan',
@@ -472,9 +503,9 @@ const RekapNilaiPage: React.FC = () => {
             
             if (recordsToSave.length > 0) {
                 await addStudentProgressBatch(recordsToSave);
-                alert(`Berhasil mengimpor nilai silabus hafalan untuk ${updatedCount} santri.`);
+                NotificationStore.addNotification(`Berhasil mengimpor nilai silabus hafalan untuk ${updatedCount} santri.`, 'success');
             } else {
-                alert('Tidak ada data valid yang ditemukan untuk diimport.');
+                NotificationStore.addNotification('Tidak ada data valid yang ditemukan untuk diimport.', 'error');
             }
             
             if (fileInputRef.current) {
@@ -482,8 +513,136 @@ const RekapNilaiPage: React.FC = () => {
             }
         } catch (error) {
             console.error('Error importing:', error);
-            alert('Gagal mengimpor file.');
+            NotificationStore.addNotification('Gagal mengimpor file.', 'error');
             if (fileInputRef.current) fileInputRef.current.value = '';
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const publishSingleStudentSnapshot = async (item: any, orgId: string, amendmentReason?: string) => {
+        const snapshotPayload = {
+            santri_id: item.santri.id,
+            santri_nama: item.santri.nama,
+            marhalah: item.santri.marhalah,
+            kelas: item.santri.kelas,
+            academic_year: selectedAcademicYear?.name,
+            semester: selectedSemester,
+            avg_ujian_bulanan: item.avgBln,
+            nilai_ujian_semester: item.valSem,
+            nilai_silabus: item.nilaiSilabus,
+            pct_kehadiran: item.pctKehadiran,
+            final_score: item.finalScore,
+            predikat: item.predikat,
+            hafalan_depan: item.hafalanDepan,
+            hafalan_belakang: item.hafalanBelakang,
+            total_hafalan: item.totalHafalan,
+            target_hafalan: item.targetHafalan,
+            weights: settings,
+            frozen_at: new Date().toISOString()
+        };
+
+        const existingSnap = publishedSnapshotsBySantri[item.santri.id];
+        const nextVersion = existingSnap ? (Number(existingSnap.version_no) || 1) + 1 : 1;
+
+        const { error: rpcErr } = await (supabase as any).rpc('rpc_publish_report_card', {
+            p_org_id: orgId,
+            p_academic_year_id: selectedAcademicYear?.id,
+            p_semester: selectedSemester,
+            p_santri_id: item.santri.id,
+            p_final_score: item.finalScore,
+            p_predikat: item.predikat,
+            p_snapshot_json: snapshotPayload,
+            p_amendment_reason: amendmentReason || (existingSnap ? `Amendment v${nextVersion}` : 'Publikasi awal v1')
+        });
+
+        if (rpcErr) {
+            if (existingSnap?.id) {
+                await (supabase as any)
+                    .from('report_cards')
+                    .update({ status: 'amended', updated_at: new Date().toISOString() })
+                    .eq('id', existingSnap.id);
+            }
+
+            await (supabase as any).from('report_cards').insert({
+                organization_id: orgId,
+                academic_year_id: selectedAcademicYear?.id,
+                semester_name: selectedSemester,
+                santri_id: item.santri.id,
+                version_no: nextVersion,
+                status: 'published',
+                final_score: item.finalScore,
+                predikat: item.predikat,
+                snapshot_json: snapshotPayload,
+                parent_report_card_id: existingSnap?.id || null,
+                amendment_reason: amendmentReason || null,
+                published_by: userProfile?.id || null,
+                published_at: new Date().toISOString()
+            });
+
+            await (supabase as any).from('audit_logs').insert({
+                organization_id: orgId,
+                actor_id: userProfile?.id || null,
+                actor_role: userProfile?.role || 'admin',
+                action: existingSnap ? 'amend_report_card' : 'publish_report_card',
+                resource_type: 'report_cards',
+                resource_id: `${item.santri.id}-v${nextVersion}`,
+                reason: amendmentReason || `Publikasi Snapshot Raport v${nextVersion}`,
+                after_state: { santri_id: item.santri.id, version_no: nextVersion, final_score: item.finalScore }
+            });
+        }
+    };
+
+    const handlePublishSnapshots = async () => {
+        if (selectedSantriIds.size === 0) {
+            NotificationStore.addNotification('Pilih minimal satu santri terlebih dahulu untuk mempublikasikan snapshot raport.', 'error');
+            return;
+        }
+        if (!selectedAcademicYear) {
+            NotificationStore.addNotification('Tahun ajaran belum dipilih.', 'error');
+            return;
+        }
+        setIsSaving(true);
+        try {
+            const orgId = await getOrgId();
+            if (!orgId) throw new Error('Organisasi tidak ditemukan');
+
+            const targets = sortedRekapData.filter(d => selectedSantriIds.has(d.santri.id));
+            let publishedCount = 0;
+
+            for (const item of targets) {
+                await publishSingleStudentSnapshot(item, orgId);
+                publishedCount++;
+            }
+
+            await fetchReportCards();
+            NotificationStore.addNotification(
+                `Berhasil membekukan (publish) snapshot raport immutable untuk ${publishedCount} santri.`,
+                'success'
+            );
+        } catch (err: any) {
+            console.error(err);
+            NotificationStore.addNotification('Gagal mempublikasikan snapshot raport: ' + (err.message || 'Terjadi kesalahan'), 'error');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleConfirmAmendment = async (reason?: string) => {
+        if (!amendingItem || !selectedAcademicYear) return;
+        setIsSaving(true);
+        try {
+            const orgId = await getOrgId();
+            if (!orgId) throw new Error('Organisasi tidak ditemukan');
+            await publishSingleStudentSnapshot(amendingItem, orgId, reason || 'Revisi pasca-terbit (Amendment)');
+            await fetchReportCards();
+            NotificationStore.addNotification(
+                `Amendment Raport untuk ${amendingItem.santri.nama} berhasil diterbitkan sebagai versi baru.`,
+                'success'
+            );
+            setAmendingItem(null);
+        } catch (err: any) {
+            NotificationStore.addNotification('Gagal menerbitkan amendment raport: ' + (err.message || 'Terjadi kesalahan'), 'error');
         } finally {
             setIsSaving(false);
         }
@@ -496,10 +655,17 @@ const RekapNilaiPage: React.FC = () => {
             <div className="print:hidden">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
                 <div>
-                    <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight mb-2">Rekap Nilai</h1>
-                    <p className="text-sm text-slate-500 font-medium leading-relaxed">Rekapitulasi seluruh nilai Ujian, Silabus, dan Kehadiran</p>
+                    <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight mb-2">Buku Nilai & Raport</h1>
+                    <p className="text-sm text-slate-500 font-medium leading-relaxed">Rekapitulasi nilai Ujian, Silabus, Kehadiran, serta pembekuan Snapshot Raport</p>
                 </div>
                 <div className="flex flex-wrap gap-3">
+                    <button
+                        onClick={handlePublishSnapshots}
+                        disabled={isSaving || selectedSantriIds.size === 0}
+                        className="bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-[13px] font-bold flex items-center hover:bg-emerald-700 disabled:opacity-50 shadow-sm transition-all"
+                    >
+                        Publish Snapshot ({selectedSantriIds.size})
+                    </button>
                     <button onClick={handleExport} className="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-[13px] font-bold flex items-center hover:bg-blue-700 shadow-sm transition-all focus:ring-4 focus:ring-blue-500/20">
                         <Download size={16} className="mr-2" strokeWidth={2.5}/> Export
                     </button>
@@ -624,6 +790,12 @@ const RekapNilaiPage: React.FC = () => {
                                 <th className="px-6 py-4 border-b border-slate-200/80 text-center align-middle cursor-pointer hover:bg-slate-100 transition-colors" rowSpan={2} onClick={() => requestSort('finalScore')}>
                                     <div className="flex items-center justify-center">Nilai Akhir {getSortIcon('finalScore')}</div>
                                 </th>
+                                <th className="px-4 py-4 border-b border-slate-200/80 text-center align-middle min-w-[140px]" rowSpan={2}>
+                                    Snapshot Raport
+                                </th>
+                                <th className="px-4 py-4 border-b border-slate-200/80 text-center align-middle min-w-[130px]" rowSpan={2}>
+                                    Aksi
+                                </th>
                             </tr>
                             {ubPeriods.length > 0 && (
                                 <tr>
@@ -637,42 +809,95 @@ const RekapNilaiPage: React.FC = () => {
                         </thead>
                         <tbody className="divide-y divide-slate-100 bg-white">
                             {rekapData.length > 0 ? (
-                                rekapData.map((d, idx) => (
-                                    <tr key={d.santri.id} className="hover:bg-slate-50 transition-colors">
-                                        <td className="px-4 py-4 text-center">
-                                            <input 
-                                                type="checkbox" 
-                                                checked={selectedSantriIds.has(d.santri.id)} 
-                                                onChange={() => handleCheckboxChange(d.santri.id)} 
-                                                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" 
-                                            />
-                                        </td>
-                                        <td className="px-4 py-4 text-center font-bold text-slate-400">{currentPageNum * rowsPerPage + idx + 1}</td>
-                                        <td className="px-6 py-4 font-bold text-slate-800">{d.santri.nama}</td>
-                                        <td className="px-6 py-4">
-                                            <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wide bg-slate-100 text-slate-600 whitespace-nowrap">
-                                                {d.santri.kelas}
-                                            </span>
-                                        </td>
-                                        
-                                        {ubPeriods.map((p) => {
-                                            const ub = d.blns.find(b => b.periode === p.id);
-                                            return <td key={p.id} className="px-4 py-4 text-center">{ub?.nilai !== undefined && ub?.nilai !== null ? ub.nilai : '-'}</td>;
-                                        })}
-                                        
-                                        <td className="px-4 py-4 text-center font-bold text-slate-700">{d.avgBln}</td>
-                                        <td className="px-4 py-4 text-center font-bold text-slate-700">{d.valSem !== undefined && d.valSem > 0 ? d.valSem : '-'}</td>
-                                        <td className="px-4 py-4 text-center text-slate-800 font-bold">{d.nilaiSilabus !== undefined ? d.nilaiSilabus : '0'}</td>
-                                        <td className="px-4 py-4 text-center font-bold">{d.pctKehadiran > 0 ? `${d.pctKehadiran}%` : '-'}</td>
-                                        
-                                        <td className="px-6 py-4 text-center">
-                                            <span className="font-bold text-slate-700">{d.finalScore > 0 ? d.finalScore : '-'}</span>
-                                        </td>
-                                    </tr>
-                                ))
+                                rekapData.map((d, idx) => {
+                                    const pubSnap = publishedSnapshotsBySantri[d.santri.id];
+                                    return (
+                                        <tr key={d.santri.id} className="hover:bg-slate-50 transition-colors">
+                                            <td className="px-4 py-4 text-center">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={selectedSantriIds.has(d.santri.id)} 
+                                                    onChange={() => handleCheckboxChange(d.santri.id)} 
+                                                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" 
+                                                />
+                                            </td>
+                                            <td className="px-4 py-4 text-center font-bold text-slate-400">{currentPageNum * rowsPerPage + idx + 1}</td>
+                                            <td className="px-6 py-4 font-bold text-slate-800">{d.santri.nama}</td>
+                                            <td className="px-6 py-4">
+                                                <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wide bg-slate-100 text-slate-600 whitespace-nowrap">
+                                                    {d.santri.kelas}
+                                                </span>
+                                            </td>
+                                            
+                                            {ubPeriods.map((p) => {
+                                                const ub = d.blns.find(b => b.periode === p.id);
+                                                return <td key={p.id} className="px-4 py-4 text-center">{ub?.nilai !== undefined && ub?.nilai !== null ? ub.nilai : '-'}</td>;
+                                            })}
+                                            
+                                            <td className="px-4 py-4 text-center font-bold text-slate-700">{d.avgBln}</td>
+                                            <td className="px-4 py-4 text-center font-bold text-slate-700">{d.valSem !== undefined && d.valSem > 0 ? d.valSem : '-'}</td>
+                                            <td className="px-4 py-4 text-center text-slate-800 font-bold">{d.nilaiSilabus !== undefined ? d.nilaiSilabus : '0'}</td>
+                                            <td className="px-4 py-4 text-center font-bold">{d.pctKehadiran > 0 ? `${d.pctKehadiran}%` : '-'}</td>
+                                            
+                                            <td className="px-6 py-4 text-center">
+                                                <span className="font-bold text-slate-700">{d.finalScore > 0 ? d.finalScore : '-'}</span>
+                                            </td>
+                                            <td className="px-4 py-4 text-center">
+                                                {pubSnap ? (
+                                                    <div className="flex flex-col items-center gap-1">
+                                                        <StatusBadge
+                                                            label={Number(pubSnap.version_no) > 1 ? `AMENDED v${pubSnap.version_no}` : `PUBLISHED v1`}
+                                                            tone={Number(pubSnap.version_no) > 1 ? 'warning' : 'success'}
+                                                        />
+                                                        {pubSnap.amendment_reason && (
+                                                            <span className="text-[10px] text-slate-400 max-w-[120px] truncate" title={pubSnap.amendment_reason}>
+                                                                {pubSnap.amendment_reason}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <StatusBadge label="DRAFT" tone="neutral" />
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-4 text-center">
+                                                {pubSnap ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setAmendingItem(d)}
+                                                        className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition-colors whitespace-nowrap"
+                                                    >
+                                                        Amend v{(Number(pubSnap.version_no) || 1) + 1}
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        onClick={async () => {
+                                                            setIsSaving(true);
+                                                            try {
+                                                                const orgId = await getOrgId();
+                                                                if (orgId) {
+                                                                    await publishSingleStudentSnapshot(d, orgId);
+                                                                    await fetchReportCards();
+                                                                    NotificationStore.addNotification(`Snapshot Raport v1 untuk ${d.santri.nama} berhasil diterbitkan.`, 'success');
+                                                                }
+                                                            } catch (e: any) {
+                                                                NotificationStore.addNotification('Gagal menerbitkan snapshot: ' + e.message, 'error');
+                                                            } finally {
+                                                                setIsSaving(false);
+                                                            }
+                                                        }}
+                                                        className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors whitespace-nowrap"
+                                                    >
+                                                        Publish v1
+                                                    </button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                             ) : (
                                 <tr>
-                                    <td colSpan={10 + ubPeriods.length} className="px-6 py-12 text-center text-slate-500 bg-slate-50/50">
+                                    <td colSpan={12 + ubPeriods.length} className="px-6 py-12 text-center text-slate-500 bg-slate-50/50">
                                         <div className="flex flex-col items-center justify-center">
                                             <div className="w-16 h-16 bg-slate-100 text-slate-300 rounded-full flex items-center justify-center mb-4">
                                                 <Search size={24} />
@@ -830,6 +1055,20 @@ const RekapNilaiPage: React.FC = () => {
                 </div>
                 , document.body)
             }
+            <ConfirmDialog
+                isOpen={!!amendingItem}
+                title={`Terbitkan Amendment Raport — ${amendingItem?.santri?.nama || ''}`}
+                description={`Snapshot raport santri ini telah dibekukan sebelumnya. Menerbitkan Amendment akan membuat versi snapshot baru (v${(Number(publishedSnapshotsBySantri[amendingItem?.santri?.id]?.version_no) || 1) + 1}) tanpa menghapus snapshot versi sebelumnya.`}
+                confirmLabel="Terbitkan Amendment"
+                tone="primary"
+                requireReason={true}
+                reasonLabel="Alasan Revisi / Amendment Raport (Wajib Audit)"
+                reasonPlaceholder="Contoh: Perbaikan nilai setelah ujian remedial Juz 29 disahkan..."
+                isSubmitting={isSaving}
+                onCancel={() => setAmendingItem(null)}
+                onConfirm={handleConfirmAmendment}
+            />
+
             {isSaving && (
                 <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-[200] flex items-center justify-center">
                     <div className="bg-white p-8 rounded-2xl shadow-xl flex flex-col items-center">
