@@ -49,6 +49,7 @@ import { Lock, LogOut } from 'lucide-react';
 import {
   normalizeRole,
   resolveRouteByPageKey,
+  resolveTenantContext,
   SupportSessionStore,
   ActiveSupportSession,
 } from './lib/permissions';
@@ -79,71 +80,45 @@ const App: React.FC = () => {
     return () => unsubSupport();
   }, []);
 
-  const fetchUserOrganization = useCallback(
-    async (userId: string) => {
-      try {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select(`organization_id, role, full_name, organizations ( name, logo_url )`)
-          .eq('id', userId)
-          .single();
+  const fetchUserOrganization = useCallback(async (_userId: string) => {
+    try {
+      const ctx = await resolveTenantContext(supabase);
+      setSupportSession(ctx.supportSession);
 
-        let resolvedRole = profile?.role || 'pending';
-        let isBlockedOrPending = resolvedRole === 'pending';
-
-        // Periksa status keanggotaan di access_grants bila sudah dimigrasikan
-        try {
-          const { data: grants } = await (supabase as any)
-            .from('access_grants')
-            .select('role, status, organization_id')
-            .eq('user_id', userId);
-
-          if (Array.isArray(grants) && grants.length > 0) {
-            const activeGrant = grants.find((g: any) => g.status === 'active');
-            if (!activeGrant) {
-              // Semua grant berstatus invited / suspended / revoked -> blokir akses operasional
-              isBlockedOrPending = true;
-              resolvedRole = 'pending';
-            } else {
-              resolvedRole = activeGrant.role || resolvedRole;
-              isBlockedOrPending = false;
-            }
-          }
-        } catch {
-          // Fallback ke profiles bila access_grants belum ada
-        }
-
-        if (profile) {
-          setUserProfile({ name: profile.full_name || 'Admin', role: resolvedRole });
-          if (
-            !isBlockedOrPending &&
-            (resolvedRole === 'super_admin' || resolvedRole === 'superadmin')
-          ) {
-            setIsSuperAdmin(true);
-            setIsPending(false);
-          } else if (isBlockedOrPending) {
-            setIsPending(true);
-            setIsSuperAdmin(false);
-          } else {
-            setIsSuperAdmin(false);
-            setIsPending(false);
-          }
-
-          if (profile.organizations) {
-            setOrgDetails({
-              // @ts-ignore
-              name: profile.organizations.name,
-              // @ts-ignore
-              logo: profile.organizations.logo_url,
-            });
-          }
-        }
-      } catch (e) {
-        console.error('Failed to fetch organization', e);
+      if (!ctx.userId) {
+        setUserProfile(null);
+        setIsSuperAdmin(false);
+        setIsPending(false);
+        return;
       }
-    },
-    []
-  );
+
+      const displayRole = ctx.isAuthorized ? ctx.effectiveRole : 'pending';
+      setUserProfile({
+        name: ctx.fullName || 'Pengguna',
+        role: displayRole,
+      });
+
+      if (ctx.isAuthorized && ctx.isSuperAdmin) {
+        setIsSuperAdmin(true);
+        setIsPending(false);
+      } else if (!ctx.isAuthorized) {
+        setIsPending(true);
+        setIsSuperAdmin(false);
+      } else {
+        setIsSuperAdmin(false);
+        setIsPending(false);
+      }
+
+      if (ctx.organizationName) {
+        setOrgDetails({
+          name: ctx.organizationName,
+          logo: ctx.organizationLogo || '',
+        });
+      }
+    } catch (e) {
+      console.error('Failed to fetch organization', e);
+    }
+  }, []);
 
   useEffect(() => {
     const handleOrgUpdate = (e: any) => {
@@ -214,16 +189,24 @@ const App: React.FC = () => {
   };
 
   const handleEndSupportSession = async () => {
-    if (supportSession?.id && !supportSession.id.startsWith('local-')) {
-      try {
-        await (supabase as any).rpc('rpc_end_support_session', {
+    if (!supportSession?.id) return;
+
+    if (!supportSession.id.startsWith('local-')) {
+      const { data: endedOk, error: endErr } = await (supabase as any).rpc(
+        'rpc_end_support_session',
+        {
           p_session_id: supportSession.id,
-        });
-      } catch {
-        // Ignore if RPC not yet applied
+        }
+      );
+
+      if (endErr || endedOk === false) {
+        console.error('Gagal mengakhiri Support Access Session:', endErr);
+        return;
       }
     }
+
     SupportSessionStore.endSession();
+    setSupportSession(null);
     navigate('/platform/support-sessions');
   };
 
@@ -238,7 +221,7 @@ const App: React.FC = () => {
     );
   }
 
-  if (session && isPending && location.pathname !== '/invite') {
+  if (session && isPending && !location.pathname.startsWith('/invite')) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-neutral p-4">
         <div className="bg-white p-8 rounded-xl shadow-lg border border-slate-200 max-w-md text-center">

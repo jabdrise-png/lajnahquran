@@ -8,6 +8,7 @@
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "lint": "tsc --noEmit",
+    "test": "tsx scripts/verify-fase1-security.ts && tsx scripts/verify-fase2-lifecycle.ts && tsx scripts/verify-fase3-integrations.ts && tsx scripts/verify-fase4-academic.ts && tsx scripts/verify-fase5-sessions.ts && tsx scripts/verify-fase6-recitations.ts && tsx scripts/verify-fase7-integrity.ts && tsx scripts/verify-fase8-unit.ts && tsx scripts/verify-fase8-integration.ts && tsx scripts/verify-fase8-db-security.ts && tsx scripts/verify-fase8-e2e.ts && tsx scripts/verify-fase8-production-readiness.ts",
     "preview": "vite preview"
   },
   "dependencies": {

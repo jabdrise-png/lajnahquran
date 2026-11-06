@@ -1,6 +1,7 @@
 import { Waktu, Marhalah, Person } from '../types';
 import { NotificationStore } from './NotificationStore';
 import { supabase } from './supabaseClient';
+import { SupportSessionStore } from './permissions';
 
 const DEFAULT_CHAT_ID = import.meta.env.VITE_TELEGRAM_CHAT_ID;
 
@@ -66,9 +67,14 @@ export const getTelegramUpdates = async (_botToken: string, _offset?: number): P
     return [];
 };
 
-export const sendCustomTelegramMessage = async (_botToken: string, chatId: string, message: string): Promise<boolean> => {
-    if (!chatId) {
-        console.warn("Telegram Chat ID is not provided.");
+export const sendCustomTelegramMessage = async (
+    _botToken: string,
+    chatId: string,
+    message: string,
+    santriId?: number
+): Promise<boolean> => {
+    if (!chatId && !santriId) {
+        console.warn("Telegram Chat ID or Santri ID is not provided.");
         return false;
     }
 
@@ -77,11 +83,15 @@ export const sendCustomTelegramMessage = async (_botToken: string, chatId: strin
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (jwt) headers['Authorization'] = `Bearer ${jwt}`;
 
+    const activeSupportOrgId = SupportSessionStore.getSession()?.organizationId || undefined;
+
     const proxyRes = await fetch('/api/notify/telegram', {
         method: 'POST',
         headers,
         body: JSON.stringify({
             chatId,
+            santriId,
+            organizationId: activeSupportOrgId,
             message,
             parseMode: 'Markdown'
         })

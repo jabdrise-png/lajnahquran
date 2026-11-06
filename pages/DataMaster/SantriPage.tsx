@@ -91,13 +91,49 @@ const SantriPage: React.FC = () => {
         try {
             const orgId = await getOrgId();
             if (!orgId) return;
-            const { data } = await (supabase.from('student_classes' as any) as any)
-                .select('*')
-                .eq('organization_id', orgId)
-                .eq('santri_id', person.id)
-                .order('academic_year_id', { ascending: false });
-            setStudentEnrollmentHistory(data || []);
-        } catch {
+            const [{ data: v2Data, error: v2Err }, { data: legacyData, error: legErr }] = await Promise.all([
+                (supabase.from('student_enrollments' as any) as any)
+                    .select('*')
+                    .eq('organization_id', orgId)
+                    .eq('student_id', person.id)
+                    .order('academic_year_id', { ascending: false }),
+                (supabase.from('student_classes' as any) as any)
+                    .select('*')
+                    .eq('organization_id', orgId)
+                    .eq('santri_id', person.id)
+                    .order('academic_year_id', { ascending: false }),
+            ]);
+            if (v2Err) throw v2Err;
+            if (legErr) throw legErr;
+
+            const mergedByAy = new Map<number, any>();
+            (legacyData || []).forEach((row: any) => {
+                mergedByAy.set(Number(row.academic_year_id), {
+                    ...row,
+                    status: 'active',
+                    enrolled_at: null,
+                    left_at: null,
+                });
+            });
+            (v2Data || []).forEach((row: any) => {
+                const ayId = Number(row.academic_year_id);
+                const prev = mergedByAy.get(ayId);
+                const mObj = (masterMarhalahs || []).find((m: any) => Number(m.id) === Number(row.master_marhalah_id));
+                const kObj = (masterKelasRelasi || []).find((k: any) => Number(k.id) === Number(row.master_kelas_id));
+                mergedByAy.set(ayId, {
+                    ...prev,
+                    ...row,
+                    marhalah: row.marhalah || mObj?.nama || prev?.marhalah || person.marhalah,
+                    kelas: row.kelas || kObj?.nama_kelas || prev?.kelas || person.kelas,
+                    status: row.status || row.enrollment_status || 'active',
+                });
+            });
+
+            setStudentEnrollmentHistory(
+                Array.from(mergedByAy.values()).sort((a, b) => Number(b.academic_year_id) - Number(a.academic_year_id))
+            );
+        } catch (err: any) {
+            NotificationStore.addNotification(`Gagal memuat riwayat enrollment: ${err.message}`, 'error');
             setStudentEnrollmentHistory([]);
         }
     };
@@ -289,64 +325,27 @@ const SantriPage: React.FC = () => {
                 santriId = data?.id;
             }
 
-            // Also update/insert into student_classes for the active academic year
+            // Penulisan kanonikal ke student_enrollments V2 (sinkron otomatis ke student_classes)
             if (santriId && selectedAcademicYear) {
-                const classPayload: any = {
-                    organization_id: orgId,
-                    academic_year_id: selectedAcademicYear.id,
-                    santri_id: santriId,
-                    marhalah_id: m_id,
-                    kelas_id: k_id,
-                    marhalah: formData.marhalah,
-                    kelas: finalKelas
-                };
-                
-                // Check if exists
-                const { data: existingClass } = await (supabase.from('student_classes' as any) as any)
-                    .select('id')
-                    .eq('organization_id', orgId)
-                    .eq('academic_year_id', selectedAcademicYear.id)
-                    .eq('santri_id', santriId)
-                    .maybeSingle();
-
-                if (existingClass) {
-                    let { error } = await (supabase.from('student_classes' as any) as any).update({
-                        marhalah_id: m_id,
-                        kelas_id: k_id,
+                const enrollmentStatus = formData.status === 'active' ? 'active' : 'withdrawn';
+                const { error: enrollErr } = await (supabase.from('student_enrollments' as any) as any).upsert(
+                    {
+                        organization_id: orgId,
+                        student_id: santriId,
+                        santri_id: santriId,
+                        academic_year_id: selectedAcademicYear.id,
+                        master_marhalah_id: m_id ? Number(m_id) : null,
+                        master_kelas_id: k_id ? Number(k_id) : null,
                         marhalah: formData.marhalah,
-                        kelas: finalKelas
-                    }).eq('id', existingClass.id).eq('organization_id', orgId);
-                    if (error && (error.message?.toLowerCase().includes('enum') || error.code === '22P02')) {
-                        await (supabase.from('student_classes' as any) as any).update({
-                            marhalah_id: m_id,
-                            kelas_id: k_id,
-                            marhalah: safeLegacyMarhalah,
-                            kelas: finalKelas
-                        }).eq('id', existingClass.id).eq('organization_id', orgId);
-                    }
-                } else {
-                    let { error } = await (supabase.from('student_classes' as any) as any).insert(classPayload);
-                    if (error && (error.message?.toLowerCase().includes('enum') || error.code === '22P02')) {
-                        classPayload.marhalah = safeLegacyMarhalah;
-                        await (supabase.from('student_classes' as any) as any).insert(classPayload);
-                    }
-                }
-
-                // Dual-write ke tabel kanonikal student_enrollments (Fase 3 & Fase 6 Blueprint)
-                try {
-                    await (supabase.from('student_enrollments' as any) as any).upsert(
-                        {
-                            organization_id: orgId,
-                            student_id: santriId,
-                            academic_year_id: selectedAcademicYear.id,
-                            marhalah_id: m_id,
-                            kelas_id: k_id,
-                            status: formData.status === 'active' ? 'active' : 'withdrawn',
-                            enrolled_at: new Date().toISOString().split('T')[0],
-                        },
-                        { onConflict: 'organization_id,student_id,academic_year_id' }
-                    );
-                } catch {}
+                        kelas: finalKelas,
+                        status: enrollmentStatus,
+                        enrollment_status: enrollmentStatus,
+                        enrolled_at: new Date().toISOString().split('T')[0],
+                        left_at: enrollmentStatus === 'active' ? null : new Date().toISOString().split('T')[0],
+                    },
+                    { onConflict: 'organization_id,student_id,academic_year_id' }
+                );
+                if (enrollErr) throw enrollErr;
             }
 
             await fetchData();
@@ -564,34 +563,25 @@ const SantriPage: React.FC = () => {
                 } else {
                     success++;
                     if (selectedAcademicYear && newSantri) {
-                        const classPayload: any = {
-                            organization_id: orgId,
-                            academic_year_id: selectedAcademicYear.id,
-                            santri_id: newSantri.id,
-                            marhalah_id: m_id,
-                            kelas_id: k_id,
-                            marhalah: m_nama,
-                            kelas: k_nama
-                        };
-                        let { error: classErr } = await (supabase.from('student_classes' as any) as any).insert(classPayload);
-                        if (classErr && (classErr.message?.toLowerCase().includes('enum') || classErr.code === '22P02')) {
-                            classPayload.marhalah = safeLegacyMarhalah;
-                            await (supabase.from('student_classes' as any) as any).insert(classPayload);
+                        const { error: enrollErr } = await (supabase.from('student_enrollments' as any) as any).upsert(
+                            {
+                                organization_id: orgId,
+                                student_id: newSantri.id,
+                                santri_id: newSantri.id,
+                                academic_year_id: selectedAcademicYear.id,
+                                master_marhalah_id: m_id ? Number(m_id) : null,
+                                master_kelas_id: k_id ? Number(k_id) : null,
+                                marhalah: m_nama,
+                                kelas: k_nama,
+                                status: 'active',
+                                enrollment_status: 'active',
+                                enrolled_at: new Date().toISOString().split('T')[0],
+                            },
+                            { onConflict: 'organization_id,student_id,academic_year_id' }
+                        );
+                        if (enrollErr) {
+                            errors.push(`Baris ${rowNum} (${nama}): Gagal membuat enrollment (${enrollErr.message})`);
                         }
-                        try {
-                            await (supabase.from('student_enrollments' as any) as any).upsert(
-                                {
-                                    organization_id: orgId,
-                                    student_id: newSantri.id,
-                                    academic_year_id: selectedAcademicYear.id,
-                                    marhalah_id: m_id,
-                                    kelas_id: k_id,
-                                    status: 'active',
-                                    enrolled_at: new Date().toISOString().split('T')[0],
-                                },
-                                { onConflict: 'organization_id,student_id,academic_year_id' }
-                            );
-                        } catch {}
                     }
                 }
             }
@@ -1021,34 +1011,53 @@ const SantriPage: React.FC = () => {
 
                         <div>
                             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
-                                1. Riwayat Enrollment Tahunan (Penempatan Kelas)
+                                1. Riwayat Enrollment Tahunan V2 (student_enrollments)
                             </h4>
                             <div className="border border-slate-200 rounded-lg overflow-hidden">
                                 <table className="w-full text-left border-collapse text-xs">
                                     <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
                                         <tr>
                                             <th className="px-3.5 py-2">Tahun Ajaran</th>
-                                            <th className="px-3.5 py-2">Marhalah</th>
-                                            <th className="px-3.5 py-2">Kelas</th>
+                                            <th className="px-3.5 py-2">Marhalah & Kelas</th>
+                                            <th className="px-3.5 py-2">Status Enrollment</th>
+                                            <th className="px-3.5 py-2">Periode Efektif</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-200">
                                         {studentEnrollmentHistory.map((row: any) => {
                                             const ayObj = (academicYears || []).find((a) => a.id === row.academic_year_id);
+                                            const st = row.status || row.enrollment_status || 'active';
                                             return (
                                                 <tr key={row.id || row.academic_year_id}>
                                                     <td className="px-3.5 py-2 font-semibold text-slate-800">
                                                         {ayObj?.name || `TA #${row.academic_year_id}`}
                                                     </td>
-                                                    <td className="px-3.5 py-2 text-slate-600">{row.marhalah}</td>
-                                                    <td className="px-3.5 py-2 font-bold text-blue-700">Kelas {row.kelas}</td>
+                                                    <td className="px-3.5 py-2">
+                                                        <span className="text-slate-600">{row.marhalah}</span> •{' '}
+                                                        <span className="font-bold text-blue-700">Kelas {row.kelas}</span>
+                                                    </td>
+                                                    <td className="px-3.5 py-2">
+                                                        <StatusBadge
+                                                            label={String(st).toUpperCase()}
+                                                            tone={
+                                                                st === 'active'
+                                                                    ? 'success'
+                                                                    : st === 'promoted' || st === 'graduated'
+                                                                    ? 'primary'
+                                                                    : 'warning'
+                                                            }
+                                                        />
+                                                    </td>
+                                                    <td className="px-3.5 py-2 font-mono text-[11px] text-slate-500">
+                                                        {row.enrolled_at || '-'} {row.left_at ? `s/d ${row.left_at}` : '(Aktif)'}
+                                                    </td>
                                                 </tr>
                                             );
                                         })}
                                         {studentEnrollmentHistory.length === 0 && (
                                             <tr>
-                                                <td colSpan={3} className="px-3.5 py-4 text-center text-slate-400">
-                                                    Penempatan aktif saat ini: {detailSantri.marhalah} — Kelas {detailSantri.kelas}
+                                                <td colSpan={4} className="px-3.5 py-4 text-center text-slate-400">
+                                                    Belum ada riwayat enrollment tercatat pada tahun ajaran manapun.
                                                 </td>
                                             </tr>
                                         )}

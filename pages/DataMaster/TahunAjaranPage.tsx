@@ -3,13 +3,45 @@ import { useLocation, useSearchParams } from 'react-router-dom';
 import Modal from '../../components/Modal';
 import { useSupabaseData } from '../../hooks/useSupabaseData';
 import { AcademicYear } from '../../types';
-import { Plus, Edit, Trash, RefreshCw } from 'lucide-react';
+import { Plus, Edit, Trash, RefreshCw, Archive, CheckCircle2, AlertTriangle, ShieldCheck, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useAcademicYear } from '../../lib/AcademicYearContext';
 import { PageShell, PageHeader, StatCard, StatusBadge } from '../../components/ui/SaaSPrimitives';
 import { NotificationStore } from '../../lib/NotificationStore';
 
 type AcademicYearLifecycleStatus = 'draft' | 'setup' | 'active' | 'closing' | 'closed';
+
+interface ClosingPrerequisite {
+    key: string;
+    label: string;
+    count: number;
+    passed: boolean;
+}
+
+interface ClosingReadinessReport {
+    academic_year_id: number;
+    academic_year_name: string;
+    status: string;
+    can_close: boolean;
+    total_blockers: number;
+    prerequisites: ClosingPrerequisite[];
+}
+
+interface ReconciliationFinding {
+    code: string;
+    label: string;
+    count: number;
+    status: 'OK' | 'MISMATCH';
+}
+
+interface ReconciliationReport {
+    organization_id: string;
+    academic_year_id: number | null;
+    is_reconciled: boolean;
+    total_discrepancies: number;
+    findings: ReconciliationFinding[];
+    checked_at: string;
+}
 
 const LIFECYCLE_LABELS: Record<AcademicYearLifecycleStatus, { label: string; tone: 'neutral' | 'warning' | 'success' | 'primary' | 'danger' }> = {
     draft: { label: 'DRAFT', tone: 'neutral' },
@@ -33,26 +65,38 @@ const TahunAjaranPage: React.FC = () => {
         masterMarhalahs,
         masterKelasRelasi,
     } = useSupabaseData();
-    const { refreshAcademicYears, selectedAcademicYear } = useAcademicYear();
+    const {
+        refreshAcademicYears,
+        selectedAcademicYear,
+        activeAcademicYear,
+        isArchivedView,
+        openArchivedYear,
+        returnToActiveYear,
+    } = useAcademicYear();
 
     const isStructureRoute =
         location.pathname.includes('/structure/marhalah') ||
         location.pathname.includes('/structure/classes') ||
         searchParams.get('tab') === 'structure';
 
-    const [activeSection, setActiveSection] = useState<'years' | 'structure'>(isStructureRoute ? 'structure' : 'years');
+    const [activeSection, setActiveSection] = useState<'years' | 'structure' | 'reconciliation'>(
+        isStructureRoute ? 'structure' : 'years'
+    );
 
     useEffect(() => {
         if (isStructureRoute) {
             setActiveSection('structure');
         }
     }, [isStructureRoute]);
+
     const [localAcademicYears, setLocalAcademicYears] = useState<(AcademicYear & { status?: AcademicYearLifecycleStatus; closed_at?: string | null })[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isClosingModalOpen, setIsClosingModalOpen] = useState(false);
     const [closingTargetYear, setClosingTargetYear] = useState<(AcademicYear & { status?: AcademicYearLifecycleStatus }) | null>(null);
     const [closingReason, setClosingReason] = useState('');
+    const [closingReadiness, setClosingReadiness] = useState<ClosingReadinessReport | null>(null);
+    const [checkingReadiness, setCheckingReadiness] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [formData, setFormData] = useState({
@@ -65,6 +109,11 @@ const TahunAjaranPage: React.FC = () => {
         genap_start_date: '',
         genap_end_date: '',
     });
+
+    // State untuk Rekonsiliasi V2 vs Legacy (Fase 4 Section 6)
+    const [reconciliationReport, setReconciliationReport] = useState<ReconciliationReport | null>(null);
+    const [loadingReconciliation, setLoadingReconciliation] = useState(false);
+    const [runningReconcile, setRunningReconcile] = useState(false);
 
     // State untuk Struktur Marhalah & Kelas (Atribut Wali Kelas / Musyrif)
     const [isMarhalahModalOpen, setIsMarhalahModalOpen] = useState(false);
@@ -86,27 +135,76 @@ const TahunAjaranPage: React.FC = () => {
         setLoading(true);
         const orgId = await getOrgId();
         if (orgId) {
-            const { data } = await supabase
+            const { data, error } = await supabase
                 .from('academic_years')
                 .select('*')
                 .eq('organization_id', orgId)
                 .order('id', { ascending: false });
 
-            if (data) {
+            if (error) {
+                NotificationStore.addNotification(`Gagal memuat tahun ajaran: ${error.message}`, 'error');
+            } else if (data) {
                 setLocalAcademicYears(data as any);
             }
         }
         setLoading(false);
     };
 
+    const fetchReconciliationReport = async (ayId?: number) => {
+        setLoadingReconciliation(true);
+        try {
+            const targetAyId = ayId ?? selectedAcademicYear?.id ?? null;
+            const { data, error } = await (supabase as any).rpc('rpc_get_academic_reconciliation_report', {
+                p_academic_year_id: targetAyId,
+            });
+            if (error) throw new Error(error.message);
+            setReconciliationReport(data as ReconciliationReport);
+        } catch (err: any) {
+            NotificationStore.addNotification(err.message || 'Gagal memuat laporan rekonsiliasi V2.', 'error');
+        } finally {
+            setLoadingReconciliation(false);
+        }
+    };
+
+    const handleRunReconciliation = async () => {
+        setRunningReconcile(true);
+        try {
+            const targetAyId = selectedAcademicYear?.id ?? null;
+            const { data, error } = await (supabase as any).rpc('rpc_reconcile_academic_v2_data', {
+                p_academic_year_id: targetAyId,
+            });
+            if (error) throw new Error(error.message);
+            if (data?.report) {
+                setReconciliationReport(data.report as ReconciliationReport);
+            } else {
+                await fetchReconciliationReport(targetAyId ?? undefined);
+            }
+            if (fetchData) await fetchData();
+            NotificationStore.addNotification(
+                `Rekonsiliasi V2 berhasil dijalankan (Enrollments: ${data?.synced?.enrollments_synced ?? 0}, Memberships: ${data?.synced?.memberships_synced ?? 0}, Assignments: ${data?.synced?.assignments_synced ?? 0}).`,
+                'success'
+            );
+        } catch (err: any) {
+            NotificationStore.addNotification(err.message || 'Gagal menjalankan rekonsiliasi V2.', 'error');
+        } finally {
+            setRunningReconcile(false);
+        }
+    };
+
     useEffect(() => {
         fetchAcademicYears();
     }, []);
 
-    // Indikator Kesiapan Enrollment Tahun Ajaran Aktif (Fase 3 Blueprint)
+    useEffect(() => {
+        if (activeSection === 'reconciliation') {
+            fetchReconciliationReport(selectedAcademicYear?.id);
+        }
+    }, [activeSection, selectedAcademicYear?.id]);
+
+    // Indikator Kesiapan Enrollment Tahun Ajaran Terpilih
     const enrollmentReadiness = useMemo(() => {
-        const totalMasterSantri = (allSantri || []).length;
-        const enrolledSantri = (santri || []).filter((s) => s.kelas && s.kelas !== '-').length;
+        const totalMasterSantri = (allSantri || []).filter((s) => (s as any).status !== 'nonaktif').length;
+        const enrolledSantri = (santri || []).filter((s) => s.is_enrolled_in_active_year !== false && s.kelas && s.kelas !== '-').length;
         const unassignedCount = Math.max(0, totalMasterSantri - enrolledSantri);
         const activeHalaqahCount = (halaqah || []).filter((h) => h.is_active !== false).length;
         return {
@@ -187,118 +285,40 @@ const TahunAjaranPage: React.FC = () => {
         setIsModalOpen(true);
     };
 
-    const syncSemestersTable = async (orgId: string, academicYearId: number) => {
-        try {
-            await (supabase as any).from('semesters').upsert(
-                [
-                    {
-                        organization_id: orgId,
-                        academic_year_id: academicYearId,
-                        name: 'Ganjil',
-                        code: 'GANJIL',
-                        start_date: formData.ganjil_start_date || null,
-                        end_date: formData.ganjil_end_date || null,
-                        status: formData.active_semester === 'Ganjil' ? 'active' : 'closed',
-                        is_active: formData.active_semester === 'Ganjil',
-                    },
-                    {
-                        organization_id: orgId,
-                        academic_year_id: academicYearId,
-                        name: 'Genap',
-                        code: 'GENAP',
-                        start_date: formData.genap_start_date || null,
-                        end_date: formData.genap_end_date || null,
-                        status: formData.active_semester === 'Genap' ? 'active' : 'draft',
-                        is_active: formData.active_semester === 'Genap',
-                    },
-                ],
-                { onConflict: 'organization_id,academic_year_id,code' }
-            );
-        } catch {
-            // Abaikan bila tabel semesters V2 belum dimigrasikan
-        }
-    };
-
+    // Transaksi Atomik Server-Side via rpc_upsert_academic_year (Tanpa Fallback Direct Update)
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
         try {
-            const orgId = await getOrgId();
-            let newId = editingId;
+            const { data: rpcResult, error: rpcError } = await (supabase as any).rpc('rpc_upsert_academic_year', {
+                p_id: editingId ?? null,
+                p_name: formData.name.trim(),
+                p_active_semester: formData.active_semester,
+                p_status: formData.status,
+                p_ganjil_start: formData.ganjil_start_date || null,
+                p_ganjil_end: formData.ganjil_end_date || null,
+                p_genap_start: formData.genap_start_date || null,
+                p_genap_end: formData.genap_end_date || null,
+            });
 
-            if (editingId) {
-                const updatePayload: any = {
-                    name: formData.name,
-                    active_semester: formData.active_semester,
-                };
-
-                const { error } = await supabase
-                    .from('academic_years')
-                    .update(updatePayload)
-                    .eq('id', editingId)
-                    .eq('organization_id', orgId);
-                if (error) throw error;
-
-                // Update kolom V2 (status & tanggal semester) secara aman
-                try {
-                    await (supabase as any)
-                        .from('academic_years')
-                        .update({
-                            status: formData.status,
-                            ganjil_start_date: formData.ganjil_start_date || null,
-                            ganjil_end_date: formData.ganjil_end_date || null,
-                            genap_start_date: formData.genap_start_date || null,
-                            genap_end_date: formData.genap_end_date || null,
-                        })
-                        .eq('id', editingId)
-                        .eq('organization_id', orgId);
-                } catch {}
-            } else {
-                const isFirstYear = localAcademicYears.length === 0;
-                const insertPayload: any = {
-                    organization_id: orgId,
-                    name: formData.name,
-                    active_semester: formData.active_semester,
-                    is_active: isFirstYear,
-                };
-
-                const { data, error } = await supabase
-                    .from('academic_years')
-                    .insert(insertPayload)
-                    .select();
-                if (error) throw error;
-                if (data && data.length > 0) {
-                    newId = data[0].id;
-                    try {
-                        await (supabase as any)
-                            .from('academic_years')
-                            .update({
-                                status: isFirstYear ? 'active' : formData.status,
-                                ganjil_start_date: formData.ganjil_start_date || null,
-                                ganjil_end_date: formData.ganjil_end_date || null,
-                                genap_start_date: formData.genap_start_date || null,
-                                genap_end_date: formData.genap_end_date || null,
-                            })
-                            .eq('id', newId)
-                            .eq('organization_id', orgId);
-                    } catch {}
-                }
+            if (rpcError) {
+                throw new Error(rpcError.message || 'Server menolak penyimpanan Tahun Ajaran.');
             }
 
-            if (newId && orgId) {
+            const newId = rpcResult?.id || rpcResult?.academic_year_id || editingId;
+            if (newId) {
                 const datesObject = {
                     Ganjil: { startDate: formData.ganjil_start_date, endDate: formData.ganjil_end_date },
                     Genap: { startDate: formData.genap_start_date, endDate: formData.genap_end_date },
                 };
                 await saveAppSetting(`SEMESTER_DATES_${newId}`, JSON.stringify(datesObject));
-                await syncSemestersTable(orgId, newId);
             }
 
             await fetchAcademicYears();
             await refreshAcademicYears();
             if (fetchData) await fetchData();
             setIsModalOpen(false);
-            NotificationStore.addNotification('Konfigurasi Tahun Ajaran & Semester berhasil disimpan.', 'success');
+            NotificationStore.addNotification('Konfigurasi Tahun Ajaran & Semester berhasil disimpan secara atomik.', 'success');
         } catch (error: any) {
             NotificationStore.addNotification(error.message || 'Gagal menyimpan Tahun Ajaran.', 'error');
         } finally {
@@ -324,6 +344,7 @@ const TahunAjaranPage: React.FC = () => {
                 .eq('organization_id', orgId);
             if (error) throw error;
             await fetchAcademicYears();
+            await refreshAcademicYears();
             NotificationStore.addNotification('Tahun Ajaran berhasil dihapus.', 'success');
         } catch (error: any) {
             NotificationStore.addNotification(error.message || 'Gagal menghapus Tahun Ajaran.', 'error');
@@ -332,34 +353,26 @@ const TahunAjaranPage: React.FC = () => {
 
     const handleSetActive = async (id: number) => {
         try {
-            const orgId = await getOrgId();
-            await supabase.from('academic_years').update({ is_active: false }).eq('organization_id', orgId);
-            try {
-                await (supabase as any)
-                    .from('academic_years')
-                    .update({ status: 'setup' })
-                    .eq('organization_id', orgId)
-                    .eq('status', 'active');
-            } catch {}
-
-            await supabase.from('academic_years').update({ is_active: true }).eq('id', id).eq('organization_id', orgId);
-            try {
-                await (supabase as any)
-                    .from('academic_years')
-                    .update({ status: 'active' })
-                    .eq('id', id)
-                    .eq('organization_id', orgId);
-            } catch {}
+            const targetYear = localAcademicYears.find((y) => y.id === id);
+            const activeSem = targetYear?.active_semester || 'Ganjil';
+            const { error: rpcErr } = await (supabase as any).rpc('rpc_set_active_academic_year', {
+                p_academic_year_id: id,
+                p_semester: activeSem,
+            });
+            if (rpcErr) {
+                throw new Error(rpcErr.message);
+            }
 
             await fetchAcademicYears();
             await refreshAcademicYears();
             if (fetchData) await fetchData();
-            NotificationStore.addNotification('Tahun Ajaran aktif berhasil diperbarui.', 'success');
+            NotificationStore.addNotification('Tahun Ajaran aktif berhasil diperbarui secara atomik.', 'success');
         } catch (error: any) {
             NotificationStore.addNotification(error.message || 'Gagal mengaktifkan Tahun Ajaran.', 'error');
         }
     };
 
+    // Transaksi Atomik Penggantian Semester via rpc_set_active_semester (Tanpa Fallback Direct Update)
     const handleToggleSemester = async (ay: AcademicYear & { status?: AcademicYearLifecycleStatus }) => {
         if (ay.status === 'closed') {
             NotificationStore.addNotification('Tahun Ajaran yang telah ditutup tidak dapat diubah semesternya.', 'error');
@@ -367,69 +380,88 @@ const TahunAjaranPage: React.FC = () => {
         }
         const newSemester = ay.active_semester === 'Ganjil' ? 'Genap' : 'Ganjil';
         try {
-            const orgId = await getOrgId();
-            const { error } = await supabase
-                .from('academic_years')
-                .update({ active_semester: newSemester })
-                .eq('id', ay.id)
-                .eq('organization_id', orgId);
-            if (error) throw error;
-
-            try {
-                await (supabase as any)
-                    .from('semesters')
-                    .update({ is_active: false, status: 'closed' })
-                    .eq('organization_id', orgId)
-                    .eq('academic_year_id', ay.id);
-                await (supabase as any)
-                    .from('semesters')
-                    .update({ is_active: true, status: 'active' })
-                    .eq('organization_id', orgId)
-                    .eq('academic_year_id', ay.id)
-                    .eq('name', newSemester);
-            } catch {}
+            const { error: rpcErr } = await (supabase as any).rpc('rpc_set_active_semester', {
+                p_academic_year_id: ay.id,
+                p_semester: newSemester,
+            });
+            if (rpcErr) throw new Error(rpcErr.message);
 
             await fetchAcademicYears();
             await refreshAcademicYears();
             if (fetchData) await fetchData();
-            NotificationStore.addNotification(`Semester aktif berhasil diubah ke ${newSemester}.`, 'success');
+            NotificationStore.addNotification(`Semester aktif berhasil diubah ke ${newSemester} secara atomik.`, 'success');
         } catch (error: any) {
             NotificationStore.addNotification(error.message || 'Gagal mengubah semester.', 'error');
+        }
+    };
+
+    const handleCloseSemester = async (ay: AcademicYear & { status?: AcademicYearLifecycleStatus }, semesterName: string) => {
+        try {
+            const { error: rpcErr } = await (supabase as any).rpc('rpc_close_semester', {
+                p_academic_year_id: ay.id,
+                p_semester: semesterName,
+                p_reason: `Penutupan Semester ${semesterName} TA ${ay.name}`,
+            });
+            if (rpcErr) throw new Error(rpcErr.message);
+
+            await fetchAcademicYears();
+            await refreshAcademicYears();
+            if (fetchData) await fetchData();
+            NotificationStore.addNotification(`Semester ${semesterName} pada TA ${ay.name} berhasil ditutup.`, 'success');
+        } catch (error: any) {
+            NotificationStore.addNotification(error.message || 'Gagal menutup semester.', 'error');
+        }
+    };
+
+    const handleOpenClosingModal = async (ay: AcademicYear & { status?: AcademicYearLifecycleStatus }) => {
+        setClosingTargetYear(ay);
+        setClosingReason('');
+        setClosingReadiness(null);
+        setIsClosingModalOpen(true);
+        setCheckingReadiness(true);
+        try {
+            const { data, error } = await (supabase as any).rpc('rpc_check_academic_year_closing_readiness', {
+                p_academic_year_id: ay.id,
+            });
+            if (error) throw new Error(error.message);
+            setClosingReadiness(data as ClosingReadinessReport);
+        } catch (err: any) {
+            NotificationStore.addNotification(err.message || 'Gagal memeriksa prasyarat penutupan Tahun Ajaran.', 'error');
+        } finally {
+            setCheckingReadiness(false);
         }
     };
 
     const handleConfirmCloseAcademicYear = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!closingTargetYear) return;
+        if (closingReadiness && !closingReadiness.can_close) {
+            NotificationStore.addNotification(
+                'Penutupan Tahun Ajaran ditolak karena masih terdapat prasyarat operasional yang belum diselesaikan.',
+                'error'
+            );
+            return;
+        }
         setIsSubmitting(true);
         try {
-            const orgId = await getOrgId();
-            // Panggil RPC rekonsiliasi penutupan tahun ajaran (Fase 3 Blueprint)
             const { error: rpcError } = await (supabase as any).rpc('rpc_close_academic_year', {
                 p_academic_year_id: closingTargetYear.id,
+                p_reason: closingReason.trim() || null,
             });
 
             if (rpcError) {
-                // Fallback jika RPC belum dieksekusi di DB
-                await (supabase as any)
-                    .from('academic_years')
-                    .update({
-                        status: 'closed',
-                        is_active: false,
-                        closed_at: new Date().toISOString(),
-                    })
-                    .eq('id', closingTargetYear.id)
-                    .eq('organization_id', orgId);
+                throw new Error(rpcError.message || 'Rekonsiliasi penutupan Tahun Ajaran ditolak oleh server.');
             }
 
             setIsClosingModalOpen(false);
             setClosingTargetYear(null);
             setClosingReason('');
+            setClosingReadiness(null);
             await fetchAcademicYears();
             await refreshAcademicYears();
             if (fetchData) await fetchData();
             NotificationStore.addNotification(
-                `Tahun Ajaran ${closingTargetYear.name} resmi ditutup dan seluruh sesi terbuka telah dikunci.`,
+                `Tahun Ajaran ${closingTargetYear.name} resmi ditutup dan dikunci permanen.`,
                 'success'
             );
         } catch (err: any) {
@@ -442,8 +474,8 @@ const TahunAjaranPage: React.FC = () => {
     const getSemesterDateDisplay = (ay: AcademicYear) => {
         const settingKey = `SEMESTER_DATES_${ay.id}`;
         const setting = appSettings.find((s: any) => s.key === settingKey);
-        let startDate = (ay as any).start_date;
-        let endDate = (ay as any).end_date;
+        let startDate = (ay as any).active_semester === 'Genap' ? (ay as any).genap_start_date : (ay as any).ganjil_start_date || (ay as any).start_date;
+        let endDate = (ay as any).active_semester === 'Genap' ? (ay as any).genap_end_date : (ay as any).ganjil_end_date || (ay as any).end_date;
 
         if (setting?.value) {
             try {
@@ -574,85 +606,53 @@ const TahunAjaranPage: React.FC = () => {
             let savedKelasId = editingKelas?.id;
 
             if (editingKelas) {
-                let { error } = await (supabase as any)
+                const { error } = await (supabase as any)
                     .from('master_kelas_relasi')
                     .update(basePayload)
                     .eq('id', editingKelas.id)
                     .eq('organization_id', orgId);
-
-                if (error && error.message?.includes('column')) {
-                    // Fallback jika kolom V2 belum dimigrasi
-                    const { error: fallbackErr } = await (supabase as any)
-                        .from('master_kelas_relasi')
-                        .update({
-                            marhalah_id: Number(kelasForm.marhalah_id),
-                            nama_kelas: kelasForm.nama_kelas.trim(),
-                            urutan: Number(kelasForm.urutan) || 1,
-                        })
-                        .eq('id', editingKelas.id)
-                        .eq('organization_id', orgId);
-                    error = fallbackErr;
-                }
                 if (error) throw error;
             } else {
-                let { data, error } = await (supabase as any)
+                const { data, error } = await (supabase as any)
                     .from('master_kelas_relasi')
                     .insert({ ...basePayload, organization_id: orgId })
                     .select()
                     .single();
-
-                if (error && error.message?.includes('column')) {
-                    const res = await (supabase as any)
-                        .from('master_kelas_relasi')
-                        .insert({
-                            organization_id: orgId,
-                            marhalah_id: Number(kelasForm.marhalah_id),
-                            nama_kelas: kelasForm.nama_kelas.trim(),
-                            urutan: Number(kelasForm.urutan) || 1,
-                        })
-                        .select()
-                        .single();
-                    data = res.data;
-                    error = res.error;
-                }
                 if (error) throw error;
                 savedKelasId = data?.id;
             }
 
-            // Sinkronisasi atribut administratif Wali Kelas ke tabel wali_kelas (untuk kompatibilitas raport)
             if (kelasForm.wali_kelas_name.trim() && selectedAcademicYear) {
-                try {
-                    const { data: existingWali } = await (supabase as any)
-                        .from('wali_kelas')
-                        .select('id')
-                        .eq('organization_id', orgId)
-                        .eq('academic_year_id', selectedAcademicYear.id)
-                        .eq('kelas', kelasForm.nama_kelas.trim())
-                        .maybeSingle();
+                const { data: existingWali } = await (supabase as any)
+                    .from('wali_kelas')
+                    .select('id')
+                    .eq('organization_id', orgId)
+                    .eq('academic_year_id', selectedAcademicYear.id)
+                    .eq('kelas', kelasForm.nama_kelas.trim())
+                    .maybeSingle();
 
-                    if (existingWali) {
-                        await (supabase as any)
-                            .from('wali_kelas')
-                            .update({
-                                nama: kelasForm.wali_kelas_name.trim(),
-                                no_hp: kelasForm.wali_kelas_phone.trim() || null,
-                                marhalah_id: Number(kelasForm.marhalah_id),
-                                kelas_id: savedKelasId || null,
-                            })
-                            .eq('id', existingWali.id);
-                    } else {
-                        await (supabase as any).from('wali_kelas').insert({
-                            organization_id: orgId,
-                            academic_year_id: selectedAcademicYear.id,
+                if (existingWali) {
+                    await (supabase as any)
+                        .from('wali_kelas')
+                        .update({
                             nama: kelasForm.wali_kelas_name.trim(),
                             no_hp: kelasForm.wali_kelas_phone.trim() || null,
-                            marhalah: ['Mutawassithah', 'Aliyah', 'Jamiah'].includes(marhalahName) ? marhalahName : 'Mutawassithah',
-                            kelas: kelasForm.nama_kelas.trim(),
                             marhalah_id: Number(kelasForm.marhalah_id),
                             kelas_id: savedKelasId || null,
-                        });
-                    }
-                } catch {}
+                        })
+                        .eq('id', existingWali.id);
+                } else {
+                    await (supabase as any).from('wali_kelas').insert({
+                        organization_id: orgId,
+                        academic_year_id: selectedAcademicYear.id,
+                        nama: kelasForm.wali_kelas_name.trim(),
+                        no_hp: kelasForm.wali_kelas_phone.trim() || null,
+                        marhalah: ['Mutawassithah', 'Aliyah', 'Jamiah'].includes(marhalahName) ? marhalahName : 'Mutawassithah',
+                        kelas: kelasForm.nama_kelas.trim(),
+                        marhalah_id: Number(kelasForm.marhalah_id),
+                        kelas_id: savedKelasId || null,
+                    });
+                }
             }
 
             setIsKelasModalOpen(false);
@@ -689,12 +689,12 @@ const TahunAjaranPage: React.FC = () => {
     return (
         <PageShell>
             <PageHeader
-                kicker="FONDASI AKADEMIK & STRUKTUR LEMBAGA (FASE 6)"
-                title="Tahun Ajaran, Semester & Struktur Marhalah/Kelas"
-                description="Kelola siklus hidup tahun ajaran (Draft → Setup → Aktif → Rekonsiliasi → Ditutup), struktur berjenjang Marhalah & Kelas, serta atribut administratif Wali Kelas dan Musyrif."
+                kicker="FONDASI AKADEMIK & DATA KANONIKAL V2 (FASE 4)"
+                title="Tahun Ajaran, Semester, Struktur Kelas & Rekonsiliasi V2"
+                description="Kelola siklus hidup tahun ajaran secara atomik, pemeriksaan 6 prasyarat penutupan tahun ajaran, pembukaan arsip historis, struktur Marhalah/Kelas, dan rekonsiliasi data legacy vs V2."
                 actions={
                     <div className="flex flex-wrap items-center gap-2">
-                        {activeSection === 'years' ? (
+                        {activeSection === 'years' && (
                             <button
                                 type="button"
                                 onClick={() => openModal(null)}
@@ -702,7 +702,8 @@ const TahunAjaranPage: React.FC = () => {
                             >
                                 <Plus size={15} /> Tambah Tahun Ajaran
                             </button>
-                        ) : (
+                        )}
+                        {activeSection === 'structure' && (
                             <>
                                 <button
                                     type="button"
@@ -720,13 +721,49 @@ const TahunAjaranPage: React.FC = () => {
                                 </button>
                             </>
                         )}
+                        {activeSection === 'reconciliation' && (
+                            <button
+                                type="button"
+                                disabled={runningReconcile}
+                                onClick={handleRunReconciliation}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors disabled:opacity-50"
+                            >
+                                <RefreshCw size={14} className={runningReconcile ? 'animate-spin' : ''} />
+                                {runningReconcile ? 'Menyelaraskan Data V2...' : 'Jalankan Sinkronisasi Legacy → V2'}
+                            </button>
+                        )}
                     </div>
                 }
             />
 
-            {/* Segmented Tab Switch: Siklus Tahun Ajaran vs Struktur Marhalah & Kelas */}
+            {/* Banner Mode Arsip Tahun Ajaran Lama */}
+            {isArchivedView && selectedAcademicYear && (
+                <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                        <Archive size={18} className="text-indigo-700 mt-0.5 shrink-0" />
+                        <div>
+                            <div className="text-xs font-bold uppercase tracking-wider text-indigo-900">
+                                Mode Arsip Tahun Ajaran: {selectedAcademicYear.name} ({selectedAcademicYear.active_semester})
+                            </div>
+                            <p className="text-xs text-indigo-700 mt-0.5">
+                                Anda sedang meninjau data historis tahun ajaran arsip. Tahun ajaran operasional yang sedang aktif adalah{' '}
+                                <span className="font-bold">{activeAcademicYear?.name || '-'}</span>.
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={returnToActiveYear}
+                        className="px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shrink-0"
+                    >
+                        Kembali ke Tahun Ajaran Aktif
+                    </button>
+                </div>
+            )}
+
+            {/* Segmented Tab Switch */}
             <div className="flex flex-wrap items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl p-2">
-                <div className="inline-flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
+                <div className="inline-flex flex-wrap items-center gap-1 bg-slate-100 p-1 rounded-lg">
                     <button
                         type="button"
                         onClick={() => setActiveSection('years')}
@@ -749,13 +786,112 @@ const TahunAjaranPage: React.FC = () => {
                     >
                         2. Struktur Marhalah & Kelas ({masterMarhalahs?.length || 0} Marhalah • {masterKelasRelasi?.length || 0} Kelas)
                     </button>
+                    <button
+                        type="button"
+                        onClick={() => setActiveSection('reconciliation')}
+                        className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                            activeSection === 'reconciliation'
+                                ? 'bg-white text-slate-900 shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                    >
+                        3. Rekonsiliasi Data Kanonikal V2 vs Legacy
+                    </button>
                 </div>
                 <div className="text-[11px] text-slate-500 px-2">
                     Sesuai Arsitektur 3-Role: <span className="font-semibold text-slate-700">Wali Kelas & Musyrif</span> dikelola sebagai atribut administratif kelas/santri.
                 </div>
             </div>
 
-            {activeSection === 'structure' ? (
+            {activeSection === 'reconciliation' ? (
+                <div className="space-y-4">
+                    <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                                    <ShieldCheck size={16} className="text-blue-600" />
+                                    Laporan Rekonsiliasi Data Kanonikal V2 vs Legacy ({selectedAcademicYear?.name || 'Semua Tahun'})
+                                </h3>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                    Mendeteksi ketidaksinkronan antara tabel legacy (<span className="font-mono">student_classes, halaqah_santri, halaqah.musammi_id</span>) dan tabel kanonikal V2 (<span className="font-mono">student_enrollments, halaqah_student_memberships, halaqah_musammi_assignments, semesters</span>).
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => fetchReconciliationReport(selectedAcademicYear?.id)}
+                                disabled={loadingReconciliation}
+                                className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5"
+                            >
+                                <RefreshCw size={13} className={loadingReconciliation ? 'animate-spin' : ''} /> Muat Ulang Audit
+                            </button>
+                        </div>
+
+                        {loadingReconciliation ? (
+                            <div className="py-8 text-center text-xs text-slate-500">Memeriksa konsistensi tabel V2 vs Legacy...</div>
+                        ) : reconciliationReport ? (
+                            <div className="space-y-4">
+                                <div className={`p-4 rounded-xl border flex items-center justify-between ${
+                                    reconciliationReport.is_reconciled
+                                        ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                                        : 'bg-amber-50 border-amber-200 text-amber-900'
+                                }`}>
+                                    <div className="flex items-center gap-3">
+                                        {reconciliationReport.is_reconciled ? (
+                                            <CheckCircle2 size={20} className="text-emerald-600 shrink-0" />
+                                        ) : (
+                                            <AlertTriangle size={20} className="text-amber-600 shrink-0" />
+                                        )}
+                                        <div>
+                                            <div className="text-xs font-bold uppercase tracking-wider">
+                                                {reconciliationReport.is_reconciled
+                                                    ? 'DATA KANONIKAL V2 & LEGACY TERSINKRONISASI PENUH'
+                                                    : `DITEMUKAN ${reconciliationReport.total_discrepancies} DISKREPANSI DATA LEGACY VS V2`}
+                                            </div>
+                                            <p className="text-xs mt-0.5 opacity-90">
+                                                Tabel legacy tetap dipertahankan hingga rekonsiliasi bernilai 0 diskrepansi dan disetujui pemilik produk.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <StatusBadge
+                                        label={reconciliationReport.is_reconciled ? 'RECONCILED' : 'NEEDS SYNC'}
+                                        tone={reconciliationReport.is_reconciled ? 'success' : 'warning'}
+                                    />
+                                </div>
+
+                                <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                                    <table className="w-full text-left text-xs border-collapse">
+                                        <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider">
+                                            <tr>
+                                                <th className="px-4 py-3">Kode Pemeriksaan</th>
+                                                <th className="px-4 py-3">Deskripsi Pemeriksaan Integritas</th>
+                                                <th className="px-4 py-3 text-right">Jumlah Temuan</th>
+                                                <th className="px-4 py-3 text-right">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-200">
+                                            {(reconciliationReport.findings || []).map((item) => (
+                                                <tr key={item.code} className="hover:bg-slate-50/70">
+                                                    <td className="px-4 py-3 font-mono font-semibold text-slate-700">{item.code}</td>
+                                                    <td className="px-4 py-3 text-slate-800">{item.label}</td>
+                                                    <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">{item.count}</td>
+                                                    <td className="px-4 py-3 text-right">
+                                                        <StatusBadge
+                                                            label={item.status}
+                                                            tone={item.status === 'OK' ? 'success' : 'warning'}
+                                                        />
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="py-8 text-center text-xs text-slate-400">Belum ada data laporan rekonsiliasi.</div>
+                        )}
+                    </div>
+                </div>
+            ) : activeSection === 'structure' ? (
                 <div className="space-y-4">
                     {(masterMarhalahs || []).length === 0 ? (
                         <div className="bg-white border border-slate-200 rounded-xl p-10 text-center">
@@ -888,167 +1024,190 @@ const TahunAjaranPage: React.FC = () => {
                 </div>
             ) : (
                 <>
-                    {/* Ringkasan Kesiapan Tahun Ajaran Aktif */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard
-                    label="Total Tahun Ajaran"
-                    value={localAcademicYears.length}
-                    meta="Terdaftar pada lembaga ini"
-                    tone="neutral"
-                />
-                <StatCard
-                    label="Santri Ter-Enroll (Aktif)"
-                    value={enrollmentReadiness.enrolledSantri}
-                    meta={`Dari ${enrollmentReadiness.totalMasterSantri} biodata induk santri`}
-                    tone="success"
-                />
-                <StatCard
-                    label="Belum Memiliki Enrollment"
-                    value={enrollmentReadiness.unassignedCount}
-                    meta={
-                        enrollmentReadiness.unassignedCount === 0
-                            ? 'Seluruh santri telah memiliki kelas'
-                            : 'Tidak otomatis masuk roster sesi'
-                    }
-                    tone={enrollmentReadiness.unassignedCount === 0 ? 'success' : 'warning'}
-                />
-                <StatCard
-                    label="Kelompok Halaqah Aktif"
-                    value={enrollmentReadiness.activeHalaqahCount}
-                    meta="Pada tahun ajaran terpilih"
-                    tone="primary"
-                />
-            </div>
-
-            {enrollmentReadiness.unassignedCount > 0 && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                        <div className="text-xs font-bold uppercase tracking-wider text-amber-800">
-                            Peringatan Kesiapan Enrollment Tahun Ajaran
-                        </div>
-                        <p className="text-xs text-amber-700 mt-0.5">
-                            Terdapat <span className="font-mono font-bold">{enrollmentReadiness.unassignedCount}</span> santri yang belum memiliki penempatan kelas (enrollment) aktif pada tahun ajaran ini. Sesuai standar integritas akademik, santri tanpa enrollment aktif tidak akan dimasukkan secara otomatis ke dalam roster sesi halaqah.
-                        </p>
+                    {/* Ringkasan Kesiapan Tahun Ajaran Terpilih */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <StatCard
+                            label="Total Tahun Ajaran"
+                            value={localAcademicYears.length}
+                            meta="Maks. 1 Tahun Ajaran Aktif"
+                            tone="neutral"
+                        />
+                        <StatCard
+                            label="Santri Ter-Enroll (TA Terpilih)"
+                            value={enrollmentReadiness.enrolledSantri}
+                            meta={`Dari ${enrollmentReadiness.totalMasterSantri} biodata induk santri aktif`}
+                            tone="success"
+                        />
+                        <StatCard
+                            label="Belum Memiliki Enrollment"
+                            value={enrollmentReadiness.unassignedCount}
+                            meta={
+                                enrollmentReadiness.unassignedCount === 0
+                                    ? 'Seluruh santri telah memiliki kelas'
+                                    : 'Tidak masuk daftar operasional kelas'
+                            }
+                            tone={enrollmentReadiness.unassignedCount === 0 ? 'success' : 'warning'}
+                        />
+                        <StatCard
+                            label="Kelompok Halaqah Aktif"
+                            value={enrollmentReadiness.activeHalaqahCount}
+                            meta="Pada tahun ajaran terpilih"
+                            tone="primary"
+                        />
                     </div>
-                </div>
-            )}
 
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm border-collapse">
-                        <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
-                            <tr>
-                                <th className="px-6 py-3.5">Tahun Ajaran</th>
-                                <th className="px-6 py-3.5">Semester Berjalan & Rentang Tanggal</th>
-                                <th className="px-6 py-3.5">Tahap Siklus (Lifecycle)</th>
-                                <th className="px-6 py-3.5 text-right">Tindakan Tata Kelola</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-200">
-                            {localAcademicYears.map((ay) => {
-                                const lifecycle = getEffectiveLifecycleStatus(ay);
-                                const badgeMeta = LIFECYCLE_LABELS[lifecycle] || LIFECYCLE_LABELS.setup;
-                                const isClosed = lifecycle === 'closed';
-                                return (
-                                    <tr key={ay.id} className="hover:bg-slate-50/70 transition-colors">
-                                        <td className="px-6 py-4">
-                                            <div className="font-bold text-slate-900 font-mono tabular-nums">
-                                                {ay.name}
-                                            </div>
-                                            {ay.closed_at && (
-                                                <div className="text-[11px] text-slate-500 mt-0.5 font-mono">
-                                                    Ditutup: {new Date(ay.closed_at).toLocaleDateString('id-ID')}
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex flex-wrap items-center justify-between gap-3">
-                                                <div>
-                                                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                                                        Semester {ay.active_semester}
-                                                    </span>
-                                                    {getSemesterDateDisplay(ay) ? (
-                                                        <div className="text-xs font-mono text-slate-600 mt-0.5 tabular-nums">
-                                                            {getSemesterDateDisplay(ay)}
-                                                        </div>
-                                                    ) : (
-                                                        <div className="text-xs text-slate-400 mt-0.5">
-                                                            Rentang tanggal semester belum diatur
+                    {enrollmentReadiness.unassignedCount > 0 && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div>
+                                <div className="text-xs font-bold uppercase tracking-wider text-amber-800">
+                                    Peringatan Kesiapan Enrollment Tahun Ajaran ({selectedAcademicYear?.name})
+                                </div>
+                                <p className="text-xs text-amber-700 mt-0.5">
+                                    Terdapat <span className="font-mono font-bold">{enrollmentReadiness.unassignedCount}</span> santri aktif yang belum memiliki enrollment pada tahun ajaran ini. Sesuai keputusan arsitektur Fase 4, santri tanpa enrollment aktif tidak dimasukkan secara otomatis ke daftar operasional kelas/halaqah.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm border-collapse">
+                                <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
+                                    <tr>
+                                        <th className="px-6 py-3.5">Tahun Ajaran</th>
+                                        <th className="px-6 py-3.5">Semester Berjalan & Rentang Tanggal</th>
+                                        <th className="px-6 py-3.5">Tahap Siklus (Lifecycle)</th>
+                                        <th className="px-6 py-3.5 text-right">Tindakan Tata Kelola</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-200">
+                                    {localAcademicYears.map((ay) => {
+                                        const lifecycle = getEffectiveLifecycleStatus(ay);
+                                        const badgeMeta = LIFECYCLE_LABELS[lifecycle] || LIFECYCLE_LABELS.setup;
+                                        const isClosed = lifecycle === 'closed';
+                                        const isCurrentlyViewed = selectedAcademicYear?.id === ay.id;
+                                        return (
+                                            <tr key={ay.id} className={`hover:bg-slate-50/70 transition-colors ${isCurrentlyViewed ? 'bg-blue-50/20' : ''}`}>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-bold text-slate-900 font-mono tabular-nums">
+                                                            {ay.name}
+                                                        </span>
+                                                        {isCurrentlyViewed && (
+                                                            <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold uppercase">
+                                                                Sedang Ditinjau
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {ay.closed_at && (
+                                                        <div className="text-[11px] text-slate-500 mt-0.5 font-mono">
+                                                            Ditutup: {new Date(ay.closed_at).toLocaleDateString('id-ID')}
                                                         </div>
                                                     )}
-                                                </div>
-                                                {ay.is_active && !isClosed && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleToggleSemester(ay)}
-                                                        className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 transition-colors"
-                                                    >
-                                                        <RefreshCw size={13} /> Ganti ke {ay.active_semester === 'Ganjil' ? 'Genap' : 'Ganjil'}
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <StatusBadge label={badgeMeta.label} tone={badgeMeta.tone} />
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <div className="inline-flex items-center justify-end gap-2">
-                                                {!ay.is_active && !isClosed && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleSetActive(ay.id)}
-                                                        className="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-semibold transition-colors"
-                                                    >
-                                                        Aktifkan
-                                                    </button>
-                                                )}
-                                                {!isClosed && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setClosingTargetYear(ay);
-                                                            setClosingReason('');
-                                                            setIsClosingModalOpen(true);
-                                                        }}
-                                                        className="px-3 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 text-xs font-semibold transition-colors"
-                                                    >
-                                                        Tutup & Kunci Tahun
-                                                    </button>
-                                                )}
-                                                <button
-                                                    type="button"
-                                                    onClick={() => openModal(ay)}
-                                                    className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors"
-                                                    title="Edit Konfigurasi Tahun Ajaran"
-                                                >
-                                                    <Edit size={14} />
-                                                </button>
-                                                {!ay.is_active && !isClosed && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleDelete(ay.id)}
-                                                        className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-red-50 hover:text-red-600 transition-colors"
-                                                        title="Hapus Tahun Ajaran"
-                                                    >
-                                                        <Trash size={14} />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                            {localAcademicYears.length === 0 && (
-                                <tr>
-                                    <td colSpan={4} className="px-6 py-12 text-center text-xs text-slate-500">
-                                        Belum ada data tahun ajaran pada lembaga ini.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex flex-wrap items-center justify-between gap-3">
+                                                        <div>
+                                                            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                                                                Semester {ay.active_semester}
+                                                            </span>
+                                                            {getSemesterDateDisplay(ay) ? (
+                                                                <div className="text-xs font-mono text-slate-600 mt-0.5 tabular-nums">
+                                                                    {getSemesterDateDisplay(ay)}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="text-xs text-slate-400 mt-0.5">
+                                                                    Rentang tanggal semester belum diatur
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        {!isClosed && (
+                                                            <div className="flex items-center gap-1.5">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleToggleSemester(ay)}
+                                                                    className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 transition-colors"
+                                                                >
+                                                                    <RefreshCw size={12} /> Aktifkan {ay.active_semester === 'Ganjil' ? 'Genap' : 'Ganjil'}
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleCloseSemester(ay, ay.active_semester)}
+                                                                    className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-600 inline-flex items-center gap-1 transition-colors"
+                                                                    title={`Tutup Semester ${ay.active_semester}`}
+                                                                >
+                                                                    <Lock size={12} /> Tutup Sem.
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <StatusBadge label={badgeMeta.label} tone={badgeMeta.tone} />
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <div className="inline-flex flex-wrap items-center justify-end gap-2">
+                                                        {!ay.is_active && !isCurrentlyViewed && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => openArchivedYear(ay.id)}
+                                                                className="px-3 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors"
+                                                            >
+                                                                <Archive size={13} /> Buka Arsip
+                                                            </button>
+                                                        )}
+                                                        {!ay.is_active && !isClosed && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleSetActive(ay.id)}
+                                                                className="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-semibold transition-colors"
+                                                            >
+                                                                Aktifkan Tahun
+                                                            </button>
+                                                        )}
+                                                        {!isClosed && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleOpenClosingModal(ay)}
+                                                                className="px-3 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 text-xs font-semibold transition-colors"
+                                                            >
+                                                                Tutup & Kunci Tahun
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => openModal(ay)}
+                                                            className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors"
+                                                            title="Edit Konfigurasi Tahun Ajaran"
+                                                        >
+                                                            <Edit size={14} />
+                                                        </button>
+                                                        {!ay.is_active && !isClosed && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleDelete(ay.id)}
+                                                                className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                                                title="Hapus Tahun Ajaran"
+                                                            >
+                                                                <Trash size={14} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                    {localAcademicYears.length === 0 && (
+                                        <tr>
+                                            <td colSpan={4} className="px-6 py-12 text-center text-xs text-slate-500">
+                                                Belum ada data tahun ajaran pada lembaga ini.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </>
             )}
 
@@ -1202,20 +1361,70 @@ const TahunAjaranPage: React.FC = () => {
                 </form>
             </Modal>
 
-            {/* Wizard Rekonsiliasi & Penutupan Tahun Ajaran (rpc_close_academic_year) */}
+            {/* Wizard Pemeriksaan Prasyarat & Penutupan Tahun Ajaran (rpc_close_academic_year) */}
             <Modal
                 isOpen={isClosingModalOpen}
                 onClose={() => setIsClosingModalOpen(false)}
-                title={`Rekonsiliasi & Penutupan Tahun Ajaran ${closingTargetYear?.name || ''}`}
+                title={`Verifikasi Prasyarat & Penutupan Tahun Ajaran ${closingTargetYear?.name || ''}`}
             >
                 <form onSubmit={handleConfirmCloseAcademicYear} className="space-y-4">
-                    <div className="p-3.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1.5">
-                        <div className="font-bold">Tindakan Rekonsiliasi Otomatis saat Tahun Ajaran Ditutup:</div>
-                        <ul className="list-disc pl-4 space-y-1 text-amber-800">
-                            <li>Mengunci seluruh sesi halaqah yang masih terbuka pada tahun ajaran ini.</li>
-                            <li>Menutup masa berlaku keanggotaan halaqah (<span className="font-mono">valid_to</span>) dan enrollment tahunan.</li>
-                            <li>Mencatat jejak penutupan ke <span className="font-mono">audit_logs</span> lembaga.</li>
-                        </ul>
+                    <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-800">
+                                Daftar 6 Prasyarat Penutupan Tahun Ajaran (Server-Side Gate)
+                            </span>
+                            {closingTargetYear && (
+                                <button
+                                    type="button"
+                                    onClick={() => handleOpenClosingModal(closingTargetYear)}
+                                    disabled={checkingReadiness}
+                                    className="text-[11px] font-semibold text-blue-600 hover:underline inline-flex items-center gap-1"
+                                >
+                                    <RefreshCw size={11} className={checkingReadiness ? 'animate-spin' : ''} /> Periksa Ulang
+                                </button>
+                            )}
+                        </div>
+
+                        {checkingReadiness ? (
+                            <div className="py-4 text-center text-xs text-slate-500">
+                                Memeriksa 6 prasyarat penutupan pada server...
+                            </div>
+                        ) : closingReadiness ? (
+                            <div className="space-y-2">
+                                {(closingReadiness.prerequisites || []).map((item) => (
+                                    <div
+                                        key={item.key}
+                                        className={`flex items-center justify-between px-3 py-2 rounded-lg border text-xs ${
+                                            item.passed
+                                                ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
+                                                : 'bg-red-50 border-red-200 text-red-900'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            {item.passed ? (
+                                                <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                                            ) : (
+                                                <AlertTriangle size={14} className="text-red-600 shrink-0" />
+                                            )}
+                                            <span className="font-medium">{item.label}</span>
+                                        </div>
+                                        <span className="font-mono font-bold">
+                                            {item.passed ? '0 (Tuntas)' : `${item.count} Belum Selesai`}
+                                        </span>
+                                    </div>
+                                ))}
+
+                                {!closingReadiness.can_close && (
+                                    <div className="p-2.5 rounded-lg bg-red-100/80 border border-red-300 text-[11px] text-red-900 font-medium">
+                                        Penutupan Tahun Ajaran dikunci oleh server hingga seluruh prasyarat di atas bernilai 0.
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="py-3 text-xs text-red-600">
+                                Tidak dapat memverifikasi prasyarat penutupan tahun ajaran.
+                            </div>
+                        )}
                     </div>
 
                     <div>
@@ -1227,7 +1436,7 @@ const TahunAjaranPage: React.FC = () => {
                             rows={3}
                             value={closingReason}
                             onChange={(e) => setClosingReason(e.target.value)}
-                            placeholder="Contoh: Seluruh ujian semester genap dan penerbitan raport TA 2025/2026 telah selesai."
+                            placeholder="Contoh: Seluruh sesi, ujian, remedial, publikasi raport, dan rekonsiliasi enrollment TA telah tuntas."
                             className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-blue-600"
                         />
                     </div>
@@ -1242,10 +1451,15 @@ const TahunAjaranPage: React.FC = () => {
                         </button>
                         <button
                             type="submit"
-                            disabled={isSubmitting || !closingReason.trim()}
+                            disabled={
+                                isSubmitting ||
+                                checkingReadiness ||
+                                !closingReason.trim() ||
+                                (closingReadiness !== null && !closingReadiness.can_close)
+                            }
                             className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold disabled:opacity-50"
                         >
-                            {isSubmitting ? 'Memproses Rekonsiliasi...' : 'Kunci & Tutup Tahun Ajaran'}
+                            {isSubmitting ? 'Memproses Penutupan...' : 'Kunci & Tutup Tahun Ajaran'}
                         </button>
                     </div>
                 </form>

@@ -5,12 +5,15 @@ import { supabase } from '../lib/supabaseClient';
 import { Trash2, Search, Building, Plus, Edit, User, Mail, KeyRound, CheckCircle, Copy, Hash } from 'lucide-react';
 import { NotificationStore } from '../lib/NotificationStore';
 import { ConfirmDialog } from '../components/ui/SaaSPrimitives';
+import { resolveTenantContext } from '../lib/permissions';
 
 interface UserProfile {
     id: string;
     full_name: string;
     email: string | null;
     role: string;
+    grant_id?: string | null;
+    grant_status?: 'active' | 'invited' | 'suspended' | 'revoked' | 'expired';
     organization_id: string;
     organizations: {
         name: string;
@@ -36,7 +39,8 @@ const Users: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null); // For editing
     const [confirmApproveTarget, setConfirmApproveTarget] = useState<{ id: string; name: string } | null>(null);
-    const [confirmDeleteTarget, setConfirmDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+    const [confirmDeleteTarget, setConfirmDeleteTarget] = useState<{ id: string; name: string; status?: string; grantId?: string | null } | null>(null);
+    const [lastIssuedInvite, setLastIssuedInvite] = useState<{ email: string; invitePath: string; temporaryPassword?: string | null } | null>(null);
     
     // Form Data
     const [creationType, setCreationType] = useState<'new_org' | 'existing_org'>('new_org');
@@ -52,12 +56,20 @@ const Users: React.FC = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            let currentProfile = null;
-            if (session) {
-                const { data } = await supabase.from('profiles').select('id, role, organization_id').eq('id', session.user.id).single();
-                currentProfile = data;
-                setCurrentUser(data);
+            const ctx = await resolveTenantContext(supabase);
+            let currentProfile: any = null;
+            if (ctx.userId && ctx.isAuthorized) {
+                currentProfile = {
+                    id: ctx.userId,
+                    role: ctx.isSuperAdmin ? 'super_admin' : ctx.effectiveRole,
+                    organization_id: ctx.organizationId,
+                };
+                setCurrentUser(currentProfile);
+            } else {
+                setCurrentUser(null);
+                setUsers([]);
+                setLoading(false);
+                return;
             }
 
             // Fetch Users
@@ -73,18 +85,59 @@ const Users: React.FC = () => {
                 `)
                 .order('role', { ascending: false });
                 
-            if (currentProfile && currentProfile.role !== 'super_admin') {
+            if (currentProfile && currentProfile.role !== 'super_admin' && currentProfile.role !== 'superadmin') {
                 query = query.eq('organization_id', currentProfile.organization_id);
             }
 
             const { data: userData, error: userError } = await query;
 
             if (userError) throw userError;
-            
-            // Manual sort to put 'pending' at top
-            const sortedData = (userData as unknown as UserProfile[]).sort((a, b) => {
-                if (a.role === 'pending' && b.role !== 'pending') return -1;
-                if (a.role !== 'pending' && b.role === 'pending') return 1;
+
+            // Ambil status access_grants otoritatif
+            let grantsMap = new Map<string, { id: string; role: string; status: string; expires_at?: string | null }>();
+            try {
+                let gQuery = (supabase as any)
+                    .from('access_grants')
+                    .select('id, user_id, organization_id, role, status, expires_at');
+                if (currentProfile && currentProfile.role !== 'super_admin' && currentProfile.role !== 'superadmin' && currentProfile.organization_id) {
+                    gQuery = gQuery.eq('organization_id', currentProfile.organization_id);
+                }
+                const { data: gRows } = await gQuery;
+                if (Array.isArray(gRows)) {
+                    for (const g of gRows as any[]) {
+                        const key = `${g.user_id}:${g.organization_id || 'global'}`;
+                        grantsMap.set(key, g);
+                        if (!grantsMap.has(g.user_id)) {
+                            grantsMap.set(g.user_id, g);
+                        }
+                    }
+                }
+            } catch {
+                // fallback jika tabel access_grants belum ada
+            }
+
+            const enrichedUsers = ((userData as unknown as UserProfile[]) || []).map((u) => {
+                const g = grantsMap.get(`${u.id}:${u.organization_id || 'global'}`) || grantsMap.get(u.id);
+                let grantStatus: UserProfile['grant_status'] =
+                    u.role === 'pending' ? 'invited' : 'active';
+                if (g) {
+                    const isExp = g.expires_at && new Date(g.expires_at).getTime() <= Date.now();
+                    grantStatus = isExp && g.status === 'invited' ? 'expired' : (g.status as any);
+                }
+                return {
+                    ...u,
+                    role: g?.role === 'superadmin' ? 'super_admin' : g?.role || u.role,
+                    grant_id: g?.id || null,
+                    grant_status: grantStatus,
+                };
+            });
+
+            // Manual sort to put 'pending' / 'invited' at top
+            const sortedData = enrichedUsers.sort((a, b) => {
+                const aPending = a.role === 'pending' || a.grant_status === 'invited';
+                const bPending = b.role === 'pending' || b.grant_status === 'invited';
+                if (aPending && !bPending) return -1;
+                if (!aPending && bPending) return 1;
                 return 0;
             });
             setUsers(sortedData);
@@ -120,63 +173,92 @@ const Users: React.FC = () => {
         setConfirmApproveTarget(null);
         try {
             const targetUser = users.find((u) => u.id === id);
-            let query = supabase
-                .from('profiles')
-                .update({ role: 'admin' })
-                .eq('id', id);
-            if (currentUser && currentUser.role !== 'super_admin' && currentUser.organization_id) {
-                query = query.eq('organization_id', currentUser.organization_id);
-            }
-            const { error } = await query;
-            if (error) throw error;
+            const isSuperCaller = currentUser?.role === 'super_admin' || currentUser?.role === 'superadmin';
+            const approvedRole = isSuperCaller ? 'admin' : 'musammi';
+            const targetOrgId = isSuperCaller
+                ? targetUser?.organization_id
+                : currentUser?.organization_id;
 
-            try {
-                await (supabase.from('user_profiles' as any) as any).upsert({
-                    id,
-                    full_name: name,
-                    email: targetUser?.email || null,
-                    updated_at: new Date().toISOString(),
-                }, { onConflict: 'id' });
-
-                if (targetUser?.organization_id) {
-                    await (supabase.from('access_grants' as any) as any).upsert({
-                        user_id: id,
-                        organization_id: targetUser.organization_id,
-                        role: 'admin',
-                        status: 'active',
-                        updated_at: new Date().toISOString(),
-                    }, { onConflict: 'user_id,organization_id,role' });
-                }
-            } catch {
-                // Fallback aman jika tabel V2 belum dimigrasi
+            if (!targetOrgId) {
+                throw new Error('Organisasi pengguna tidak valid.');
             }
 
-            NotificationStore.addNotification(`Pengguna ${name} telah diaktifkan sebagai Admin Lembaga.`, 'success');
+            // Gunakan fungsi server-side khusus rpc_manage_access_grant yang memverifikasi aktor
+            const { error: rpcError } = await (supabase as any).rpc('rpc_manage_access_grant', {
+                p_grant_id: null,
+                p_target_user_id: id,
+                p_organization_id: targetOrgId,
+                p_role: approvedRole,
+                p_status: 'active',
+                p_reason: `Aktivasi akun oleh ${isSuperCaller ? 'Superadmin' : 'Admin Lembaga'}`,
+            });
+
+            if (rpcError) {
+                throw rpcError;
+            }
+
+            NotificationStore.addNotification(
+                `Pengguna ${name} telah diaktifkan sebagai ${approvedRole === 'admin' ? 'Admin Lembaga' : 'Musammi'}.`,
+                'success'
+            );
             fetchData();
         } catch (e: any) {
             NotificationStore.addNotification(`Gagal: ${e.message}`, 'error');
         }
     };
 
-    const handleDeleteUser = (id: string, name: string) => {
-        setConfirmDeleteTarget({ id, name });
+    const handleDeleteUser = (user: UserProfile) => {
+        setConfirmDeleteTarget({
+            id: user.id,
+            name: user.full_name,
+            status: user.grant_status,
+            grantId: user.grant_id || null,
+        });
     };
 
     const executeDeleteUser = async () => {
         if (!confirmDeleteTarget) return;
-        const { id, name } = confirmDeleteTarget;
+        const { id, name, status, grantId } = confirmDeleteTarget;
         setConfirmDeleteTarget(null);
         try {
-            let query = supabase.from('profiles').delete().eq('id', id);
-            if (currentUser && currentUser.role !== 'super_admin' && currentUser.organization_id) {
-                query = query.eq('organization_id', currentUser.organization_id);
+            const targetUser = users.find((u) => u.id === id);
+            const isSuperCaller = currentUser?.role === 'super_admin' || currentUser?.role === 'superadmin';
+            const targetOrgId = isSuperCaller ? targetUser?.organization_id : currentUser?.organization_id;
+
+            // FASE 2 INVARIANT: Jangan pernah melakukan DELETE pada tabel profiles agar histori akademik & audit log tetap utuh.
+            // Gunakan rpc_revoke_invitation (untuk status invited) atau rpc_manage_access_grant (status = 'revoked').
+            if (status === 'invited') {
+                const { error: revErr } = await (supabase as any).rpc('rpc_revoke_invitation', {
+                    p_invitation_id: null,
+                    p_grant_id: grantId || null,
+                    p_reason: `Undangan ${name} dibatalkan melalui Manajemen Users`,
+                });
+                if (revErr) throw revErr;
+            } else {
+                const targetRole =
+                    targetUser?.role === 'super_admin' || targetUser?.role === 'superadmin'
+                        ? 'superadmin'
+                        : targetUser?.role === 'admin'
+                        ? 'admin'
+                        : 'musammi';
+                const { error: rpcErr } = await (supabase as any).rpc('rpc_manage_access_grant', {
+                    p_grant_id: grantId || null,
+                    p_target_user_id: id,
+                    p_organization_id: targetRole === 'superadmin' ? null : targetOrgId,
+                    p_role: targetRole,
+                    p_status: 'revoked',
+                    p_reason: `Pencabutan hak akses pengguna (${name}) tanpa menghapus histori`,
+                });
+                if (rpcErr) throw rpcErr;
             }
-            const { error } = await query;
-            if (error) throw error;
-            NotificationStore.addNotification(`User ${name} berhasil dihapus.`, 'success');
+
+            NotificationStore.addNotification(
+                `Hak akses ${name} berhasil dicabut (REVOKED). Data historis tetap terjaga.`,
+                'success'
+            );
             fetchData();
         } catch (e: any) {
-            NotificationStore.addNotification(`Gagal menghapus: ${e.message}`, 'error');
+            NotificationStore.addNotification(`Gagal mencabut akses: ${e.message}`, 'error');
         }
     };
 
@@ -187,12 +269,12 @@ const Users: React.FC = () => {
 
     const openAddModal = () => {
         setModalMode('add');
-        if (currentUser?.role === 'super_admin') {
+        if (currentUser?.role === 'super_admin' || currentUser?.role === 'superadmin') {
             setCreationType('new_org');
             setFormData({ email: '', password: '', fullName: '', mahadName: '', targetOrgId: '', role: 'admin' });
         } else {
             setCreationType('existing_org');
-            setFormData({ email: '', password: '', fullName: '', mahadName: '', targetOrgId: currentUser?.organization_id || '', role: 'admin' });
+            setFormData({ email: '', password: '', fullName: '', mahadName: '', targetOrgId: currentUser?.organization_id || '', role: 'musammi' });
         }
         setIsModalOpen(true);
     };
@@ -206,7 +288,7 @@ const Users: React.FC = () => {
             fullName: user.full_name || '',
             mahadName: user.organizations?.name || '',
             targetOrgId: user.organization_id || '',
-            role: user.role || 'admin'
+            role: user.role || 'musammi'
         });
         setIsModalOpen(true);
     };
@@ -219,8 +301,12 @@ const Users: React.FC = () => {
         }
         
         if (modalMode === 'add') {
-            if (!formData.email || !formData.password) {
-                NotificationStore.addNotification("Email dan Password wajib diisi untuk user baru.", "error");
+            if (!formData.email) {
+                NotificationStore.addNotification("Email wajib diisi untuk user baru.", "error");
+                return;
+            }
+            if (formData.password && formData.password.trim().length > 0 && formData.password.trim().length < 8) {
+                NotificationStore.addNotification("Password minimal 8 karakter (atau kosongkan untuk sandi sementara otomatis).", "error");
                 return;
             }
             if (creationType === 'new_org' && !formData.mahadName) {
@@ -252,25 +338,39 @@ const Users: React.FC = () => {
                 }
 
                 let targetOrganizationId = formData.targetOrgId || currentUser?.organization_id || '';
-                if (creationType === 'new_org' && currentUser?.role === 'super_admin') {
+                const isSuperCaller = currentUser?.role === 'super_admin' || currentUser?.role === 'superadmin';
+                const isNewTenantProvisioning = creationType === 'new_org' && isSuperCaller;
+
+                if (isNewTenantProvisioning) {
                     const slug = formData.mahadName
                         .toLowerCase()
                         .replace(/[^a-z0-9]+/g, '-')
-                        .replace(/(^-|-$)/g, '') + '-' + Math.floor(100 + Math.random() * 900);
-                    const { data: createdOrg, error: createOrgErr } = await supabase
-                        .from('organizations')
-                        .insert({ name: formData.mahadName, slug, status: 'active' } as any)
-                        .select('id')
-                        .single();
-                    if (createOrgErr) throw createOrgErr;
-                    if (createdOrg) {
-                        targetOrganizationId = createdOrg.id;
+                        .replace(/(^-|-$)/g, '');
+                    const { data: rpcOrg, error: rpcOrgErr } = await (supabase as any).rpc(
+                        'rpc_create_tenant_with_admin',
+                        {
+                            p_name: formData.mahadName.trim(),
+                            p_slug: slug,
+                            p_timezone: 'Asia/Jakarta',
+                            p_plan_id: 'standard',
+                            p_status: 'provisioning',
+                        }
+                    );
+                    if (rpcOrgErr || !rpcOrg?.id) {
+                        throw rpcOrgErr || new Error('Gagal menyiapkan tenant organisasi baru.');
                     }
+                    targetOrganizationId = rpcOrg.id;
                 }
 
                 if (!targetOrganizationId) {
                     throw new Error("Organisasi tujuan wajib dipilih.");
                 }
+
+                const effectiveRequestedRole = !isSuperCaller
+                    ? 'musammi'
+                    : formData.role === 'super_admin'
+                    ? 'superadmin'
+                    : formData.role;
 
                 const resp = await fetch('/api/invitations', {
                     method: 'POST',
@@ -280,19 +380,40 @@ const Users: React.FC = () => {
                     },
                     body: JSON.stringify({
                         email: formData.email.trim(),
-                        password: formData.password,
+                        password: formData.password.trim() || undefined,
                         fullName: formData.fullName.trim(),
-                        role: formData.role === 'super_admin' ? 'admin' : formData.role,
-                        organizationId: targetOrganizationId
+                        role: effectiveRequestedRole,
+                        organizationId: targetOrganizationId,
+                        mahadName: formData.mahadName.trim() || undefined,
+                        isTenantProvisioning: isNewTenantProvisioning,
                     })
                 });
 
                 const result = await resp.json().catch(() => ({}));
                 if (!resp.ok) {
-                    throw new Error(result?.error || `Gagal membuat akun melalui endpoint serverless (/api/invitations status ${resp.status}).`);
+                    if (isNewTenantProvisioning && targetOrganizationId) {
+                        try {
+                            await (supabase as any).rpc('rpc_mark_tenant_provisioning_status', {
+                                p_organization_id: targetOrganizationId,
+                                p_status: 'provisioning_failed',
+                                p_reason: result?.error || 'Undangan Admin gagal',
+                            });
+                        } catch {
+                            // ignore fallback
+                        }
+                    }
+                    throw new Error(result?.error || `Gagal membuat undangan melalui endpoint serverless (/api/invitations status ${resp.status}).`);
                 }
 
-                NotificationStore.addNotification(`Akun ${formData.fullName} berhasil dibuat dan ditautkan ke akses lembaga.`, 'success');
+                setLastIssuedInvite({
+                    email: formData.email.trim().toLowerCase(),
+                    invitePath: result?.inviteAcceptPath || `/invite?email=${encodeURIComponent(formData.email.trim().toLowerCase())}&org=${targetOrganizationId}`,
+                    temporaryPassword: result?.temporaryPassword || null,
+                });
+                NotificationStore.addNotification(
+                    `Undangan untuk ${formData.fullName} berhasil diterbitkan. Pengguna wajib mengonfirmasi tautan /invite agar akun aktif.`,
+                    'success'
+                );
 
             } else {
                 // --- EDIT USER FLOW ---
@@ -300,46 +421,42 @@ const Users: React.FC = () => {
                 const userToEdit = users.find(u => u.id === currentUserId);
                 if (!userToEdit) return;
 
-                // Update Profile
+                const isSuperCaller = currentUser?.role === 'super_admin' || currentUser?.role === 'superadmin';
+                const targetRole = !isSuperCaller
+                    ? 'musammi'
+                    : formData.role === 'super_admin'
+                    ? 'superadmin'
+                    : formData.role;
+
+                // 1. Update identitas profil (non-otorisasi) pada profiles
                 let profileUpdateQuery = supabase
                     .from('profiles')
                     .update({ 
-                        full_name: formData.fullName,
-                        role: formData.role
+                        full_name: formData.fullName
                     })
                     .eq('id', currentUserId);
-                if (currentUser && currentUser.role !== 'super_admin' && currentUser.organization_id) {
+                if (currentUser && !isSuperCaller && currentUser.organization_id) {
                     profileUpdateQuery = profileUpdateQuery.eq('organization_id', currentUser.organization_id);
                 }
                 const { error: profileError } = await profileUpdateQuery;
-
                 if (profileError) throw profileError;
 
-                // Sinkronkan juga ke user_profiles, access_grants & musammi_staff (V2)
-                try {
-                    await (supabase.from('user_profiles' as any) as any).upsert({
-                        id: currentUserId,
-                        full_name: formData.fullName,
-                        email: userToEdit.email || null,
-                        is_superadmin: formData.role === 'super_admin' || formData.role === 'superadmin',
-                        updated_at: new Date().toISOString()
-                    }, { onConflict: 'id' });
-
-                    if (userToEdit.organization_id && (formData.role === 'admin' || formData.role === 'musammi')) {
-                        await (supabase.from('access_grants' as any) as any).upsert({
-                            user_id: currentUserId,
-                            organization_id: userToEdit.organization_id,
-                            role: formData.role,
-                            status: 'active',
-                            updated_at: new Date().toISOString()
-                        }, { onConflict: 'user_id,organization_id,role' });
-                    }
-                } catch {
-                    // Fallback aman jika tabel V2 belum dimigrasi
+                // 2. Perubahan otorisasi (role/grant) wajib melalui fungsi server rpc_manage_access_grant
+                const targetOrgId = isSuperCaller ? userToEdit.organization_id : currentUser?.organization_id;
+                if (targetOrgId || targetRole === 'superadmin') {
+                    const { error: rpcErr } = await (supabase as any).rpc('rpc_manage_access_grant', {
+                        p_grant_id: null,
+                        p_target_user_id: currentUserId,
+                        p_organization_id: targetRole === 'superadmin' ? null : targetOrgId,
+                        p_role: targetRole,
+                        p_status: 'active',
+                        p_reason: `Pembaruan hak akses pengguna (${formData.fullName})`,
+                    });
+                    if (rpcErr) throw rpcErr;
                 }
 
-                // Update Org Name (Only if super_admin and org name actually changed)
-                if (currentUser?.role === 'super_admin' && userToEdit.organization_id && formData.mahadName && formData.mahadName !== userToEdit.organizations?.name) {
+                // 3. Update Org Name (Only if super_admin and org name actually changed)
+                if (isSuperCaller && userToEdit.organization_id && formData.mahadName && formData.mahadName !== userToEdit.organizations?.name) {
                     const { error: orgError } = await supabase
                         .from('organizations')
                         .update({ name: formData.mahadName })
@@ -369,6 +486,43 @@ const Users: React.FC = () => {
 
     return (
         <div className="space-y-6">
+            {lastIssuedInvite && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                    <div className="space-y-1">
+                        <div className="font-bold text-blue-950">
+                            Tautan Aktivasi Undangan Sekali Pakai ({lastIssuedInvite.email})
+                        </div>
+                        <div className="font-mono text-[11px] text-blue-900 break-all">
+                            {window.location.origin}{lastIssuedInvite.invitePath}
+                        </div>
+                        {lastIssuedInvite.temporaryPassword && (
+                            <div className="text-slate-700">
+                                Kode Verifikasi Undangan: <span className="font-mono font-bold text-slate-900">{lastIssuedInvite.temporaryPassword}</span>
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                navigator.clipboard.writeText(`${window.location.origin}${lastIssuedInvite.invitePath}`);
+                                NotificationStore.addNotification('Tautan undangan disalin.', 'info');
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white font-semibold"
+                        >
+                            Salin Tautan /invite
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setLastIssuedInvite(null)}
+                            className="px-2.5 py-1.5 rounded-lg border border-blue-200 text-blue-800 hover:bg-blue-100 font-semibold"
+                        >
+                            Tutup
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <Card title={currentUser?.role === 'super_admin' ? "Manajemen Users (Super Admin)" : "Manajemen Users"}>
                 <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                     <p className="text-sm text-slate-500">
@@ -390,7 +544,7 @@ const Users: React.FC = () => {
                                 onClick={openAddModal}
                                 className="bg-secondary text-white font-semibold py-2 px-4 rounded-lg hover:bg-accent transition-colors flex items-center justify-center text-sm shadow-sm whitespace-nowrap"
                             >
-                                <Plus size={18} className="mr-2" /> Tambah User Manual
+                                <Plus size={18} className="mr-2" /> Undang Pengguna Baru
                             </button>
                         )}
                     </div>
@@ -402,7 +556,7 @@ const Users: React.FC = () => {
                             <tr>
                                 <th className="px-6 py-3">Nama Lengkap</th>
                                 <th className="px-6 py-3">Email</th>
-                                <th className="px-6 py-3">Role / Status</th>
+                                <th className="px-6 py-3">Role / Status Grant</th>
                                 <th className="px-6 py-3">Nama Ma'had & ID</th>
                                 <th className="px-6 py-3 text-right">Aksi</th>
                             </tr>
@@ -414,7 +568,7 @@ const Users: React.FC = () => {
                                 <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-400">Tidak ada user ditemukan.</td></tr>
                             ) : (
                                 filteredUsers.map((user) => (
-                                    <tr key={user.id} className={`hover:bg-slate-50 transition-colors ${user.role === 'pending' ? 'bg-yellow-50/50' : ''}`}>
+                                    <tr key={user.id} className={`hover:bg-slate-50 transition-colors ${user.role === 'pending' || user.grant_status === 'invited' ? 'bg-yellow-50/50' : ''}`}>
                                         <td className="px-6 py-4 font-medium text-slate-900">
                                             {user.full_name || 'Tanpa Nama'}
                                         </td>
@@ -422,23 +576,36 @@ const Users: React.FC = () => {
                                             {user.email || '-'}
                                         </td>
                                         <td className="px-6 py-4">
-                                            {user.role === 'super_admin' || user.role === 'superadmin' ? (
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-slate-900 text-white">
-                                                    Superadmin Platform
-                                                </span>
-                                            ) : user.role === 'pending' ? (
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                                                    Menunggu Persetujuan
-                                                </span>
-                                            ) : user.role === 'musammi' ? (
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                    Musammi
-                                                </span>
-                                            ) : (
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                                                    Admin Lembaga
-                                                </span>
-                                            )}
+                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                {user.role === 'super_admin' || user.role === 'superadmin' ? (
+                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-slate-900 text-white">
+                                                        Superadmin Platform
+                                                    </span>
+                                                ) : user.role === 'pending' ? (
+                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                                                        Menunggu Aktivasi
+                                                    </span>
+                                                ) : user.role === 'musammi' ? (
+                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                        Musammi
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                                                        Admin Lembaga
+                                                    </span>
+                                                )}
+                                                {user.grant_status && (
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                                        user.grant_status === 'active'
+                                                            ? 'bg-emerald-100 text-emerald-800'
+                                                            : user.grant_status === 'invited'
+                                                            ? 'bg-amber-100 text-amber-800'
+                                                            : 'bg-rose-100 text-rose-800'
+                                                    }`}>
+                                                        {user.grant_status}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4">
                                             {user.organizations ? (
@@ -463,13 +630,13 @@ const Users: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2">
-                                                {user.role === 'pending' && (
+                                                {(user.role === 'pending' || user.grant_status === 'invited' || user.grant_status === 'suspended' || user.grant_status === 'revoked') && (
                                                     <button 
                                                         onClick={() => handleApproveUser(user.id, user.full_name)}
                                                         className="bg-green-600 text-white hover:bg-green-700 transition-colors p-1.5 rounded-md text-xs font-bold flex items-center mr-2 shadow-sm"
-                                                        title="Setujui User Ini"
+                                                        title="Aktifkan Grant User Ini"
                                                     >
-                                                        <CheckCircle size={14} className="mr-1" /> Setujui
+                                                        <CheckCircle size={14} className="mr-1" /> Aktifkan
                                                     </button>
                                                 )}
                                                 
@@ -481,11 +648,11 @@ const Users: React.FC = () => {
                                                     <Edit size={18} />
                                                 </button>
                                                 
-                                                {user.role !== 'super_admin' && (
+                                                {user.role !== 'super_admin' && user.grant_status !== 'revoked' && (
                                                     <button 
-                                                        onClick={() => handleDeleteUser(user.id, user.full_name)}
+                                                        onClick={() => handleDeleteUser(user)}
                                                         className="text-slate-400 hover:text-error transition-colors p-1 rounded-full hover:bg-red-50"
-                                                        title="Hapus User"
+                                                        title="Cabut Akses / Batalkan Undangan (Non-Destruktif)"
                                                     >
                                                         <Trash2 size={18} />
                                                     </button>
@@ -653,15 +820,25 @@ const Users: React.FC = () => {
                             className="block w-full border-slate-300 rounded-md focus:ring-secondary focus:border-secondary sm:text-sm"
                             value={formData.role}
                             onChange={e => setFormData({...formData, role: e.target.value})}
+                            disabled={
+                                currentUser?.role !== 'super_admin' &&
+                                currentUser?.role !== 'superadmin' &&
+                                modalMode === 'edit' &&
+                                currentUserId === currentUser?.id
+                            }
                         >
-                            <option value="admin">Admin Lembaga</option>
+                            {(currentUser?.role === 'super_admin' ||
+                              currentUser?.role === 'superadmin' ||
+                              (modalMode === 'edit' && currentUserId === currentUser?.id && formData.role === 'admin')) && (
+                                <option value="admin">Admin Lembaga</option>
+                            )}
                             <option value="musammi">Musammi (Pengampu Halaqah)</option>
-                            {currentUser?.role === 'super_admin' && (
+                            {(currentUser?.role === 'super_admin' || currentUser?.role === 'superadmin') && (
                                 <option value="super_admin">Superadmin Platform</option>
                             )}
                         </select>
                         <p className="text-xs text-slate-400 mt-1">
-                            Sesuai arsitektur 3-Role SaaS, Wali Kelas & Musyrif dikelola sebagai atribut kelas/santri, bukan role login.
+                            Sesuai arsitektur keamanan 3-Role SaaS, Admin Lembaga hanya dapat membuat/mengelola akun Musammi. Penunjukan Admin Lembaga hanya dilakukan oleh Superadmin Platform.
                         </p>
                     </div>
 
@@ -686,7 +863,11 @@ const Users: React.FC = () => {
             <ConfirmDialog
                 isOpen={confirmApproveTarget !== null}
                 title="Setujui Pendaftaran Pengguna"
-                description={`Setujui pendaftaran "${confirmApproveTarget?.name || ''}"? Pengguna ini akan mendapatkan akses sebagai Admin Lembaga.`}
+                description={`Setujui pendaftaran "${confirmApproveTarget?.name || ''}"? Pengguna ini akan mendapatkan akses sebagai ${
+                    currentUser?.role === 'super_admin' || currentUser?.role === 'superadmin'
+                        ? 'Admin Lembaga'
+                        : 'Musammi'
+                }.`}
                 confirmLabel="Setujui Akses"
                 tone="primary"
                 onConfirm={executeApproveUser}
@@ -695,9 +876,9 @@ const Users: React.FC = () => {
 
             <ConfirmDialog
                 isOpen={confirmDeleteTarget !== null}
-                title="Hapus Pengguna"
-                description={`PERINGATAN: Anda yakin ingin menghapus pengguna "${confirmDeleteTarget?.name || ''}"? Pengguna ini tidak akan bisa login lagi dan aksesnya akan dicabut.`}
-                confirmLabel="Hapus Pengguna"
+                title="Cabut Hak Akses / Batalkan Undangan"
+                description={`Anda yakin ingin mencabut hak akses untuk "${confirmDeleteTarget?.name || ''}"? Akses pengguna akan diubah menjadi REVOKED sehingga tidak dapat masuk, namun seluruh histori akademik dan audit log tetap tersimpan utuh.`}
+                confirmLabel="Cabut Akses (Revoke)"
                 tone="danger"
                 onConfirm={executeDeleteUser}
                 onCancel={() => setConfirmDeleteTarget(null)}

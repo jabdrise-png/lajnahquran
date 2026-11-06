@@ -4,7 +4,7 @@ import type { Santri, Musammi, Halaqah, AttendanceRecord, HalaqahType, Waktu, St
 import { Marhalah, Peran, AttendanceStatus } from '../types';
 import { useAcademicYear } from '../lib/AcademicYearContext';
 
-import { SupportSessionStore } from '../lib/permissions';
+import { SupportSessionStore, resolveTenantContext } from '../lib/permissions';
 import { NotificationStore } from '../lib/NotificationStore';
 
 const useSupabaseDataInternal = () => {
@@ -36,6 +36,10 @@ const useSupabaseDataInternal = () => {
     const [setoranHarian, setSetoranHarian] = useState<any[]>([]);
     
     const [activeSemesterDates, setActiveSemesterDates] = useState<{ startDate: string | null; endDate: string | null }>({ startDate: null, endDate: null });
+    const [studentEnrollments, setStudentEnrollments] = useState<any[]>([]);
+    const [halaqahMemberships, setHalaqahMemberships] = useState<any[]>([]);
+    const [musammiAssignments, setMusammiAssignments] = useState<any[]>([]);
+    const [queryErrors, setQueryErrors] = useState<{ table: string; code?: string; message: string }[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     
@@ -57,64 +61,36 @@ const useSupabaseDataInternal = () => {
     };
 
     const getOrgId = useCallback(async (): Promise<string> => {
-        const activeSupport = SupportSessionStore.getSession();
-        if (activeSupport?.organizationId) {
-            orgIdRef.current = activeSupport.organizationId;
-            if (activeSupport.organizationName) {
-                setOrgName(activeSupport.organizationName);
-            }
-            return activeSupport.organizationId;
-        }
-
-        if (orgIdRef.current) return orgIdRef.current;
         if (orgIdPromiseRef.current) return orgIdPromiseRef.current;
 
         orgIdPromiseRef.current = (async () => {
             try {
-                let user: any = null;
-                const { data: sessionData } = await supabase.auth.getSession();
-                if (sessionData?.session?.user) {
-                    user = sessionData.session.user;
-                } else {
-                    try {
-                        const { data: userData, error: authError } = await supabase.auth.getUser();
-                        if (authError && authError.message.includes('Refresh Token')) {
-                             await supabase.auth.signOut().catch(() => {});
-                        } else {
-                            user = userData?.user;
-                        }
-                    } catch (e) {
-                        // ignore network auth check failure
-                    }
+                const ctx = await resolveTenantContext(supabase);
+                if (!ctx.userId || !ctx.isAuthorized) {
+                    orgIdRef.current = null;
+                    return '';
                 }
 
-                if (user) {
-                    const { data: profile } = await supabase
-                        .from('profiles')
-                        .select(`id, organization_id, full_name, role, organizations(name, logo_url)`)
-                        .eq('id', user.id)
-                        .maybeSingle();
+                setUserProfile({
+                    id: ctx.userId,
+                    name: ctx.fullName || 'Pengguna',
+                    role: ctx.effectiveRole,
+                });
 
-                    if (profile) {
-                        setUserProfile({ id: profile.id, name: profile.full_name || 'Admin', role: profile.role });
-                        if ((profile.role === 'super_admin' || profile.role === 'superadmin') && activeSupport?.organizationId) {
-                            orgIdRef.current = activeSupport.organizationId;
-                            setOrgName(activeSupport.organizationName || '');
-                            return activeSupport.organizationId;
-                        }
-                        if (profile.organization_id) {
-                            if (profile.organizations) {
-                                const org = Array.isArray(profile.organizations) ? profile.organizations[0] : profile.organizations;
-                                setOrgName(org?.name || '');
-                                setOrgLogo(org?.logo_url || '');
-                            }
-                            orgIdRef.current = profile.organization_id;
-                            return profile.organization_id;
-                        }
-                    }
+                if (ctx.organizationName) {
+                    setOrgName(ctx.organizationName);
+                }
+                if (ctx.organizationLogo) {
+                    setOrgLogo(ctx.organizationLogo);
+                }
+
+                if (ctx.organizationId) {
+                    orgIdRef.current = ctx.organizationId;
+                    return ctx.organizationId;
                 }
 
                 // Sesuai Blueprint Fase 1: Dilarang melakukan fallback ke organizations.limit(1)
+                orgIdRef.current = null;
                 return '';
             } catch (err) {
                 console.warn("Could not determine organization:", err);
@@ -134,49 +110,80 @@ const useSupabaseDataInternal = () => {
         }
         setLoading(true);
         setError(null);
+        const collectedErrors: { table: string; code?: string; message: string }[] = [];
+
         try {
             // Populate user profile and cache org ID
             const orgId = await getOrgId();
+            if (!orgId) {
+                setLoading(false);
+                return;
+            }
             
-            // Helper for safe query execution with fallback
-            const safeQuery = async <T,>(queryPromise: any, fallback: T): Promise<{ data: T; error: any }> => {
+            // Helper query dengan pembedaan tegas antara data kosong vs error query nyata (Fase 4 Section 6)
+            const executeTableQuery = async <T,>(
+                tableName: string,
+                queryPromise: any,
+                fallback: T,
+                options?: { optionalTransitionTable?: boolean }
+            ): Promise<{ data: T; error: any }> => {
                 try {
                     const res = await queryPromise;
                     if (res?.error) {
-                        console.warn("Supabase query warning:", res.error.code, res.error.message);
+                        const code = String(res.error.code || '');
+                        const msg = String(res.error.message || 'Unknown query error');
+                        const isMissingTable = code === '42P01' || code === 'PGRST205' || msg.includes('does not exist');
+                        if (!(options?.optionalTransitionTable && isMissingTable)) {
+                            collectedErrors.push({ table: tableName, code, message: msg });
+                            console.error(`[useSupabaseData] Query error on ${tableName} (${code}): ${msg}`);
+                        }
                         return { data: fallback, error: res.error };
                     }
                     return { data: (res?.data ?? fallback) as T, error: null };
                 } catch (e: any) {
-                    console.warn("Supabase query exception:", e);
+                    const msg = e?.message || String(e);
+                    collectedErrors.push({ table: tableName, message: msg });
+                    console.error(`[useSupabaseData] Query exception on ${tableName}:`, e);
                     return { data: fallback, error: e };
                 }
             };
 
-            // Batch 1: Core reference & structure (scoped by organization_id)
+            // Batch 1: Core reference & V2 Canonical Academic Structure (scoped by organization_id)
             const [
-                { data: santriData },
+                { data: santriData, error: santriErr },
+                { data: studentEnrollmentsData },
                 { data: studentClassesData },
                 { data: musammiData },
                 { data: waliKelasData },
                 { data: musyrifsData },
-                { data: halaqahData },
+                { data: halaqahData, error: halaqahErr },
+                { data: halaqahMembershipsData },
                 { data: halaqahSantriData },
+                { data: musammiAssignmentsData },
+                { data: semestersData },
                 { data: masterMarhalahData },
                 { data: masterKelasRelasiData },
                 { data: masterKelasData }
             ] = await Promise.all([
-                safeQuery((supabase as any).from('santri').select('*').eq('organization_id', orgId).limit(5000).order('nama', { ascending: true }), []),
-                safeQuery((supabase as any).from('student_classes').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(5000), []),
-                safeQuery((supabase as any).from('musammi').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(1000).order('nama', { ascending: true }), []),
-                safeQuery((supabase as any).from('wali_kelas').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(1000).order('kelas', { ascending: true }), []),
-                safeQuery((supabase as any).from('musyrifs').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(1000).order('nama', { ascending: true }), []),
-                safeQuery((supabase as any).from('halaqah').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(1000).order('id', { ascending: true }), []),
-                safeQuery((supabase as any).from('halaqah_santri').select('*').eq('organization_id', orgId).limit(10000), []),
-                safeQuery((supabase as any).from('master_marhalah').select('*').eq('organization_id', orgId).limit(500), []),
-                safeQuery((supabase as any).from('master_kelas_relasi').select('*').eq('organization_id', orgId).limit(500), []),
-                safeQuery((supabase as any).from('master_kelas').select('*').eq('organization_id', orgId).limit(500).order('marhalah', { ascending: true }).order('nama_kelas', { ascending: true }), [])
+                executeTableQuery('santri', (supabase as any).from('santri').select('*').eq('organization_id', orgId).limit(5000).order('nama', { ascending: true }), []),
+                executeTableQuery('student_enrollments', (supabase as any).from('student_enrollments').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(5000), []),
+                executeTableQuery('student_classes', (supabase as any).from('student_classes').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(5000), [], { optionalTransitionTable: true }),
+                executeTableQuery('musammi', (supabase as any).from('musammi').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(1000).order('nama', { ascending: true }), []),
+                executeTableQuery('wali_kelas', (supabase as any).from('wali_kelas').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(1000).order('kelas', { ascending: true }), [], { optionalTransitionTable: true }),
+                executeTableQuery('musyrifs', (supabase as any).from('musyrifs').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(1000).order('nama', { ascending: true }), [], { optionalTransitionTable: true }),
+                executeTableQuery('halaqah', (supabase as any).from('halaqah').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(1000).order('id', { ascending: true }), []),
+                executeTableQuery('halaqah_student_memberships', (supabase as any).from('halaqah_student_memberships').select('*').eq('organization_id', orgId).limit(10000), []),
+                executeTableQuery('halaqah_santri', (supabase as any).from('halaqah_santri').select('*').eq('organization_id', orgId).limit(10000), [], { optionalTransitionTable: true }),
+                executeTableQuery('halaqah_musammi_assignments', (supabase as any).from('halaqah_musammi_assignments').select('*').eq('organization_id', orgId).limit(5000), []),
+                executeTableQuery('semesters', (supabase as any).from('semesters').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(20), []),
+                executeTableQuery('master_marhalah', (supabase as any).from('master_marhalah').select('*').eq('organization_id', orgId).limit(500), []),
+                executeTableQuery('master_kelas_relasi', (supabase as any).from('master_kelas_relasi').select('*').eq('organization_id', orgId).limit(500), []),
+                executeTableQuery('master_kelas', (supabase as any).from('master_kelas').select('*').eq('organization_id', orgId).limit(500).order('marhalah', { ascending: true }).order('nama_kelas', { ascending: true }), [], { optionalTransitionTable: true })
             ]);
+
+            if (santriErr && halaqahErr) {
+                throw new Error(`Gagal memuat data akademik utama (${santriErr.message || halaqahErr.message})`);
+            }
 
             // Batch 2: Configuration & Targets
             const [
@@ -185,10 +192,10 @@ const useSupabaseDataInternal = () => {
                 { data: appSettingsData },
                 { data: halaqahEvalQData }
             ] = await Promise.all([
-                safeQuery((supabase as any).from('class_targets').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(1000), []),
-                safeQuery((supabase as any).from('evaluation_settings').select('*').eq('organization_id', orgId).limit(1000).order('score', { ascending: false }), []),
-                safeQuery((supabase as any).from('app_settings').select('*').eq('organization_id', orgId).limit(500), []),
-                safeQuery((supabase as any).from('halaqah_evaluation_questions').select('*').eq('organization_id', orgId).limit(500).order('id', { ascending: true }), [])
+                executeTableQuery('class_targets', (supabase as any).from('class_targets').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(1000), []),
+                executeTableQuery('evaluation_settings', (supabase as any).from('evaluation_settings').select('*').eq('organization_id', orgId).limit(1000).order('score', { ascending: false }), []),
+                executeTableQuery('app_settings', (supabase as any).from('app_settings').select('*').eq('organization_id', orgId).limit(500), []),
+                executeTableQuery('halaqah_evaluation_questions', (supabase as any).from('halaqah_evaluation_questions').select('*').eq('organization_id', orgId).limit(500).order('id', { ascending: true }), [])
             ]);
 
             // Batch 3: Progress, Evaluations & Exams
@@ -199,29 +206,33 @@ const useSupabaseDataInternal = () => {
                 { data: ujianBulananData },
                 { data: ujianSemesterData }
             ] = await Promise.all([
-                safeQuery((supabase as any).from('student_progress').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(10000), []),
-                safeQuery((supabase as any).from('student_evaluation').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(10000), []),
-                safeQuery((supabase as any).from('halaqah_evaluations').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(10000), []),
-                safeQuery((supabase as any).from('ujian_bulanan').select('*').eq('organization_id', orgId).limit(10000), []),
-                safeQuery((supabase as any).from('ujian_semester').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(10000), [])
+                executeTableQuery('student_progress', (supabase as any).from('student_progress').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(10000), []),
+                executeTableQuery('student_evaluation', (supabase as any).from('student_evaluation').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(10000), []),
+                executeTableQuery('halaqah_evaluations', (supabase as any).from('halaqah_evaluations').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(10000), []),
+                executeTableQuery('ujian_bulanan', (supabase as any).from('ujian_bulanan').select('*').eq('organization_id', orgId).limit(10000), []),
+                executeTableQuery('ujian_semester', (supabase as any).from('ujian_semester').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(10000), [])
             ]);
 
-            // Fetch active semester dates from appSettingsData (Batch 2)
-            const semSettingKey = `SEMESTER_DATES_${selectedAcademicYear.id}`;
-            const semSetting = (appSettingsData as any[])?.find(s => s.key === semSettingKey);
-            let activeSemStartDate: string | null = null;
-            let activeSemEndDate: string | null = null;
+            // Fetch active semester dates from canonical V2 `semesters` table first, fallback to `app_settings`
+            const currSemName = selectedAcademicYear.active_semester || 'Ganjil';
+            const v2ActiveSem = ((semestersData as any[]) || []).find(
+                (sem: any) => sem.name === currSemName || sem.is_active === true
+            );
+            let activeSemStartDate: string | null = v2ActiveSem?.start_date || null;
+            let activeSemEndDate: string | null = v2ActiveSem?.end_date || null;
 
-            if (semSetting?.value) {
-                try {
-                    const parsed = JSON.parse(semSetting.value);
-                    
-                    const currSem = selectedAcademicYear.active_semester || 'Ganjil';
-                    if (parsed[currSem]) {
-                        activeSemStartDate = parsed[currSem].startDate || null;
-                        activeSemEndDate = parsed[currSem].endDate || null;
-                    }
-                } catch(e) {}
+            if (!activeSemStartDate || !activeSemEndDate) {
+                const semSettingKey = `SEMESTER_DATES_${selectedAcademicYear.id}`;
+                const semSetting = (appSettingsData as any[])?.find(s => s.key === semSettingKey);
+                if (semSetting?.value) {
+                    try {
+                        const parsed = JSON.parse(semSetting.value);
+                        if (parsed[currSemName]) {
+                            activeSemStartDate = activeSemStartDate || parsed[currSemName].startDate || null;
+                            activeSemEndDate = activeSemEndDate || parsed[currSemName].endDate || null;
+                        }
+                    } catch(e) {}
+                }
             }
 
             setActiveSemesterDates({ startDate: activeSemStartDate, endDate: activeSemEndDate });
@@ -242,9 +253,14 @@ const useSupabaseDataInternal = () => {
                 { data: rawAttendanceData },
                 { data: setoranHarianData }
             ] = await Promise.all([
-                safeQuery(attendanceQuery.limit(50000), []),
-                safeQuery((supabase as any).from('setoran_harian').select('*').eq('organization_id', orgId).limit(50000), [])
+                executeTableQuery('attendance', attendanceQuery.limit(50000), []),
+                executeTableQuery('setoran_harian', (supabase as any).from('setoran_harian').select('*').eq('organization_id', orgId).limit(50000), [])
             ]);
+
+            setQueryErrors(collectedErrors);
+            setStudentEnrollments(studentEnrollmentsData || []);
+            setHalaqahMemberships(halaqahMembershipsData || []);
+            setMusammiAssignments(musammiAssignmentsData || []);
 
             const attendanceData = (rawAttendanceData || []).filter((a: any) => {
                 if (activeSemStartDate && activeSemEndDate) {
@@ -297,21 +313,39 @@ const useSupabaseDataInternal = () => {
                 }
             } catch (e) {}
 
-            // Map all santri in the organization (enriched with current academic year class if plotted)
+            // Map all santri in the organization using Canonical V2 `student_enrollments` first, merged with `student_classes`
+            // FASE 4 RULE: Data santri tanpa enrollment pada tahun ajaran terpilih TIDAK otomatis dianggap terdaftar di semua kelas.
+            const v2EnrollmentsList = (studentEnrollmentsData as any[]) || [];
+            const legacyClassesList = (studentClassesData as any[]) || [];
+
             const allSantriMapped: Santri[] = (santriData || []).map(s => {
-                const currentClass = ((studentClassesData as any[]) || []).find(c => c.santri_id == s.id);
-                
-                let marhalahName = currentClass?.marhalah || s.marhalah;
-                const mId = currentClass?.marhalah_id || s.marhalah_id;
+                const v2Enr = v2EnrollmentsList.find(
+                    e => Number(e.student_id || e.santri_id) === Number(s.id)
+                );
+                const legacyCls = legacyClassesList.find(
+                    c => Number(c.santri_id) === Number(s.id)
+                );
+
+                const enrStatus = v2Enr
+                    ? (v2Enr.status || v2Enr.enrollment_status || 'active')
+                    : (legacyCls ? 'active' : 'unenrolled');
+
+                const hasEnrollmentInYear = Boolean(v2Enr || legacyCls);
+                const isEnrolledActive = hasEnrollmentInYear && enrStatus === 'active';
+
+                const mId = v2Enr?.master_marhalah_id || v2Enr?.marhalah_id || legacyCls?.marhalah_id || (isEnrolledActive ? s.marhalah_id : null);
+                let marhalahName = v2Enr?.marhalah || legacyCls?.marhalah || s.marhalah;
                 if (mId && masterMarhalahData) {
-                    const matchedM = (masterMarhalahData as any[])?.find(m => m.id === mId);
+                    const matchedM = (masterMarhalahData as any[])?.find(m => String(m.id) === String(mId));
                     if (matchedM) marhalahName = matchedM.nama;
                 }
 
-                let kelasName = currentClass?.kelas || s.kelas || '-';
-                const kId = currentClass?.kelas_id || s.kelas_id;
-                if (kId && masterKelasRelasiData) {
-                    const matchedK = (masterKelasRelasiData as any[])?.find(k => k.id === kId);
+                const kId = v2Enr?.master_kelas_id || v2Enr?.kelas_id || legacyCls?.kelas_id || (isEnrolledActive ? s.kelas_id : null);
+                let kelasName = isEnrolledActive
+                    ? (v2Enr?.kelas || legacyCls?.kelas || s.kelas || '-')
+                    : '-';
+                if (isEnrolledActive && kId && masterKelasRelasiData) {
+                    const matchedK = (masterKelasRelasiData as any[])?.find(k => String(k.id) === String(kId));
                     if (matchedK) kelasName = matchedK.nama_kelas;
                 }
 
@@ -321,22 +355,25 @@ const useSupabaseDataInternal = () => {
                     kelas_id: kId,
                     marhalah: (marhalahName || s.marhalah) as Marhalah,
                     kelas: kelasName,
-                    student_class_id: currentClass?.id,
+                    student_class_id: legacyCls?.id || v2Enr?.id,
+                    enrollment_status: enrStatus,
+                    enrolled_at: v2Enr?.enrolled_at || null,
+                    left_at: v2Enr?.left_at || null,
+                    is_enrolled_in_active_year: isEnrolledActive,
                     nama_wali: s.nama_wali || undefined,
                     no_hp_wali: s.no_hp_wali || undefined,
                     telegram_chat_id: s.telegram_chat_id || undefined,
-                    isActiveInCurrentYear: !!currentClass,
+                    isActiveInCurrentYear: isEnrolledActive,
                     original_marhalah: s.marhalah,
                     original_kelas: s.kelas
                 };
             });
 
-            // Operational modules use plotted santri if student_classes exist for this year, or fallback to all active santri
-            const hasAnyPlottedInYear = ((studentClassesData as any[]) || []).length > 0;
-            const santriList: Santri[] = hasAnyPlottedInYear
-                ? allSantriMapped.filter(s => (s as any).isActiveInCurrentYear)
-                : allSantriMapped;
-            const activeSantriListForApp = santriList.filter(s => (s.status || 'active') === 'active');
+            // FASE 4 RULE: Santri tanpa enrollment aktif pada tahun ajaran terpilih TIDAK otomatis masuk daftar santri kelas operasional
+            const santriList: Santri[] = allSantriMapped.filter(
+                s => Boolean((s as any).isActiveInCurrentYear) && (s.status || 'active') === 'active'
+            );
+            const activeSantriListForApp = santriList;
             const musammiList: Musammi[] = (musammiData || []).map(m => ({ ...m, marhalah: m.marhalah as Marhalah }));
             const waliKelasList: WaliKelas[] = (waliKelasData || []).map(w => ({ ...w, marhalah: w.marhalah as Marhalah }));
 
@@ -386,31 +423,105 @@ const useSupabaseDataInternal = () => {
             setMasterMarhalahs(masterMarhalahData || []);
             setMasterKelasRelasi(masterKelasRelasiData || []);
 
-            // Map santri to their halaqah
+            // Map santri & musammi assignments to their halaqah using Canonical V2 `halaqah_student_memberships` & `halaqah_musammi_assignments`
+            const v2MembershipsList = (halaqahMembershipsData as any[]) || [];
+            const legacyMembershipsList = (halaqahSantriData as any[]) || [];
+            const v2AssignmentsList = (musammiAssignmentsData as any[]) || [];
+
             const halaqahWithSantri: Halaqah[] = (halaqahData || []).map((h): Halaqah | null => {
-                const activeSantriIds = (halaqahSantriData || [])
-                    .filter(hs => hs.halaqah_id == h.id && (!hs.end_date || hs.end_date.trim() === ''))
-                    .map(hs => hs.santri_id);
-                
-                const historyRecords = (halaqahSantriData || [])
-                    .filter(hs => hs.halaqah_id == h.id)
-                    .map(hs => ({
-                        halaqah_id: hs.halaqah_id,
-                        santri_id: hs.santri_id,
-                        santri: activeSantriListForApp.find(s => s.id == hs.santri_id),
-                        start_date: hs.start_date,
-                        end_date: hs.end_date,
-                        status: hs.status
-                    }));
-                
-                const musammiForHalaqah: Musammi = musammiList.find(m => m.id === h.musammi_id) || {
-                    id: h.musammi_id || 0,
+                // 1. Canonical V2 Memberships merged with Legacy `halaqah_santri`
+                const v2ForGroup = v2MembershipsList.filter(m => Number(m.halaqah_id) === Number(h.id));
+                const legacyForGroup = legacyMembershipsList.filter(hs => Number(hs.halaqah_id) === Number(h.id));
+
+                const activeSantriIdsSet = new Set<number>();
+                const historyRecords: any[] = [];
+                const seenStudentStartKeys = new Set<string>();
+
+                v2ForGroup.forEach(m => {
+                    const sid = Number(m.student_id);
+                    const isCurrentlyActive = m.status === 'active' && (!m.valid_to || String(m.valid_to).trim() === '');
+                    if (isCurrentlyActive) {
+                        activeSantriIdsSet.add(sid);
+                    }
+                    const statusLabel = isCurrentlyActive
+                        ? 'Aktif'
+                        : m.status === 'transferred'
+                        ? 'Mutasi'
+                        : m.status === 'completed'
+                        ? 'Selesai TA'
+                        : 'Dikeluarkan dari Grup';
+                    const key = `${sid}_${m.valid_from || ''}`;
+                    seenStudentStartKeys.add(key);
+                    historyRecords.push({
+                        halaqah_id: h.id,
+                        santri_id: sid,
+                        santri: allSantriMapped.find(s => Number(s.id) === sid),
+                        start_date: m.valid_from || '',
+                        end_date: m.valid_to || null,
+                        status: statusLabel
+                    });
+                });
+
+                legacyForGroup.forEach(hs => {
+                    const sid = Number(hs.santri_id);
+                    const isCurrentlyActive = (!hs.end_date || String(hs.end_date).trim() === '') && (hs.status || 'Aktif') === 'Aktif';
+                    if (isCurrentlyActive && v2ForGroup.length === 0) {
+                        activeSantriIdsSet.add(sid);
+                    }
+                    const key = `${sid}_${hs.start_date || ''}`;
+                    if (!seenStudentStartKeys.has(key) && !v2ForGroup.some(m => Number(m.student_id) === sid)) {
+                        historyRecords.push({
+                            halaqah_id: h.id,
+                            santri_id: sid,
+                            santri: allSantriMapped.find(s => Number(s.id) === sid),
+                            start_date: hs.start_date || '',
+                            end_date: hs.end_date || null,
+                            status: hs.status || (isCurrentlyActive ? 'Aktif' : 'Berhenti')
+                        });
+                    }
+                });
+
+                // 2. Canonical V2 Musammi Assignments (Primary & Substitute)
+                const groupAssignments = v2AssignmentsList
+                    .filter(a => Number(a.halaqah_id) === Number(h.id))
+                    .map(a => {
+                        const matchedMusammi = musammiList.find(m => Number(m.id) === Number(a.musammi_id));
+                        return {
+                            id: a.id,
+                            halaqah_id: Number(a.halaqah_id),
+                            musammi_id: Number(a.musammi_id),
+                            musammi_user_id: a.musammi_user_id || matchedMusammi?.user_id || null,
+                            musammi_nama: matchedMusammi?.nama || `Musammi #${a.musammi_id}`,
+                            assignment_type: (a.assignment_type === 'substitute' || a.is_primary === false ? 'substitute' : 'primary') as 'primary' | 'substitute',
+                            is_primary: a.assignment_type ? a.assignment_type === 'primary' : Boolean(a.is_primary ?? true),
+                            valid_from: a.valid_from || '',
+                            valid_to: a.valid_to || null,
+                            is_active: a.is_active !== false && a.status !== 'ended' && a.status !== 'revoked',
+                            status: a.status || (a.is_active !== false ? 'active' : 'ended'),
+                            notes: a.notes || null,
+                        };
+                    });
+
+                const activePrimaryAssignment = groupAssignments.find(
+                    a => a.is_active && a.assignment_type === 'primary' && !a.valid_to
+                );
+                const primaryMusammiId = activePrimaryAssignment?.musammi_id || h.musammi_id;
+
+                const musammiForHalaqah: Musammi = musammiList.find(m => Number(m.id) === Number(primaryMusammiId)) || {
+                    id: primaryMusammiId || 0,
                     nama: 'Belum Ada Musammi',
                     marhalah: (h.marhalah || 'Mutawassithah') as Marhalah,
                     kelas: '-'
                 };
 
-                const activeSantriList = activeSantriListForApp.filter(s => activeSantriIds.some(id => id == s.id));
+                const substituteMusammiList: Musammi[] = groupAssignments
+                    .filter(a => a.is_active && a.assignment_type === 'substitute' && !a.valid_to)
+                    .map(a => musammiList.find(m => Number(m.id) === Number(a.musammi_id)))
+                    .filter((m): m is Musammi => Boolean(m));
+
+                const activeSantriList = allSantriMapped.filter(
+                    s => activeSantriIdsSet.has(Number(s.id)) && (s.status || 'active') === 'active'
+                );
 
                 let marhalahName = h.marhalah;
                 if (h.marhalah_id && masterMarhalahData) {
@@ -422,6 +533,8 @@ const useSupabaseDataInternal = () => {
                     id: h.id,
                     nama: h.nama,
                     musammi: musammiForHalaqah,
+                    substitute_musammi: substituteMusammiList,
+                    musammi_assignments: groupAssignments,
                     santri: activeSantriList,
                     active_santri: activeSantriList,
                     history: historyRecords,
@@ -444,7 +557,7 @@ const useSupabaseDataInternal = () => {
                     if (a.peran === 'Santri' || a.peran === Peran.Santri) {
                         person = activeSantriListForApp.find(p => p.id === a.person_id)
                             || santriList.find(p => p.id === a.person_id)
-                            || (santriData || []).find((p: any) => p.id === a.person_id);
+                            || allSantriMapped.find((p: any) => p.id === a.person_id);
                     } else {
                         person = musammiList.find(p => p.id === a.person_id)
                             || (musammiData || []).find((p: any) => p.id === a.person_id);
@@ -485,7 +598,7 @@ const useSupabaseDataInternal = () => {
         } finally {
             setLoading(false);
         }
-    }, [selectedAcademicYear]);
+    }, [selectedAcademicYear, getOrgId]);
 
     useEffect(() => {
         fetchData();
@@ -545,35 +658,93 @@ const useSupabaseDataInternal = () => {
         if (error) throw error;
         if (data) {
             if (selectedAcademicYear?.id) {
-                await (supabase.from('student_classes' as any) as any).upsert({
+                const { error: enrErr } = await (supabase.from('student_enrollments' as any) as any).upsert({
                     organization_id: orgId,
                     academic_year_id: selectedAcademicYear.id,
+                    student_id: data.id,
                     santri_id: data.id,
-                    marhalah_id: (data as any).marhalah_id || null,
-                    kelas_id: (data as any).kelas_id || null,
+                    master_marhalah_id: (data as any).marhalah_id || null,
+                    master_kelas_id: (data as any).kelas_id || null,
                     marhalah: data.marhalah,
-                    kelas: data.kelas
-                }, { onConflict: 'academic_year_id, santri_id' });
-
-                try {
-                    await (supabase.from('student_enrollments' as any) as any).upsert({
-                        organization_id: orgId,
-                        academic_year_id: selectedAcademicYear.id,
-                        student_id: data.id,
-                        marhalah_id: (data as any).marhalah_id || null,
-                        kelas_id: (data as any).kelas_id || null,
-                        enrollment_status: 'active',
-                        updated_at: new Date().toISOString()
-                    }, { onConflict: 'organization_id,academic_year_id,student_id' });
-                } catch {
-                    // Fallback aman jika tabel V2 belum dimigrasi
+                    kelas: data.kelas,
+                    status: 'active',
+                    enrollment_status: 'active',
+                    enrolled_at: new Date().toISOString().split('T')[0],
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'organization_id,student_id,academic_year_id' });
+                if (enrErr) {
+                    console.error('Error upserting student_enrollments:', enrErr);
+                    throw enrErr;
                 }
             }
-            setSantri(prev => [...prev, { ...data, marhalah: data.marhalah as Marhalah }]);
-            setAllSantri(prev => [...prev, { ...data, marhalah: data.marhalah as Marhalah }]);
+            await fetchData();
         }
         return data;
-    }
+    };
+
+    const assignHalaqahMusammi = useCallback(async (params: {
+        halaqahId: number;
+        musammiId: number;
+        assignmentType?: 'primary' | 'substitute';
+        validFrom?: string;
+        validTo?: string | null;
+        notes?: string | null;
+    }) => {
+        const orgId = await getOrgId();
+        const validFrom = params.validFrom || new Date().toISOString().split('T')[0];
+        const assignmentType = params.assignmentType || 'primary';
+
+        if (params.validTo && params.validTo < validFrom) {
+            throw new Error('Masa berlaku penugasan Musammi tidak valid: tanggal berakhir tidak boleh sebelum tanggal mulai.');
+        }
+
+        const { data: rpcRes, error: rpcErr } = await (supabase as any).rpc('rpc_assign_halaqah_musammi', {
+            p_halaqah_id: params.halaqahId,
+            p_musammi_id: params.musammiId,
+            p_assignment_type: assignmentType,
+            p_valid_from: validFrom,
+            p_valid_to: params.validTo || null,
+            p_notes: params.notes || null,
+        });
+
+        if (rpcErr) {
+            const isMissingRpc = rpcErr.code === '42883' || String(rpcErr.message || '').includes('rpc_assign_halaqah_musammi');
+            if (!isMissingRpc) {
+                throw new Error(rpcErr.message || 'Gagal menetapkan penugasan Musammi');
+            }
+
+            if (assignmentType === 'primary') {
+                const { error: endOldErr } = await (supabase.from('halaqah_musammi_assignments' as any) as any)
+                    .update({ valid_to: validFrom, is_primary: false, is_active: false, status: 'ended' })
+                    .eq('organization_id', orgId)
+                    .eq('halaqah_id', params.halaqahId)
+                    .eq('assignment_type', 'primary')
+                    .eq('is_active', true)
+                    .neq('musammi_id', params.musammiId);
+                if (endOldErr) throw endOldErr;
+            }
+
+            const { error: upErr } = await (supabase.from('halaqah_musammi_assignments' as any) as any).upsert(
+                {
+                    organization_id: orgId,
+                    academic_year_id: selectedAcademicYear?.id || null,
+                    halaqah_id: params.halaqahId,
+                    musammi_id: params.musammiId,
+                    assignment_type: assignmentType,
+                    is_primary: assignmentType === 'primary',
+                    valid_from: validFrom,
+                    valid_to: params.validTo || null,
+                    is_active: true,
+                    status: 'active',
+                    notes: params.notes || null,
+                },
+                { onConflict: 'organization_id,halaqah_id,musammi_id,assignment_type' }
+            );
+            if (upErr) throw upErr;
+        }
+
+        return rpcRes;
+    }, [getOrgId, selectedAcademicYear?.id]);
     
     const addHalaqah = useCallback(async (newHalaqahData: Omit<Halaqah, 'id' | 'musammi' | 'no_urut'> & { musammi_id: number, no_urut?: number }) => {
         const orgId = await getOrgId();
@@ -587,50 +758,33 @@ const useSupabaseDataInternal = () => {
         const startDate = new Date().toISOString().split('T')[0];
 
         if (halaqahResult && newHalaqahData.musammi_id) {
-            try {
-                await (supabase.from('halaqah_musammi_assignments' as any) as any).insert({
-                    organization_id: orgId,
-                    halaqah_id: halaqahResult.id,
-                    musammi_id: newHalaqahData.musammi_id,
-                    valid_from: startDate,
-                    valid_to: null,
-                    is_primary: true
-                });
-            } catch {
-                // Fallback aman jika tabel V2 belum dimigrasi
-            }
+            await assignHalaqahMusammi({
+                halaqahId: halaqahResult.id,
+                musammiId: newHalaqahData.musammi_id,
+                assignmentType: 'primary',
+                validFrom: startDate,
+            });
         }
 
         if (halaqahResult && santriList.length > 0) {
-            const santriLinks = santriList.map((s: any) => ({
-                organization_id: orgId, 
-                halaqah_id: halaqahResult.id, 
-                santri_id: s.id,
-                start_date: startDate,
-                status: 'Aktif'
+            const v2Memberships = santriList.map((s: any) => ({
+                organization_id: orgId,
+                academic_year_id: selectedAcademicYear?.id || null,
+                halaqah_id: halaqahResult.id,
+                student_id: s.id,
+                valid_from: startDate,
+                valid_to: null,
+                status: 'active'
             }));
-            const { error: linkError } = await (supabase as any).from('halaqah_santri').insert(santriLinks);
-            if (linkError) {
-                console.error(linkError);
-                NotificationStore.addNotification("Berhasil membuat Halaqah, tetapi gagal menambahkan santri. Pastikan kolom start_date dan status ada di tabel halaqah_santri.", "error");
-            }
-
-            try {
-                const v2Memberships = santriList.map((s: any) => ({
-                    organization_id: orgId,
-                    halaqah_id: halaqahResult.id,
-                    student_id: s.id,
-                    valid_from: startDate,
-                    valid_to: null,
-                    status: 'active'
-                }));
-                await (supabase.from('halaqah_student_memberships' as any) as any).insert(v2Memberships);
-            } catch {
-                // Fallback aman jika tabel V2 belum dimigrasi
+            const { error: v2Err } = await (supabase.from('halaqah_student_memberships' as any) as any).insert(v2Memberships);
+            if (v2Err) {
+                console.error('Error inserting halaqah_student_memberships:', v2Err);
+                NotificationStore.addNotification(`Gagal mencatat keanggotaan halaqah V2: ${v2Err.message}`, 'error');
+                throw v2Err;
             }
         }
         await fetchData();
-    }, [fetchData, getOrgId, selectedAcademicYear?.id]);
+    }, [assignHalaqahMusammi, fetchData, getOrgId, selectedAcademicYear?.id]);
 
     const updateHalaqah = useCallback(async (id: number, updatedData: {
         musammi_id?: number, 
@@ -646,43 +800,21 @@ const useSupabaseDataInternal = () => {
 
         if (updatedData.musammi_id) {
             const todayStr = new Date().toISOString().split('T')[0];
-            try {
-                await (supabase.from('halaqah_musammi_assignments' as any) as any)
-                    .update({ valid_to: todayStr, is_primary: false })
-                    .eq('organization_id', orgId)
-                    .eq('halaqah_id', id)
-                    .is('valid_to', null)
-                    .neq('musammi_id', updatedData.musammi_id);
-
-                const { data: existingAssign } = await (supabase.from('halaqah_musammi_assignments' as any) as any)
-                    .select('id')
-                    .eq('organization_id', orgId)
-                    .eq('halaqah_id', id)
-                    .eq('musammi_id', updatedData.musammi_id)
-                    .is('valid_to', null)
-                    .maybeSingle();
-
-                if (!existingAssign) {
-                    await (supabase.from('halaqah_musammi_assignments' as any) as any).insert({
-                        organization_id: orgId,
-                        halaqah_id: id,
-                        musammi_id: updatedData.musammi_id,
-                        valid_from: todayStr,
-                        valid_to: null,
-                        is_primary: true
-                    });
-                }
-            } catch {
-                // Fallback aman jika tabel V2 belum dimigrasi
-            }
+            await assignHalaqahMusammi({
+                halaqahId: id,
+                musammiId: updatedData.musammi_id,
+                assignmentType: 'primary',
+                validFrom: todayStr,
+            });
         }
 
         await fetchData();
-    }, [fetchData, getOrgId]);
+    }, [assignHalaqahMusammi, fetchData, getOrgId]);
 
     const deleteHalaqahBatch = useCallback(async (ids: number[]) => {
         if (ids.length === 0) return;
         const orgId = await getOrgId();
+        // Arsipkan halaqah tanpa menghapus histori keanggotaan atau sesi (Fase 4 Section 4)
         const { error } = await (supabase as any)
             .from('halaqah')
             .update({ is_active: false, updated_at: new Date().toISOString() } as any)
@@ -690,7 +822,7 @@ const useSupabaseDataInternal = () => {
             .in('id', ids);
         if (error) {
             console.error(error);
-            NotificationStore.addNotification("Gagal mengarsipkan Halaqah. Pastikan Anda telah menjalankan perintah SQL untuk menambahkan kolom is_active dan updated_at.", "error");
+            NotificationStore.addNotification("Gagal mengarsipkan Halaqah: " + error.message, "error");
             throw error;
         }
         await fetchData();
@@ -701,7 +833,7 @@ const useSupabaseDataInternal = () => {
         const { error } = await (supabase as any).from('halaqah').update({ is_active: false, updated_at: new Date().toISOString() } as any).eq('organization_id', orgId).eq('id', id);
         if (error) {
             console.error(error);
-            NotificationStore.addNotification("Gagal mengarsipkan Halaqah. Pastikan Anda telah menjalankan perintah SQL untuk menambahkan kolom is_active dan updated_at.", "error");
+            NotificationStore.addNotification("Gagal mengarsipkan Halaqah: " + error.message, "error");
             throw error;
         }
         await fetchData();
@@ -715,28 +847,34 @@ const useSupabaseDataInternal = () => {
     }, [fetchData, getOrgId]);
 
     const keluarkanSantri = useCallback(async (halaqahId: number, santriId: number, tanggal?: string) => {
-        // Soft delete: set end_date instead of actually deleting
         const orgId = await getOrgId();
         const endDate = tanggal || new Date().toISOString().split('T')[0];
-        const { error } = await (supabase as any).from('halaqah_santri').update({ end_date:  endDate,
-            status: 'Berhenti/Lulus'
-        }).eq('organization_id', orgId).eq('halaqah_id', halaqahId).eq('santri_id', santriId).is('end_date', null);
-        
-        if (error) {
-            console.error(error);
-            NotificationStore.addNotification("Gagal mengeluarkan santri dari Halaqah.", "error");
-            throw error;
-        }
 
-        try {
-            await (supabase.from('halaqah_student_memberships' as any) as any)
+        const { error: rpcErr } = await (supabase as any).rpc('rpc_mutate_halaqah_student', {
+            p_student_id: santriId,
+            p_from_halaqah_id: halaqahId,
+            p_to_halaqah_id: null,
+            p_effective_date: endDate,
+            p_action: 'keluar',
+        });
+
+        if (rpcErr) {
+            const isMissingRpc = rpcErr.code === '42883' || String(rpcErr.message || '').includes('rpc_mutate_halaqah_student');
+            if (!isMissingRpc) {
+                NotificationStore.addNotification(`Gagal mengeluarkan santri: ${rpcErr.message}`, 'error');
+                throw rpcErr;
+            }
+
+            const { error: v2Err } = await (supabase.from('halaqah_student_memberships' as any) as any)
                 .update({ valid_to: endDate, status: 'removed' })
                 .eq('organization_id', orgId)
                 .eq('halaqah_id', halaqahId)
                 .eq('student_id', santriId)
                 .is('valid_to', null);
-        } catch {
-            // Fallback aman jika tabel V2 belum dimigrasi
+            if (v2Err) {
+                NotificationStore.addNotification(`Gagal memperbarui keanggotaan halaqah V2: ${v2Err.message}`, 'error');
+                throw v2Err;
+            }
         }
 
         await fetchData();
@@ -745,89 +883,71 @@ const useSupabaseDataInternal = () => {
     const mutasiSantri = useCallback(async (santriId: number, halaqahLamaId: number, halaqahBaruId: number, tanggal?: string) => {
         const orgId = await getOrgId();
         const mutasiDate = tanggal || new Date().toISOString().split('T')[0];
-        
-        // 1. Update halaqah lama
-        const { error: errUpdate } = await (supabase as any).from('halaqah_santri').update({ end_date:  mutasiDate,
-            status: 'Mutasi'
-        }).eq('organization_id', orgId).eq('halaqah_id', halaqahLamaId).eq('santri_id', santriId).is('end_date', null);
 
-        if (errUpdate) {
-            console.error(errUpdate);
-            NotificationStore.addNotification("Gagal mengupdate riwayat halaqah lama.", "error");
-            throw errUpdate;
-        }
+        const { error: rpcErr } = await (supabase as any).rpc('rpc_mutate_halaqah_student', {
+            p_student_id: santriId,
+            p_from_halaqah_id: halaqahLamaId,
+            p_to_halaqah_id: halaqahBaruId,
+            p_effective_date: mutasiDate,
+            p_action: 'mutasi',
+        });
 
-        // 2. Insert ke halaqah baru
-        const { error: errInsert } = await (supabase as any).from('halaqah_santri').upsert({
-            organization_id: orgId,
-            halaqah_id: halaqahBaruId,
-            santri_id: santriId,
-            start_date: mutasiDate,
-            end_date: null,
-            status: 'Aktif'
-        }, { onConflict: 'halaqah_id, santri_id' });
+        if (rpcErr) {
+            const isMissingRpc = rpcErr.code === '42883' || String(rpcErr.message || '').includes('rpc_mutate_halaqah_student');
+            if (!isMissingRpc) {
+                NotificationStore.addNotification(`Gagal memutasi santri: ${rpcErr.message}`, 'error');
+                throw rpcErr;
+            }
 
-        if (errInsert) {
-            console.error(errInsert);
-            NotificationStore.addNotification("Berhasil keluar dari halaqah lama, tapi gagal masuk ke halaqah baru.", "error");
-            throw errInsert;
-        }
-
-        try {
-            await (supabase.from('halaqah_student_memberships' as any) as any)
+            const { error: errClose } = await (supabase.from('halaqah_student_memberships' as any) as any)
                 .update({ valid_to: mutasiDate, status: 'transferred' })
                 .eq('organization_id', orgId)
                 .eq('halaqah_id', halaqahLamaId)
                 .eq('student_id', santriId)
                 .is('valid_to', null);
+            if (errClose) {
+                NotificationStore.addNotification(`Gagal menutup riwayat halaqah lama: ${errClose.message}`, 'error');
+                throw errClose;
+            }
 
-            await (supabase.from('halaqah_student_memberships' as any) as any).insert({
+            const { error: errOpen } = await (supabase.from('halaqah_student_memberships' as any) as any).insert({
                 organization_id: orgId,
+                academic_year_id: selectedAcademicYear?.id || null,
                 halaqah_id: halaqahBaruId,
                 student_id: santriId,
                 valid_from: mutasiDate,
                 valid_to: null,
                 status: 'active'
             });
-        } catch {
-            // Fallback aman jika tabel V2 belum dimigrasi
+            if (errOpen) {
+                NotificationStore.addNotification(`Gagal menambahkan ke halaqah tujuan: ${errOpen.message}`, 'error');
+                throw errOpen;
+            }
         }
 
         await fetchData();
-    }, [fetchData, getOrgId]);
+    }, [fetchData, getOrgId, selectedAcademicYear?.id]);
 
     const addSantriToHalaqah = useCallback(async (halaqahId: number, newSantri: Santri) => {
-         const orgId = await getOrgId();
-         const startDate = new Date().toISOString().split('T')[0];
-         const { error } = await (supabase as any).from('halaqah_santri').upsert({
-             organization_id: orgId,
-             halaqah_id: halaqahId,
-             santri_id: newSantri.id,
-             start_date: startDate,
-             end_date: null,
-             status: 'Aktif'
-         }, { onConflict: 'halaqah_id, santri_id' });
-        if (error) {
-            console.error(error);
-            NotificationStore.addNotification("Gagal menambahkan santri. Pastikan kolom start_date dan status ada di tabel halaqah_santri.", "error");
-            throw error;
-        }
-
-        try {
-            await (supabase.from('halaqah_student_memberships' as any) as any).insert({
-                organization_id: orgId,
-                halaqah_id: halaqahId,
-                student_id: newSantri.id,
-                valid_from: startDate,
-                valid_to: null,
-                status: 'active'
-            });
-        } catch {
-            // Fallback aman jika tabel V2 belum dimigrasi
+        const orgId = await getOrgId();
+        const startDate = new Date().toISOString().split('T')[0];
+        const { error: v2Err } = await (supabase.from('halaqah_student_memberships' as any) as any).insert({
+            organization_id: orgId,
+            academic_year_id: selectedAcademicYear?.id || null,
+            halaqah_id: halaqahId,
+            student_id: newSantri.id,
+            valid_from: startDate,
+            valid_to: null,
+            status: 'active'
+        });
+        if (v2Err) {
+            console.error(v2Err);
+            NotificationStore.addNotification(`Gagal menambahkan santri ke halaqah: ${v2Err.message}`, "error");
+            throw v2Err;
         }
 
         await fetchData();
-    }, [fetchData, getOrgId]);
+    }, [fetchData, getOrgId, selectedAcademicYear?.id]);
     
     const addAttendanceRecords = async (records: Omit<AttendanceRecord, 'id' | 'nama' | 'marhalah' | 'kelas'>[]) => {
         if (!records || records.length === 0) return;
@@ -907,24 +1027,46 @@ const useSupabaseDataInternal = () => {
                 const groupRows = santriRecords.filter(r => r.halaqahId === halId && r.date === sDate && r.waktu === sSlot);
                 const idempotencyKey = `att_${orgId}_${halId}_${sDate}_${sSlot}`;
 
-                const { data: sessionRow } = await (supabase as any)
+                const { data: existingSession } = await (supabase as any)
                     .from('halaqah_sessions')
-                    .upsert({
-                        organization_id: orgId,
-                        academic_year_id: selectedAcademicYear?.id || null,
-                        halaqah_id: halId,
-                        session_date: sDate,
-                        session_slot: sSlot,
-                        status: 'submitted',
-                        updated_at: new Date().toISOString()
-                    }, { onConflict: 'organization_id,halaqah_id,session_date,session_slot' })
-                    .select('id')
+                    .select('id, status')
+                    .eq('organization_id', orgId)
+                    .eq('halaqah_id', halId)
+                    .eq('session_date', sDate)
+                    .eq('session_slot', sSlot)
                     .maybeSingle();
 
-                if (sessionRow?.id) {
+                let sessionRowId = existingSession?.id;
+
+                if (!existingSession) {
+                    const { data: insertedSession } = await (supabase as any)
+                        .from('halaqah_sessions')
+                        .insert({
+                            organization_id: orgId,
+                            academic_year_id: selectedAcademicYear?.id || null,
+                            halaqah_id: halId,
+                            session_date: sDate,
+                            session_slot: sSlot,
+                            status: 'submitted',
+                            updated_at: new Date().toISOString()
+                        })
+                        .select('id')
+                        .maybeSingle();
+                    sessionRowId = insertedSession?.id;
+                } else if (existingSession.status !== 'locked') {
+                    await (supabase as any)
+                        .from('halaqah_sessions')
+                        .update({
+                            status: 'submitted',
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', existingSession.id);
+                }
+
+                if (sessionRowId) {
                     const v2AttRows = groupRows.map(r => ({
                         organization_id: orgId,
-                        session_id: sessionRow.id,
+                        session_id: sessionRowId,
                         halaqah_id: halId,
                         santri_id: r.personId,
                         attendance_date: sDate,
@@ -1058,7 +1200,7 @@ const useSupabaseDataInternal = () => {
         const { error } = await (supabase as any).from('setoran_harian').update(updates).eq('organization_id', orgId).eq('id', id);
         if (error) throw error;
 
-        // Sinkronkan perubahan ke recitation_entries dan catat di recitation_revisions
+        // Sinkronkan perubahan ke recitation_entries (trg_audit_recitation_entry_mutation otomatis mencatat ke recitation_revisions)
         try {
             const { data: existingV2 } = await (supabase as any)
                 .from('recitation_entries')
@@ -1086,31 +1228,26 @@ const useSupabaseDataInternal = () => {
                     predicate: updates.nilai !== undefined ? updates.nilai : existingV2.predicate,
                     notes: updates.keterangan !== undefined ? updates.keterangan : existingV2.notes,
                     status: existingV2.status === 'returned' ? 'submitted' : existingV2.status,
+                    revision_no: existingV2.status === 'returned' ? (existingV2.revision_no || 1) + 1 : existingV2.revision_no,
                     updated_at: new Date().toISOString(),
                 };
 
-                await (supabase as any)
+                const { error: v2Err } = await (supabase as any)
                     .from('recitation_entries')
                     .update(v2Updates)
-                    .eq('id', existingV2.id);
+                    .eq('id', existingV2.id)
+                    .eq('organization_id', orgId);
 
-                await (supabase as any).from('recitation_revisions').insert({
-                    organization_id: orgId,
-                    entry_id: existingV2.id,
-                    previous_status: existingV2.status,
-                    new_status: v2Updates.status,
-                    previous_payload: existingV2,
-                    new_payload: v2Updates,
-                    reason: updates.revision_reason || 'Pembaruan data setoran harian',
-                    changed_by: userProfile?.id || null,
-                });
+                if (v2Err && v2Err.code !== '42P01') {
+                    console.warn('V2 recitation_entries update warning:', v2Err.message);
+                }
             }
-        } catch {
-            // Fallback aman jika tabel V2 belum dimigrasi
+        } catch (v2UpdateErr) {
+            console.warn('V2 recitation update skipped:', v2UpdateErr);
         }
 
         await fetchData();
-    }, [fetchData, getOrgId, userProfile?.id]);
+    }, [fetchData, getOrgId]);
 
     const deleteSetoranHarianRecord = useCallback(async (id: number) => {
         const orgId = await getOrgId();
@@ -2021,11 +2158,12 @@ const useSupabaseDataInternal = () => {
         santri, allSantri, musammi, waliKelas, musyrifs, halaqah, attendance, studentProgress, classTargets, 
         studentEvaluations, evaluationSettings, halaqahEvalQuestions, halaqahEvaluations, appSettings,
         ujianBulanan, ujianSemester, masterKelas, masterMarhalahs, masterKelasRelasi,
+        studentEnrollments, halaqahMemberships, musammiAssignments, queryErrors,
         userProfile, setoranHarian, orgName, orgLogo, updateOrganization,
         globalMarhalahs, globalWaktuHalaqah, globalJenisHalaqah, globalAttendanceStatus, globalPredikatNilai,
         loading: loading || ayLoading, error, fetchData, 
         addHalaqah, updateHalaqah, deleteHalaqah, deleteHalaqahBatch, restoreHalaqah, keluarkanSantri, mutasiSantri, 
-        addSantriToHalaqah, addAttendanceRecords, updateAttendanceRecord, deleteAttendanceRecord, deleteAttendanceBatch,
+        addSantriToHalaqah, assignHalaqahMusammi, addAttendanceRecords, updateAttendanceRecord, deleteAttendanceRecord, deleteAttendanceBatch,
         addSetoranHarianRecord, updateSetoranHarianRecord, deleteSetoranHarianRecord,
         addStudentProgressBatch, deleteStudentProgress, deleteStudentProgressByMonth, saveClassTarget, saveClassTargetBatch,
         updateEvaluation, updateEvaluationBatch, saveEvaluationSetting, updateEvaluationSettingsBatch, deleteEvaluationSetting, deleteEvaluationCategory, updateEvaluationCategory, deleteEvaluationPeriod,

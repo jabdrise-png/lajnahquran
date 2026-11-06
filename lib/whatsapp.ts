@@ -1,9 +1,16 @@
 import { NotificationStore } from './NotificationStore';
 import { supabase } from './supabaseClient';
+import { SupportSessionStore } from './permissions';
 
-export const sendFonnteMessage = async (_token: string, target: string, message: string, _imageSource?: string): Promise<boolean> => {
-    if (!target) {
-        console.warn("Fonnte Target is not provided.");
+export const sendFonnteMessage = async (
+    _token: string,
+    target: string,
+    message: string,
+    _imageSource?: string,
+    santriId?: number | string
+): Promise<boolean> => {
+    if (!target && !santriId) {
+        console.warn("Fonnte Target or Santri ID is not provided.");
         return false;
     }
 
@@ -12,11 +19,15 @@ export const sendFonnteMessage = async (_token: string, target: string, message:
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (jwt) headers['Authorization'] = `Bearer ${jwt}`;
 
+    const activeSupportOrgId = SupportSessionStore.getSession()?.organizationId || undefined;
+
     const proxyRes = await fetch('/api/notify/whatsapp', {
         method: 'POST',
         headers,
         body: JSON.stringify({
             target,
+            santriId,
+            organizationId: activeSupportOrgId,
             message
         })
     });

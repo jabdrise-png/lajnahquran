@@ -163,15 +163,31 @@ const VerifyReportPage: React.FC = () => {
                 </div>
               </>
             ) : (
-              <div className="space-y-2">
-                <StatusBadge label="TIDAK TERVERIFIKASI" tone="danger" />
+              <div className="space-y-3">
+                <StatusBadge
+                  label={verificationResult.is_superseded ? `DOKUMEN DIAMANDEMEN (v${verificationResult.version_no || 1})` : "TIDAK TERVERIFIKASI"}
+                  tone={verificationResult.is_superseded ? "warning" : "danger"}
+                />
                 <div className="text-base font-bold text-slate-900">
-                  Dokumen Tidak Ditemukan
+                  {verificationResult.is_superseded
+                    ? `Dokumen Raport Versi v${verificationResult.version_no || 1} Telah Digantikan (Amended)`
+                    : 'Dokumen Raport Tidak Terverifikasi'}
                 </div>
-                <p className="text-xs text-slate-600">
-                  {verificationResult.message ||
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  {verificationResult.error || verificationResult.message ||
                     'Kode verifikasi atau hash yang dimasukkan tidak terdaftar pada buku besar raport resmi.'}
                 </p>
+                {verificationResult.is_superseded && (
+                  <div className="mt-3 p-3.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 space-y-1.5">
+                    <div className="font-semibold text-amber-900">Riwayat Catatan Perubahan (Amendment Reason):</div>
+                    <div className="text-amber-800 bg-white/70 p-2 rounded border border-amber-200/60 font-mono text-[11px]">
+                      {verificationResult.amendment_reason || 'Pembaruan data nilai/materi raport resmi.'}
+                    </div>
+                    <div className="text-[11px] text-amber-700 pt-1">
+                      Dokumen versi ini sudah tidak berlaku sebagai dokumen raport aktif. Silakan gunakan QR code atau Kode Verifikasi pada dokumen terbitan terbaru.
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

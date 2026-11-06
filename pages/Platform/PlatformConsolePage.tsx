@@ -17,6 +17,7 @@ import {
   SupportSessionStore,
   normalizeRole,
   formatCanonicalRoleLabel,
+  getEffectiveGrantStatus,
 } from '../../lib/permissions';
 import Modal from '../../components/Modal';
 import { NotificationStore } from '../../lib/NotificationStore';
@@ -42,7 +43,14 @@ interface TenantItem {
   id: string;
   name: string;
   slug: string;
-  status: 'trial' | 'active' | 'suspended' | 'archived' | string;
+  status:
+    | 'provisioning'
+    | 'provisioning_failed'
+    | 'trial'
+    | 'active'
+    | 'suspended'
+    | 'archived'
+    | string;
   timezone: string;
   locale: string;
   plan_id: 'trial' | 'standard' | 'enterprise' | string;
@@ -58,12 +66,13 @@ interface TenantItem {
 
 interface PlatformAccountItem {
   id: string;
+  grantId: string | null;
   userId: string;
   fullName: string;
   email?: string;
   role: 'superadmin' | 'admin' | 'musammi' | 'pending' | 'unknown';
   rawRole: string;
-  status: 'active' | 'invited' | 'suspended' | 'revoked';
+  status: 'active' | 'invited' | 'suspended' | 'revoked' | 'expired';
   organizationId: string | null;
   organizationName: string;
   createdAt?: string;
@@ -222,11 +231,17 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
     slug: '',
     timezone: 'Asia/Jakarta',
     planId: 'standard' as 'trial' | 'standard' | 'enterprise',
-    status: 'active' as 'trial' | 'active',
+    status: 'provisioning' as 'provisioning' | 'trial' | 'active',
     adminFullName: '',
     adminEmail: '',
     adminPassword: '',
   });
+  const [lastIssuedInviteInfo, setLastIssuedInviteInfo] = useState<{
+    email: string;
+    role: string;
+    invitePath: string;
+    temporaryPassword?: string | null;
+  } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Modal: Undang Akun Baru (Platform / Tenant Admin)
@@ -432,18 +447,28 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
       mappedTenants.forEach((t) => orgMap.set(t.id, t.name));
 
       const mappedAccounts: PlatformAccountItem[] = profileList.map((p: any) => {
-        const matchingGrant = grantsList.find((g: any) => g.user_id === p.id);
+        const userGrants = grantsList.filter((g: any) => g.user_id === p.id);
+        const matchingGrant =
+          userGrants.find((g: any) => g.organization_id && g.organization_id === p.organization_id) ||
+          userGrants.find((g: any) => normalizeRole(g.role) === 'superadmin') ||
+          userGrants[0] ||
+          null;
         const canonical = normalizeRole(matchingGrant?.role || p.role);
-        const rawStatus = matchingGrant?.status || (p.role === 'pending' ? 'invited' : 'active');
+        const effectiveStatus = matchingGrant
+          ? getEffectiveGrantStatus(matchingGrant)
+          : p.role === 'pending'
+          ? 'invited'
+          : 'active';
         const orgId = matchingGrant?.organization_id ?? p.organization_id ?? null;
 
         return {
           id: matchingGrant?.id || p.id,
+          grantId: matchingGrant?.id || null,
           userId: p.id,
           fullName: p.full_name || 'Tanpa Nama',
           role: canonical,
           rawRole: matchingGrant?.role || p.role || 'unknown',
-          status: rawStatus as 'active' | 'invited' | 'suspended' | 'revoked',
+          status: effectiveStatus,
           organizationId: orgId,
           organizationName: orgId
             ? orgMap.get(orgId) || `Tenant (${String(orgId).slice(0, 6)})`
@@ -568,25 +593,68 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
       }
     }
 
-    // 3. Kebijakan Isolasi Role
-    results.push({
-      key: 'sec_3role',
-      label: 'Disiplin 3 Role Kanonikal & Route Permission Map',
-      category: 'Security',
-      status: 'healthy',
-      latencyMs: 1,
-      detail:
-        'Hanya mengizinkan superadmin, admin, dan musammi. Pencocokan Musammi diikat ketat ke user_id.',
-    });
+    // 3. Kebijakan Isolasi Role & Access Grants Verifikasi Aktual
+    try {
+      const secStart = performance.now();
+      const { data: grantsData, error: grantsErr } = await (supabase as any)
+        .from('access_grants')
+        .select('id, role, status')
+        .limit(1);
+      const secMs = Math.round(performance.now() - secStart);
+      results.push({
+        key: 'sec_3role',
+        label: 'Disiplin 3 Role Kanonikal & Otoritas access_grants',
+        category: 'Security',
+        status: grantsErr ? 'degraded' : 'healthy',
+        latencyMs: secMs,
+        detail: grantsErr
+          ? `Gagal memverifikasi grants: ${grantsErr.message}`
+          : `Buku besar otorisasi access_grants aktif & terisolasi (${secMs} ms).`,
+      });
+    } catch (e: any) {
+      results.push({
+        key: 'sec_3role',
+        label: 'Disiplin 3 Role Kanonikal & Otoritas access_grants',
+        category: 'Security',
+        status: 'degraded',
+        detail: `Error pemeriksaan: ${e?.message || 'Tidak dapat diakses'}`,
+      });
+    }
 
-    results.push({
-      key: 'serverless_adapter',
-      label: 'Adapter Serverless API (/api/invitations & /api/integrations)',
-      category: 'Serverless API',
-      status: 'healthy',
-      latencyMs: 2,
-      detail: 'Siap dideploy secara stateless di Vercel Functions & Netlify Functions.',
-    });
+    // 4. Probe Aktual Serverless / Express Backend Endpoint (/api/health)
+    const apiStart = performance.now();
+    try {
+      const res = await fetch('/api/health');
+      const apiMs = Math.round(performance.now() - apiStart);
+      if (res.ok) {
+        const body = await res.json();
+        results.push({
+          key: 'serverless_adapter',
+          label: 'Backend & Serverless API Monitor (/api/health)',
+          category: 'Serverless API',
+          status: body.status === 'healthy' ? 'healthy' : 'degraded',
+          latencyMs: apiMs,
+          detail: `Probe HTTP ${res.status} OK (${apiMs} ms) — Uptime: ${body.uptimeSeconds || 0}s, DB: ${body.services?.database?.status || 'unknown'}.`,
+        });
+      } else {
+        results.push({
+          key: 'serverless_adapter',
+          label: 'Backend & Serverless API Monitor (/api/health)',
+          category: 'Serverless API',
+          status: 'degraded',
+          latencyMs: apiMs,
+          detail: `Endpoint /api/health mengembalikan status ${res.status}. Periksa konfigurasi serverless.`,
+        });
+      }
+    } catch {
+      results.push({
+        key: 'serverless_adapter',
+        label: 'Backend & Serverless API Monitor (/api/health)',
+        category: 'Serverless API',
+        status: 'degraded',
+        detail: 'Serverless backend offline atau belum dijalankan di port 3000.',
+      });
+    }
 
     setHealthChecks(results);
     setIsCheckingHealth(false);
@@ -658,6 +726,13 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
   const handleProvisionTenant = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!provisionForm.name.trim()) return;
+    if (!provisionForm.adminEmail.trim() || !provisionForm.adminFullName.trim()) {
+      NotificationStore.addNotification(
+        'Nama Lengkap dan Email Admin pertama wajib diisi agar siklus provisioning tenant dapat diverifikasi.',
+        'error'
+      );
+      return;
+    }
     setIsSubmitting(true);
     try {
       const slug =
@@ -669,7 +744,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
       let createdOrg: { id: string; name: string } | null = null;
       let loggedViaRpc = false;
 
-      // 1. Prioritaskan pemanggilan RPC transaksional rpc_create_tenant_with_admin (SECURITY DEFINER)
+      // 1. Buat / lanjutkan tenant dalam status 'provisioning' via RPC SECURITY DEFINER (idempoten untuk retry)
       try {
         const { data: rpcOrg, error: rpcErr } = await (supabase as any).rpc(
           'rpc_create_tenant_with_admin',
@@ -678,7 +753,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
             p_slug: slug,
             p_timezone: provisionForm.timezone,
             p_plan_id: provisionForm.planId,
-            p_status: provisionForm.status,
+            p_status: 'provisioning',
           }
         );
         if (!rpcErr && rpcOrg && rpcOrg.id) {
@@ -696,7 +771,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
           .insert({
             name: provisionForm.name.trim(),
             slug,
-            status: provisionForm.status,
+            status: 'provisioning',
             timezone: provisionForm.timezone,
             plan_id: provisionForm.planId,
           })
@@ -730,48 +805,67 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
           afterState: {
             name: createdOrg.name,
             slug,
+            status: 'provisioning',
             plan_id: provisionForm.planId,
             timezone: provisionForm.timezone,
           },
         });
       }
 
-      if (provisionForm.adminEmail.trim() && provisionForm.adminFullName.trim()) {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const token = sessionData?.session?.access_token;
-        const resp = await fetch('/api/invitations', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({
-            email: provisionForm.adminEmail.trim(),
-            password: provisionForm.adminPassword || 'Mahad123!',
-            fullName: provisionForm.adminFullName.trim(),
-            role: 'admin',
-            targetOrganizationId: createdOrg.id,
-            mahadName: createdOrg.name,
-          }),
-        });
-        if (!resp.ok) {
-          const errJson = await resp.json().catch(() => ({}));
-          NotificationStore.addNotification(
-            `Tenant dibuat (${slug}), namun undangan Admin gagal: ${errJson.error || resp.statusText}`,
-            'error'
-          );
-        } else {
-          NotificationStore.addNotification(
-            `Tenant "${createdOrg.name}" dan akun Admin berhasil diprovisioning.`,
-            'success'
-          );
+      // 3. Kirim undangan Admin pertama (status grant = 'invited', token sekali pakai)
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      const resp = await fetch('/api/invitations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          email: provisionForm.adminEmail.trim(),
+          password: provisionForm.adminPassword.trim() || undefined,
+          fullName: provisionForm.adminFullName.trim(),
+          role: 'admin',
+          targetOrganizationId: createdOrg.id,
+          mahadName: createdOrg.name,
+          isTenantProvisioning: true,
+        }),
+      });
+      const resJson = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        // Tandai tenant sebagai 'provisioning_failed' agar tidak terlihat sebagai tenant siap!
+        try {
+          await (supabase as any).rpc('rpc_mark_tenant_provisioning_status', {
+            p_organization_id: createdOrg.id,
+            p_status: 'provisioning_failed',
+            p_reason: `Undangan Admin gagal: ${resJson.error || resp.statusText}`,
+          });
+        } catch {
+          await (supabase as any)
+            .from('organizations')
+            .update({ status: 'provisioning_failed' })
+            .eq('id', createdOrg.id);
         }
-      } else {
+
         NotificationStore.addNotification(
-          `Tenant "${createdOrg.name}" berhasil dibuat.`,
-          'success'
+          `Undangan Admin gagal (${resJson.error || resp.statusText}). Status tenant ditandai PROVISIONING_FAILED dan dapat di-retry tanpa duplikasi.`,
+          'error'
         );
+        await fetchPlatformData();
+        return;
       }
+
+      setLastIssuedInviteInfo({
+        email: provisionForm.adminEmail.trim().toLowerCase(),
+        role: 'admin',
+        invitePath: resJson.inviteAcceptPath || `/invite?email=${encodeURIComponent(provisionForm.adminEmail.trim().toLowerCase())}&org=${createdOrg.id}`,
+        temporaryPassword: resJson.temporaryPassword || null,
+      });
+
+      NotificationStore.addNotification(
+        `Tenant "${createdOrg.name}" berstatus PROVISIONING dan undangan Admin telah diterbitkan. Tenant akan otomatis ACTIVE setelah Admin mengonfirmasi undangan di /invite.`,
+        'success'
+      );
 
       setProvisionModalOpen(false);
       setProvisionForm({
@@ -779,7 +873,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
         slug: '',
         timezone: 'Asia/Jakarta',
         planId: 'standard',
-        status: 'active',
+        status: 'provisioning',
         adminFullName: '',
         adminEmail: '',
         adminPassword: '',
@@ -794,7 +888,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
 
   const handleUpdateTenantLifecycle = (
     tenant: TenantItem,
-    nextStatus: 'trial' | 'active' | 'suspended' | 'archived'
+    nextStatus: 'provisioning' | 'provisioning_failed' | 'trial' | 'active' | 'suspended' | 'archived'
   ) => {
     setConfirmAction({
       isOpen: true,
@@ -914,7 +1008,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
         },
         body: JSON.stringify({
           email: inviteAccountForm.email.trim(),
-          password: inviteAccountForm.password || 'Mahad123!',
+          password: inviteAccountForm.password.trim() || undefined,
           fullName: inviteAccountForm.fullName.trim(),
           role: inviteAccountForm.role,
           targetOrganizationId:
@@ -922,6 +1016,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               ? null
               : inviteAccountForm.targetOrganizationId,
           mahadName: targetOrg?.name || 'Platform Global',
+          activateImmediately: Boolean(inviteAccountForm.password.trim()),
         }),
       });
 
@@ -945,8 +1040,16 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
         },
       });
 
+      setLastIssuedInviteInfo({
+        email: inviteAccountForm.email.trim().toLowerCase(),
+        role: inviteAccountForm.role,
+        invitePath:
+          resJson.inviteAcceptPath ||
+          `/invite?email=${encodeURIComponent(inviteAccountForm.email.trim().toLowerCase())}`,
+        temporaryPassword: resJson.temporaryPassword || null,
+      });
       NotificationStore.addNotification(
-        `Akun ${inviteAccountForm.fullName} (${formatCanonicalRoleLabel(inviteAccountForm.role)}) berhasil dibuat.`,
+        `Undangan akun ${inviteAccountForm.fullName} (${formatCanonicalRoleLabel(inviteAccountForm.role)}) berhasil diterbitkan dengan token sekali pakai.`,
         'success'
       );
       setInviteAccountModalOpen(false);
@@ -970,34 +1073,35 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
     setConfirmAction({
       isOpen: true,
       title: `${nextStatus === 'suspended' ? 'Tangguhkan (Suspend)' : 'Aktifkan Kembali'} Akun: ${account.fullName}`,
-      description: `Status akses untuk "${account.fullName}" pada "${account.organizationName}" akan diubah menjadi ${nextStatus.toUpperCase()}.`,
+      description: `Status akses untuk "${account.fullName}" pada "${account.organizationName}" akan diubah menjadi ${nextStatus.toUpperCase()}. Data historis tetap utuh.`,
       tone: nextStatus === 'suspended' ? 'danger' : 'primary',
       confirmLabel: nextStatus === 'suspended' ? 'Suspend Akses' : 'Aktifkan Akses',
       onExecute: async (reason: string) => {
         setIsSubmitting(true);
         try {
-          try {
-            await (supabase as any)
-              .from('access_grants')
-              .update({ status: nextStatus })
-              .eq('user_id', account.userId);
-          } catch {
-            // Fallback ke profiles
-          }
+          const targetRole =
+            account.role === 'superadmin' || account.role === 'admin' || account.role === 'musammi'
+              ? account.role
+              : 'musammi';
 
-          await recordPlatformAuditLog({
-            organizationId: account.organizationId,
-            action: `access_grant.${nextStatus}`,
-            resourceType: 'access_grants',
-            resourceId: account.userId,
-            reason,
-            beforeState: { status: account.status, role: account.role },
-            afterState: { status: nextStatus, role: account.role },
+          const { error: rpcErr } = await (supabase as any).rpc('rpc_manage_access_grant', {
+            p_grant_id: account.grantId,
+            p_target_user_id: account.userId,
+            p_organization_id: account.organizationId,
+            p_role: targetRole,
+            p_status: nextStatus,
+            p_reason: reason,
           });
+
+          if (rpcErr) {
+            throw rpcErr;
+          }
 
           setAccounts((prev) =>
             prev.map((a) =>
-              a.userId === account.userId ? { ...a, status: nextStatus } : a
+              a.userId === account.userId && a.organizationId === account.organizationId
+                ? { ...a, status: nextStatus }
+                : a
             )
           );
           NotificationStore.addNotification(
@@ -1006,6 +1110,63 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
           );
         } catch (err: any) {
           NotificationStore.addNotification(err.message || 'Gagal mengubah status akun', 'error');
+        } finally {
+          setIsSubmitting(false);
+          setConfirmAction(null);
+        }
+      },
+    });
+  };
+
+  const handleRevokeAccountAccess = (account: PlatformAccountItem) => {
+    const isInvited = account.status === 'invited';
+    setConfirmAction({
+      isOpen: true,
+      title: `${isInvited ? 'Batalkan Undangan (Revoke Invite)' : 'Cabut Hak Akses (Revoke Grant)'}: ${account.fullName}`,
+      description: isInvited
+        ? `Token undangan untuk "${account.fullName}" pada "${account.organizationName}" akan segera dibatalkan dan tidak dapat dipakai lagi.`
+        : `Hak akses "${account.fullName}" pada "${account.organizationName}" akan dicabut secara permanen (REVOKED) tanpa menghapus riwayat akademik atau audit.`,
+      tone: 'danger',
+      confirmLabel: isInvited ? 'Batalkan Undangan' : 'Cabut Akses (Revoke)',
+      onExecute: async (reason: string) => {
+        setIsSubmitting(true);
+        try {
+          if (isInvited) {
+            const { error: revErr } = await (supabase as any).rpc('rpc_revoke_invitation', {
+              p_invitation_id: null,
+              p_grant_id: account.grantId,
+              p_reason: reason,
+            });
+            if (revErr) throw revErr;
+          } else {
+            const targetRole =
+              account.role === 'superadmin' || account.role === 'admin' || account.role === 'musammi'
+                ? account.role
+                : 'musammi';
+            const { error: rpcErr } = await (supabase as any).rpc('rpc_manage_access_grant', {
+              p_grant_id: account.grantId,
+              p_target_user_id: account.userId,
+              p_organization_id: account.organizationId,
+              p_role: targetRole,
+              p_status: 'revoked',
+              p_reason: reason,
+            });
+            if (rpcErr) throw rpcErr;
+          }
+
+          setAccounts((prev) =>
+            prev.map((a) =>
+              a.userId === account.userId && a.organizationId === account.organizationId
+                ? { ...a, status: 'revoked' }
+                : a
+            )
+          );
+          NotificationStore.addNotification(
+            `Akses/undangan untuk ${account.fullName} berhasil dicabut (REVOKED).`,
+            'success'
+          );
+        } catch (err: any) {
+          NotificationStore.addNotification(err.message || 'Gagal mencabut akses akun', 'error');
         } finally {
           setIsSubmitting(false);
           setConfirmAction(null);
@@ -1035,22 +1196,27 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
 
     setIsSubmitting(true);
     try {
-      const expiresAt = new Date(
-        Date.now() + supportForm.durationMinutes * 60 * 1000
-      ).toISOString();
-      let sessionId = 'local-' + Math.random().toString(36).slice(2, 10);
-
-      try {
-        const { data: rpcRes } = await (supabase as any).rpc('rpc_start_support_session', {
+      const { data: rpcRes, error: rpcErr } = await (supabase as any).rpc(
+        'rpc_start_support_session',
+        {
           p_organization_id: targetTenant.id,
           p_reason: supportForm.reason.trim(),
           p_duration_minutes: supportForm.durationMinutes,
           p_mode: supportForm.mode,
-        });
-        if (rpcRes && rpcRes.id) sessionId = rpcRes.id;
-      } catch {
-        // Fallback ke session store client jika RPC V2 belum dijalankan di DB
+        }
+      );
+
+      if (rpcErr || !rpcRes?.id) {
+        throw new Error(
+          rpcErr?.message ||
+            'Gagal mengotorisasi Support Access Session di database. Pastikan migrasi V2 telah dijalankan.'
+        );
       }
+
+      const sessionId = rpcRes.id;
+      const expiresAt =
+        rpcRes.expires_at ||
+        new Date(Date.now() + supportForm.durationMinutes * 60 * 1000).toISOString();
 
       SupportSessionStore.startSession({
         id: sessionId,
@@ -1060,19 +1226,6 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
         mode: supportForm.mode,
         startedAt: new Date().toISOString(),
         expiresAt,
-      });
-
-      await recordPlatformAuditLog({
-        organizationId: targetTenant.id,
-        action: 'support_session.started',
-        resourceType: 'support_access_sessions',
-        resourceId: sessionId,
-        reason: supportForm.reason.trim(),
-        afterState: {
-          mode: supportForm.mode,
-          duration_minutes: supportForm.durationMinutes,
-          expires_at: expiresAt,
-        },
       });
 
       NotificationStore.addNotification(
@@ -1096,24 +1249,35 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
 
   const handleRevokeSupportSession = async (sessionItem: SupportSessionItem) => {
     try {
-      if (!sessionItem.id.startsWith('local-')) {
-        await (supabase as any).rpc('rpc_end_support_session', {
+      const { data: endedOk, error: endErr } = await (supabase as any).rpc(
+        'rpc_end_support_session',
+        {
           p_session_id: sessionItem.id,
-        });
+        }
+      );
+
+      if (endErr || endedOk === false) {
+        throw new Error(
+          endErr?.message || 'Sesi tidak ditemukan atau gagal dihentikan di database.'
+        );
       }
-    } catch {
-      // Abaikan jika RPC belum ada
+
+      const activeClientSession = SupportSessionStore.getSession();
+      if (activeClientSession && activeClientSession.id === sessionItem.id) {
+        SupportSessionStore.endSession();
+      }
+      setSupportSessions((prev) =>
+        prev.map((s) =>
+          s.id === sessionItem.id ? { ...s, ended_at: new Date().toISOString() } : s
+        )
+      );
+      NotificationStore.addNotification('Sesi support berhasil diakhiri.', 'success');
+    } catch (err: any) {
+      NotificationStore.addNotification(
+        err.message || 'Gagal mengakhiri Support Access Session.',
+        'error'
+      );
     }
-    const activeClientSession = SupportSessionStore.getSession();
-    if (activeClientSession && activeClientSession.id === sessionItem.id) {
-      SupportSessionStore.endSession();
-    }
-    setSupportSessions((prev) =>
-      prev.map((s) =>
-        s.id === sessionItem.id ? { ...s, ended_at: new Date().toISOString() } : s
-      )
-    );
-    NotificationStore.addNotification('Sesi support berhasil diakhiri.', 'success');
   };
 
   const handleSavePlatformSettings = async (e: React.FormEvent) => {
@@ -1146,8 +1310,9 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
   const statusTone = (status?: string): BadgeTone => {
     const s = (status || 'active').toLowerCase();
     if (s === 'active') return 'success';
-    if (s === 'trial' || s === 'invited') return 'warning';
-    if (s === 'suspended' || s === 'revoked') return 'danger';
+    if (s === 'trial' || s === 'invited' || s === 'provisioning') return 'warning';
+    if (s === 'suspended' || s === 'revoked' || s === 'provisioning_failed' || s === 'expired')
+      return 'danger';
     return 'neutral';
   };
 
@@ -1229,6 +1394,50 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
           </button>
         ))}
       </div>
+
+      {lastIssuedInviteInfo && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="space-y-1">
+            <div className="font-bold text-blue-950">
+              Tautan Undangan Sekali Pakai Diterbitkan ({lastIssuedInviteInfo.email} ·{' '}
+              {lastIssuedInviteInfo.role.toUpperCase()})
+            </div>
+            <div className="font-mono text-[11px] text-blue-900 break-all">
+              {window.location.origin}
+              {lastIssuedInviteInfo.invitePath}
+            </div>
+            {lastIssuedInviteInfo.temporaryPassword && (
+              <div className="text-slate-700">
+                Kode Verifikasi Undangan:{' '}
+                <span className="font-mono font-bold text-slate-900">
+                  {lastIssuedInviteInfo.temporaryPassword}
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(
+                  `${window.location.origin}${lastIssuedInviteInfo.invitePath}`
+                );
+                NotificationStore.addNotification('Tautan undangan disalin ke clipboard.', 'info');
+              }}
+              className="px-3 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white font-semibold"
+            >
+              Salin Tautan /invite
+            </button>
+            <button
+              type="button"
+              onClick={() => setLastIssuedInviteInfo(null)}
+              className="px-2.5 py-1.5 rounded-lg border border-blue-200 text-blue-800 hover:bg-blue-100 font-semibold"
+            >
+              Tutup
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* KPI Summary Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1517,13 +1726,26 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                             />
                           </td>
                           <td className="px-6 py-3.5 text-right">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleAccountStatus(acc)}
-                              className="px-3 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700"
-                            >
-                              {acc.status === 'suspended' ? 'Aktifkan' : 'Suspend'}
-                            </button>
+                            <div className="inline-flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleAccountStatus(acc)}
+                                className="px-3 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700"
+                              >
+                                {acc.status === 'suspended' || acc.status === 'revoked'
+                                  ? 'Aktifkan'
+                                  : 'Suspend'}
+                              </button>
+                              {acc.status !== 'revoked' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRevokeAccountAccess(acc)}
+                                  className="px-3 py-1 rounded-lg border border-rose-200 hover:bg-rose-50 text-xs font-semibold text-rose-700"
+                                >
+                                  Revoke
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -1676,6 +1898,8 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 className="border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-600"
               >
                 <option value="all">Semua Status</option>
+                <option value="provisioning">PROVISIONING</option>
+                <option value="provisioning_failed">PROVISIONING_FAILED</option>
                 <option value="active">ACTIVE</option>
                 <option value="trial">TRIAL</option>
                 <option value="suspended">SUSPENDED</option>
@@ -1910,17 +2134,30 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                           />
                         </td>
                         <td className="px-6 py-3.5 text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleToggleAccountStatus(acc)}
-                            className={`px-3 py-1 rounded-lg border text-xs font-semibold transition-colors ${
-                              acc.status === 'suspended'
-                                ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
-                                : 'border-red-200 text-red-700 hover:bg-red-50'
-                            }`}
-                          >
-                            {acc.status === 'suspended' ? 'Aktifkan Kembali' : 'Suspend Grant'}
-                          </button>
+                          <div className="inline-flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleAccountStatus(acc)}
+                              className={`px-3 py-1 rounded-lg border text-xs font-semibold transition-colors ${
+                                acc.status === 'suspended' || acc.status === 'revoked'
+                                  ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
+                                  : 'border-red-200 text-red-700 hover:bg-red-50'
+                              }`}
+                            >
+                              {acc.status === 'suspended' || acc.status === 'revoked'
+                                ? 'Aktifkan Kembali'
+                                : 'Suspend Grant'}
+                            </button>
+                            {acc.status !== 'revoked' && (
+                              <button
+                                type="button"
+                                onClick={() => handleRevokeAccountAccess(acc)}
+                                className="px-3 py-1 rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-semibold transition-colors"
+                              >
+                                {acc.status === 'invited' ? 'Batalkan Undangan' : 'Revoke Grant'}
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -2595,14 +2832,15 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
 
           <div className="pt-3 border-t border-slate-200 space-y-3">
             <h4 className="text-xs font-bold text-slate-800">
-              Undangan Admin Lembaga Pertama (Opsional — Serverless Auth Admin)
+              Undangan Admin Lembaga Pertama (Wajib — Token Undangan Sekali Pakai)
             </h4>
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Nama Lengkap Admin
+                Nama Lengkap Admin <span className="text-red-600">*</span>
               </label>
               <input
                 type="text"
+                required
                 value={provisionForm.adminFullName}
                 onChange={(e) =>
                   setProvisionForm({ ...provisionForm, adminFullName: e.target.value })
@@ -2614,10 +2852,11 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Email Login Admin
+                  Email Login Admin <span className="text-red-600">*</span>
                 </label>
                 <input
                   type="email"
+                  required
                   value={provisionForm.adminEmail}
                   onChange={(e) =>
                     setProvisionForm({ ...provisionForm, adminEmail: e.target.value })
@@ -2628,7 +2867,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Password Awal
+                  Kode Verifikasi Awal (Opsional)
                 </label>
                 <input
                   type="password"
@@ -2636,7 +2875,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                   onChange={(e) =>
                     setProvisionForm({ ...provisionForm, adminPassword: e.target.value })
                   }
-                  placeholder="Minimal 6 karakter"
+                  placeholder="Kosongkan untuk sandi acak otomatis"
                   className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-600"
                 />
               </div>
@@ -2705,16 +2944,15 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Password Awal <span className="text-red-600">*</span>
+                Kode Verifikasi Awal (Opsional)
               </label>
               <input
                 type="password"
-                required
                 value={inviteAccountForm.password}
                 onChange={(e) =>
                   setInviteAccountForm({ ...inviteAccountForm, password: e.target.value })
                 }
-                placeholder="Minimal 6 karakter"
+                placeholder="Kosongkan untuk kode kriptografis otomatis"
                 className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
               />
             </div>

@@ -1,7 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
-
-const getEnv = (key: string) =>
-  (typeof process !== "undefined" && process.env ? process.env[key] : undefined) || "";
+import crypto from "crypto";
+import { resolveServerTenantContext } from "../_tenantContext";
 
 const isMaskedToken = (val?: string | null) => {
   if (!val) return true;
@@ -11,123 +9,169 @@ const isMaskedToken = (val?: string | null) => {
 
 export async function processTelegramWebhookRegister(
   authHeader: string | undefined,
-  body: any
+  body: any,
+  injectedClient?: any,
+  injectedFetch?: typeof fetch
 ) {
-  const supabaseUrl = getEnv("SUPABASE_URL") || getEnv("VITE_SUPABASE_URL");
-  const supabaseAnonKey = getEnv("SUPABASE_ANON_KEY") || getEnv("VITE_SUPABASE_ANON_KEY");
-  const serviceRoleKey = getEnv("SUPABASE_SERVICE_ROLE_KEY");
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return { status: 500, data: { error: "Konfigurasi Supabase belum diatur." } };
-  }
-
-  const bearer = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
-  if (!bearer) {
-    return { status: 401, data: { error: "Unauthorized" } };
-  }
-
-  const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: `Bearer ${bearer}` } },
+  const ctx = await resolveServerTenantContext({
+    authHeader,
+    requestedOrganizationId: body?.organizationId || null,
+    requireWrite: true,
+    requireOrganization: true,
+    requireSupportSessionForSuperadmin: true,
+    injectedClient,
   });
-  const { data: userData } = await userClient.auth.getUser(bearer);
-  if (!userData?.user) {
-    return { status: 401, data: { error: "Unauthorized" } };
-  }
 
-  const { data: profile } = await userClient
-    .from("profiles")
-    .select("id, role, organization_id")
-    .eq("id", userData.user.id)
-    .maybeSingle();
-
-  let role = (profile?.role || "").toLowerCase();
-  let orgId = profile?.organization_id || null;
-
-  try {
-    const { data: grants } = await userClient
-      .from("access_grants")
-      .select("role, organization_id, status")
-      .eq("user_id", userData.user.id);
-
-    if (Array.isArray(grants) && grants.length > 0) {
-      const activeGrant = grants.find((g: any) => g.status === "active");
-      if (!activeGrant) {
-        return { status: 403, data: { error: "Akses ditolak: Status keanggotaan tidak aktif." } };
-      }
-      role = (activeGrant.role || role).toLowerCase();
-      orgId = activeGrant.organization_id || orgId;
-    }
-  } catch {
-    // fallback if access_grants not migrated yet
-  }
-
-  if (!["admin", "admin_mahad", "super_admin", "superadmin"].includes(role)) {
+  if (!ctx.ok || !ctx.userId || !ctx.userClient || !ctx.organizationId) {
     return {
-      status: 403,
-      data: { error: "Akses ditolak: Hanya Admin Lembaga yang dapat mendaftarkan webhook." },
+      status: ctx.status,
+      data: { error: ctx.error || "Akses ditolak." },
     };
   }
 
-  const { webhookUrl } = body || {};
-  if (!webhookUrl) {
-    return { status: 400, data: { error: "webhookUrl is required" } };
+  const role = ctx.effectiveRole;
+  const orgId = ctx.organizationId;
+  const userClient = ctx.userClient;
+
+  if (role !== "admin" && role !== "superadmin") {
+    return {
+      status: 403,
+      data: {
+        error: "Akses ditolak: Hanya Admin Lembaga dengan konteks organisasi aktif yang dapat mendaftarkan webhook.",
+      },
+    };
   }
 
-  let BOT_TOKEN = "";
+  const { webhookUrl, rotateWebhookSecret } = body || {};
+  if (!webhookUrl || typeof webhookUrl !== "string") {
+    return { status: 400, data: { error: "webhookUrl wajib diisi." } };
+  }
 
-  if (orgId) {
-    const secretReader = serviceRoleKey
-      ? createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
-      : userClient;
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(webhookUrl.trim());
+    if (parsedUrl.protocol !== "https:" && parsedUrl.hostname !== "localhost" && parsedUrl.hostname !== "127.0.0.1") {
+      return { status: 400, data: { error: "webhookUrl wajib menggunakan protokol HTTPS." } };
+    }
+  } catch {
+    return { status: 400, data: { error: "Format webhookUrl tidak valid." } };
+  }
 
+  const secretClient = ctx.adminClient || userClient;
+
+  let botToken = "";
+  let tenantWebhookSecret = "";
+  let existingWebhookRotationCount = 0;
+
+  try {
+    const { data: secretRows } = await secretClient
+      .from("integration_secrets")
+      .select("secret_key_name, secret_value, status, rotation_count")
+      .eq("organization_id", orgId)
+      .in("secret_key_name", ["TELEGRAM_BOT_TOKEN", "TELEGRAM_WEBHOOK_SECRET"]);
+
+    for (const row of secretRows || []) {
+      if (row.secret_key_name === "TELEGRAM_BOT_TOKEN") {
+        if (row.status === "disabled") {
+          return {
+            status: 403,
+            data: { error: "Token Bot Telegram pada lembaga ini sedang dinonaktifkan (disabled)." },
+          };
+        }
+        if (row.status === "active" && !isMaskedToken(row.secret_value)) {
+          botToken = String(row.secret_value).trim();
+        }
+      }
+      if (row.secret_key_name === "TELEGRAM_WEBHOOK_SECRET") {
+        existingWebhookRotationCount = Number(row.rotation_count || 1);
+        if (!rotateWebhookSecret && row.status === "active" && !isMaskedToken(row.secret_value)) {
+          tenantWebhookSecret = String(row.secret_value).trim();
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  if (!botToken || isMaskedToken(botToken)) {
+    return {
+      status: 400,
+      data: { error: "Token Bot Telegram belum dikonfigurasi di server untuk lembaga ini. Simpan token terlebih dahulu." },
+    };
+  }
+
+  const nowIso = new Date().toISOString();
+  if (!tenantWebhookSecret) {
+    tenantWebhookSecret = crypto.randomBytes(24).toString("hex");
+    const nextRotation = existingWebhookRotationCount + 1;
     try {
-      const { data: secretRow } = await secretReader
-        .from("integration_secrets")
-        .select("secret_value")
-        .eq("organization_id", orgId)
-        .eq("secret_key_name", "TELEGRAM_BOT_TOKEN")
-        .maybeSingle();
-      if (secretRow?.secret_value && !isMaskedToken(secretRow.secret_value)) {
-        BOT_TOKEN = String(secretRow.secret_value).trim();
-      }
+      await secretClient.from("integration_secrets").upsert(
+        {
+          organization_id: orgId,
+          provider: "webhook",
+          secret_key_name: "TELEGRAM_WEBHOOK_SECRET",
+          secret_value: tenantWebhookSecret,
+          masked_preview: `${tenantWebhookSecret.slice(0, 3)}••••••${tenantWebhookSecret.slice(-3)}`,
+          status: "active",
+          rotation_count: nextRotation,
+          last_rotated_at: nowIso,
+          disabled_at: null,
+          disabled_by: null,
+          updated_by: ctx.userId,
+          updated_at: nowIso,
+        },
+        { onConflict: "organization_id,provider,secret_key_name" }
+      );
     } catch {
-      // fallback
-    }
-
-    if (!BOT_TOKEN) {
-      const { data: settings } = await userClient
-        .from("app_settings")
-        .select("value")
-        .eq("organization_id", orgId)
-        .eq("key", "TELEGRAM_BOT_TOKEN")
-        .maybeSingle();
-      if (settings?.value && !isMaskedToken(settings.value)) {
-        BOT_TOKEN = String(settings.value).trim();
-      }
+      // ignore if table not accessible
     }
   }
 
-  if (!BOT_TOKEN) {
-    BOT_TOKEN = getEnv("TELEGRAM_BOT_TOKEN");
-  }
+  // Sertakan org_id pada URL webhook agar telegram-webhook bersifat tenant-isolated
+  parsedUrl.searchParams.set("org_id", orgId);
 
-  if (!BOT_TOKEN || isMaskedToken(BOT_TOKEN)) {
-    return { status: 400, data: { error: "Token Bot Telegram belum dikonfigurasi di server. Simpan token terlebih dahulu." } };
-  }
+  const webhookPayload: Record<string, any> = {
+    url: parsedUrl.toString(),
+    secret_token: tenantWebhookSecret,
+  };
 
-  const webhookPayload: Record<string, any> = { url: webhookUrl };
-  const webhookSecret = getEnv("TELEGRAM_WEBHOOK_SECRET");
-  if (webhookSecret) {
-    webhookPayload.secret_token = webhookSecret;
-  }
-
-  const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/setWebhook`, {
+  const fetchFn = injectedFetch || fetch;
+  const response = await fetchFn(`https://api.telegram.org/bot${botToken}/setWebhook`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(webhookPayload),
   });
-  const data = await response.json();
-  return { status: 200, data };
+  const data: any = await response.json().catch(() => ({ ok: false, description: "Invalid response from Telegram API" }));
+
+  try {
+    await userClient.from("audit_logs").insert({
+      organization_id: orgId,
+      actor_id: ctx.userId,
+      actor_user_id: ctx.userId,
+      actor_role: role === "superadmin" ? "superadmin" : "admin",
+      action: "REGISTER_TELEGRAM_WEBHOOK",
+      entity_type: "integration_secrets",
+      resource_type: "telegram_webhook",
+      entity_id: orgId,
+      resource_id: orgId,
+      reason: "Pendaftaran webhook Telegram tenant",
+      after_state: {
+        webhook_url: parsedUrl.toString(),
+        ok: Boolean(data?.ok),
+      },
+    });
+  } catch {
+    // ignore
+  }
+
+  if (!response.ok || !data?.ok) {
+    return {
+      status: 400,
+      data: { error: data?.description || "Gagal mendaftarkan webhook ke Telegram API." },
+    };
+  }
+
+  return { status: 200, data: { ok: true, result: true, description: data.description || "Webhook was set" } };
 }
 
 export default async function handler(req: any, res?: any) {

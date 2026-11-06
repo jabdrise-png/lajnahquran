@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, MessageCircle, X, AlertCircle, RotateCcw } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
 
 interface ChatMessage {
     id: string;
@@ -176,9 +177,15 @@ const ChatWidget: React.FC = () => {
         scrollToBottom();
 
         try {
+            const { data: sessionData } = await supabase.auth.getSession();
+            const accessToken = sessionData?.session?.access_token;
+
             const response = await fetch('/api/chat', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+                },
                 body: JSON.stringify({
                     message: contentToSend,
                     // Send up to the last 8 messages for context

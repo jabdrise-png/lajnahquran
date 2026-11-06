@@ -7,7 +7,7 @@ import ActionDropdown from '../../components/ActionDropdown';
 import SantriMultiSelect from '../../components/SantriMultiSelect';
 import { useSupabaseData } from '../../hooks/useSupabaseData';
 import { useAcademicYear } from '../../lib/AcademicYearContext';
-import { HalaqahType, Marhalah, Waktu, Halaqah } from '../../types';
+import { HalaqahType, Marhalah, Waktu, Halaqah, Santri } from '../../types';
 // removed constant import
 import {   Plus, Trash, Users, Edit, ArrowLeft, X, Search, Upload, Download, FileSpreadsheet, FileText, Save, CheckSquare, Square, Clock, ChevronDown, Hash, Check, ChevronRight, RefreshCw , Calendar  } from 'lucide-react';
 import { useLocation, useParams } from 'react-router-dom';
@@ -169,7 +169,7 @@ const SearchableMusammiSelect = ({
 const HalaqahPage: React.FC = () => {
     const location = useLocation();
     const { halaqahId } = useParams<{ halaqahId?: string }>();
-    const { halaqah, musammi, santri, addHalaqah, deleteHalaqah, deleteHalaqahBatch, restoreHalaqah, updateHalaqah, keluarkanSantri, mutasiSantri, fetchData, loading, error, getOrgId, globalMarhalahs, globalJenisHalaqah, globalWaktuHalaqah, masterMarhalahs, masterKelasRelasi } = useSupabaseData();
+    const { halaqah, musammi, santri, addHalaqah, deleteHalaqah, deleteHalaqahBatch, restoreHalaqah, updateHalaqah, addSantriToHalaqah, keluarkanSantri, mutasiSantri, assignHalaqahMusammi, fetchData, loading, error, getOrgId, globalMarhalahs, globalJenisHalaqah, globalWaktuHalaqah, masterMarhalahs, masterKelasRelasi } = useSupabaseData();
     const { selectedAcademicYear } = useAcademicYear();
     const fileInputRef = useRef<HTMLInputElement>(null);
     
@@ -201,11 +201,22 @@ const HalaqahPage: React.FC = () => {
     const [manageTargetHalaqahId, setManageTargetHalaqahId] = useState<string>('');
     const [manageDate, setManageDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
-    // Detail Tab State
+    // Detail Tab State & Historical Roster Date Filter (Fase 4 Section 4)
     const [showRiwayat, setShowRiwayat] = useState(false);
+    const [rosterAsOfDate, setRosterAsOfDate] = useState<string>('');
 
-    // Bulk Selection State
+    // Musammi Assignment Modal State (Primary & Substitute - Fase 4 Section 5)
+    const [musammiModalOpen, setMusammiModalOpen] = useState(false);
+    const [musammiAssignType, setMusammiAssignType] = useState<'primary' | 'substitute'>('substitute');
+    const [musammiAssignId, setMusammiAssignId] = useState<string>('');
+    const [musammiValidFrom, setMusammiValidFrom] = useState<string>(new Date().toISOString().split('T')[0]);
+    const [musammiValidTo, setMusammiValidTo] = useState<string>('');
+    const [musammiAssignNotes, setMusammiAssignNotes] = useState<string>('');
+
+    // Bulk Selection & Pagination State
     const [selectedHalaqahIds, setSelectedHalaqahIds] = useState<number[]>([]);
+    const [currentPage, setCurrentPage] = useState<number>(1);
+    const itemsPerPage = 25;
 
     // Archive filter
     const [filterStatus, setFilterStatus] = useState<'Aktif' | 'Diarsipkan' | 'Semua'>('Aktif');
@@ -255,12 +266,19 @@ const HalaqahPage: React.FC = () => {
             groupsInSlot.forEach((g) => {
                 if (g.musammi?.id) {
                     const existing = musammiMap.get(g.musammi.id) || { name: g.musammi.nama, groups: [] };
-                    existing.groups.push(g.nama);
+                    if (!existing.groups.includes(g.nama)) existing.groups.push(g.nama);
                     musammiMap.set(g.musammi.id, existing);
                 }
+                (g.substitute_musammi || []).forEach((sub) => {
+                    if (sub?.id) {
+                        const existingSub = musammiMap.get(sub.id) || { name: `${sub.nama} (Pengganti)`, groups: [] };
+                        if (!existingSub.groups.includes(g.nama)) existingSub.groups.push(g.nama);
+                        musammiMap.set(sub.id, existingSub);
+                    }
+                });
                 (g.active_santri || g.santri || []).forEach((s) => {
                     const existingS = santriMap.get(s.id) || { name: s.nama, groups: [] };
-                    existingS.groups.push(g.nama);
+                    if (!existingS.groups.includes(g.nama)) existingS.groups.push(g.nama);
                     santriMap.set(s.id, existingS);
                 });
             });
@@ -321,10 +339,17 @@ const HalaqahPage: React.FC = () => {
         });
     }, [halaqah, filterJenis, filterMarhalah, filterSearch, filterStatus]);
 
-    // Reset selection when filters change
+    // Reset selection & page when filters change
     useEffect(() => {
         setSelectedHalaqahIds([]);
+        setCurrentPage(1);
     }, [filterJenis, filterMarhalah, filterSearch, filterStatus]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredHalaqah.length / itemsPerPage));
+    const paginatedHalaqah = useMemo(() => {
+        const start = (currentPage - 1) * itemsPerPage;
+        return filteredHalaqah.slice(start, start + itemsPerPage);
+    }, [filteredHalaqah, currentPage]);
 
     // Santri list for selection
     const availableSantri = useMemo(() => {
@@ -424,13 +449,32 @@ const HalaqahPage: React.FC = () => {
                 no_urut: noUrut
             });
 
-            // Update status lama menjadi mutasi
+            // Tutup keanggotaan lama untuk santri yang dimutasi ke halaqah baru ini (tanpa menelan error)
             const orgId = await getOrgId();
             for (const m of mutasiList) {
-                await (supabase as any).from('halaqah_santri').update({
-                    end_date: today,
-                    status: 'Mutasi'
-                }).eq('organization_id', orgId).eq('halaqah_id', m.oldHalaqahId).eq('santri_id', m.santriId).is('end_date', null);
+                const { error: hsmMutErr } = await (supabase as any)
+                    .from('halaqah_student_memberships')
+                    .update({
+                        valid_to: today,
+                        status: 'transferred',
+                    })
+                    .eq('organization_id', orgId)
+                    .eq('halaqah_id', m.oldHalaqahId)
+                    .eq('student_id', m.santriId)
+                    .is('valid_to', null);
+                if (hsmMutErr) throw hsmMutErr;
+
+                const { error: legMutErr } = await (supabase as any)
+                    .from('halaqah_santri')
+                    .update({
+                        end_date: today,
+                        status: 'Mutasi',
+                    })
+                    .eq('organization_id', orgId)
+                    .eq('halaqah_id', m.oldHalaqahId)
+                    .eq('santri_id', m.santriId)
+                    .is('end_date', null);
+                if (legMutErr) throw legMutErr;
             }
             if (mutasiList.length > 0) {
                 await fetchData();
@@ -452,13 +496,12 @@ const HalaqahPage: React.FC = () => {
         if (!selectedHalaqah) return;
         setIsSubmitting(true);
         try {
-            const orgId = await getOrgId();
             const finalJenis = isCustomJenis ? customJenisName : selectedJenis;
             if (selectedWaktu.length === 0) throw new Error("Pilih setidaknya satu waktu halaqah.");
 
             await updateHalaqah(selectedHalaqah.id, {
                 nama: newHalaqahName,
-                musammi_id: parseInt(selectedMusammiId),
+                musammi_id: parseInt(selectedMusammiId, 10),
                 marhalah: selectedMarhalah,
                 jenis: finalJenis,
                 waktu: selectedWaktu,
@@ -469,12 +512,11 @@ const HalaqahPage: React.FC = () => {
             const newIds = selectedSantriIds;
             const toAdd = newIds.filter(id => !currentIds.includes(id));
             const toRemove = currentIds.filter(id => !newIds.includes(id));
+            const today = new Date().toISOString().split('T')[0];
 
             if (toAdd.length > 0) {
-                const today = new Date().toISOString().split('T')[0];
-                const newSantriToUpsert = [];
+                const directAddIds: number[] = [];
                 for (const santriId of toAdd) {
-                    // Cek apakah santri aktif di halaqah lain dengan jenis yang sama
                     let oldHalaqah: Halaqah | undefined;
                     for (const h of halaqah) {
                         if (h.id !== selectedHalaqah.id && h.jenis === finalJenis && (h.active_santri || h.santri).find(s => s.id === santriId)) {
@@ -486,69 +528,68 @@ const HalaqahPage: React.FC = () => {
                     if (oldHalaqah) {
                         await mutasiSantri(santriId, oldHalaqah.id, selectedHalaqah.id, today);
                     } else {
-                        newSantriToUpsert.push({
-                            organization_id: orgId,
-                            halaqah_id: selectedHalaqah.id,
-                            santri_id: santriId,
-                            start_date: today,
-                            end_date: null,
-                            status: 'Aktif'
-                        });
+                        directAddIds.push(santriId);
                     }
                 }
-                if (newSantriToUpsert.length > 0) {
-                    await supabase.from('halaqah_santri').upsert(newSantriToUpsert, { onConflict: 'halaqah_id, santri_id' });
-                    // Dual-write ke halaqah_student_memberships (V2)
-                    try {
-                        const v2Memberships = newSantriToUpsert.map((row) => ({
-                            organization_id: orgId,
-                            halaqah_id: row.halaqah_id,
-                            student_id: row.santri_id,
-                            valid_from: row.start_date,
-                            valid_to: null,
-                            status: 'active',
-                        }));
-                        await (supabase as any).from('halaqah_student_memberships').insert(v2Memberships);
-                    } catch {}
+                if (directAddIds.length > 0) {
+                    await addSantriToHalaqah(selectedHalaqah.id, directAddIds, today);
                 }
             }
 
             if (toRemove.length > 0) {
-                // Soft delete / keluarkan santri yang dihapus dari list
-                const today = new Date().toISOString().split('T')[0];
-                await (supabase as any).from('halaqah_santri').update({
-                    end_date: today,
-                    status: 'Dikeluarkan dari Grup'
-                }).eq('organization_id', orgId).eq('halaqah_id', selectedHalaqah.id).in('santri_id', toRemove).is('end_date', null);
-                try {
-                    await (supabase as any).from('halaqah_student_memberships').update({
-                        valid_to: today,
-                        status: 'removed'
-                    }).eq('organization_id', orgId).eq('halaqah_id', selectedHalaqah.id).in('student_id', toRemove).is('valid_to', null);
-                } catch {}
+                for (const santriId of toRemove) {
+                    await keluarkanSantri(selectedHalaqah.id, santriId, today);
+                }
             }
-
-            // Dual-write penugasan Musammi ke halaqah_musammi_assignments (V2)
-            try {
-                const today = new Date().toISOString().split('T')[0];
-                await (supabase as any).from('halaqah_musammi_assignments').upsert(
-                    {
-                        organization_id: orgId,
-                        halaqah_id: selectedHalaqah.id,
-                        musammi_id: parseInt(selectedMusammiId, 10),
-                        assignment_type: 'primary',
-                        valid_from: today,
-                        is_active: true,
-                    },
-                    { onConflict: 'organization_id,halaqah_id,musammi_id,assignment_type' }
-                );
-            } catch {}
 
             await fetchData();
             setModalType(null);
-            NotificationStore.addNotification("Berhasil menyimpan perubahan dan memperbarui data anggota santri.", "success");
-        } catch (e: any) { NotificationStore.addNotification(e.message, "error"); }
-        finally { setIsSubmitting(false); }
+            NotificationStore.addNotification("Berhasil menyimpan perubahan dan memperbarui data anggota santri secara atomik.", "success");
+        } catch (e: any) {
+            NotificationStore.addNotification(e.message || "Gagal memperbarui data halaqah.", "error");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleAssignMusammiSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedHalaqah || !musammiAssignId || !musammiValidFrom) {
+            NotificationStore.addNotification("Pilih Musammi dan tanggal mulai berlaku.", "error");
+            return;
+        }
+        if (musammiValidTo && musammiValidTo < musammiValidFrom) {
+            NotificationStore.addNotification("Tanggal berakhir tidak boleh lebih awal dari tanggal mulai.", "error");
+            return;
+        }
+        setIsSubmitting(true);
+        try {
+            const res = await assignHalaqahMusammi({
+                halaqahId: selectedHalaqah.id,
+                musammiId: parseInt(musammiAssignId, 10),
+                assignmentType: musammiAssignType,
+                validFrom: musammiValidFrom,
+                validTo: musammiValidTo || null,
+                notes: musammiAssignNotes.trim() || null,
+            });
+            setMusammiModalOpen(false);
+            if (res?.has_schedule_conflict && (res?.conflicts || []).length > 0) {
+                const conflictNames = (res.conflicts || []).map((c: any) => c.halaqah_nama).join(', ');
+                NotificationStore.addNotification(
+                    `Penugasan Musammi disimpan, namun terdeteksi irisan jadwal dengan halaqah: ${conflictNames}.`,
+                    'info'
+                );
+            } else {
+                NotificationStore.addNotification(
+                    `Penugasan Musammi ${musammiAssignType === 'primary' ? 'Utama' : 'Pengganti'} berhasil disimpan.`,
+                    'success'
+                );
+            }
+        } catch (err: any) {
+            NotificationStore.addNotification(err.message || "Gagal menyimpan penugasan Musammi.", "error");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     React.useEffect(() => {
@@ -1074,7 +1115,12 @@ const HalaqahPage: React.FC = () => {
                                 </h2>
                                 <div className="flex items-center text-sm text-slate-500 mt-2 space-x-3 flex-wrap gap-y-2">
                                     <span className="flex items-center font-mono text-xs bg-slate-200/50 px-2 rounded-md">#{selectedHalaqah.id}</span>
-                                    <span className="flex items-center"><Users size={14} className="mr-1.5"/> {selectedHalaqah.musammi.nama}</span>
+                                    <span className="flex items-center font-semibold text-slate-700"><Users size={14} className="mr-1.5"/> Utama: {selectedHalaqah.musammi.nama}</span>
+                                    {(selectedHalaqah.substitute_musammi || []).length > 0 && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-semibold">
+                                            Pengganti: {(selectedHalaqah.substitute_musammi || []).map((m) => m.nama).join(', ')}
+                                        </span>
+                                    )}
                                     <span>•</span><span><MarhalahLabel text={selectedHalaqah.marhalah} id={selectedHalaqah.marhalah_id} /></span>
                                     <span>•</span><span>{selectedHalaqah.jenis}</span>
                                     <span>•</span><span>No. {selectedHalaqah.no_urut || '-'}</span>
@@ -1097,17 +1143,31 @@ const HalaqahPage: React.FC = () => {
                                     )}
                                 </div>
                             </div>
-                            <div className="flex gap-2 mt-4 md:mt-0">
+                            <div className="flex flex-wrap gap-2 mt-4 md:mt-0">
                                 {selectedHalaqah.is_active === false ? (
                                     <button onClick={() => handleRestore(selectedHalaqah.id)} className="h-9 px-4 rounded-lg bg-emerald-50 text-emerald-600 text-[12px] font-semibold hover:bg-emerald-100 transition-colors flex items-center">
                                         <RefreshCw size={14} className="mr-2" strokeWidth={2.5}/> Kembalikan Halaqah
                                     </button>
                                 ) : (
                                     <>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setMusammiAssignType('substitute');
+                                                setMusammiAssignId('');
+                                                setMusammiValidFrom(new Date().toISOString().split('T')[0]);
+                                                setMusammiValidTo('');
+                                                setMusammiAssignNotes('');
+                                                setMusammiModalOpen(true);
+                                            }}
+                                            className="h-9 px-3.5 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 text-[12px] font-semibold hover:bg-indigo-100 transition-colors flex items-center gap-1.5"
+                                        >
+                                            <Users size={14} /> Penugasan Musammi (Utama / Pengganti)
+                                        </button>
                                         <button onClick={() => handleDelete(selectedHalaqah.id)} className="h-9 px-4 rounded-lg bg-rose-50 text-rose-600 text-[12px] font-semibold hover:bg-rose-100 transition-colors flex items-center">
                                             <Trash size={14} className="mr-2" strokeWidth={2.5}/> Arsipkan Halaqah
                                         </button>
-                                        <button onClick={openEditModal} className="h-9 px-4 rounded-lg bg-blue-600 text-white text-[12px] font-semibold hover:bg-blue-700 hover:-translate-y-0.5 shadow-[0_2px_12px_rgba(37,99,235,0.25)] transition-all flex items-center gap-2">
+                                        <button onClick={openEditModal} className="h-9 px-4 rounded-lg bg-blue-600 text-white text-[12px] font-semibold hover:bg-blue-700 transition-all flex items-center gap-2">
                                             <Edit size={14} strokeWidth={2.5} /> Edit Data
                                         </button>
                                     </>
@@ -1115,47 +1175,128 @@ const HalaqahPage: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="px-6 py-4 border-b border-slate-100">
-        <h3 className="text-[14px] font-bold text-slate-800">Anggota Aktif ({selectedHalaqah.active_santri?.length || selectedHalaqah.santri.length})</h3>
-    </div>
-                        <div className="overflow-x-auto min-h-[300px]">
-                            
-                                <table className="w-full text-left border-collapse">
-                                    <thead>
-                                        <tr className="bg-slate-50/50 border-b border-slate-200/60">
-                                            <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 w-12 text-center">No.</th>
-                                            <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80 w-16 text-center">ID</th>
-                                            <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80">Nama Santri</th>
-                                            <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80">Kelas</th>
-                                            <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80 text-right">Aksi</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100/80">
-                                        {(selectedHalaqah.active_santri || selectedHalaqah.santri).sort((a,b) => (a.nama || '').localeCompare(b.nama || '')).map((s, idx) => (
-                                            <tr key={s.id} className="hover:bg-blue-50/30 transition-colors group">
-                                                <td className="px-6 py-4 text-[12px] font-bold text-slate-500 text-center">{idx + 1}</td>
-                                                <td className="px-6 py-4 border-l border-slate-100/80 text-[12px] font-mono font-medium text-slate-400 text-center">#{s.id}</td>
-                                                <td className="px-6 py-4 border-l border-slate-100/80 text-[14px] font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{s.nama}</td>
-                                                <td className="px-6 py-4 border-l border-slate-100/80 text-[13px] font-bold text-slate-600 tracking-widest uppercase"><KelasLabel text={s.kelas} id={s.kelas_id} /></td>
-                                                <td className="px-6 py-4 border-l border-slate-100/80 text-right">
-                                                    <div className="opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex justify-end">
-                                                        <button title="Mutasi / Keluarkan Santri" onClick={() => openManageStatusModal(s.id)} className="h-9 px-3 inline-flex items-center justify-center rounded-xl bg-slate-50 text-slate-500 hover:bg-amber-500 hover:text-white transition-all shadow-sm text-[12px] font-semibold gap-1.5">
-                                                            <RefreshCw size={14} strokeWidth={2.5}/> Kelola Status
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
+                        {/* Panel Penugasan Musammi Kanonikal V2 (Primary & Substitute) */}
+                        {(selectedHalaqah.musammi_assignments || []).length > 0 && (
+                            <div className="px-6 py-3.5 bg-slate-50/70 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                                <div className="flex flex-wrap items-center gap-2 text-xs">
+                                    <span className="font-bold text-slate-600 uppercase tracking-wider">Penugasan Musammi V2:</span>
+                                    {(selectedHalaqah.musammi_assignments || [])
+                                        .filter((a) => a.is_active)
+                                        .map((a, idx) => (
+                                            <span
+                                                key={a.id || idx}
+                                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border font-semibold ${
+                                                    a.assignment_type === 'primary'
+                                                        ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                                        : 'bg-indigo-50 text-indigo-800 border-indigo-200'
+                                                }`}
+                                            >
+                                                <span>{a.assignment_type === 'primary' ? 'Utama' : 'Pengganti'}:</span>
+                                                <span className="font-bold">{a.musammi?.nama || `#${a.musammi_id}`}</span>
+                                                <span className="font-mono text-[10px] opacity-75">
+                                                    ({a.valid_from}{a.valid_to ? ` s/d ${a.valid_to}` : ''})
+                                                </span>
+                                            </span>
                                         ))}
-                                        {(selectedHalaqah.active_santri || selectedHalaqah.santri).length === 0 && <tr><td colSpan={5} className="text-center py-16 text-[13px] text-slate-500 font-medium">Belum ada anggota aktif.</td></tr>}
-                                    </tbody>
-                                </table>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <h3 className="text-[14px] font-bold text-slate-800">
+                                    {rosterAsOfDate
+                                        ? `Rekonstruksi Roster Historis per Tanggal ${rosterAsOfDate}`
+                                        : `Anggota Aktif (${selectedHalaqah.active_santri?.length || selectedHalaqah.santri.length})`}
+                                </h3>
+                                <p className="text-[11px] text-slate-500">
+                                    Berdasarkan rentang efektif <span className="font-mono">valid_from</span> & <span className="font-mono">valid_to</span> pada <span className="font-mono">halaqah_student_memberships</span>.
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <label className="text-xs font-semibold text-slate-600">Tinjau Roster per Tanggal:</label>
+                                <input
+                                    type="date"
+                                    value={rosterAsOfDate}
+                                    onChange={(e) => setRosterAsOfDate(e.target.value)}
+                                    className="border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-mono text-slate-800 bg-white"
+                                />
+                                {rosterAsOfDate && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setRosterAsOfDate('')}
+                                        className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700"
+                                    >
+                                        Reset ke Hari Ini
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto min-h-[300px]">
+                            {(() => {
+                                const displayMembers: Santri[] = rosterAsOfDate
+                                    ? (selectedHalaqah.history || [])
+                                          .filter(
+                                              (h) =>
+                                                  h.start_date <= rosterAsOfDate &&
+                                                  (!h.end_date || h.end_date >= rosterAsOfDate) &&
+                                                  h.santri
+                                          )
+                                          .map((h) => h.santri!)
+                                    : selectedHalaqah.active_santri || selectedHalaqah.santri;
+                                const uniqueMembers: Santri[] = Array.from(
+                                    new Map<number, Santri>(displayMembers.map((m) => [m.id, m])).values()
+                                ).sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
+
+                                return (
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="bg-slate-50/50 border-b border-slate-200/60">
+                                                <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 w-12 text-center">No.</th>
+                                                <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80 w-16 text-center">ID</th>
+                                                <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80">Nama Santri</th>
+                                                <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80">Kelas</th>
+                                                <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80 text-right">Aksi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100/80">
+                                            {uniqueMembers.map((s, idx) => (
+                                                <tr key={s.id} className="hover:bg-blue-50/30 transition-colors group">
+                                                    <td className="px-6 py-4 text-[12px] font-bold text-slate-500 text-center">{idx + 1}</td>
+                                                    <td className="px-6 py-4 border-l border-slate-100/80 text-[12px] font-mono font-medium text-slate-400 text-center">#{s.id}</td>
+                                                    <td className="px-6 py-4 border-l border-slate-100/80 text-[14px] font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{s.nama}</td>
+                                                    <td className="px-6 py-4 border-l border-slate-100/80 text-[13px] font-bold text-slate-600 tracking-widest uppercase"><KelasLabel text={s.kelas} id={s.kelas_id} /></td>
+                                                    <td className="px-6 py-4 border-l border-slate-100/80 text-right">
+                                                        {!rosterAsOfDate && (
+                                                            <div className="opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex justify-end">
+                                                                <button title="Mutasi / Keluarkan Santri" onClick={() => openManageStatusModal(s.id)} className="h-9 px-3 inline-flex items-center justify-center rounded-xl bg-slate-50 text-slate-500 hover:bg-amber-500 hover:text-white transition-all shadow-sm text-[12px] font-semibold gap-1.5">
+                                                                    <RefreshCw size={14} strokeWidth={2.5}/> Kelola Status
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            {uniqueMembers.length === 0 && (
+                                                <tr>
+                                                    <td colSpan={5} className="text-center py-16 text-[13px] text-slate-500 font-medium">
+                                                        {rosterAsOfDate
+                                                            ? `Tidak ada anggota halaqah yang tercatat aktif pada tanggal ${rosterAsOfDate}.`
+                                                            : 'Belum ada anggota aktif.'}
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                );
+                            })()}
                             
                             <div className="p-6 border-t border-slate-100">
                                 <button
                                     onClick={() => setShowRiwayat(!showRiwayat)}
                                     className="w-full py-2.5 rounded-lg border border-slate-200 text-slate-600 font-semibold text-[13px] hover:bg-slate-50 transition-colors"
                                 >
-                                    {showRiwayat ? 'Tutup Riwayat Anggota' : `Lihat riwayat anggota (${(selectedHalaqah.history || []).filter(h => h.status !== 'Aktif').length})`}
+                                    {showRiwayat ? 'Tutup Riwayat Anggota' : `Lihat riwayat anggota keluar/mutasi (${(selectedHalaqah.history || []).filter(h => h.status !== 'Aktif').length})`}
                                 </button>
                             </div>
 
@@ -1165,18 +1306,18 @@ const HalaqahPage: React.FC = () => {
                                         <tr className="bg-slate-50/50 border-b border-slate-200/60">
                                             <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 w-12 text-center">No.</th>
                                             <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80">Nama Santri</th>
-                                            <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80">Tgl Masuk</th>
-                                            <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80">Tgl Keluar</th>
+                                            <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80">Tgl Masuk (valid_from)</th>
+                                            <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80">Tgl Keluar (valid_to)</th>
                                             <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80">Status</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100/80">
                                         {(selectedHalaqah.history || []).filter(h => h.status !== 'Aktif').sort((a,b) => new Date(b.end_date || '').getTime() - new Date(a.end_date || '').getTime()).map((h, idx) => (
-                                            <tr key={`${h.santri_id}-${h.start_date}`} className="hover:bg-slate-50/50 transition-colors">
+                                            <tr key={`${h.santri_id}-${h.start_date}-${idx}`} className="hover:bg-slate-50/50 transition-colors">
                                                 <td className="px-6 py-4 text-[12px] font-bold text-slate-500 text-center">{idx + 1}</td>
                                                 <td className="px-6 py-4 border-l border-slate-100/80 text-[14px] font-bold text-slate-800">{h.santri?.nama || '-'}</td>
-                                                <td className="px-6 py-4 border-l border-slate-100/80 text-[13px] font-semibold text-slate-600">{h.start_date}</td>
-                                                <td className="px-6 py-4 border-l border-slate-100/80 text-[13px] font-semibold text-slate-600">{h.end_date || '-'}</td>
+                                                <td className="px-6 py-4 border-l border-slate-100/80 text-[13px] font-mono font-semibold text-slate-600">{h.start_date}</td>
+                                                <td className="px-6 py-4 border-l border-slate-100/80 text-[13px] font-mono font-semibold text-slate-600">{h.end_date || '-'}</td>
                                                 <td className="px-6 py-4 border-l border-slate-100/80 text-[13px] font-bold text-slate-500">
                                                     <span className="bg-slate-100 px-2.5 py-1 rounded-md">{h.status}</span>
                                                 </td>
@@ -1184,7 +1325,7 @@ const HalaqahPage: React.FC = () => {
                                         ))}
                                         {(selectedHalaqah.history || []).filter(h => h.status !== 'Aktif').length === 0 && <tr><td colSpan={5} className="text-center py-16 text-[13px] text-slate-500 font-medium">Belum ada riwayat anggota yang keluar/pindah.</td></tr>}
                                     </tbody>
-                                                                </table>
+                                </table>
                             )}
                         </div>
                     </div>
@@ -1192,6 +1333,91 @@ const HalaqahPage: React.FC = () => {
                     {/* EDIT MODAL */}
                     <Modal isOpen={modalType === 'edit'} onClose={() => setModalType(null)} title="Edit Data Halaqah">
                         {renderFormContent(true)}
+                    </Modal>
+
+                    {/* MODAL PENUGASAN MUSAMMI UTAMA / PENGGANTI (FASE 4 SECTION 5) */}
+                    <Modal
+                        isOpen={musammiModalOpen}
+                        onClose={() => setMusammiModalOpen(false)}
+                        title={`Penugasan Musammi Halaqah — ${selectedHalaqah.nama}`}
+                    >
+                        <form onSubmit={handleAssignMusammiSubmit} className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">
+                                    Tipe Penugasan (assignment_type)
+                                </label>
+                                <select
+                                    value={musammiAssignType}
+                                    onChange={(e) => setMusammiAssignType(e.target.value as 'primary' | 'substitute')}
+                                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white font-semibold text-slate-800"
+                                >
+                                    <option value="primary">Musammi Utama (Primary — Menggantikan Musammi Utama Sebelumnya)</option>
+                                    <option value="substitute">Musammi Pengganti / Badal (Substitute — Sementara)</option>
+                                </select>
+                            </div>
+
+                            <SearchableMusammiSelect
+                                musammiList={musammi}
+                                selectedId={musammiAssignId}
+                                onChange={setMusammiAssignId}
+                            />
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">
+                                        Berlaku Mulai (valid_from) <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="date"
+                                        required
+                                        value={musammiValidFrom}
+                                        onChange={(e) => setMusammiValidFrom(e.target.value)}
+                                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono text-slate-800"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">
+                                        Berlaku Sampai (valid_to)
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={musammiValidTo}
+                                        onChange={(e) => setMusammiValidTo(e.target.value)}
+                                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono text-slate-800"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">
+                                    Catatan Penugasan
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="Contoh: Badal selama Musammi utama bertugas keluar kota..."
+                                    value={musammiAssignNotes}
+                                    onChange={(e) => setMusammiAssignNotes(e.target.value)}
+                                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800"
+                                />
+                            </div>
+
+                            <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+                                <button
+                                    type="button"
+                                    onClick={() => setMusammiModalOpen(false)}
+                                    className="px-4 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                                >
+                                    Batal
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isSubmitting || !musammiAssignId}
+                                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold disabled:opacity-50"
+                                >
+                                    {isSubmitting ? 'Menyimpan...' : 'Simpan Penugasan'}
+                                </button>
+                            </div>
+                        </form>
                     </Modal>
                 </div>
             ) : activeViewTab === 'schedule' ? (
@@ -1406,10 +1632,10 @@ const HalaqahPage: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100/80">
-                                    {filteredHalaqah.map(h => {
+                                    {paginatedHalaqah.map(h => {
                                         const isSelected = selectedHalaqahIds.includes(h.id);
                                         return (
-                                            <tr key={h.id} className={`hover:bg-blue-50/30 transition-colors cursor-pointer group ${isSelected ? 'bg-blue-50/50' : ''}`} onClick={() => { setSelectedHalaqah(h); setShowRiwayat(false); }}>
+                                            <tr key={h.id} className={`hover:bg-blue-50/30 transition-colors cursor-pointer group ${isSelected ? 'bg-blue-50/50' : ''}`} onClick={() => { setSelectedHalaqah(h); setShowRiwayat(false); setRosterAsOfDate(''); }}>
                                                 <td className="px-6 py-4 border-r border-slate-100/80 text-center" onClick={(e) => { e.stopPropagation(); toggleSelectRow(h.id); }}>
                                                     {isSelected ? <CheckSquare size={16} className="text-blue-600"/> : <Square size={16} className="text-slate-300 group-hover:text-slate-400"/>}
                                                 </td>
@@ -1432,7 +1658,12 @@ const HalaqahPage: React.FC = () => {
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 border-l border-slate-100/80 text-[13px] font-bold text-slate-700">
-                                                    {h.musammi.nama}
+                                                    <div>{h.musammi.nama}</div>
+                                                    {(h.substitute_musammi || []).length > 0 && (
+                                                        <div className="text-[11px] font-semibold text-indigo-600 mt-0.5">
+                                                            Pengganti: {(h.substitute_musammi || []).map((s) => s.nama).join(', ')}
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 <td className="px-6 py-4 border-l border-slate-100/80 text-[12px] font-medium text-slate-500 max-w-[150px] truncate" title={h.waktu.join(', ')}>
                                                     <div className="flex items-center gap-1.5 text-slate-600 bg-slate-50 px-2 py-1 rounded-md w-fit border border-slate-200/60 font-semibold shadow-sm">
@@ -1446,6 +1677,34 @@ const HalaqahPage: React.FC = () => {
                                 </tbody>
                             </table>
                         </div>
+                        {filteredHalaqah.length > itemsPerPage && (
+                            <div className="px-6 py-3.5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between text-xs text-slate-600">
+                                <span>
+                                    Menampilkan <span className="font-bold">{paginatedHalaqah.length}</span> dari <span className="font-bold">{filteredHalaqah.length}</span> kelompok halaqah
+                                </span>
+                                <div className="inline-flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        disabled={currentPage <= 1}
+                                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                        className="px-3 py-1 rounded border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 font-semibold"
+                                    >
+                                        Sebelumnya
+                                    </button>
+                                    <span className="font-mono">
+                                        Hal {currentPage} / {totalPages}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        disabled={currentPage >= totalPages}
+                                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                                        className="px-3 py-1 rounded border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 font-semibold"
+                                    >
+                                        Berikutnya
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Create Modal */}

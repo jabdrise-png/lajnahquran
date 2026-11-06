@@ -494,6 +494,7 @@ export default function SetoranHarianPage() {
 
     // Fase 7: V2 Recitation Ledger Entries, Revision History & Admin Review states
     const isAdminUser = userProfile?.role === 'admin' || userProfile?.role === 'superadmin';
+    const [selectedHalaqahId, setSelectedHalaqahId] = useState<number | 'all'>('all');
     const [v2Entries, setV2Entries] = useState<any[]>([]);
     const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
     const [revisionModalEntry, setRevisionModalEntry] = useState<any | null>(null);
@@ -511,17 +512,31 @@ export default function SetoranHarianPage() {
     const fetchV2EntriesForDate = useCallback(async () => {
         if (!userProfile?.organization_id || !selectedDate) return;
         try {
-            const { data } = await (supabase as any)
+            let query = (supabase as any)
                 .from('recitation_entries')
                 .select('*')
                 .eq('organization_id', userProfile.organization_id)
+                .eq('recitation_date', selectedDate);
+
+            if (filterJenis !== 'all') {
+                query = query.eq('kind', filterJenis);
+            }
+            if (filterLedgerStatus !== 'all') {
+                query = query.eq('status', filterLedgerStatus);
+            }
+            if (selectedHalaqahId !== 'all') {
+                query = query.eq('halaqah_id', selectedHalaqahId);
+            }
+
+            const { data, error } = await query
                 .order('created_at', { ascending: false })
-                .limit(500);
-            if (data) setV2Entries(data);
+                .limit(2000);
+
+            if (!error && data) setV2Entries(data);
         } catch (err) {
             console.warn('Could not load v2 recitation_entries:', err);
         }
-    }, [userProfile?.organization_id, selectedDate]);
+    }, [userProfile?.organization_id, selectedDate, filterJenis, filterLedgerStatus, selectedHalaqahId]);
 
     useEffect(() => {
         fetchV2EntriesForDate();
@@ -532,7 +547,6 @@ export default function SetoranHarianPage() {
             setSelectedWaktu(globalWaktuHalaqah[0]);
         }
     }, [globalWaktuHalaqah, selectedWaktu]);
-    const [selectedHalaqahId, setSelectedHalaqahId] = useState<number | 'all'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedSantriIds, setSelectedSantriIds] = useState<Set<string>>(new Set());
     const [pendingAttendance, setPendingAttendance] = useState<Record<string, string>>({});
@@ -865,9 +879,10 @@ export default function SetoranHarianPage() {
     const resolveV2EntryForRecord = useCallback((r: any) => {
         if (!v2Entries || v2Entries.length === 0) return null;
         return v2Entries.find(e =>
-            Number(e.student_id) === Number(r.santri_id) &&
-            Number(e.halaqah_id) === Number(r.halaqah_id) &&
-            (e.start_surah === (r.surat_mulai || r.surat) || !r.surat_mulai)
+            (e.legacy_setoran_id && Number(e.legacy_setoran_id) === Number(r.id)) ||
+            (Number(e.santri_id || e.student_id) === Number(r.santri_id) &&
+             Number(e.halaqah_id) === Number(r.halaqah_id) &&
+             ((e.start_surah || e.surah_start_no) === (r.surat_mulai || r.surat) || !r.surat_mulai))
         ) || null;
     }, [v2Entries]);
 
@@ -880,7 +895,7 @@ export default function SetoranHarianPage() {
                 const { data } = await (supabase as any)
                     .from('recitation_revisions')
                     .select('*')
-                    .eq('recitation_entry_id', matchedV2.id)
+                    .or(`entry_id.eq.${matchedV2.id},recitation_entry_id.eq.${matchedV2.id}`)
                     .order('created_at', { ascending: false });
                 setRevisionList(data || []);
             } else {
@@ -894,10 +909,19 @@ export default function SetoranHarianPage() {
     };
 
     const handleSubmitAdminReview = async () => {
-        if (!reviewModalEntry || !reviewModalEntry.reason.trim()) return;
+        if (!reviewModalEntry) return;
+        const { legacyRecord, v2Entry, newStatus, reason } = reviewModalEntry;
+
+        if ((newStatus === 'returned' || newStatus === 'voided') && reason.trim().length < 5) {
+            NotificationStore.addNotification(
+                'Alasan wajib diisi minimal 5 karakter untuk pengembalian atau pembatalan setoran.',
+                'error'
+            );
+            return;
+        }
+
         setIsSubmittingReview(true);
         try {
-            const { legacyRecord, v2Entry, newStatus, reason } = reviewModalEntry;
             if (v2Entry?.id) {
                 const { error: rpcErr } = await (supabase as any).rpc('rpc_review_recitation_entry', {
                     p_entry_id: v2Entry.id,
@@ -905,37 +929,17 @@ export default function SetoranHarianPage() {
                     p_reason: reason.trim()
                 });
                 if (rpcErr) {
-                    await (supabase as any)
-                        .from('recitation_entries')
-                        .update({ status: newStatus, updated_at: new Date().toISOString() })
-                        .eq('id', v2Entry.id);
-                    await (supabase as any)
-                        .from('recitation_revisions')
-                        .insert({
-                            organization_id: userProfile?.organization_id,
-                            recitation_entry_id: v2Entry.id,
-                            changed_by: userProfile?.id,
-                            reason: reason.trim(),
-                            before_json: v2Entry,
-                            after_json: { ...v2Entry, status: newStatus }
-                        });
+                    throw new Error(rpcErr.message);
                 }
-            }
-
-            if (userProfile?.organization_id) {
-                await (supabase as any).from('audit_logs').insert({
-                    organization_id: userProfile.organization_id,
-                    actor_user_id: userProfile.id,
-                    action: `REVIEW_RECITATION_${newStatus.toUpperCase()}`,
-                    entity_type: 'recitation_entries',
-                    entity_id: String(v2Entry?.id || legacyRecord.id),
-                    reason: reason.trim(),
-                    diff_json: {
-                        legacy_id: legacyRecord.id,
-                        student_id: legacyRecord.santri_id,
-                        new_status: newStatus
-                    }
+            } else if (legacyRecord?.id) {
+                const { error: rpcErr } = await (supabase as any).rpc('rpc_review_recitation_entry', {
+                    p_legacy_id: legacyRecord.id,
+                    p_new_status: newStatus,
+                    p_reason: reason.trim()
                 });
+                if (rpcErr) {
+                    throw new Error(rpcErr.message);
+                }
             }
 
             await fetchV2EntriesForDate();
@@ -1016,54 +1020,50 @@ export default function SetoranHarianPage() {
                 });
             }
 
-            if (formData.id) {
-                await updateSetoranHarianRecord(formData.id, {
-                    surat_mulai: formData.surat_mulai || formData.surat,
-                    ayat_mulai: formData.ayat_mulai || formData.ayat,
-                    surat_selesai: formData.surat_selesai,
-                    ayat_selesai: formData.ayat_selesai,
-                    surat: formData.surat_mulai || formData.surat,
-                    ayat: formData.ayat_mulai || formData.ayat,
-                    skema: formData.skema,
-                    nilai: formData.nilai,
-                    jumlah_halaman: formData.jumlah_halaman ? parseFloat(formData.jumlah_halaman) : null,
-                    kesalahan_kabir: formData.kesalahan_kabir ? parseInt(formData.kesalahan_kabir) : 0,
-                    kesalahan_shoghir: formData.kesalahan_shoghir ? parseInt(formData.kesalahan_shoghir) : 0,
-                    keterangan: formData.keterangan,
-                    waktu: formData.waktu
-                });
-            } else {
-                await addSetoranHarianRecord({
-                    santri_id: santriId,
-                    halaqah_id: halaqahIdToUse,
-                    tanggal: selectedDate,
-                    waktu: formData.waktu,
-                    surat_mulai: formData.surat_mulai || formData.surat,
-                    ayat_mulai: formData.ayat_mulai || formData.ayat,
-                    surat_selesai: formData.surat_selesai,
-                    ayat_selesai: formData.ayat_selesai,
-                    surat: formData.surat_mulai || formData.surat,
-                    ayat: formData.ayat_mulai || formData.ayat,
-                    skema: formData.skema,
-                    nilai: formData.nilai,
-                    jumlah_halaman: formData.jumlah_halaman ? parseFloat(formData.jumlah_halaman) : null,
-                    kesalahan_kabir: formData.kesalahan_kabir ? parseInt(formData.kesalahan_kabir) : 0,
-                    kesalahan_shoghir: formData.kesalahan_shoghir ? parseInt(formData.kesalahan_shoghir) : 0,
-                    keterangan: formData.keterangan
-                });
+            const startSurahNo = startMeta?.nomor || 1;
+            const endSurahNo = endMeta?.nomor || startSurahNo;
+            const rawPages = formData.jumlah_halaman ? parseFloat(formData.jumlah_halaman) : 0;
+            const minorM = formData.kesalahan_shoghir ? parseInt(formData.kesalahan_shoghir, 10) : 0;
+            const majorM = formData.kesalahan_kabir ? parseInt(formData.kesalahan_kabir, 10) : 0;
+            const idKey = `recitation_${halaqahIdToUse}_${santriId}_${selectedDate}_${formData.waktu}_${Date.now()}`;
+
+            // Panggil RPC Kanonikal rpc_submit_recitation_entry untuk persistensi atomik & validasi server-side
+            const { error: submitErr } = await (supabase as any).rpc('rpc_submit_recitation_entry', {
+                p_santri_id: santriId,
+                p_halaqah_id: halaqahIdToUse,
+                p_recitation_date: selectedDate,
+                p_session_slot: formData.waktu || 'Shubuh',
+                p_kind: formData.skema || 'ziyadah',
+                p_surah_start_no: startSurahNo,
+                p_ayah_start: aMulaiNum,
+                p_surah_end_no: endSurahNo,
+                p_ayah_end: aSelesaiNum,
+                p_calculated_pages: rawPages,
+                p_minor_mistakes: minorM,
+                p_major_mistakes: majorM,
+                p_predicate: formData.nilai || null,
+                p_notes: formData.keterangan || null,
+                p_status: formData.status || 'submitted',
+                p_idempotency_key: formData.id ? null : idKey,
+                p_existing_entry_id: formData.v2_id || null
+            });
+
+            if (submitErr) {
+                // Kegagalan RPC tidak menghasilkan fallback direct update client yang melewati validasi (AC-10)
+                throw new Error(submitErr.message);
             }
 
             await fetchV2EntriesForDate();
+            NotificationStore.addNotification('Catatan setoran santri berhasil dicatat ke sistem.', 'success');
 
-            // Tele notification logic
+            // Tele notification logic (token resolved server-side via /api/notify/telegram)
             try {
                 const telEnable = appSettings.find(s => s.key === 'SETORAN_TELEGRAM_NOTIF_ENABLE')?.value === 'true';
                 if (telEnable) {
                     let template = appSettings.find(s => s.key === 'SETORAN_TELEGRAM_NOTIF_TEMPLATE')?.value || '';
-                    const botToken = appSettings.find(s => s.key === 'TELEGRAM_BOT_TOKEN')?.value || import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
                     const chatId = santriData?.telegram_chat_id;
                     
-                    if (template && botToken && chatId) {
+                    if (template && chatId) {
                         const sMulai = formData.surat_mulai || formData.surat || '-';
                         const aMulai = formData.ayat_mulai || formData.ayat || '-';
                         const sSelesai = formData.surat_selesai ? ` - ${formData.surat_selesai}` : '';
@@ -1083,7 +1083,7 @@ export default function SetoranHarianPage() {
                             .replace(/{jumlah_halaman}/g, formData.jumlah_halaman || '0')
                             .replace(/{keterangan}/g, formData.keterangan || '-');
                             
-                        await sendCustomTelegramMessage(botToken, chatId, msg);
+                        await sendCustomTelegramMessage('', chatId, msg, santriData?.id);
                     }
                 }
             } catch (err) {

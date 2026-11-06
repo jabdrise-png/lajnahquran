@@ -1,0 +1,65 @@
+name: Production Hardening CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate-and-test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [ 20.x ]
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: 1. Static Type Checking & TypeScript Validation
+        run: npm run lint
+
+      - name: 2. Automated Test Suite — Fase 1: Security, Role & Multi-Tenant Isolation
+        run: npx tsx scripts/verify-fase1-security.ts
+
+      - name: 3. Automated Test Suite — Fase 2: Tenant Provisioning & User Lifecycle
+        run: npx tsx scripts/verify-fase2-lifecycle.ts
+
+      - name: 4. Automated Test Suite — Fase 3: Integration, Secret & Notification Security
+        run: npx tsx scripts/verify-fase3-integrations.ts
+
+      - name: 5. Automated Test Suite — Fase 4: Academic Foundation & Canonical V2 Data
+        run: npx tsx scripts/verify-fase4-academic.ts
+
+      - name: 6. Automated Test Suite — Fase 5: Halaqah Session & Attendance State Machine
+        run: npx tsx scripts/verify-fase5-sessions.ts
+
+      - name: 7. Automated Test Suite — Fase 6: Recitation Ledger & Review Workflow
+        run: npx tsx scripts/verify-fase6-recitations.ts
+
+      - name: 8. Automated Test Suite — Fase 7: Exam, Gradebook & Report Card Integrity
+        run: npx tsx scripts/verify-fase7-integrity.ts
+
+      - name: 9. Automated Test Suite — Fase 8: Unit, Integration & E2E Suites
+        run: |
+          npx tsx scripts/verify-fase8-unit.ts
+          npx tsx scripts/verify-fase8-integration.ts
+          npx tsx scripts/verify-fase8-db-security.ts
+          npx tsx scripts/verify-fase8-e2e.ts
+
+      - name: 10. Production Production Readiness Checklist Audit
+        run: npx tsx scripts/verify-fase8-production-readiness.ts
+
+      - name: 11. Production Bundle Build (Vite SPA + Node.js Serverless Server)
+        run: npm run build

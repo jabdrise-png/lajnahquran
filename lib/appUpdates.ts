@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { resolveTenantContext } from './permissions';
 
 export interface AppUpdateItem {
     category: 'Fitur Baru' | 'Peningkatan' | 'Perbaikan';
@@ -162,20 +163,13 @@ export const saveStoredUpdates = async (updates: AppUpdateRelease[]): Promise<vo
     } catch {}
 
     try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-            const { data: profile } = await (supabase as any)
-                .from('profiles')
-                .select('organization_id')
-                .eq('id', user.id)
-                .single();
-            if (profile?.organization_id) {
-                await (supabase as any).from('app_settings').upsert({
-                    organization_id: profile.organization_id,
-                    key: 'APP_SYSTEM_UPDATES',
-                    value: JSON.stringify(updates)
-                }, { onConflict: 'organization_id,key' });
-            }
+        const ctx = await resolveTenantContext(supabase);
+        if (ctx.userId && ctx.isAuthorized && ctx.organizationId && ctx.supportSession?.mode !== 'read_only') {
+            await (supabase as any).from('app_settings').upsert({
+                organization_id: ctx.organizationId,
+                key: 'APP_SYSTEM_UPDATES',
+                value: JSON.stringify(updates)
+            }, { onConflict: 'organization_id,key' });
         }
     } catch (e) {
         console.error('Failed to sync updates to app_settings:', e);
@@ -186,26 +180,19 @@ export const saveStoredUpdates = async (updates: AppUpdateRelease[]): Promise<vo
 
 export const syncUpdatesFromCloud = async (): Promise<AppUpdateRelease[]> => {
     try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-            const { data: profile } = await (supabase as any)
-                .from('profiles')
-                .select('organization_id')
-                .eq('id', user.id)
-                .single();
-            if (profile?.organization_id) {
-                const { data } = await (supabase as any).from('app_settings')
-                    .select('value')
-                    .eq('organization_id', profile.organization_id)
-                    .eq('key', 'APP_SYSTEM_UPDATES')
-                    .maybeSingle();
-                if (data?.value) {
-                    const parsed = JSON.parse(data.value);
-                    if (Array.isArray(parsed) && parsed.length > 0) {
-                        localStorage.setItem(STORAGE_CUSTOM_UPDATES_KEY, JSON.stringify(parsed));
-                        notifyUpdateStateChanged();
-                        return parsed;
-                    }
+        const ctx = await resolveTenantContext(supabase);
+        if (ctx.userId && ctx.isAuthorized && ctx.organizationId) {
+            const { data } = await (supabase as any).from('app_settings')
+                .select('value')
+                .eq('organization_id', ctx.organizationId)
+                .eq('key', 'APP_SYSTEM_UPDATES')
+                .maybeSingle();
+            if (data?.value) {
+                const parsed = JSON.parse(data.value);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    localStorage.setItem(STORAGE_CUSTOM_UPDATES_KEY, JSON.stringify(parsed));
+                    notifyUpdateStateChanged();
+                    return parsed;
                 }
             }
         }

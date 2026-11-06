@@ -154,6 +154,9 @@ const SettingsPage: React.FC = () => {
     const [enableTelegram, setEnableTelegram] = useState(false);
     const [enableWa, setEnableWa] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [secretMetaMap, setSecretMetaMap] = useState<
+        Record<string, { masked_preview: string; status: 'active' | 'disabled'; rotation_count: number; last_rotated_at: string | null }>
+    >({});
 
     // Master Kelas states
     const [newMarhalah, setNewMarhalah] = useState('');
@@ -168,9 +171,41 @@ const SettingsPage: React.FC = () => {
     const [newPredikatLabel, setNewPredikatLabel] = useState('');
     const [newPredikatMinScore, setNewPredikatMinScore] = useState('');
 
+    const fetchSecretMetadata = async () => {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (!token) return;
+            const resp = await fetch('/api/integrations', {
+                method: 'GET',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (resp.ok) {
+                const payload = await resp.json().catch(() => ({}));
+                const map: Record<string, { masked_preview: string; status: 'active' | 'disabled'; rotation_count: number; last_rotated_at: string | null }> = {};
+                for (const s of payload.secrets || []) {
+                    map[s.secret_key_name] = {
+                        masked_preview: s.masked_preview,
+                        status: s.status === 'disabled' ? 'disabled' : 'active',
+                        rotation_count: Number(s.rotation_count || 1),
+                        last_rotated_at: s.last_rotated_at || s.updated_at || null,
+                    };
+                }
+                setSecretMetaMap(map);
+                if (map.TELEGRAM_BOT_TOKEN?.masked_preview) {
+                    setTelegramBotToken(map.TELEGRAM_BOT_TOKEN.masked_preview);
+                }
+                if (map.FONNTE_API_TOKEN?.masked_preview) {
+                    setFonnteApiToken(map.FONNTE_API_TOKEN.masked_preview);
+                }
+            }
+        } catch {
+            // ignore
+        }
+    };
+
     useEffect(() => {
         if (!loading) {
-            
             setOrgName(initialOrgName || '');
             setOrgLogo(initialOrgLogo || '');
 
@@ -181,12 +216,13 @@ const SettingsPage: React.FC = () => {
             const eTelegram = appSettings.find(s => s.key === 'ENABLE_TELEGRAM_NOTIFICATION')?.value === 'true';
             const eWa = appSettings.find(s => s.key === 'ENABLE_WA_NOTIFICATION')?.value === 'true';
             
-            setTelegramBotToken(token);
+            setTelegramBotToken(prev => prev || token);
             setTelegramBotUsername(botUsername);
             setTelegramGlobalChatId(chatId);
-            setFonnteApiToken(fToken);
+            setFonnteApiToken(prev => prev || fToken);
             setEnableTelegram(eTelegram);
             setEnableWa(eWa);
+            fetchSecretMetadata();
         }
     }, [appSettings, loading, initialOrgName, initialOrgLogo]);
 
@@ -291,9 +327,47 @@ const SettingsPage: React.FC = () => {
 
             setTelegramBotToken(maskSecret(telegramBotToken));
             setFonnteApiToken(maskSecret(fonnteApiToken));
+            await fetchSecretMetadata();
             NotificationStore.addNotification('Pengaturan Integrasi & Notifikasi berhasil disimpan (Token rahasia diamankan & dimasking).', 'success');
         } catch (e: any) {
             NotificationStore.addNotification('Gagal menyimpan: ' + e.message, 'error');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleToggleSecretStatus = async (secretKeyName: 'TELEGRAM_BOT_TOKEN' | 'FONNTE_API_TOKEN', currentStatus: 'active' | 'disabled') => {
+        setIsSaving(true);
+        const nextStatus = currentStatus === 'active' ? 'disabled' : 'active';
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (!token) throw new Error('Sesi autentikasi tidak ditemukan.');
+
+            const resp = await fetch('/api/integrations', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    action: 'set_status',
+                    secretKeyName,
+                    status: nextStatus,
+                    reason: nextStatus === 'disabled' ? `Penonaktifan ${secretKeyName} dari halaman Pengaturan` : `Pengaktifan kembali ${secretKeyName} dari halaman Pengaturan`
+                })
+            });
+            const data = await resp.json().catch(() => ({}));
+            if (!resp.ok) {
+                throw new Error(data.error || 'Gagal memperbarui status token.');
+            }
+            await fetchSecretMetadata();
+            NotificationStore.addNotification(
+                `Status ${secretKeyName} berhasil diubah menjadi ${nextStatus === 'active' ? 'Aktif' : 'Dinonaktifkan'}.`,
+                'success'
+            );
+        } catch (e: any) {
+            NotificationStore.addNotification(e.message || 'Gagal mengubah status token.', 'error');
         } finally {
             setIsSaving(false);
         }
@@ -814,13 +888,35 @@ const SettingsPage: React.FC = () => {
                     <div className="space-y-8 max-w-2xl">
                         {/* Telegram Settings */}
                         <div className="space-y-4">
-                            <div>
-                                <h3 className="font-bold text-slate-800 text-sm">Telegram Bot</h3>
-                                <p className="text-xs text-slate-500">Pengaturan untuk mengirim notifikasi ke Telegram.</p>
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                    <h3 className="font-bold text-slate-800 text-sm">Telegram Bot</h3>
+                                    <p className="text-xs text-slate-500">Pengaturan untuk mengirim notifikasi ke Telegram (Token disimpan terenkripsi/terisolasi di server).</p>
+                                </div>
+                                {secretMetaMap.TELEGRAM_BOT_TOKEN && (
+                                    <div className="flex items-center gap-2">
+                                        <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                                            secretMetaMap.TELEGRAM_BOT_TOKEN.status === 'active'
+                                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                                : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                        }`}>
+                                            {secretMetaMap.TELEGRAM_BOT_TOKEN.status === 'active' ? 'Token Aktif' : 'Token Dinonaktifkan'}
+                                            {' • '}Rotasi #{secretMetaMap.TELEGRAM_BOT_TOKEN.rotation_count}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            disabled={isSaving}
+                                            onClick={() => handleToggleSecretStatus('TELEGRAM_BOT_TOKEN', secretMetaMap.TELEGRAM_BOT_TOKEN.status)}
+                                            className="px-2.5 py-1 text-xs font-bold rounded border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"
+                                        >
+                                            {secretMetaMap.TELEGRAM_BOT_TOKEN.status === 'active' ? 'Nonaktifkan Token' : 'Aktifkan Token'}
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                             <div className="grid gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1.5">Bot Token</label>
+                                    <label className="block text-xs font-bold text-slate-700 mb-1.5">Bot Token (Masukkan token baru untuk rotasi)</label>
                                     <input type="text" value={telegramBotToken} onChange={e => setTelegramBotToken(e.target.value)} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm font-medium" placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz..." />
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -846,13 +942,35 @@ const SettingsPage: React.FC = () => {
 
                         {/* WhatsApp Settings */}
                         <div className="space-y-4">
-                            <div>
-                                <h3 className="font-bold text-slate-800 text-sm">WhatsApp (Fonnte)</h3>
-                                <p className="text-xs text-slate-500">Pengaturan API Fonnte untuk WhatsApp.</p>
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                    <h3 className="font-bold text-slate-800 text-sm">WhatsApp (Fonnte)</h3>
+                                    <p className="text-xs text-slate-500">Pengaturan API Fonnte untuk WhatsApp (Token disimpan terenkripsi/terisolasi di server).</p>
+                                </div>
+                                {secretMetaMap.FONNTE_API_TOKEN && (
+                                    <div className="flex items-center gap-2">
+                                        <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                                            secretMetaMap.FONNTE_API_TOKEN.status === 'active'
+                                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                                : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                        }`}>
+                                            {secretMetaMap.FONNTE_API_TOKEN.status === 'active' ? 'Token Aktif' : 'Token Dinonaktifkan'}
+                                            {' • '}Rotasi #{secretMetaMap.FONNTE_API_TOKEN.rotation_count}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            disabled={isSaving}
+                                            onClick={() => handleToggleSecretStatus('FONNTE_API_TOKEN', secretMetaMap.FONNTE_API_TOKEN.status)}
+                                            className="px-2.5 py-1 text-xs font-bold rounded border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"
+                                        >
+                                            {secretMetaMap.FONNTE_API_TOKEN.status === 'active' ? 'Nonaktifkan Token' : 'Aktifkan Token'}
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                             <div className="grid gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1.5">API Token</label>
+                                    <label className="block text-xs font-bold text-slate-700 mb-1.5">API Token (Masukkan token baru untuk rotasi)</label>
                                     <input type="text" value={fonnteApiToken} onChange={e => setFonnteApiToken(e.target.value)} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-sm font-medium" placeholder="Token API Fonnte..." />
                                 </div>
                                 <label className="flex items-center gap-3 cursor-pointer mt-1">

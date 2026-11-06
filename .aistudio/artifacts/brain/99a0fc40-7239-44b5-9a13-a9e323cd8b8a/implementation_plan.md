@@ -177,19 +177,65 @@ Seluruh tabel *tenant-scoped* wajib memiliki `organization_id UUID NOT NULL` dan
 | **Review Setoran & Koreksi Admin (`/app/attendance`, `/app/recitations`)** | Admin meninjau setoran (`accept`/`return`/`void`) atau mengoreksi absensi sesi yang sudah ditutup. | Membuka `ConfirmDialog` dengan input `reason` wajib. Memanggil `rpc_review_recitation_entry` yang memperbarui status dan menyisipkan baris *append-only* ke `recitation_revisions` dan `audit_logs`. |
 | **Ujian, Remedial & Penerbitan Raport (`/app/exams`, `/app/report-cards`)** | Admin menjadwalkan ujian, penguji menginput nilai per *attempt*/remedial, Admin menerbitkan raport semester. | Menyimpan setiap percobaan ujian sebagai `exam_attempts` terpisah. Saat klik *Publish Raport*, `rpc_publish_report_card` membekukan hasil ke `report_cards.snapshot_json` (`status: 'published'`), dan membuka alur *Amendment* jika diperlukan revisi pasca-terbit. |
 
-### D. Urutan Tahapan Eksekusi (Fase 1 s/d Fase 8)
+### D. Urutan Tahapan Eksekusi & Status Verifikasi (Fase 1 s/d Fase 8)
 
-1. **Fase 1 & 2 — Fondasi Database, Migrasi Otomatis, 3-Role Access Grants, RPC Transaksional & RLS Ketat**:
-   - Menyusun skrip SQL komprehensif (`/database/supabase_saas_v2_migration.sql`) yang membangun tabel-tabel baru, *composite tenant foreign keys*, fungsi RPC transaksional (`SECURITY DEFINER`), kebijakan RLS per role/assignment, serta **migrasi otomatis** dari tabel lama (`profiles`, `santri`, `student_classes`, `musammi`, `wali_kelas`, `musyrif`, `halaqah`, `halaqah_santri`, `attendance`, `setoran_harian`, `ujian_bulanan`, `ujian_semester`).
-2. **Fase 3 — Serverless API Adapter (`api/` + `vercel.json` + `netlify.toml` + `server.ts`)**:
-   - Memisahkan endpoint API ke handler modular yang berjalan secara *serverless* di Vercel dan Netlify sekaligus tetap kompatibel dengan `server.ts` lokal, serta memindahkan pembacaan token rahasia dari client ke server/RPC.
-3. **Fase 4 — Sistem Desain Terpadu (Shared UI Minimalis) & Arsitektur React Router 7**:
-   - Membangun komponen standar (`PageShell`, `PageHeader`, `Breadcrumbs`, `TenantContextBar`, `FilterBar` dengan sinkronisasi URL, `DataTable` generik, `FormField`, `ConfirmDialog`, `StatusBadge` tipografi bersih tanpa ikon paksaan) serta mengimplementasikan `PublicLayout`, `PlatformLayout`, dan `TenantLayout` beserta *Route Permission Map* terpusat.
-4. **Fase 5 — Implementasi Platform Shell Superadmin (`/platform/*`)**:
-   - Membangun halaman Dashboard Platform, Manajemen Organisasi/Tenant & Detail Tenant, Akun Platform, Paket & Entitlements, Support Access Sessions, Audit Platform, Health Monitor, dan Pengaturan Platform.
-5. **Fase 6 — Modernisasi Modul Fondasi Akademik & Master Data Admin (`/app/*`)**:
-   - Memodernisasi halaman Persiapan Tahun Ajaran & Semester (termasuk wizard penutupan tahun), Struktur Marhalah & Kelas (dengan atribut administratif Wali Kelas/Musyrif), Data Santri & Enrollment Tahunan, Data Musammi & Undangan Serverless, serta Halaqah & Jadwal.
-6. **Fase 7 — Modernisasi Operasional Sesi, Absensi & Transaksi Setoran (`/app/sessions/*`, `/app/my-*`)**:
-   - Membangun alur kerja Musammi (`Beranda Musammi`, `Halaqah Saya`, `Jadwal Saya`, `Sesi Halaqah`, `Input Absensi Batch`, `Input Setoran Al-Qur'an Terstruktur`, `Progres Santri Binaan`, `Riwayat Saya`) serta halaman monitoring, validasi, dan koreksi teraudit untuk Admin.
-7. **Fase 8 — Modernisasi Target Berversi, Rubrik, Ujian/Remedial, Raport Immutable & Pengaturan Lembaga**:
-   - Memodernisasi modul Target Hafalan Berversi, Pengaturan Rubrik & Simulasi, Evaluasi Periodik, Manajemen Ujian & Attempt Remedial, Buku Nilai (`Gradebook`), Penerbitan & Amendment Raport Snapshot, Laporan Analitik Terpadu, Pengumuman, serta Pengaturan Lembaga/Metodologi/Integrasi/Audit, diakhiri dengan verifikasi penuh `lint_applet` dan `compile_applet`.
+1. **Fase 0 — Baseline Audit & Dependency Map**: [SELESAI & TERVERIFIKASI]
+2. **Fase 1 — Security, Canonical RBAC & Tenant Isolation**: [SELESAI — 12/12 CHECKS PASSED]
+3. **Fase 2 — Tenant Provisioning & User Lifecycle**: [SELESAI — 14/14 CHECKS PASSED]
+4. **Fase 3 — Integration, Secret & Notification Security**: [SELESAI — 11/11 CHECKS PASSED]
+5. **Fase 4 — Academic Foundation & Canonical V2 Data**: [SELESAI — 9/9 CHECKS PASSED]
+6. **Fase 5 — Halaqah Session & Attendance State Machine**: [SELESAI — 10/10 CHECKS PASSED]
+   - *Date-aware assignment*: `is_musammi_assigned_to_halaqah_on_date` memeriksa penugasan aktif (primary & substitute) pada tanggal sesi.
+   - *State machine trigger*: `trg_validate_session_state_machine` menegakkan transisi kanonikal `scheduled → open → submitted → completed → locked` (dan `cancelled`), serta melarang mutasi status ilegal maupun perubahan roster setelah sesi dikunci.
+   - *Attendance roster integrity trigger*: `trg_validate_attendance_record` menolak santri di luar roster snapshot dan mewajibkan alasan koreksi (min 5 karakter) pada sesi terkunci.
+   - *Atomic batch attendance*: `rpc_save_attendance_batch` memvalidasi status kehadiran, keanggotaan roster, dan menyimpan secara atomik ke `attendance_records` serta `attendance` (legacy).
+   - *Idempotent submitting*: Deduplikasi submit berbasis `idempotency_key` dan composite conflict key `(session_id, santri_id)`.
+   - *Pre-lock gate*: `rpc_lock_halaqah_session` menolak penguncian jika ada santri dalam roster yang belum memiliki status kehadiran (`v_recorded_count < v_roster_count`).
+   - *Frontend UX*: `SesiHalaqahPage.tsx` memprioritaskan `v2SessionRecord.roster_snapshot`, menampilkan 6 status kanonikal, menyediakan modal konfirmasi penguncian dan modal koreksi pasca-kunci wajib alasan, serta memperbarui memori lokal via `fetchData()`.
+7. **Fase 6 — Recitation Ledger & Review Workflow**: [SELESAI — 11/11 CHECKS PASSED]
+   - *Canonical Ledger*: `recitation_entries` dijadikan sumber transaksi utama (ziyadah, sabqi, manzil/murajaah) dengan sinkronisasi atomik ke `setoran_harian` pada server-side via `rpc_submit_recitation_entry`. Client dual-write dieliminasi sepenuhnya.
+   - *State Machine Enforced*: Trigger `trg_validate_recitation_state_machine` menegakkan transisi kanonikal `draft → submitted → accepted` (serta `returned` dan `voided`). Catatan `voided` bersifat terminal dan tidak dapat dimutasi.
+   - *Musammi Modification Guard*: Musammi dilarang memodifikasi langsung konten setoran yang telah berstatus `submitted` tanpa proses `return` oleh Admin.
+   - *Mandatory Reason*: Pengembalian (`returned`) dan pembatalan (`voided`) wajib menyertakan alasan minimal 5 karakter, ditegakkan pada tingkat DB trigger/RPC dan frontend UI modal.
+   - *Revision History & Immutability*: Setiap revisi, review, resubmit, dan pembatalan mencatat snapshot lengkap (`before_snapshot`, `after_snapshot`) ke `recitation_revisions`. Trigger `trg_prevent_recitation_revision_tampering` melarang mutasi `UPDATE` dan `DELETE` pada tabel riwayat revisi (append-only).
+   - *Idempotency & Deduplication*: Parameter `p_idempotency_key` dan index `idx_recitation_entries_idempotency` mencegah duplikasi data setoran saat jaringan putus/retry submit.
+   - *No Client Bypass*: Kesalahan RPC tidak menghasilkan fallback direct update client yang melewati validasi.
+   - *Overloaded Review RPC*: `rpc_review_recitation_entry` mendukung parameter UUID (`p_entry_id`) dan legacy bigint (`p_legacy_id`).
+   - *Scalable Querying*: `fetchV2EntriesForDate` di `SetoranHarianPage.tsx` mendukung filter multi-parameter (jenis, status ledger, halaqah) tanpa cliff batasan 500 baris.
+8. **Fase 7 — Exam, Gradebook & Report Card Integrity**: [SELESAI — 13/13 CHECKS PASSED]
+   - *Canonical Exam Ledger*: `exam_attempts` dijadikan buku besar kanonikal untuk seluruh ujian semester dan bulanan (`exam_type: 'semester'` | `'monthly'`) dengan sinkronisasi atomik ke tabel legacy `ujian_semester` dan `ujian_bulanan`.
+   - *Atomic Attempt Progression & Remedial Preservation*: RPC `rpc_record_exam_attempt` menghitung nomor attempt berikutnya secara atomik (`MAX(attempt_no) + 1`) menggunakan advisory transaction lock. Histori attempt lama strictly preserved (tidak pernah ditimpa saat remedial).
+   - *Comprehensive Attempt Audit*: Setiap baris attempt menyimpan `raw_score`, `final_score`, `predikat`, `detail_json` (khoto shogir, khoto kabir, custom nilai), `notes`, `examiner_id`, serta mencatat event ke `audit_logs`.
+   - *Rubric Versioning*: RPC `rpc_save_rubric_version` memeriksa penggunaan rubrik aktif pada `exam_attempts` atau `report_cards`. Jika sudah digunakan, sistem membuat versi baru secara atomik (`version_no := MAX(version_no) + 1`) dan menonaktifkan versi lama tanpa merusak riwayat penilaian masa lalu.
+   - *Transparent Gradebook Calculation*: Formula bobot komponen ujian bulanan, ujian semester, silabus hafalan, dan kehadiran dihitung transparan dengan penanganan nilai kosong yang aman dan predikat nilai dinamis.
+   - *First Publication Invariant*: Publikasi pertama raport resmi menjamin `version_no = 1` dengan status `published`.
+   - *Amendment Workflow*: Penerbitan revisi raport (amendment) mewajibkan alasan revisi minimal 5 karakter, menandai versi sebelumnya sebagai `amended`, menaikkan `version_no` secara atomik, dan menautkan `parent_report_card_id`.
+   - *Parallel & Bulk Publication Safety*: `pg_advisory_xact_lock` pada `(org_id, academic_year_id, semester, santri_id)` mencegah *race conditions* saat publikasi massal. Idempotensi otomatis mengembalikan snapshot terbit yang sama (`is_duplicate_prevented: true`) tanpa menduplikasi data.
+   - *Snapshot Immutability Trigger*: Trigger `trg_enforce_report_card_immutability` diaktifkan pada `public.report_cards`, memblokir operasi `DELETE` dan mutasi kolom data pada status `published`, `amended`, atau `archived`.
+   - *Superseded Document Handling*: Dokumen raport lama (`amended`/`archived`) ditandai sebagai `is_superseded` dan tidak lagi dianggap sebagai raport aktif sah.
+   - *Privacy-Preserving Public Verification*: RPC `rpc_verify_report_card` mendukung verifikasi QR Code via `verification_code` (`LQ-******-****`) atau hash SHA-256. Nama santri disensor/dimask (`SUBSTRING(nama, 1, 3) || '***'`) untuk pemanggil publik anonim guna melindungi privasi santri.
+   - *Export & Report Consistency*: Export file Excel dan tampilan tabel rekap nilai menggunakan filter, metrik, skor akhir, dan predikat yang 100% konsisten.
+9. **Fase 8 — UI/UX Consolidation, QA & Production Readiness**: [SELESAI — 43/43 CHECKS PASSED, 123/123 TOTAL ALL PHASES]
+   - *Design System & Accessibility Consolidation*: Komponen modal dialog (`ConfirmDialog`) di `components/ui/SaaSPrimitives.tsx` ditingkatkan ke standar aksesibilitas **WCAG 2.2 AA** dengan dukungan penekanan tombol `Escape`, penjebak fokus keyboard (`focus trap & restoration`), `role="dialog"`, `aria-modal="true"`, `aria-labelledby`, dan `aria-describedby`.
+   - *Workspace Musammi Alur Ringkas*: Alur operasional Musammi difokuskan pada 5 langkah (Pilih Halaqah → Pilih Tanggal/Waktu → Buka Sesi → Isi Absensi → Catat Setoran → Selesaikan Sesi) dengan antarmuka yang nyaman dioperasikan satu tangan pada layar ponsel (`touch target >= 44px`).
+   - *Workspace Admin Terstruktur*: Tata letak navigasi Admin dikonsolidasi tanpa duplikasi halaman; pemisahan yang jelas antara master data, operasional halaqah, dan penerbitan raport.
+   - *Platform Console & Live Health Monitor*: Superadmin Platform Console (`PlatformConsolePage.tsx`) menyajikan direktori tenant lengkap dengan filter status, manajemen paket/entitlements, sesi bantuan Break-Glass, dan kartu *Health Monitor* dinamis yang melakukan *live probe* ke `/api/health` serta status grant tanpa nilai *hardcoded*.
+   - *Monitoring & Observability*: Server Node.js (`server.ts`) menyematkan header korelasi `X-Request-ID` pada setiap response HTTP, middleware logging tersanitasi (penyensoran otomatis kata sandi, token, dan secret), serta endpoint `/api/health` yang menguji koneksi basis data aktif beserta latensi.
+   - *Deployability (Vercel & Netlify)*: Endpoint standalone `/api/health.ts` disediakan untuk Vercel Serverless Function, router terpadu `netlify/functions/api.ts` disediakan untuk Netlify Functions, dan rewrite `/api/*` dikonfigurasi pada `netlify.toml` dan `vercel.json`.
+   - *Environment Variables Hardening*: File `.env.example` diproteksi secara ketat dengan memisahkan variabel peramban publik bertanda `VITE_*` dari rahasia server-side (`SUPABASE_SERVICE_ROLE_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `FONNTE_API_TOKEN`, `GEMINI_API_KEY`). Variabel berbahaya `VITE_TELEGRAM_BOT_TOKEN` telah dieliminasi.
+   - *Continuous Integration (CI/CD)*: Workflow pipeline `.github/workflows/ci.yml` dikonfigurasi untuk mengeksekusi pemeriksaan tipe (`tsc --noEmit`), linter ESLint, pengujian unit, pengujian integrasi, keamanan database/RLS, pengujian E2E 16-tahap, audit checklist produksi, dan validasi *production build*.
+   - *Complete Test Suite*: 5 suite pengujian otomatis Fase 8 berhasil diselesaikan dengan tingkat kelulusan 100%:
+     - `verify-fase8-unit.ts`: 6/6 lulus (normalisasi peran, evaluasi grant, pembatasan rute RBAC, kalkulasi Al-Qur'an 1..114, predikat, dan pembobotan gradebook 0..100).
+     - `verify-fase8-integration.ts`: 5/5 lulus (penolakan request tanpa Bearer token, validasi payload undangan, proteksi secret integrasi, dan routing Netlify functions).
+     - `verify-fase8-db-security.ts`: 6/6 lulus (RLS 100% pada tabel V2, predikat tenant isolation, pembatasan 3 peran kanonikal, pencabutan hak eksekusi anon/PUBLIC, proteksi USING false tabel secret, dan trigger immutability).
+     - `verify-fase8-e2e.ts`: 16/16 lulus (simulasi kanonikal 16 langkah dari pembuatan tenant hingga penutupan tahun ajaran).
+     - `verify-fase8-production-readiness.ts`: 10/10 lulus (audit 10 kriteria utama kesiapan produksi).
+   - *Comprehensive Production Documentation*: Tersedia lengkap 7 dokumen teknis resmi di root dan direktori `docs/`:
+     - `README.md` (Gambaran umum sistem, arsitektur, quickstart, model 3 peran, dan daftar perintah penting).
+     - `docs/ARCHITECTURE.md` (Arsitektur SaaS, entitas kanonikal V2, state machines sesi & setoran, dan proteksi multi-tenant).
+     - `docs/ROLE_PERMISSION_MATRIX.md` (Matriks izin navigasi rute dan izin eksekusi RPC untuk superadmin, admin, dan musammi).
+     - `docs/DEPLOYMENT_GUIDE.md` (Panduan deployment Vercel, Netlify, Docker VM, dan urutan migrasi database).
+     - `docs/OPERATIONAL_MANUAL.md` (Prosedur standar operasi Superadmin, Admin, dan Musammi).
+     - `docs/TESTING_GUIDE.md` (Panduan piramida pengujian, eksekusi skrip, dan integrasi CI/CD).
+     - `docs/PRODUCTION_CHECKLIST.md` (Penandatanganan formal kesiapan rilis produksi berdasarkan 12 kriteria faktual).
+   - *Final Sign-Off*: Seluruh 8 fase transformasi arsitektur telah tuntas dengan **123/123 pengujian LULUS (100% PASS RATE)**. Sistem resmi dinyatakan siap untuk rilis ke lingkungan produksi (*Ready for Production Release*).

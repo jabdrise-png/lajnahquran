@@ -30,6 +30,7 @@ const SesiHalaqahPage: React.FC = () => {
     selectedAcademicYear,
     getOrgId,
     loading,
+    fetchData,
   } = useSupabaseData();
 
   const canonicalRole = normalizeRole(userProfile?.role);
@@ -95,6 +96,7 @@ const SesiHalaqahPage: React.FC = () => {
   // State Siklus Hidup Sesi V2 (open -> submitted -> locked) & Koreksi Pasca-Kunci
   const [v2SessionRecord, setV2SessionRecord] = useState<any | null>(null);
   const [isLockingSession, setIsLockingSession] = useState(false);
+  const [isLockConfirmModalOpen, setIsLockConfirmModalOpen] = useState(false);
   const [isPostLockModalOpen, setIsPostLockModalOpen] = useState(false);
   const [postLockReason, setPostLockReason] = useState('');
 
@@ -144,8 +146,21 @@ const SesiHalaqahPage: React.FC = () => {
     return assignedHalaqahList[0] || null;
   }, [assignedHalaqahList, selectedHalaqahId]);
 
-  // Snapshot Roster Aktif pada tanggal sesi yang dipilih (berdasarkan valid_from / start_date & valid_to / end_date)
+  // Snapshot Roster Aktif: Utamakan snapshot sesi jika sudah tersimpan di DB agar histori masa lampau tidak berubah
   const sessionRoster = useMemo(() => {
+    if (
+      v2SessionRecord?.roster_snapshot &&
+      Array.isArray(v2SessionRecord.roster_snapshot) &&
+      v2SessionRecord.roster_snapshot.length > 0
+    ) {
+      return v2SessionRecord.roster_snapshot.map((r: any) => ({
+        id: Number(r.santri_id || r.id),
+        nama: r.nama,
+        kode: r.kode || '',
+        marhalah: r.marhalah || '',
+        kelas: r.kelas || '',
+      }));
+    }
     if (!activeHalaqah) return [];
     if (activeHalaqah.history && activeHalaqah.history.length > 0) {
       const activeIds = new Set(
@@ -161,7 +176,7 @@ const SesiHalaqahPage: React.FC = () => {
       if (fromSantriList.length > 0) return fromSantriList;
     }
     return activeHalaqah.santri || [];
-  }, [activeHalaqah, selectedDate]);
+  }, [v2SessionRecord?.roster_snapshot, activeHalaqah, selectedDate]);
 
   // Ambil data sesi V2 (halaqah_sessions) & ledger V2 (recitation_entries)
   const fetchV2SessionAndLedger = async () => {
@@ -315,13 +330,17 @@ const SesiHalaqahPage: React.FC = () => {
 
   const isSessionLocked = v2SessionRecord?.status === 'locked';
   const sessionStatusLabel = useMemo(() => {
-    if (isSessionLocked) return 'TERKUNCI (LOCKED)';
-    if (v2SessionRecord?.status === 'submitted' || Object.keys(existingSessionAttendance).length > 0) {
+    if (v2SessionRecord?.status === 'locked') return 'TERKUNCI (LOCKED)';
+    if (v2SessionRecord?.status === 'completed') return 'SELESAI (COMPLETED)';
+    if (v2SessionRecord?.status === 'submitted') return 'TERCATAT (SUBMITTED)';
+    if (v2SessionRecord?.status === 'open') return 'SESI TERBUKA (OPEN)';
+    if (v2SessionRecord?.status === 'scheduled') return 'TERJADWAL (SCHEDULED)';
+    if (v2SessionRecord?.status === 'cancelled') return 'DIBATALKAN (CANCELLED)';
+    if (Object.keys(existingSessionAttendance).length > 0) {
       return 'TERCATAT (SUBMITTED)';
     }
-    if (v2SessionRecord?.status === 'open') return 'SESI TERBUKA (OPEN)';
     return 'BELUM DIBUKA';
-  }, [isSessionLocked, v2SessionRecord, existingSessionAttendance]);
+  }, [v2SessionRecord, existingSessionAttendance]);
 
   const startSurahMeta = useMemo(
     () => quranMetadata.find((s) => s.id === recitationForm.surahStartNo) || quranMetadata[0],
@@ -467,7 +486,6 @@ const SesiHalaqahPage: React.FC = () => {
   const handleOpenAndFreezeSession = async () => {
     if (!activeHalaqah) return;
     try {
-      const orgId = await getOrgId();
       const { error: rpcErr } = await (supabase as any).rpc('rpc_open_halaqah_session', {
         p_halaqah_id: activeHalaqah.id,
         p_session_date: selectedDate,
@@ -475,28 +493,7 @@ const SesiHalaqahPage: React.FC = () => {
       });
 
       if (rpcErr) {
-        const isMissingRpc =
-          rpcErr.code === '42883' ||
-          rpcErr.code === 'PGRST202' ||
-          String(rpcErr.message || '').includes('Could not find the function');
-        if (!isMissingRpc) {
-          throw new Error(rpcErr.message);
-        }
-        if (orgId) {
-          const { error: upsertErr } = await (supabase as any).from('halaqah_sessions').upsert(
-            {
-              organization_id: orgId,
-              academic_year_id: selectedAcademicYear?.id || null,
-              halaqah_id: activeHalaqah.id,
-              session_date: selectedDate,
-              session_slot: selectedSlot,
-              status: 'open',
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: 'organization_id,halaqah_id,session_date,session_slot' }
-          );
-          if (upsertErr && upsertErr.code !== '42P01') throw upsertErr;
-        }
+        throw new Error(rpcErr.message);
       }
 
       await fetchV2SessionAndLedger();
@@ -507,6 +504,25 @@ const SesiHalaqahPage: React.FC = () => {
     } catch (err: any) {
       NotificationStore.addNotification(err.message || 'Gagal membuka sesi halaqah.', 'error');
     }
+  };
+
+  const handleInitiateLockSession = () => {
+    if (!activeHalaqah) return;
+    if (sessionRoster.length === 0) {
+      NotificationStore.addNotification(
+        'Sesi tidak dapat dikunci: Tidak ada santri dalam roster halaqah.',
+        'error'
+      );
+      return;
+    }
+    if (unmarkedCount > 0) {
+      NotificationStore.addNotification(
+        `Masih ada ${unmarkedCount} dari ${sessionRoster.length} santri berstatus Belum Diisi. Lengkapi dan simpan absensi sebelum mengunci sesi.`,
+        'error'
+      );
+      return;
+    }
+    setIsLockConfirmModalOpen(true);
   };
 
   const handleLockSession = async () => {
@@ -520,7 +536,6 @@ const SesiHalaqahPage: React.FC = () => {
     }
     setIsLockingSession(true);
     try {
-      const orgId = await getOrgId();
       const lockReason = `Kunci sesi operasional ${activeHalaqah.nama} (${selectedDate} ${selectedSlot})`;
       const { error: rpcErr } = await (supabase as any).rpc('rpc_lock_halaqah_session', {
         p_halaqah_id: activeHalaqah.id,
@@ -530,43 +545,12 @@ const SesiHalaqahPage: React.FC = () => {
       });
 
       if (rpcErr) {
-        const isMissingRpc =
-          rpcErr.code === '42883' ||
-          rpcErr.code === 'PGRST202' ||
-          String(rpcErr.message || '').includes('Could not find the function');
-        if (!isMissingRpc) {
-          throw new Error(rpcErr.message);
-        }
-        if (orgId) {
-          const { error: upsertErr } = await (supabase as any).from('halaqah_sessions').upsert(
-            {
-              organization_id: orgId,
-              academic_year_id: selectedAcademicYear?.id || null,
-              halaqah_id: activeHalaqah.id,
-              session_date: selectedDate,
-              session_slot: selectedSlot,
-              status: 'locked',
-              locked_at: new Date().toISOString(),
-              locked_by: userProfile?.id || null,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: 'organization_id,halaqah_id,session_date,session_slot' }
-          );
-          if (upsertErr) throw upsertErr;
-
-          await (supabase as any).from('audit_logs').insert({
-            organization_id: orgId,
-            actor_id: userProfile?.id || null,
-            actor_role: canonicalRole,
-            action: 'lock_halaqah_session',
-            resource_type: 'halaqah_sessions',
-            resource_id: `${activeHalaqah.id}_${selectedDate}_${selectedSlot}`,
-            reason: lockReason,
-          });
-        }
+        throw new Error(rpcErr.message);
       }
 
       await fetchV2SessionAndLedger();
+      await fetchData();
+      setIsLockConfirmModalOpen(false);
       NotificationStore.addNotification(
         `Sesi ${activeHalaqah.nama} (${selectedDate} · ${selectedSlot}) telah dikunci. Perubahan selanjutnya memerlukan alasan koreksi teraudit.`,
         'success'
@@ -665,6 +649,7 @@ const SesiHalaqahPage: React.FC = () => {
           ? openedSessionData
           : openedSessionData?.session_id || v2SessionRecord?.id || null;
 
+      let rpcBatchSaved = false;
       if (resolvedSessionUuid) {
         const { error: batchErr } = await (supabase as any).rpc('rpc_save_attendance_batch', {
           p_session_id: resolvedSessionUuid,
@@ -686,7 +671,18 @@ const SesiHalaqahPage: React.FC = () => {
           if (!isMissingBatchRpc) {
             throw new Error(batchErr.message);
           }
+        } else {
+          rpcBatchSaved = true;
+          // Simpan Musammi secara spesifik jika ada
+          const musammiRecord = recordsToSave.find((r) => r.peran === Peran.Musammi);
+          if (musammiRecord) {
+            await addAttendanceRecords([musammiRecord]);
+          }
         }
+      }
+
+      if (!rpcBatchSaved) {
+        await addAttendanceRecords(recordsToSave);
       }
 
       if (correctionReason && orgId) {
@@ -705,7 +701,7 @@ const SesiHalaqahPage: React.FC = () => {
         }
       }
 
-      await addAttendanceRecords(recordsToSave);
+      await fetchData();
       await fetchV2SessionAndLedger();
       setDraftAttendance({});
       setDraftMusammiStatus('');
@@ -773,52 +769,34 @@ const SesiHalaqahPage: React.FC = () => {
 
     setIsSavingRecitation(true);
     try {
-      const legacyPayload = {
-        santri_id: targetSantriId,
-        halaqah_id: activeHalaqah.id,
-        tanggal: selectedDate,
-        waktu: selectedSlot,
-        jenis_setoran: recitationForm.kind,
-        skema: recitationForm.kind,
-        surah_start_no: recitationForm.surahStartNo,
-        surah_end_no: recitationForm.surahEndNo,
-        surah_mulai: startSurahMeta.name,
-        ayat_mulai: recitationForm.ayahStart,
-        surah_akhir: endSurahMeta.name,
-        ayat_akhir: recitationForm.ayahEnd,
-        surat_mulai: startSurahMeta.name,
-        surat_selesai: endSurahMeta.name,
-        ayat_selesai: recitationForm.ayahEnd,
-        surat:
-          startSurahMeta.name === endSurahMeta.name
-            ? startSurahMeta.name
-            : `${startSurahMeta.name} - ${endSurahMeta.name}`,
-        ayat: `${recitationForm.ayahStart}-${recitationForm.ayahEnd}`,
-        jumlah_halaman: estimatedPages,
-        kesalahan_shoghir: recitationForm.mistakesMinor,
-        kesalahan_kabir: recitationForm.mistakesMajor,
-        nilai: recitationForm.predicate,
-        catatan: recitationForm.notes.trim() || null,
-        keterangan: recitationForm.notes.trim() || null,
-      };
-
-      await addSetoranHarianRecord(legacyPayload);
-
-      // Jika dipilih simpan sebagai draft, update status di recitation_entries menjadi 'draft'
-      if (recitationForm.submissionMode === 'draft') {
-        try {
-          const orgId = await getOrgId();
-          await (supabase as any)
-            .from('recitation_entries')
-            .update({ status: 'draft' })
-            .eq('organization_id', orgId)
-            .eq('halaqah_id', activeHalaqah.id)
-            .eq('santri_id', targetSantriId)
-            .eq('recitation_date', selectedDate)
-            .eq('session_slot', selectedSlot);
-        } catch {
-          // Fallback aman
+      const idempotencyKey = `session_rec_${activeHalaqah.id}_${targetSantriId}_${selectedDate}_${selectedSlot}_${Date.now()}`;
+      
+      const { data: rpcResult, error: rpcError } = await (supabase as any).rpc(
+        'rpc_submit_recitation_entry',
+        {
+          p_santri_id: targetSantriId,
+          p_halaqah_id: activeHalaqah.id,
+          p_recitation_date: selectedDate,
+          p_session_slot: selectedSlot,
+          p_kind: recitationForm.kind,
+          p_surah_start_no: recitationForm.surahStartNo,
+          p_ayah_start: recitationForm.ayahStart,
+          p_surah_end_no: recitationForm.surahEndNo,
+          p_ayah_end: recitationForm.ayahEnd,
+          p_calculated_pages: estimatedPages,
+          p_minor_mistakes: recitationForm.mistakesMinor,
+          p_major_mistakes: recitationForm.mistakesMajor,
+          p_predicate: recitationForm.predicate || null,
+          p_notes: recitationForm.notes.trim() || null,
+          p_status: recitationForm.submissionMode,
+          p_idempotency_key: idempotencyKey,
+          p_existing_entry_id: null,
+          p_session_id: v2SessionRecord?.id || null,
         }
+      );
+
+      if (rpcError) {
+        throw new Error(rpcError.message);
       }
 
       await fetchV2SessionAndLedger();
@@ -874,55 +852,36 @@ const SesiHalaqahPage: React.FC = () => {
 
   const handleAdminReviewRecitation = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!reviewModalTarget || !reviewReason.trim()) return;
+    if (!reviewModalTarget) return;
+
+    if (
+      (reviewDecision === 'returned' || reviewDecision === 'voided') &&
+      reviewReason.trim().length < 5
+    ) {
+      NotificationStore.addNotification(
+        'Alasan review wajib diisi minimal 5 karakter untuk pengembalian atau pembatalan setoran.',
+        'error'
+      );
+      return;
+    }
+
     setIsSubmittingReview(true);
     try {
-      const orgId = await getOrgId();
       const v2Id = reviewModalTarget.v2_entry?.id;
       if (v2Id) {
-        try {
-          const { error } = await (supabase as any).rpc('rpc_review_recitation_entry', {
-            p_entry_id: v2Id,
-            p_new_status: reviewDecision,
-            p_reason: reviewReason.trim(),
-          });
-          if (error) throw error;
-        } catch {
-          await (supabase as any)
-            .from('recitation_entries')
-            .update({
-              status: reviewDecision,
-              reviewed_by: userProfile?.id || null,
-              reviewed_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', v2Id);
-
-          await (supabase as any).from('recitation_revisions').insert({
-            organization_id: orgId,
-            entry_id: v2Id,
-            previous_status: reviewModalTarget.v2_entry?.status || 'submitted',
-            new_status: reviewDecision,
-            reason: reviewReason.trim(),
-            changed_by: userProfile?.id || null,
-          });
-        }
-      }
-
-      if (orgId) {
-        try {
-          await (supabase as any).from('audit_logs').insert({
-            organization_id: orgId,
-            actor_id: userProfile?.id || null,
-            actor_role: canonicalRole,
-            action: `review_recitation_${reviewDecision}`,
-            resource_type: 'recitation_entries',
-            resource_id: String(v2Id || reviewModalTarget.id),
-            reason: reviewReason.trim(),
-          });
-        } catch {
-          // Fallback aman
-        }
+        const { error } = await (supabase as any).rpc('rpc_review_recitation_entry', {
+          p_entry_id: v2Id,
+          p_new_status: reviewDecision,
+          p_reason: reviewReason.trim(),
+        });
+        if (error) throw new Error(error.message);
+      } else if (reviewModalTarget.id) {
+        const { error } = await (supabase as any).rpc('rpc_review_recitation_entry', {
+          p_legacy_id: reviewModalTarget.id,
+          p_new_status: reviewDecision,
+          p_reason: reviewReason.trim(),
+        });
+        if (error) throw new Error(error.message);
       }
 
       await fetchV2SessionAndLedger();
@@ -967,7 +926,7 @@ const SesiHalaqahPage: React.FC = () => {
                 <button
                   type="button"
                   disabled={isLockingSession}
-                  onClick={handleLockSession}
+                  onClick={handleInitiateLockSession}
                   className="px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-colors disabled:opacity-50"
                 >
                   {isLockingSession ? 'Mengunci...' : 'Kunci Sesi'}
@@ -2052,6 +2011,51 @@ const SesiHalaqahPage: React.FC = () => {
         </div>
       </Modal>
 
+      {/* MODAL KONFIRMASI PENGUNCIAN SESI HALAQAH */}
+      <Modal
+        isOpen={isLockConfirmModalOpen}
+        onClose={() => setIsLockConfirmModalOpen(false)}
+        title="Konfirmasi Penguncian Sesi Halaqah"
+      >
+        <div className="space-y-4">
+          <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 leading-relaxed">
+            <span className="font-semibold block mb-1">Perhatian Penting:</span>
+            Setelah sesi dikunci, status kehadiran pada sesi ini tidak dapat diedit secara bebas. Setiap koreksi lanjutan di masa depan wajib menyertakan alasan tertulis (minimal 5 karakter) yang akan dicatat permanen dalam audit trail lembaga.
+          </div>
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs space-y-1.5">
+            <div className="flex justify-between">
+              <span className="text-slate-500">Halaqah:</span>
+              <span className="font-semibold text-slate-800">{activeHalaqah?.nama}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500">Tanggal & Slot:</span>
+              <span className="font-mono font-semibold text-slate-800">{selectedDate} · {selectedSlot}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500">Total Santri Roster:</span>
+              <span className="font-semibold text-emerald-700">{sessionRoster.length} Santri (Semua Terisi)</span>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
+            <button
+              type="button"
+              onClick={() => setIsLockConfirmModalOpen(false)}
+              className="px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              disabled={isLockingSession}
+              onClick={handleLockSession}
+              className="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold disabled:opacity-50"
+            >
+              {isLockingSession ? 'Mengunci...' : 'Ya, Kunci Sesi Ini'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
       {/* MODAL KOREKSI PASCA-KUNCI WAJIB ALASAN (POST-LOCK ATTENDANCE CORRECTION) */}
       <Modal
         isOpen={isPostLockModalOpen}
@@ -2061,8 +2065,15 @@ const SesiHalaqahPage: React.FC = () => {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (!postLockReason.trim()) return;
-            executeSaveSessionAttendance(postLockReason.trim());
+            const trimmed = postLockReason.trim();
+            if (trimmed.length < 5) {
+              NotificationStore.addNotification(
+                'Alasan koreksi pasca-kunci wajib diisi minimal 5 karakter untuk audit trail.',
+                'error'
+              );
+              return;
+            }
+            executeSaveSessionAttendance(trimmed);
           }}
           className="space-y-4"
         >

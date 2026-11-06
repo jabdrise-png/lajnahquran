@@ -1,6 +1,7 @@
 import { NotificationStore } from './NotificationStore';
 import { AttendanceStatus } from '../types';
 import { supabase } from './supabaseClient';
+import { SupportSessionStore } from './permissions';
 
 interface AttendanceStats {
     total: number;
@@ -40,17 +41,8 @@ export function generateMessageText(stats: AttendanceStats, students: StudentRec
     msg += `• Alpha        : ${stats.alpha}\n`;
     msg += `• Terlambat    : ${stats.terlambat}\n\n`;
 
-    const order: Record<string, number> = { 
-        'Sakit': 1, 
-        'Izin': 2, 
-        'Alpa': 3, 
-        'Terlambat': 4,
-        'Hadir': 5
-    };
-    
-    // Convert to lowercase to check order securely depending on casing
     const getOrder = (status: string) => {
-        const lower = status.toLowerCase();
+        const lower = (status || '').toLowerCase();
         if (lower === 'sakit') return 1;
         if (lower === 'izin') return 2;
         if (lower === 'alpa') return 3;
@@ -77,19 +69,28 @@ export function generateMessageText(stats: AttendanceStats, students: StudentRec
     return msg;
 }
 
-export async function sendMessageTelegram(_botToken: string, chatId: string, text: string) {
-    if (!chatId) return false;
+export async function sendMessageTelegram(
+    _botToken: string,
+    chatId: string,
+    text: string,
+    santriId?: number | string
+) {
+    if (!chatId && !santriId) return false;
     try {
         const { data: sessionData } = await supabase.auth.getSession();
         const jwt = sessionData?.session?.access_token;
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (jwt) headers['Authorization'] = `Bearer ${jwt}`;
 
+        const activeSupportOrgId = SupportSessionStore.getSession()?.organizationId || undefined;
+
         const proxyRes = await fetch('/api/notify/telegram', {
             method: 'POST',
             headers,
             body: JSON.stringify({
                 chatId,
+                santriId,
+                organizationId: activeSupportOrgId,
                 message: text,
                 parseMode: 'Markdown'
             })
@@ -113,19 +114,28 @@ export async function sendMessageTelegram(_botToken: string, chatId: string, tex
     }
 }
 
-export async function sendMessageFonnte(_apiToken: string, targetNetwork: string, text: string) {
-    if (!targetNetwork) return false;
+export async function sendMessageFonnte(
+    _apiToken: string,
+    targetNetwork: string,
+    text: string,
+    santriId?: number | string
+) {
+    if (!targetNetwork && !santriId) return false;
     try {
         const { data: sessionData } = await supabase.auth.getSession();
         const jwt = sessionData?.session?.access_token;
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (jwt) headers['Authorization'] = `Bearer ${jwt}`;
 
+        const activeSupportOrgId = SupportSessionStore.getSession()?.organizationId || undefined;
+
         const proxyRes = await fetch('/api/notify/whatsapp', {
             method: 'POST',
             headers,
             body: JSON.stringify({
                 target: targetNetwork,
+                santriId,
+                organizationId: activeSupportOrgId,
                 message: text
             })
         });

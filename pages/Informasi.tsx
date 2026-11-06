@@ -17,7 +17,7 @@ import {
     hasUnreadUpdates 
 } from '../lib/appUpdates';
 import { sanitizeHtml } from '../lib/utils';
-import { normalizeRole } from '../lib/permissions';
+import { normalizeRole, resolveTenantContext } from '../lib/permissions';
 import { NotificationStore } from '../lib/NotificationStore';
 import { ConfirmDialog } from '../components/ui/SaaSPrimitives';
 
@@ -120,35 +120,29 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
         setLoading(true);
         setError(null);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            let orgId: string | null = null;
-            if (user) {
-                const { data: myProfile } = await supabase
-                    .from('profiles')
-                    .select('organization_id')
-                    .eq('id', user.id)
-                    .maybeSingle();
-                orgId = myProfile?.organization_id || null;
+            const ctx = await resolveTenantContext(supabase);
+            if (!ctx.userId || !ctx.isAuthorized || !ctx.organizationId) {
+                setInformasiList([]);
+                setLoading(false);
+                return;
             }
+            const orgId = ctx.organizationId;
 
-            let infoQuery = supabase
+            const infoQuery = supabase
                 .from('informasi')
                 .select('*')
+                .eq('organization_id', orgId)
                 .order('is_pinned', { ascending: false })
                 .order('created_at', { ascending: false });
 
-            if (orgId) {
-                infoQuery = infoQuery.eq('organization_id', orgId);
-            }
-
             const { data, error } = await infoQuery;
-            
             if (error) throw error;
-            let profilesQuery = supabase.from('profiles').select('email, full_name');
-            if (orgId) {
-                profilesQuery = profilesQuery.eq('organization_id', orgId);
-            }
-            const { data: profiles } = await profilesQuery;
+
+            const { data: profiles } = await supabase
+                .from('profiles')
+                .select('email, full_name')
+                .eq('organization_id', orgId);
+
             const enrichedData = (data as Informasi[] || []).map((info: any) => {
                 const profile = profiles?.find((p: any) => p.email === info.author_email);
                 return {
@@ -212,28 +206,25 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
         }
         setIsSubmitting(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error("User not authenticated.");
-
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('organization_id')
-                .eq('id', user.id)
-                .single();
-            
-            if (!profile || !profile.organization_id) throw new Error("Organization ID not found for user.");
+            const ctx = await resolveTenantContext(supabase);
+            if (!ctx.userId || !ctx.isAuthorized || !ctx.organizationId) {
+                throw new Error("Konteks organisasi tidak valid atau akses tidak diizinkan.");
+            }
+            if (ctx.supportSession?.mode === 'read_only') {
+                throw new Error("Sesi Support sedang dalam mode Read-Only. Perubahan tidak diizinkan.");
+            }
 
             if (editingInformasi) {
                 const { error } = await supabase
                     .from('informasi')
                     .update({ ...formData, content: sanitizedContent })
-                    .eq('organization_id', profile.organization_id)
+                    .eq('organization_id', ctx.organizationId)
                     .eq('id', editingInformasi.id);
                 if (error) throw error;
 
                 await (supabase.from('audit_logs' as any) as any).insert({
-                    organization_id: profile.organization_id,
-                    actor_id: user.id,
+                    organization_id: ctx.organizationId,
+                    actor_id: ctx.userId,
                     actor_role: canonicalRole,
                     action: 'UPDATE_ANNOUNCEMENT',
                     entity_type: 'informasi',
@@ -248,16 +239,16 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
                     .insert({ 
                         ...formData, 
                         content: sanitizedContent,
-                        author_email: user.email,
-                        organization_id: profile.organization_id
+                        author_email: ctx.email,
+                        organization_id: ctx.organizationId
                     })
                     .select('id')
                     .single();
                 if (error) throw error;
 
                 await (supabase.from('audit_logs' as any) as any).insert({
-                    organization_id: profile.organization_id,
-                    actor_id: user.id,
+                    organization_id: ctx.organizationId,
+                    actor_id: ctx.userId,
                     actor_role: canonicalRole,
                     action: 'CREATE_ANNOUNCEMENT',
                     entity_type: 'informasi',
@@ -289,28 +280,30 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
         const id = confirmDeleteInfoId;
         setConfirmDeleteInfoId(null);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            const { data: profile } = user
-                ? await supabase.from('profiles').select('organization_id').eq('id', user.id).maybeSingle()
-                : { data: null };
-            let delQuery = supabase.from('informasi').delete().eq('id', id);
-            if (profile?.organization_id) {
-                delQuery = delQuery.eq('organization_id', profile.organization_id);
+            const ctx = await resolveTenantContext(supabase);
+            if (!ctx.userId || !ctx.isAuthorized || !ctx.organizationId) {
+                throw new Error("Konteks organisasi tidak valid.");
             }
-            const { error } = await delQuery;
+            if (ctx.supportSession?.mode === 'read_only') {
+                throw new Error("Sesi Support sedang dalam mode Read-Only. Penghapusan tidak diizinkan.");
+            }
+
+            const { error } = await supabase
+                .from('informasi')
+                .delete()
+                .eq('id', id)
+                .eq('organization_id', ctx.organizationId);
             if (error) throw error;
 
-            if (profile?.organization_id && user) {
-                await (supabase.from('audit_logs' as any) as any).insert({
-                    organization_id: profile.organization_id,
-                    actor_id: user.id,
-                    actor_role: canonicalRole,
-                    action: 'DELETE_ANNOUNCEMENT',
-                    entity_type: 'informasi',
-                    entity_id: String(id),
-                    reason: `Menghapus pengumuman #${id}`
-                });
-            }
+            await (supabase.from('audit_logs' as any) as any).insert({
+                organization_id: ctx.organizationId,
+                actor_id: ctx.userId,
+                actor_role: canonicalRole,
+                action: 'DELETE_ANNOUNCEMENT',
+                entity_type: 'informasi',
+                entity_id: String(id),
+                reason: `Menghapus pengumuman #${id}`
+            });
             addNotification("Pengumuman berhasil dihapus.", "success");
             await fetchInformasi();
         } catch (err: any) {

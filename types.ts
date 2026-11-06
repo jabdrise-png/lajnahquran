@@ -66,12 +66,31 @@ export interface Santri extends Person {
     telegram_chat_id?: string;
     musyrif_nama?: string;
     student_class_id?: number; // Added to track current class assignment
+    enrollment_status?: 'active' | 'promoted' | 'transferred' | 'graduated' | 'withdrawn' | 'inactive' | 'unenrolled' | string;
+    enrolled_at?: string | null;
+    left_at?: string | null;
+    is_enrolled_in_active_year?: boolean;
 }
 export interface Musammi extends Person {
     academic_year_id?: number;
     no_hp?: string;
     user_id?: string | null;
     santri_id?: number | null;
+}
+
+export interface HalaqahMusammiAssignment {
+    id?: string;
+    halaqah_id: number;
+    musammi_id: number;
+    musammi_user_id?: string | null;
+    musammi_nama?: string;
+    assignment_type: 'primary' | 'substitute';
+    is_primary: boolean;
+    valid_from: string;
+    valid_to?: string | null;
+    is_active: boolean;
+    status: string;
+    notes?: string | null;
 }
 
 export interface AppSetting {
@@ -96,7 +115,10 @@ export interface AcademicYear {
     name: string;
     active_semester: string;
     is_active: boolean;
+    status?: 'draft' | 'setup' | 'active' | 'closing' | 'closed' | string;
     lifecycle_status?: 'draft' | 'setup' | 'active' | 'closing' | 'closed' | string;
+    closed_at?: string | null;
+    closed_by?: string | null;
 }
 
 export interface MasterKelas {
@@ -141,6 +163,8 @@ export interface Halaqah {
   id: number;
   nama: string;
   musammi: Musammi;
+  substitute_musammi?: Musammi[];
+  musammi_assignments?: HalaqahMusammiAssignment[];
   santri: Santri[]; // Maintain for backward compatibility or represents active santri
   active_santri?: Santri[]; // explicitly active ones
   history?: HalaqahSantriHistory[];

@@ -1,102 +1,254 @@
-import { createClient } from "@supabase/supabase-js";
+import { resolveServerTenantContext } from "./_tenantContext";
 
-const getEnv = (key: string) =>
-  (typeof process !== "undefined" && process.env ? process.env[key] : undefined) || "";
-
-const maskSecret = (val: string) => {
-  const clean = (val || "").trim();
+export const maskSecretValue = (val: string): string => {
+  const clean = String(val || "").trim();
   if (!clean) return "";
+  if (clean.includes("••") || clean.includes("**")) return clean;
   if (clean.length <= 6) return "••••••••";
   return `${clean.slice(0, 3)}••••••${clean.slice(-3)}`;
+};
+
+export interface IntegrationSecretMetadata {
+  provider: string;
+  secret_key_name: string;
+  masked_preview: string;
+  status: "active" | "disabled";
+  rotation_count: number;
+  last_rotated_at: string | null;
+  disabled_at: string | null;
+  updated_by?: string | null;
+  updated_at: string | null;
+}
+
+const ALLOWED_SECRET_KEYS: Record<string, { provider: "telegram" | "whatsapp" | "webhook"; key: string }> = {
+  TELEGRAM_BOT_TOKEN: { provider: "telegram", key: "TELEGRAM_BOT_TOKEN" },
+  FONNTE_API_TOKEN: { provider: "whatsapp", key: "FONNTE_API_TOKEN" },
+  TELEGRAM_WEBHOOK_SECRET: { provider: "webhook", key: "TELEGRAM_WEBHOOK_SECRET" },
 };
 
 export async function processIntegrationSecrets(
   method: string,
   authHeader: string | undefined,
-  body: any
+  body: any,
+  injectedClient?: any
 ) {
-  const supabaseUrl = getEnv("SUPABASE_URL") || getEnv("VITE_SUPABASE_URL");
-  const supabaseAnonKey = getEnv("SUPABASE_ANON_KEY") || getEnv("VITE_SUPABASE_ANON_KEY");
+  const isWriteMethod = method === "POST" || method === "PATCH" || method === "DELETE";
+  const requestedOrgId = body?.organizationId || null;
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return { status: 500, data: { error: "Konfigurasi Supabase belum diatur." } };
-  }
-
-  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
-  if (!token) {
-    return { status: 401, data: { error: "Unauthorized" } };
-  }
-
-  const client = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
+  const ctx = await resolveServerTenantContext({
+    authHeader,
+    requestedOrganizationId: requestedOrgId,
+    requireWrite: isWriteMethod,
+    requireOrganization: true,
+    requireSupportSessionForSuperadmin: true,
+    injectedClient,
   });
 
-  const { data: userData } = await client.auth.getUser(token);
-  if (!userData?.user) {
-    return { status: 401, data: { error: "Unauthorized" } };
+  if (!ctx.ok || !ctx.userId || !ctx.userClient || !ctx.organizationId) {
+    return {
+      status: ctx.status,
+      data: { error: ctx.error || "Akses ditolak." },
+    };
   }
 
-  const { data: profile } = await client
-    .from("profiles")
-    .select("id, role, organization_id")
-    .eq("id", userData.user.id)
-    .maybeSingle();
-
-  let effectiveRole = (profile?.role || "").toLowerCase();
-  let effectiveOrgId = profile?.organization_id || null;
-
-  try {
-    const { data: grants } = await client
-      .from("access_grants")
-      .select("role, organization_id, status")
-      .eq("user_id", userData.user.id);
-
-    if (Array.isArray(grants) && grants.length > 0) {
-      const activeGrant = grants.find((g: any) => g.status === "active");
-      if (!activeGrant) {
-        return { status: 403, data: { error: "Akses Anda sedang ditangguhkan atau dicabut." } };
-      }
-      effectiveRole = (activeGrant.role || effectiveRole).toLowerCase();
-      effectiveOrgId = activeGrant.organization_id || effectiveOrgId;
-    }
-  } catch {
-    // Fallback ke profiles jika tabel access_grants belum dimigrasikan
+  if (ctx.effectiveRole !== "superadmin" && ctx.effectiveRole !== "admin") {
+    return {
+      status: 403,
+      data: { error: "Akses ditolak: Hanya Admin Lembaga yang dapat mengelola integrasi." },
+    };
   }
 
-  const targetOrgId = body?.organizationId || effectiveOrgId;
-  if (!["admin", "admin_mahad", "super_admin", "superadmin"].includes(effectiveRole) || !targetOrgId) {
-    return { status: 403, data: { error: "Hanya Admin Lembaga yang dapat mengelola integrasi." } };
-  }
+  const orgId = ctx.organizationId;
+  const client = ctx.userClient;
+  const secretClient = ctx.adminClient || client;
+  const actorRole = ctx.effectiveRole === "superadmin" ? "superadmin" : "admin";
 
-  const orgId = targetOrgId;
-
+  // =========================================================================
+  // GET: Hanya mengembalikan metadata secret (TIDAK PERNAH mengembalikan secret_value)
+  // =========================================================================
   if (method === "GET") {
-    const { data: secrets, error: getErr } = await client
+    const { data: rawRows, error: getErr } = await secretClient
       .from("integration_secrets")
-      .select("provider, secret_key_name, masked_preview, status, updated_at")
+      .select(
+        "provider, secret_key_name, masked_preview, status, rotation_count, last_rotated_at, disabled_at, updated_by, updated_at"
+      )
       .eq("organization_id", orgId);
 
-    if (getErr && getErr.code !== "42P01") {
-      return { status: 500, data: { error: getErr.message } };
+    if (getErr && getErr.code !== "42P01" && getErr.code !== "42501") {
+      return { status: 500, data: { error: "Gagal mengambil metadata integrasi lembaga." } };
     }
 
-    return { status: 200, data: { secrets: secrets || [] } };
+    const sanitizedMetadata: IntegrationSecretMetadata[] = (Array.isArray(rawRows) ? rawRows : []).map(
+      (row: any) => ({
+        provider: String(row.provider || ""),
+        secret_key_name: String(row.secret_key_name || ""),
+        masked_preview: maskSecretValue(row.masked_preview || "••••••••"),
+        status: row.status === "disabled" ? "disabled" : "active",
+        rotation_count: Number(row.rotation_count || 1),
+        last_rotated_at: row.last_rotated_at || row.updated_at || null,
+        disabled_at: row.disabled_at || null,
+        updated_by: row.updated_by || null,
+        updated_at: row.updated_at || null,
+      })
+    );
+
+    return { status: 200, data: { secrets: sanitizedMetadata } };
   }
 
-  if (method === "POST") {
-    const { telegramBotToken, fonnteApiToken } = body || {};
-    const updates: Array<{ provider: string; key: string; val: string }> = [];
+  // =========================================================================
+  // POST / PATCH: Mengelola status token (active/disabled) atau menyimpan/merotasi secret
+  // =========================================================================
+  if (method === "POST" || method === "PATCH") {
+    const action = body?.action || "upsert";
 
-    if (typeof telegramBotToken === "string" && telegramBotToken.trim() && !telegramBotToken.includes("••")) {
-      updates.push({ provider: "telegram", key: "TELEGRAM_BOT_TOKEN", val: telegramBotToken.trim() });
+    // 1. Aksi mengubah status token (Aktifkan / Nonaktifkan tanpa menghapus histori rotasi)
+    if (action === "set_status") {
+      const rawKey = String(body?.secretKeyName || "").trim().toUpperCase();
+      const targetStatus = body?.status === "disabled" ? "disabled" : body?.status === "active" ? "active" : null;
+      const reason = String(body?.reason || "").trim() || (targetStatus === "disabled" ? "Penonaktifan token integrasi oleh Admin" : "Pengaktifan kembali token integrasi oleh Admin");
+
+      if (!ALLOWED_SECRET_KEYS[rawKey] || !targetStatus) {
+        return {
+          status: 400,
+          data: { error: "secretKeyName (TELEGRAM_BOT_TOKEN / FONNTE_API_TOKEN / TELEGRAM_WEBHOOK_SECRET) dan status ('active' | 'disabled') wajib valid." },
+        };
+      }
+
+      const { data: existingRow } = await secretClient
+        .from("integration_secrets")
+        .select("id, provider, secret_key_name, masked_preview, status, rotation_count")
+        .eq("organization_id", orgId)
+        .eq("secret_key_name", rawKey)
+        .maybeSingle();
+
+      if (!existingRow) {
+        return {
+          status: 404,
+          data: { error: `Token ${rawKey} belum dikonfigurasi pada lembaga ini.` },
+        };
+      }
+
+      const nowIso = new Date().toISOString();
+      const updatePayload: Record<string, any> = {
+        status: targetStatus,
+        disabled_at: targetStatus === "disabled" ? nowIso : null,
+        disabled_by: targetStatus === "disabled" ? ctx.userId : null,
+        updated_by: ctx.userId,
+        updated_at: nowIso,
+      };
+
+      const { error: updErr } = await secretClient
+        .from("integration_secrets")
+        .update(updatePayload)
+        .eq("organization_id", orgId)
+        .eq("secret_key_name", rawKey);
+
+      if (updErr) {
+        return {
+          status: 500,
+          data: { error: "Gagal memperbarui status token integrasi." },
+        };
+      }
+
+      try {
+        await client.from("audit_logs").insert({
+          organization_id: orgId,
+          actor_id: ctx.userId,
+          actor_user_id: ctx.userId,
+          actor_role: actorRole,
+          action: targetStatus === "disabled" ? "DISABLE_INTEGRATION_SECRET" : "ENABLE_INTEGRATION_SECRET",
+          entity_type: "integration_secrets",
+          resource_type: "integration_secrets",
+          entity_id: existingRow.id,
+          resource_id: existingRow.id,
+          reason,
+          before_state: {
+            secret_key_name: rawKey,
+            status: existingRow.status,
+            rotation_count: existingRow.rotation_count || 1,
+          },
+          after_state: {
+            secret_key_name: rawKey,
+            status: targetStatus,
+            rotation_count: existingRow.rotation_count || 1,
+            disabled_at: updatePayload.disabled_at,
+          },
+        });
+      } catch {
+        // ignore if audit_logs not migrated
+      }
+
+      return {
+        status: 200,
+        data: {
+          success: true,
+          secret_key_name: rawKey,
+          status: targetStatus,
+          disabled_at: updatePayload.disabled_at,
+        },
+      };
     }
-    if (typeof fonnteApiToken === "string" && fonnteApiToken.trim() && !fonnteApiToken.includes("••")) {
-      updates.push({ provider: "whatsapp", key: "FONNTE_API_TOKEN", val: fonnteApiToken.trim() });
+
+    // 2. Aksi menyimpan / merotasi secret baru
+    const { telegramBotToken, fonnteApiToken, telegramWebhookSecret, reason } = body || {};
+    const updates: Array<{ provider: "telegram" | "whatsapp" | "webhook"; key: string; val: string }> = [];
+
+    const candidates: Array<{ input: any; provider: "telegram" | "whatsapp" | "webhook"; key: string }> = [
+      { input: telegramBotToken, provider: "telegram", key: "TELEGRAM_BOT_TOKEN" },
+      { input: fonnteApiToken, provider: "whatsapp", key: "FONNTE_API_TOKEN" },
+      { input: telegramWebhookSecret, provider: "webhook", key: "TELEGRAM_WEBHOOK_SECRET" },
+    ];
+
+    for (const c of candidates) {
+      if (typeof c.input === "string" && c.input.trim()) {
+        const cleanVal = c.input.trim();
+        if (cleanVal.includes("••") || cleanVal.includes("**")) {
+          continue; // abaikan input yang masih berupa nilai ter-masking
+        }
+        if (cleanVal.length < 8 || cleanVal.length > 512) {
+          return {
+            status: 400,
+            data: { error: `Format ${c.key} tidak valid (panjang harus antara 8 hingga 512 karakter).` },
+          };
+        }
+        updates.push({ provider: c.provider, key: c.key, val: cleanVal });
+      }
     }
+
+    if (updates.length === 0) {
+      return {
+        status: 200,
+        data: { success: true, updated: [], rotations: [] },
+      };
+    }
+
+    const rotationResults: Array<{
+      key: string;
+      provider: string;
+      masked_preview: string;
+      status: "active";
+      rotation_count: number;
+      is_rotated: boolean;
+      last_rotated_at: string;
+    }> = [];
 
     for (const item of updates) {
-      const masked = maskSecret(item.val);
-      const { error: secretErr } = await client.from("integration_secrets").upsert(
+      const masked = maskSecretValue(item.val);
+      const nowIso = new Date().toISOString();
+
+      // Cek apakah secret sebelumnya sudah ada untuk menghitung rotasi
+      const { data: existingSecret } = await secretClient
+        .from("integration_secrets")
+        .select("id, masked_preview, status, rotation_count, last_rotated_at")
+        .eq("organization_id", orgId)
+        .eq("provider", item.provider)
+        .eq("secret_key_name", item.key)
+        .maybeSingle();
+
+      const isRotation = Boolean(existingSecret);
+      const nextRotationCount = existingSecret ? Number(existingSecret.rotation_count || 1) + 1 : 1;
+
+      const { error: secretErr } = await secretClient.from("integration_secrets").upsert(
         {
           organization_id: orgId,
           provider: item.provider,
@@ -104,51 +256,95 @@ export async function processIntegrationSecrets(
           secret_value: item.val,
           masked_preview: masked,
           status: "active",
-          updated_by: userData.user.id,
-          updated_at: new Date().toISOString(),
+          rotation_count: nextRotationCount,
+          last_rotated_at: nowIso,
+          disabled_at: null,
+          disabled_by: null,
+          updated_by: ctx.userId,
+          updated_at: nowIso,
         },
         { onConflict: "organization_id,provider,secret_key_name" }
       );
 
-      if (secretErr && secretErr.code !== "42P01") {
+      if (secretErr && secretErr.code !== "42P01" && secretErr.code !== "42501") {
         return {
           status: 500,
-          data: { error: `Gagal menyimpan rahasia integrasi (${item.key}): ${secretErr.message}` },
+          data: { error: `Gagal menyimpan rahasia integrasi (${item.key}).` },
         };
       }
 
-      // Simpan HANYA nilai ter-masking di app_settings agar secret mentah tidak pernah bocor ke browser
-      const { error: settingsErr } = await client.from("app_settings").upsert(
-        {
+      // Simpan HANYA nilai ter-masking di app_settings (tidak pernah plaintext!)
+      if (item.key === "TELEGRAM_BOT_TOKEN" || item.key === "FONNTE_API_TOKEN") {
+        const { error: settingsErr } = await client.from("app_settings").upsert(
+          {
+            organization_id: orgId,
+            key: item.key,
+            value: masked,
+          },
+          { onConflict: "organization_id,key" }
+        );
+
+        if (settingsErr && settingsErr.code !== "42P01") {
+          return {
+            status: 500,
+            data: { error: `Gagal memperbarui metadata pengaturan (${item.key}).` },
+          };
+        }
+      }
+
+      try {
+        await client.from("audit_logs").insert({
           organization_id: orgId,
-          key: item.key,
-          value: masked,
-        },
-        { onConflict: "organization_id,key" }
-      );
-
-      if (settingsErr && settingsErr.code !== "42P01") {
-        return {
-          status: 500,
-          data: { error: `Gagal memperbarui status pengaturan (${item.key}): ${settingsErr.message}` },
-        };
+          actor_id: ctx.userId,
+          actor_user_id: ctx.userId,
+          actor_role: actorRole,
+          action: isRotation ? "ROTATE_INTEGRATION_SECRET" : "CREATE_INTEGRATION_SECRET",
+          entity_type: "integration_secrets",
+          resource_type: "integration_secrets",
+          entity_id: item.key,
+          resource_id: item.key,
+          reason:
+            String(reason || "").trim() ||
+            (isRotation ? `Rotasi token ${item.key} (rotasi ke-${nextRotationCount})` : `Konfigurasi awal token ${item.key}`),
+          before_state: existingSecret
+            ? {
+                secret_key_name: item.key,
+                masked_preview: existingSecret.masked_preview,
+                status: existingSecret.status,
+                rotation_count: existingSecret.rotation_count || 1,
+              }
+            : null,
+          after_state: {
+            secret_key_name: item.key,
+            masked_preview: masked,
+            status: "active",
+            rotation_count: nextRotationCount,
+            last_rotated_at: nowIso,
+          },
+        });
+      } catch {
+        // ignore if audit_logs not migrated yet
       }
-    }
 
-    try {
-      await client.from("audit_logs").insert({
-        organization_id: orgId,
-        actor_id: userData.user.id,
-        actor_role: effectiveRole === "superadmin" || effectiveRole === "super_admin" ? "superadmin" : "admin",
-        action: "update_integration_secrets",
-        resource_type: "integration_secrets",
-        after_state: { updated_keys: updates.map((u) => u.key) },
+      rotationResults.push({
+        key: item.key,
+        provider: item.provider,
+        masked_preview: masked,
+        status: "active",
+        rotation_count: nextRotationCount,
+        is_rotated: isRotation,
+        last_rotated_at: nowIso,
       });
-    } catch {
-      // ignore if audit_logs not migrated yet
     }
 
-    return { status: 200, data: { success: true, updated: updates.map((u) => u.key) } };
+    return {
+      status: 200,
+      data: {
+        success: true,
+        updated: rotationResults.map((r) => r.key),
+        rotations: rotationResults,
+      },
+    };
   }
 
   return { status: 405, data: { error: "Method Not Allowed" } };
@@ -156,12 +352,25 @@ export async function processIntegrationSecrets(
 
 export default async function handler(req: any, res?: any) {
   if (res && typeof res.status === "function") {
-    const result = await processIntegrationSecrets(req.method, req.headers?.authorization, req.body);
+    const queryOrgId = typeof req.query?.organizationId === "string" ? req.query.organizationId : undefined;
+    const payload = req.method === "GET" ? { organizationId: queryOrgId, ...(req.body || {}) } : req.body;
+    const result = await processIntegrationSecrets(req.method, req.headers?.authorization, payload);
     return res.status(result.status).json(result.data);
   }
 
   const authHeader = req.headers?.get ? req.headers.get("authorization") : undefined;
-  const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+  let body: any = {};
+  if (req.method === "POST" || req.method === "PATCH") {
+    body = await req.json().catch(() => ({}));
+  } else if (req.url) {
+    try {
+      const urlObj = new URL(req.url, "http://localhost");
+      const qOrg = urlObj.searchParams.get("organizationId");
+      if (qOrg) body.organizationId = qOrg;
+    } catch {
+      // ignore
+    }
+  }
   const result = await processIntegrationSecrets(req.method, authHeader || undefined, body);
   return new Response(JSON.stringify(result.data), {
     status: result.status,

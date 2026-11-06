@@ -458,32 +458,65 @@ export const ConfirmDialog: React.FC<{
   onConfirm,
 }) => {
   const [reason, setReason] = useState('');
+  const dialogRef = React.useRef<HTMLDivElement>(null);
+  const previousActiveElement = React.useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    if (isOpen) setReason('');
-  }, [isOpen]);
+    if (isOpen) {
+      setReason('');
+      previousActiveElement.current = document.activeElement as HTMLElement | null;
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          onCancel();
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+        if (previousActiveElement.current) {
+          previousActiveElement.current.focus();
+        }
+      };
+    }
+  }, [isOpen, onCancel]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl border border-slate-200 max-w-md w-full p-5 space-y-4 shadow-lg">
+    <div
+      className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onCancel();
+      }}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-dialog-title"
+        aria-describedby="confirm-dialog-description"
+        className="bg-white rounded-xl border border-slate-200 max-w-md w-full p-5 space-y-4 shadow-lg focus:outline-none"
+        tabIndex={-1}
+      >
         <div>
-          <h3 className="text-base font-bold text-slate-900">{title}</h3>
-          <p className="text-xs text-slate-600 mt-1 leading-relaxed">{description}</p>
+          <h3 id="confirm-dialog-title" className="text-base font-bold text-slate-900">{title}</h3>
+          <p id="confirm-dialog-description" className="text-xs text-slate-600 mt-1 leading-relaxed">{description}</p>
         </div>
 
         {requireReason && (
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label htmlFor="confirm-dialog-reason" className="block text-xs font-semibold text-slate-700 mb-1">
               {reasonLabel} <span className="text-red-600">*</span>
             </label>
             <textarea
+              id="confirm-dialog-reason"
               rows={3}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder={reasonPlaceholder}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-blue-600"
+              autoFocus
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-600"
             />
           </div>
         )}
@@ -492,7 +525,7 @@ export const ConfirmDialog: React.FC<{
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400"
           >
             {cancelLabel}
           </button>
@@ -500,8 +533,10 @@ export const ConfirmDialog: React.FC<{
             type="button"
             disabled={isSubmitting || (requireReason && !reason.trim())}
             onClick={() => onConfirm(requireReason ? reason.trim() : undefined)}
-            className={`px-4 py-2 rounded-lg text-white text-xs font-semibold disabled:opacity-50 ${
-              tone === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'
+            className={`px-4 py-2 rounded-lg text-white text-xs font-semibold disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-1 ${
+              tone === 'danger'
+                ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
+                : 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
             }`}
           >
             {isSubmitting ? 'Memproses...' : confirmLabel}

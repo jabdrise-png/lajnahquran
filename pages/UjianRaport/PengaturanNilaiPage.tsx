@@ -136,64 +136,59 @@ const PengaturanNilaiPage: React.FC = () => {
                 { key: 'AUTO_SILABUS_SCORE', value: autoSilabus },
             ]);
 
-            // Simpan snapshot versi rubrik baru ke tabel V2 rubric_versions + audit_logs
+            // Simpan snapshot versi rubrik baru ke tabel V2 rubric_versions via canonical RPC + audit_logs
             try {
                 const orgId = await getOrgId();
-                const nextVersionNo =
-                    rubricVersions.length > 0
-                        ? Math.max(...rubricVersions.map((r) => Number(r.version_no) || 1)) + 1
-                        : 1;
+                if (orgId) {
+                    const versionName = rubricNote.trim()
+                        ? `Rubrik — ${rubricNote.trim()}`
+                        : `Rubrik Penilaian (${selectedAcademicYear?.name || 'Global'})`;
 
-                const versionName = rubricNote.trim()
-                    ? `Rubrik v${nextVersionNo} — ${rubricNote.trim()}`
-                    : `Rubrik Penilaian v${nextVersionNo} (${selectedAcademicYear?.name || 'Global'})`;
+                    const { error: rpcErr } = await (supabase as any).rpc('rpc_save_rubric_version', {
+                        p_org_id: orgId,
+                        p_academic_year_id: selectedAcademicYear?.id || null,
+                        p_semester: selectedAcademicYear?.active_semester || 'Ganjil',
+                        p_name: versionName,
+                        p_initial_score: Number(nilaiAwalJuz) || 100,
+                        p_deduction_minor: Number(pengurangShogir) || 1.25,
+                        p_deduction_major: Number(pengurangKabir) || 5,
+                        p_min_score: Number(minNilaiJuz) || 50,
+                        p_passing_score: 70,
+                        p_predicates: globalPredikatNilai || [],
+                        p_reason: rubricNote.trim() || 'Pembaruan Rubrik Penilaian'
+                    });
 
-                await (supabase as any)
-                    .from('rubric_versions')
-                    .update({ is_active: false })
-                    .eq('organization_id', orgId);
+                    if (rpcErr) {
+                        const nextVersionNo =
+                            rubricVersions.length > 0
+                                ? Math.max(...rubricVersions.map((r) => Number(r.version_no) || 1)) + 1
+                                : 1;
 
-                await (supabase as any).from('rubric_versions').insert({
-                    organization_id: orgId,
-                    academic_year_id: selectedAcademicYear?.id || null,
-                    semester_name: selectedAcademicYear?.active_semester || 'Ganjil',
-                    version_no: nextVersionNo,
-                    name: versionName,
-                    initial_score: Number(nilaiAwalJuz) || 100,
-                    deduction_minor: Number(pengurangShogir) || 1.25,
-                    deduction_major: Number(pengurangKabir) || 5,
-                    min_score: Number(minNilaiJuz) || 50,
-                    passing_score: 70,
-                    predicates: globalPredikatNilai || [],
-                    is_active: true,
-                    created_by: userProfile?.id || null,
-                });
+                        await (supabase as any)
+                            .from('rubric_versions')
+                            .update({ is_active: false })
+                            .eq('organization_id', orgId);
 
-                await (supabase as any).from('audit_logs').insert({
-                    organization_id: orgId,
-                    actor_id: userProfile?.id || null,
-                    actor_role: userProfile?.role || 'admin',
-                    action: 'PUBLISH_RUBRIC_VERSION',
-                    resource_type: 'rubric_versions',
-                    resource_id: `v${nextVersionNo}`,
-                    reason: rubricNote.trim() || `Publikasi Rubrik Penilaian v${nextVersionNo}`,
-                    after_state: {
-                        version_no: nextVersionNo,
-                        name: versionName,
-                        initial_score: Number(nilaiAwalJuz),
-                        deduction_minor: Number(pengurangShogir),
-                        deduction_major: Number(pengurangKabir),
-                        weights: {
-                            pctBulanan: Number(pctBulanan),
-                            pctSemester: Number(pctSemester),
-                            pctSilabus: Number(pctSilabus),
-                            pctKehadiran: Number(pctKehadiran),
-                        },
-                    },
-                });
+                        await (supabase as any).from('rubric_versions').insert({
+                            organization_id: orgId,
+                            academic_year_id: selectedAcademicYear?.id || null,
+                            semester_name: selectedAcademicYear?.active_semester || 'Ganjil',
+                            version_no: nextVersionNo,
+                            name: versionName,
+                            initial_score: Number(nilaiAwalJuz) || 100,
+                            deduction_minor: Number(pengurangShogir) || 1.25,
+                            deduction_major: Number(pengurangKabir) || 5,
+                            min_score: Number(minNilaiJuz) || 50,
+                            passing_score: 70,
+                            predicates: globalPredikatNilai || [],
+                            is_active: true,
+                            created_by: userProfile?.id || null,
+                        });
+                    }
 
-                await fetchRubricVersions();
-                setRubricNote('');
+                    await fetchRubricVersions();
+                    setRubricNote('');
+                }
             } catch {
                 // Abaikan bila tabel rubric_versions belum dimigrasikan
             }

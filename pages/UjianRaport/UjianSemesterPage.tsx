@@ -75,7 +75,7 @@ const UjianSemesterPage: React.FC = () => {
     const fetchExamAttempts = async () => {
         if (!selectedAcademicYear?.id) return;
         try {
-            const orgId = getOrgId();
+            const orgId = await getOrgId();
             if (!orgId) return;
             const { data } = await (supabase as any)
                 .from('exam_attempts')
@@ -237,94 +237,54 @@ const UjianSemesterPage: React.FC = () => {
         }));
 
         try {
-            const orgId = getOrgId();
-            const existingStudentAttempts = examAttempts.filter((a: any) => Number(a.santri_id) === Number(editingSantri));
+            const orgId = await getOrgId();
+            let rpcSucceeded = false;
 
-            // Jika belum ada Attempt #1 di exam_attempts padahal sudah ada nilai sebelumnya dan ini mode Remedial, bekukan Attempt #1 dulu
-            if (orgId && existingStudentAttempts.length === 0 && isRemedialAttempt && data.nilai_akhir !== null && data.nilai_akhir !== undefined) {
-                try {
-                    await (supabase as any).from('exam_attempts').insert({
-                        organization_id: orgId,
-                        academic_year_id: selectedAcademicYear.id,
-                        semester_name: selectedSemester,
-                        exam_type: 'semester',
-                        santri_id: editingSantri,
-                        attempt_no: 1,
-                        is_remedial: false,
-                        materi_juz: data.materi_juz,
-                        detail_json: {
-                            khoto_shogir: data.khoto_shogir || {},
-                            khoto_kabir: data.khoto_kabir || {},
-                            is_custom_nilai: data.is_custom_nilai || {},
-                            custom_nilai: data.custom_nilai || {}
-                        },
-                        final_score: data.nilai_akhir,
-                        predikat: getPredikat(data.nilai_akhir, globalPredikatNilai || []),
-                        notes: 'Attempt #1 (Ujian Utama Sebelum Remedial)',
-                        examiner_id: userProfile?.id || null
-                    });
-                } catch {
-                    // Abaikan bila tabel belum tersedia
-                }
-            }
-
-            await saveUjianSemester([{
-                santri_id: editingSantri,
-                academic_year_id: selectedAcademicYear.id,
-                semester: selectedSemester,
-                materi_juz: updatedData.materi_juz,
-                khoto_shogir: updatedData.khoto_shogir,
-                khoto_kabir: updatedData.khoto_kabir,
-                is_custom_nilai: updatedData.is_custom_nilai,
-                custom_nilai: updatedData.custom_nilai,
-                nilai_akhir: updatedData.nilai_akhir
-            }]);
-
-            // Catat attempt baru ke exam_attempts V2 + audit_logs
             if (orgId) {
                 try {
-                    const baseAttemptCount = existingStudentAttempts.length === 0 && isRemedialAttempt && data.nilai_akhir !== null ? 1 : existingStudentAttempts.length;
-                    const nextAttemptNo = baseAttemptCount + 1;
-                    const isRem = isRemedialAttempt || nextAttemptNo > 1;
-
-                    await (supabase as any).from('exam_attempts').insert({
-                        organization_id: orgId,
-                        academic_year_id: selectedAcademicYear.id,
-                        semester_name: selectedSemester,
-                        exam_type: 'semester',
-                        santri_id: editingSantri,
-                        attempt_no: nextAttemptNo,
-                        is_remedial: isRem,
-                        materi_juz: updatedData.materi_juz,
-                        detail_json: {
+                    const { data: rpcRes, error: rpcErr } = await (supabase as any).rpc('rpc_record_exam_attempt', {
+                        p_org_id: orgId,
+                        p_academic_year_id: selectedAcademicYear.id,
+                        p_semester: selectedSemester,
+                        p_exam_type: 'semester',
+                        p_santri_id: editingSantri,
+                        p_materi_juz: updatedData.materi_juz,
+                        p_raw_score: updatedData.nilai_akhir,
+                        p_final_score: updatedData.nilai_akhir,
+                        p_predikat: getPredikat(updatedData.nilai_akhir, globalPredikatNilai || []),
+                        p_detail_json: {
                             khoto_shogir: updatedData.khoto_shogir,
                             khoto_kabir: updatedData.khoto_kabir,
                             is_custom_nilai: updatedData.is_custom_nilai,
                             custom_nilai: updatedData.custom_nilai
                         },
-                        final_score: updatedData.nilai_akhir,
-                        predikat: getPredikat(updatedData.nilai_akhir, globalPredikatNilai || []),
-                        notes: attemptNote.trim() || (isRem ? `Attempt #${nextAttemptNo} (Remedial Semester)` : 'Attempt #1 (Ujian Semester Utama)'),
-                        examiner_id: userProfile?.id || null
+                        p_is_remedial: isRemedialAttempt,
+                        p_notes: attemptNote.trim() || (isRemedialAttempt ? 'Remedial Ujian Semester' : 'Ujian Semester')
                     });
 
-                    await (supabase as any).from('audit_logs').insert({
-                        organization_id: orgId,
-                        actor_id: userProfile?.id || null,
-                        actor_role: userProfile?.role || 'admin',
-                        action: isRem ? 'RECORD_REMEDIAL_EXAM_ATTEMPT' : 'RECORD_EXAM_ATTEMPT',
-                        resource_type: 'exam_attempts',
-                        resource_id: `${editingSantri}-attempt-${nextAttemptNo}`,
-                        reason: attemptNote.trim() || (isRem ? `Remedial Ujian Semester Attempt #${nextAttemptNo}` : 'Input Nilai Ujian Semester'),
-                        before_state: { nilai_akhir: data.nilai_akhir },
-                        after_state: { attempt_no: nextAttemptNo, is_remedial: isRem, nilai_akhir: updatedData.nilai_akhir }
-                    });
-
-                    await fetchExamAttempts();
+                    if (!rpcErr && rpcRes?.success) {
+                        rpcSucceeded = true;
+                    }
                 } catch {
-                    // Abaikan bila tabel exam_attempts belum dimigrasikan
+                    rpcSucceeded = false;
                 }
             }
+
+            if (!rpcSucceeded) {
+                await saveUjianSemester([{
+                    santri_id: editingSantri,
+                    academic_year_id: selectedAcademicYear.id,
+                    semester: selectedSemester,
+                    materi_juz: updatedData.materi_juz,
+                    khoto_shogir: updatedData.khoto_shogir,
+                    khoto_kabir: updatedData.khoto_kabir,
+                    is_custom_nilai: updatedData.is_custom_nilai,
+                    custom_nilai: updatedData.custom_nilai,
+                    nilai_akhir: updatedData.nilai_akhir
+                }]);
+            }
+
+            await fetchExamAttempts();
 
             NotificationStore.addNotification(
                 isRemedialAttempt

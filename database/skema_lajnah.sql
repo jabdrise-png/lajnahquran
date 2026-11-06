@@ -117,51 +117,59 @@ BEGIN
   requested_role := LOWER(COALESCE(new.raw_user_meta_data->>'role', 'pending'));
   raw_target_org_id := NULLIF(TRIM(new.raw_user_meta_data->>'target_organization_id'), '');
 
-  IF requested_role = 'super_admin' THEN
+  IF requested_role IN ('super_admin', 'superadmin') THEN
     safe_role := 'pending';
-  ELSIF requested_role IN ('musammi', 'pengajar', 'pending') THEN
-    safe_role := requested_role;
+  ELSIF requested_role IN ('admin', 'musammi', 'pengajar', 'pending') THEN
+    safe_role := CASE WHEN requested_role = 'pengajar' THEN 'musammi' ELSE requested_role END;
   ELSE
     safe_role := 'pending';
   END IF;
 
   IF raw_target_org_id IS NOT NULL AND length(raw_target_org_id) = 36 THEN
-    BEGIN
-      SELECT id INTO new_org_id FROM public.organizations WHERE id = raw_target_org_id::uuid;
-      IF new_org_id IS NULL THEN
-        INSERT INTO public.organizations (name) VALUES (mahad_name) RETURNING id INTO new_org_id;
+    SELECT id INTO new_org_id FROM public.organizations WHERE id = raw_target_org_id::uuid;
+    IF new_org_id IS NULL THEN
+      RAISE EXCEPTION 'Target organization (%) tidak ditemukan saat provisioning user baru.', raw_target_org_id;
+    END IF;
+
+    -- Hanya service_role, superadmin, atau admin organisasi terkait yang boleh menetapkan role langsung
+    IF current_setting('request.jwt.claim.role', true) = 'service_role' OR auth.uid() IS NULL THEN
+      -- Provisioned via server-side Admin API
+      IF safe_role NOT IN ('admin', 'musammi', 'pending') THEN
         safe_role := 'pending';
-      ELSE
-        IF auth.uid() IS NOT NULL AND (public.is_super_admin() OR public.is_admin_of_org(new_org_id)) THEN
-          IF requested_role IN ('admin', 'musammi', 'pengajar', 'pending') THEN
-            safe_role := requested_role;
-          END IF;
-        ELSE
-          safe_role := 'pending';
-        END IF;
       END IF;
-    EXCEPTION WHEN OTHERS THEN
-      INSERT INTO public.organizations (name) VALUES (mahad_name) RETURNING id INTO new_org_id;
+    ELSIF public.is_super_admin() THEN
+      IF safe_role NOT IN ('admin', 'musammi', 'pending') THEN
+        safe_role := 'pending';
+      END IF;
+    ELSIF public.is_admin_of_org(new_org_id) THEN
+      -- Admin lembaga hanya boleh membuat musammi, tidak boleh membuat admin baru
+      IF safe_role IN ('musammi', 'pending') THEN
+        safe_role := safe_role;
+      ELSE
+        safe_role := 'pending';
+      END IF;
+    ELSE
       safe_role := 'pending';
-    END;
+    END IF;
   ELSE
     INSERT INTO public.organizations (name) VALUES (mahad_name) RETURNING id INTO new_org_id;
+    safe_role := 'pending';
   END IF;
 
   INSERT INTO public.profiles (id, organization_id, full_name, role, email)
   VALUES (
     new.id,
     new_org_id,
-    COALESCE(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
+    COALESCE(NULLIF(TRIM(new.raw_user_meta_data->>'full_name'), ''), split_part(new.email, '@', 1)),
     safe_role,
     new.email
-  );
+  )
+  ON CONFLICT (id) DO UPDATE
+  SET organization_id = COALESCE(EXCLUDED.organization_id, public.profiles.organization_id),
+      full_name = COALESCE(NULLIF(EXCLUDED.full_name, ''), public.profiles.full_name),
+      email = COALESCE(EXCLUDED.email, public.profiles.email);
 
   RETURN new;
-EXCEPTION
-  WHEN OTHERS THEN
-    RAISE LOG 'Error in handle_new_user trigger: %', SQLERRM;
-    RETURN new;
 END;
 $$;
 
@@ -181,11 +189,12 @@ BEGIN
   END IF;
 
   IF public.is_admin_of_org(OLD.organization_id) THEN
-    IF NEW.role = 'super_admin' AND OLD.role <> 'super_admin' THEN
-      RAISE EXCEPTION 'Forbidden: Only Super Admin can assign super_admin role.';
-    END IF;
     IF NEW.organization_id IS DISTINCT FROM OLD.organization_id THEN
       RAISE EXCEPTION 'Forbidden: Cannot move user across organizations.';
+    END IF;
+    -- Admin hanya boleh menetapkan role musammi/pending pada user lain di lembaganya, tidak boleh mengangkat admin/superadmin baru
+    IF NEW.role IS DISTINCT FROM OLD.role AND LOWER(COALESCE(NEW.role, '')) IN ('super_admin', 'superadmin', 'admin', 'admin_mahad') THEN
+      RAISE EXCEPTION 'Forbidden: Hanya Superadmin yang dapat menetapkan role Admin atau Superadmin.';
     END IF;
     RETURN NEW;
   END IF;
@@ -206,6 +215,7 @@ CREATE OR REPLACE FUNCTION public.sync_user_email()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
   UPDATE public.profiles
@@ -380,22 +390,31 @@ END;
 $$;
 
 DROP FUNCTION IF EXISTS public.rpc_link_telegram_chat_id(text, text);
+DROP FUNCTION IF EXISTS public.rpc_link_telegram_chat_id(text, text, uuid);
 CREATE OR REPLACE FUNCTION public.rpc_link_telegram_chat_id(
     p_identifier text,
-    p_chat_id text
+    p_chat_id text,
+    p_org_id uuid DEFAULT NULL
 )
-RETURNS TABLE(id bigint, nama text, kelas text, already_linked boolean)
+RETURNS TABLE(id bigint, nama text, kelas text, organization_id uuid, already_linked boolean)
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
     v_santri RECORD;
+    v_target_org uuid;
 BEGIN
-    SELECT s.id, s.nama, s.kelas, s.telegram_chat_id
+    v_target_org := COALESCE(p_org_id, public.get_my_org_id());
+    IF v_target_org IS NULL THEN
+        RAISE EXCEPTION 'Organization context is required to link Telegram chat ID.';
+    END IF;
+
+    SELECT s.id, s.nama, s.kelas, s.organization_id, s.telegram_chat_id
     INTO v_santri
     FROM public.santri s
-    WHERE s.id::text = TRIM(p_identifier) OR s.kode = TRIM(p_identifier)
+    WHERE s.organization_id = v_target_org
+      AND (s.id::text = TRIM(p_identifier) OR LOWER(COALESCE(s.kode, '')) = LOWER(TRIM(p_identifier)))
     LIMIT 1;
 
     IF NOT FOUND THEN
@@ -403,13 +422,14 @@ BEGIN
     END IF;
 
     IF v_santri.telegram_chat_id = p_chat_id THEN
-        RETURN QUERY SELECT v_santri.id, v_santri.nama, v_santri.kelas, true;
+        RETURN QUERY SELECT v_santri.id, v_santri.nama, v_santri.kelas, v_santri.organization_id, true;
     ELSE
         UPDATE public.santri
         SET telegram_chat_id = p_chat_id
-        WHERE public.santri.id = v_santri.id;
+        WHERE public.santri.id = v_santri.id
+          AND public.santri.organization_id = v_target_org;
 
-        RETURN QUERY SELECT v_santri.id, v_santri.nama, v_santri.kelas, false;
+        RETURN QUERY SELECT v_santri.id, v_santri.nama, v_santri.kelas, v_santri.organization_id, false;
     END IF;
 END;
 $$;
@@ -1017,16 +1037,26 @@ ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."chat";
 ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."musyrifs";
 
 GRANT USAGE ON SCHEMA "public" TO "postgres", "anon", "authenticated", "service_role";
-GRANT ALL ON ALL TABLES IN SCHEMA "public" TO "anon", "authenticated", "service_role";
-GRANT ALL ON ALL SEQUENCES IN SCHEMA "public" TO "anon", "authenticated", "service_role";
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA "public" TO "authenticated";
+GRANT ALL ON ALL TABLES IN SCHEMA "public" TO "service_role";
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA "public" TO "authenticated", "service_role";
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON ALL TABLES IN SCHEMA "public" FROM "anon";
+GRANT SELECT ON TABLE "public"."landing_images", "public"."cms_landing_page", "public"."landing_page_content" TO "anon";
 
+REVOKE ALL ON FUNCTION public.get_my_org_id() FROM anon, PUBLIC;
+REVOKE ALL ON FUNCTION public.is_super_admin() FROM anon, PUBLIC;
+REVOKE ALL ON FUNCTION public.is_admin_of_org(uuid) FROM anon, PUBLIC;
 REVOKE ALL ON FUNCTION public.rpc_get_attendance_stats(uuid, text, text, text, text, text, text) FROM anon, PUBLIC;
 REVOKE ALL ON FUNCTION public.rpc_get_attendance_trend(uuid, text, text, text, text, text, text) FROM anon, PUBLIC;
 REVOKE ALL ON FUNCTION public.rpc_get_santri_attendance_percentages(uuid, text, text) FROM anon, PUBLIC;
 REVOKE ALL ON FUNCTION public.rpc_get_waktu_stats(uuid, text, bigint) FROM anon, PUBLIC;
+REVOKE ALL ON FUNCTION public.rpc_link_telegram_chat_id(text, text, uuid) FROM anon, authenticated, PUBLIC;
 
+GRANT EXECUTE ON FUNCTION public.get_my_org_id() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.is_super_admin() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.is_admin_of_org(uuid) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.rpc_get_attendance_stats(uuid, text, text, text, text, text, text) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.rpc_get_attendance_trend(uuid, text, text, text, text, text, text) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.rpc_get_santri_attendance_percentages(uuid, text, text) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.rpc_get_waktu_stats(uuid, text, bigint) TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.rpc_link_telegram_chat_id(text, text) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.rpc_link_telegram_chat_id(text, text, uuid) TO service_role;

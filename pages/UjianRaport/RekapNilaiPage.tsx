@@ -428,6 +428,7 @@ const RekapNilaiPage: React.FC = () => {
             row['Nilai silabus (pencapaian target hafalan)'] = d.nilaiSilabus;
             row['Kehadiran (%)'] = d.pctKehadiran;
             row['Nilai Akhir'] = d.finalScore;
+            row['Predikat'] = d.predikat;
 
             return row;
         });

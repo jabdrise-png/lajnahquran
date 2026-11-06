@@ -6,6 +6,7 @@ import { sendCustomTelegramMessage } from '../../lib/telegram';
 import { NotificationStore } from '../../lib/NotificationStore';
 import { useSupabaseData } from '../../hooks/useSupabaseData';
 import { exportToExcel, parseSpreadsheet, getActiveSemesterDateRange, generateMonthsFromDateRange, getPredikat } from '../../lib/utils';
+import { supabase } from '../../lib/supabaseClient';
 import { useAcademicYear } from '../../lib/AcademicYearContext';
 
 interface UjianBulananPeriode {
@@ -26,7 +27,7 @@ const DEFAULT_TELEGRAM_TEMPLATE = `📢 *LAPORAN HASIL UJIAN BULANAN* 📢
 Semoga pencapaian ananda terus meningkat dan membawa keberkahan. Amin.`;
 
 const UjianBulananPage: React.FC = () => {
-    const { santri, ujianBulanan, saveUjianBulanan, loading, appSettings, saveAppSetting, masterKelas, globalMarhalahs, userProfile, waliKelas, globalPredikatNilai , masterMarhalahs, masterKelasRelasi} = useSupabaseData();
+    const { santri, ujianBulanan, saveUjianBulanan, loading, appSettings, saveAppSetting, masterKelas, globalMarhalahs, userProfile, waliKelas, globalPredikatNilai , masterMarhalahs, masterKelasRelasi, getOrgId} = useSupabaseData();
     const { selectedAcademicYear } = useAcademicYear();
 
     const selectedSemester = selectedAcademicYear?.active_semester || 'Ganjil';
@@ -140,6 +141,31 @@ const UjianBulananPage: React.FC = () => {
                 }
             }
             if (recordsToSave.length > 0) {
+                const orgId = await getOrgId?.();
+                if (orgId) {
+                    for (const r of recordsToSave) {
+                        try {
+                            await (supabase as any).rpc('rpc_record_exam_attempt', {
+                                p_org_id: orgId,
+                                p_academic_year_id: selectedAcademicYear?.id || null,
+                                p_semester: selectedSemester,
+                                p_exam_type: 'monthly',
+                                p_santri_id: r.santri_id,
+                                p_materi_juz: r.materi_juz || '',
+                                p_raw_score: r.nilai,
+                                p_final_score: r.nilai,
+                                p_predikat: getPredikat(r.nilai, globalPredikatNilai || []),
+                                p_detail_json: {
+                                    periode: selectedPeriode
+                                },
+                                p_is_remedial: false,
+                                p_notes: `Ujian Bulanan Periode ${selectedPeriode}`
+                            });
+                        } catch {
+                            // Abaikan jika RPC belum dieksekusi di database
+                        }
+                    }
+                }
                 await saveUjianBulanan(recordsToSave);
                 NotificationStore.addNotification('Data ujian bulanan berhasil disimpan!', 'success');
             } else {
@@ -227,14 +253,12 @@ const UjianBulananPage: React.FC = () => {
     };
 
     const sendTelegramMessageToStudent = async (student: any, data: any, currentPeriode: any) => {
-        const botToken = appSettings.find(s => s.key === 'TELEGRAM_BOT_TOKEN')?.value || import.meta.env.VITE_TELEGRAM_BOT_TOKEN || '';
-        if (!botToken) throw new Error("Bot token belum diatur");
         if (!student.telegram_chat_id) throw new Error("Chat ID Kosong");
         if (!data || data.nilai === '' || data.nilai === null || data.nilai === undefined) throw new Error("Belum ada nilai");
         
         const message = generateMessage(student, data, currentPeriode, telegramTemplate);
                         
-        const success = await sendCustomTelegramMessage(botToken, student.telegram_chat_id, message);
+        const success = await sendCustomTelegramMessage('', student.telegram_chat_id, message, student.id);
         if (!success) throw new Error("Gagal mengirim ke Telegram API");
         return true;
     };

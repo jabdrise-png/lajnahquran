@@ -69,8 +69,12 @@ const MusammiPage: React.FC = () => {
     };
 
     const handleCreateAccount = async () => {
-        if (!accountData.email || !accountData.password || !accountData.full_name) {
-            NotificationStore.addNotification('Email, password, dan nama lengkap wajib diisi.', 'error');
+        if (!accountData.email || !accountData.full_name) {
+            NotificationStore.addNotification('Email dan nama lengkap wajib diisi.', 'error');
+            return;
+        }
+        if (accountData.password && accountData.password.trim().length > 0 && accountData.password.trim().length < 8) {
+            NotificationStore.addNotification('Kode verifikasi minimal 8 karakter (atau kosongkan agar dibuat otomatis).', 'error');
             return;
         }
 
@@ -93,7 +97,7 @@ const MusammiPage: React.FC = () => {
                 },
                 body: JSON.stringify({
                     email: accountData.email.trim(),
-                    password: accountData.password,
+                    password: accountData.password.trim() || undefined,
                     fullName: accountData.full_name.trim(),
                     role: 'musammi',
                     organizationId: orgId.trim(),
@@ -106,7 +110,17 @@ const MusammiPage: React.FC = () => {
                 throw new Error(json.error || `Gagal membuat undangan akun Musammi (HTTP ${resp.status}).`);
             }
 
-            NotificationStore.addNotification('Akun Musammi berhasil dibuat via Serverless API dan langsung ditautkan!', 'success');
+            const inviteLink = json.inviteAcceptPath ? `${window.location.origin}${json.inviteAcceptPath}` : '';
+            if (inviteLink && navigator.clipboard) {
+                try {
+                    await navigator.clipboard.writeText(inviteLink);
+                } catch {}
+            }
+
+            NotificationStore.addNotification(
+                `Undangan akun Musammi berhasil diterbitkan dan ditautkan!${inviteLink ? ' Tautan aktivasi /invite telah disalin ke clipboard.' : ''}`,
+                'success'
+            );
             setIsAccountModalOpen(false);
             
             const { data } = await supabase
@@ -763,13 +777,13 @@ const MusammiPage: React.FC = () => {
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Password <span className="text-red-500">*</span></label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Kode Verifikasi Awal (Opsional)</label>
                         <input
                             type="password"
                             className="w-full border-slate-300 rounded-md shadow-sm"
                             value={accountData.password}
                             onChange={(e) => setAccountData({ ...accountData, password: e.target.value })}
-                            placeholder="Minimal 6 karakter"
+                            placeholder="Kosongkan untuk kode kriptografis otomatis (min. 8 karakter)"
                         />
                     </div>
                     <div>
