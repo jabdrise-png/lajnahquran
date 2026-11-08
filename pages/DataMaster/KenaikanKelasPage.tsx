@@ -286,8 +286,8 @@ const KenaikanKelasPage: React.FC = () => {
                 p_action: actionType,
                 p_target_marhalah: actionType === 'promoted' ? targetMarhalah : null,
                 p_target_kelas: actionType === 'promoted' ? finalTargetKelas : null,
-                p_master_marhalah_id: actionType === 'promoted' && mId ? Number(mId) : null,
-                p_master_kelas_id: actionType === 'promoted' && kId ? Number(kId) : null,
+                p_master_marhalah_id: actionType === 'promoted' && mId ? String(mId) : null,
+                p_master_kelas_id: actionType === 'promoted' && kId ? String(kId) : null,
                 p_notes: actionNotes.trim() || null,
             });
 

@@ -674,12 +674,19 @@ CREATE TABLE IF NOT EXISTS public.semesters (
   is_active boolean NOT NULL DEFAULT false,
   status text NOT NULL DEFAULT 'active' CHECK (status IN ('draft', 'active', 'closed')),
   created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (organization_id, academic_year_id, name),
   UNIQUE (organization_id, id),
   CONSTRAINT fk_semesters_academic_year_tenant
     FOREIGN KEY (organization_id, academic_year_id)
     REFERENCES public.academic_years(organization_id, id) ON DELETE CASCADE
 );
+
+ALTER TABLE public.semesters
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'active';
 
 INSERT INTO public.semesters (organization_id, academic_year_id, name, start_date, end_date, is_active, status)
 SELECT
@@ -707,14 +714,19 @@ FROM public.academic_years ay
 WHERE ay.organization_id IS NOT NULL
 ON CONFLICT (organization_id, academic_year_id, name) DO NOTHING;
 
--- Tambahkan atribut administratif Wali Kelas & Musyrif pada master_kelas_relasi, master_kelas, dan santri
+-- Tambahkan atribut administratif Wali Kelas, Musyrif & Urutan pada master_kelas_relasi, master_kelas, dan master_marhalah
+ALTER TABLE public.master_marhalah
+  ADD COLUMN IF NOT EXISTS urutan integer DEFAULT 1;
+
 ALTER TABLE public.master_kelas_relasi
+  ADD COLUMN IF NOT EXISTS urutan integer DEFAULT 1,
   ADD COLUMN IF NOT EXISTS wali_kelas_name text,
   ADD COLUMN IF NOT EXISTS wali_kelas_phone text,
   ADD COLUMN IF NOT EXISTS musyrif_name text,
   ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'active';
 
 ALTER TABLE public.master_kelas
+  ADD COLUMN IF NOT EXISTS urutan integer DEFAULT 1,
   ADD COLUMN IF NOT EXISTS wali_kelas_name text,
   ADD COLUMN IF NOT EXISTS wali_kelas_phone text,
   ADD COLUMN IF NOT EXISTS musyrif_name text,
@@ -792,6 +804,8 @@ CREATE TABLE IF NOT EXISTS public.student_enrollments (
 ALTER TABLE public.student_enrollments
   ADD COLUMN IF NOT EXISTS marhalah_id uuid,
   ADD COLUMN IF NOT EXISTS kelas_id uuid,
+  ADD COLUMN IF NOT EXISTS master_marhalah_id uuid,
+  ADD COLUMN IF NOT EXISTS master_kelas_id uuid,
   ADD COLUMN IF NOT EXISTS enrollment_status text NOT NULL DEFAULT 'active',
   ADD COLUMN IF NOT EXISTS enrolled_at date NOT NULL DEFAULT CURRENT_DATE;
 
@@ -891,6 +905,7 @@ CREATE TABLE IF NOT EXISTS public.halaqah_student_memberships (
   valid_to date,
   status text NOT NULL DEFAULT 'active',
   created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT fk_hsm_halaqah_tenant
     FOREIGN KEY (organization_id, halaqah_id)
     REFERENCES public.halaqah(organization_id, id) ON DELETE RESTRICT,
@@ -898,6 +913,10 @@ CREATE TABLE IF NOT EXISTS public.halaqah_student_memberships (
     FOREIGN KEY (organization_id, student_id)
     REFERENCES public.santri(organization_id, id) ON DELETE RESTRICT
 );
+
+ALTER TABLE public.halaqah_student_memberships
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
 
 ALTER TABLE public.halaqah_student_memberships
   DROP CONSTRAINT IF EXISTS halaqah_student_memberships_status_check;
@@ -940,12 +959,15 @@ CREATE TABLE IF NOT EXISTS public.halaqah_musammi_assignments (
   halaqah_id bigint NOT NULL,
   musammi_id bigint NOT NULL,
   user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  musammi_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   assignment_type text NOT NULL DEFAULT 'primary' CHECK (assignment_type IN ('primary', 'substitute')),
   valid_from date NOT NULL DEFAULT CURRENT_DATE,
   valid_to date,
   is_active boolean NOT NULL DEFAULT true,
   status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'ended')),
+  notes text,
   created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT fk_hma_halaqah_tenant
     FOREIGN KEY (organization_id, halaqah_id)
     REFERENCES public.halaqah(organization_id, id) ON DELETE RESTRICT,
@@ -955,8 +977,12 @@ CREATE TABLE IF NOT EXISTS public.halaqah_musammi_assignments (
 );
 
 ALTER TABLE public.halaqah_musammi_assignments
+  ADD COLUMN IF NOT EXISTS musammi_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true,
-  ADD COLUMN IF NOT EXISTS is_primary boolean NOT NULL DEFAULT true;
+  ADD COLUMN IF NOT EXISTS is_primary boolean NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS notes text,
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
 
 CREATE OR REPLACE FUNCTION public.normalize_hma_row()
 RETURNS trigger
@@ -965,6 +991,10 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
+  NEW.user_id := COALESCE(NEW.user_id, NEW.musammi_user_id);
+  NEW.musammi_user_id := COALESCE(NEW.musammi_user_id, NEW.user_id);
+  NEW.updated_at := COALESCE(NEW.updated_at, now());
+
   IF TG_OP = 'INSERT' THEN
     IF NEW.assignment_type IS NULL OR TRIM(NEW.assignment_type) = '' THEN
       NEW.assignment_type := CASE WHEN COALESCE(NEW.is_primary, true) THEN 'primary' ELSE 'substitute' END;
@@ -1314,8 +1344,12 @@ CREATE TABLE IF NOT EXISTS public.target_plans (
   murojaah_rules_json jsonb NOT NULL DEFAULT '{}'::jsonb,
   notes text,
   created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE public.target_plans
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
 
 CREATE INDEX IF NOT EXISTS idx_target_plans_org_year_sem
   ON public.target_plans(organization_id, academic_year_id, semester_name, version_no DESC);
@@ -1336,8 +1370,12 @@ CREATE TABLE IF NOT EXISTS public.rubric_versions (
   is_active boolean NOT NULL DEFAULT true,
   effective_from date NOT NULL DEFAULT CURRENT_DATE,
   created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE public.rubric_versions
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
 
 CREATE TABLE IF NOT EXISTS public.exam_attempts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1346,6 +1384,7 @@ CREATE TABLE IF NOT EXISTS public.exam_attempts (
   semester_name text NOT NULL DEFAULT 'Ganjil',
   exam_type text NOT NULL DEFAULT 'semester' CHECK (exam_type IN ('monthly', 'semester')),
   santri_id bigint NOT NULL,
+  student_id bigint,
   attempt_no integer NOT NULL DEFAULT 1,
   is_remedial boolean NOT NULL DEFAULT false,
   materi_juz text,
@@ -1356,13 +1395,28 @@ CREATE TABLE IF NOT EXISTS public.exam_attempts (
   notes text,
   examiner_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT fk_exam_attempts_student_tenant
     FOREIGN KEY (organization_id, santri_id)
     REFERENCES public.santri(organization_id, id) ON DELETE RESTRICT
 );
 
 ALTER TABLE public.exam_attempts
-  ADD COLUMN IF NOT EXISTS raw_score numeric(5,2);
+  ADD COLUMN IF NOT EXISTS student_id bigint REFERENCES public.santri(id) ON DELETE RESTRICT,
+  ADD COLUMN IF NOT EXISTS santri_id bigint REFERENCES public.santri(id) ON DELETE RESTRICT,
+  ADD COLUMN IF NOT EXISTS raw_score numeric(5,2),
+  ADD COLUMN IF NOT EXISTS exam_id uuid,
+  ADD COLUMN IF NOT EXISTS remedial_required boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS passed boolean NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
+UPDATE public.exam_attempts
+SET student_id = santri_id
+WHERE student_id IS NULL AND santri_id IS NOT NULL;
+
+UPDATE public.exam_attempts
+SET santri_id = student_id
+WHERE santri_id IS NULL AND student_id IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_exam_attempts_org_student
   ON public.exam_attempts(organization_id, academic_year_id, semester_name, santri_id, attempt_no DESC);
@@ -1825,7 +1879,7 @@ AS $$
           AND hma.is_active = true
           AND (hma.valid_from IS NULL OR hma.valid_from <= target_date)
           AND (hma.valid_to IS NULL OR hma.valid_to >= target_date)
-          AND (hma.musammi_user_id = auth.uid() OR hma.user_id = auth.uid() OR m.user_id = auth.uid())
+          AND (COALESCE(hma.musammi_user_id, hma.user_id) = auth.uid() OR hma.user_id = auth.uid() OR m.user_id = auth.uid())
       )
       OR EXISTS (
         SELECT 1
@@ -3126,25 +3180,28 @@ BEGIN
 
   v_unreviewed_recitations := v_unreviewed_recitations + v_unreviewed_legacy_setoran;
 
+  -- 3. Ujian yang belum lengkap/final
   SELECT COUNT(*) INTO v_incomplete_exams
-  FROM public.exams
-  WHERE organization_id = v_year.organization_id
-    AND academic_year_id = p_academic_year_id
-    AND status IN ('draft', 'open');
+  FROM public.exam_attempts ea
+  WHERE ea.organization_id = v_year.organization_id
+    AND ea.academic_year_id = p_academic_year_id
+    AND (ea.final_score IS NULL OR ea.raw_score IS NULL);
 
+  -- 4. Remedial yang belum selesai (attempt yang bernilai < 60 namun belum ada attempt lulus)
   SELECT COUNT(*) INTO v_unfinished_remedials
   FROM public.exam_attempts ea
-  JOIN public.exams e ON e.id = ea.exam_id
   WHERE ea.organization_id = v_year.organization_id
-    AND e.academic_year_id = p_academic_year_id
-    AND ea.remedial_required = true
+    AND ea.academic_year_id = p_academic_year_id
+    AND COALESCE(ea.final_score, 0) < 60
     AND NOT EXISTS (
       SELECT 1
       FROM public.exam_attempts r
-      WHERE r.exam_id = ea.exam_id
-        AND r.student_id = ea.student_id
+      WHERE r.organization_id = ea.organization_id
+        AND r.academic_year_id = ea.academic_year_id
+        AND r.santri_id = ea.santri_id
+        AND r.exam_type = ea.exam_type
         AND r.attempt_no > ea.attempt_no
-        AND (r.passed = true OR r.remedial_required = false)
+        AND COALESCE(r.final_score, 0) >= 60
     );
 
   SELECT COUNT(*) INTO v_unpublished_reports

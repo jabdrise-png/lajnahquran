@@ -92,7 +92,7 @@ export const PlatformLayout: React.FC<ShellCommonProps> = ({
   return (
     <AcademicYearProvider>
       <SupabaseDataProvider>
-        <div className="flex h-screen bg-neutral text-base-100 print:h-auto print:bg-white">
+        <div className="flex h-screen bg-[#F3F6FB] text-[#101828] print:h-auto print:bg-white">
           <Sidebar
             currentPage={currentPage}
             setPage={handleSetPage}
@@ -131,7 +131,7 @@ export const PlatformLayout: React.FC<ShellCommonProps> = ({
               onNavigate={handleSetPage}
               className="print:hidden"
             />
-            <main className="flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-neutral p-4 sm:p-6 lg:p-8 print:p-0 print:overflow-visible print:bg-white print:w-full">
+            <main className="flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[#F3F6FB] p-4 sm:p-6 lg:p-8 print:p-0 print:overflow-visible print:bg-white print:w-full">
               <Outlet />
             </main>
           </div>

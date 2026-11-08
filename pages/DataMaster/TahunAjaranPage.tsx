@@ -515,21 +515,42 @@ const TahunAjaranPage: React.FC = () => {
             const orgId = await getOrgId();
             if (!orgId) throw new Error('Organisasi tidak ditemukan.');
             if (editingMarhalah) {
-                const { error } = await (supabase as any)
+                let { error } = await (supabase as any)
                     .from('master_marhalah')
                     .update({ nama: marhalahForm.nama.trim(), urutan: Number(marhalahForm.urutan) || 1 })
                     .eq('id', editingMarhalah.id)
                     .eq('organization_id', orgId);
+
+                // Fallback jika kolom urutan belum ada di schema cache
+                if (error && (error.message?.includes('urutan') || error.code === '42703')) {
+                    const res = await (supabase as any)
+                        .from('master_marhalah')
+                        .update({ nama: marhalahForm.nama.trim() })
+                        .eq('id', editingMarhalah.id)
+                        .eq('organization_id', orgId);
+                    error = res.error;
+                }
                 if (error) throw error;
                 NotificationStore.addNotification('Data Marhalah berhasil diperbarui.', 'success');
             } else {
-                const { error } = await (supabase as any)
+                let { error } = await (supabase as any)
                     .from('master_marhalah')
                     .insert({
                         organization_id: orgId,
                         nama: marhalahForm.nama.trim(),
                         urutan: Number(marhalahForm.urutan) || 1,
                     });
+
+                // Fallback jika kolom urutan belum ada di schema cache
+                if (error && (error.message?.includes('urutan') || error.code === '42703')) {
+                    const res = await (supabase as any)
+                        .from('master_marhalah')
+                        .insert({
+                            organization_id: orgId,
+                            nama: marhalahForm.nama.trim(),
+                        });
+                    error = res.error;
+                }
                 if (error) throw error;
                 NotificationStore.addNotification('Marhalah baru berhasil ditambahkan.', 'success');
             }
@@ -559,7 +580,7 @@ const TahunAjaranPage: React.FC = () => {
         }
     };
 
-    const openKelasModal = (k: any | null, defaultMarhalahId?: number) => {
+    const openKelasModal = (k: any | null, defaultMarhalahId?: string | number) => {
         setEditingKelas(k);
         if (k) {
             setKelasForm({
@@ -575,7 +596,7 @@ const TahunAjaranPage: React.FC = () => {
             setKelasForm({
                 marhalah_id: fallbackMId,
                 nama_kelas: '',
-                urutan: (masterKelasRelasi?.filter((x: any) => x.marhalah_id === fallbackMId).length || 0) + 1,
+                urutan: (masterKelasRelasi?.filter((x: any) => String(x.marhalah_id) === String(fallbackMId)).length || 0) + 1,
                 wali_kelas_name: '',
                 wali_kelas_phone: '',
                 musyrif_name: '',
@@ -593,11 +614,11 @@ const TahunAjaranPage: React.FC = () => {
             if (!orgId) throw new Error('Organisasi tidak ditemukan.');
             const marhalahObj = (masterMarhalahs || []).find((m: any) => String(m.id) === String(kelasForm.marhalah_id));
             const marhalahName = marhalahObj?.nama || 'Mutawassithah';
+            const safeMarhalahId = kelasForm.marhalah_id ? String(kelasForm.marhalah_id) : null;
 
             const basePayload: any = {
-                marhalah_id: Number(kelasForm.marhalah_id),
+                marhalah_id: safeMarhalahId,
                 nama_kelas: kelasForm.nama_kelas.trim(),
-                urutan: Number(kelasForm.urutan) || 1,
                 wali_kelas_name: kelasForm.wali_kelas_name.trim() || null,
                 wali_kelas_phone: kelasForm.wali_kelas_phone.trim() || null,
                 musyrif_name: kelasForm.musyrif_name.trim() || null,
@@ -606,18 +627,39 @@ const TahunAjaranPage: React.FC = () => {
             let savedKelasId = editingKelas?.id;
 
             if (editingKelas) {
-                const { error } = await (supabase as any)
+                let { error } = await (supabase as any)
                     .from('master_kelas_relasi')
-                    .update(basePayload)
+                    .update({ ...basePayload, urutan: Number(kelasForm.urutan) || 1 })
                     .eq('id', editingKelas.id)
                     .eq('organization_id', orgId);
+
+                // Fallback jika kolom urutan belum ada di schema cache database
+                if (error && (error.message?.includes('urutan') || error.code === '42703')) {
+                    const res = await (supabase as any)
+                        .from('master_kelas_relasi')
+                        .update(basePayload)
+                        .eq('id', editingKelas.id)
+                        .eq('organization_id', orgId);
+                    error = res.error;
+                }
                 if (error) throw error;
             } else {
-                const { data, error } = await (supabase as any)
+                let { data, error } = await (supabase as any)
                     .from('master_kelas_relasi')
-                    .insert({ ...basePayload, organization_id: orgId })
+                    .insert({ ...basePayload, urutan: Number(kelasForm.urutan) || 1, organization_id: orgId })
                     .select()
                     .single();
+
+                // Fallback jika kolom urutan belum ada di schema cache database
+                if (error && (error.message?.includes('urutan') || error.code === '42703')) {
+                    const res = await (supabase as any)
+                        .from('master_kelas_relasi')
+                        .insert({ ...basePayload, organization_id: orgId })
+                        .select()
+                        .single();
+                    data = res.data;
+                    error = res.error;
+                }
                 if (error) throw error;
                 savedKelasId = data?.id;
             }
@@ -637,7 +679,7 @@ const TahunAjaranPage: React.FC = () => {
                         .update({
                             nama: kelasForm.wali_kelas_name.trim(),
                             no_hp: kelasForm.wali_kelas_phone.trim() || null,
-                            marhalah_id: Number(kelasForm.marhalah_id),
+                            marhalah_id: safeMarhalahId,
                             kelas_id: savedKelasId || null,
                         })
                         .eq('id', existingWali.id);
@@ -649,7 +691,7 @@ const TahunAjaranPage: React.FC = () => {
                         no_hp: kelasForm.wali_kelas_phone.trim() || null,
                         marhalah: ['Mutawassithah', 'Aliyah', 'Jamiah'].includes(marhalahName) ? marhalahName : 'Mutawassithah',
                         kelas: kelasForm.nama_kelas.trim(),
-                        marhalah_id: Number(kelasForm.marhalah_id),
+                        marhalah_id: safeMarhalahId,
                         kelas_id: savedKelasId || null,
                     });
                 }

@@ -1,881 +1,1717 @@
-import React, { useState, useEffect } from 'react';
-import { Save, Plus, Trash2, Layout, AlertCircle, Eye, RefreshCw, Upload, Smartphone, Monitor, ChevronUp, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import {
+  AlertTriangle,
+  Check,
+  CheckCircle2,
+  Eye,
+  ExternalLink,
+  Monitor,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  Save,
+  Smartphone,
+  Trash2,
+} from 'lucide-react';
 import { useLandingPageContent } from '../hooks/useLandingPageContent';
-import LandingPage from './LandingPage';
-import Login from './Login';
 import { LandingPageConfig } from '../types/landingPage';
 import { NotificationStore } from '../lib/NotificationStore';
-import * as Icons from 'lucide-react';
+import { Badge, Button, ConfirmDialog, Modal } from '../components/ui/SaaSPrimitives';
+import LandingPage from './LandingPage';
+import Login from './Login';
 
-const availableIcons = Object.keys(Icons).filter(key => key !== 'createReactComponent' && key !== 'default');
+type EditorTabId =
+  | 'theme'
+  | 'hero'
+  | 'features'
+  | 'details'
+  | 'pricing'
+  | 'testimonials'
+  | 'footer'
+  | 'custom_pages'
+  | 'login_page';
+
+const EDITOR_TABS: Array<{ id: EditorTabId; label: string; isCore?: boolean }> = [
+  { id: 'theme', label: '1. Tema & Umum', isCore: true },
+  { id: 'hero', label: '2. Hero', isCore: true },
+  { id: 'features', label: '3. Fitur', isCore: true },
+  { id: 'details', label: '4. Cara Kerja', isCore: true },
+  { id: 'pricing', label: '5. Harga/Plan', isCore: true },
+  { id: 'testimonials', label: 'Testimoni' },
+  { id: 'footer', label: 'Footer & CTA' },
+  { id: 'custom_pages', label: 'Halaman Custom' },
+  { id: 'login_page', label: 'Halaman Login' },
+];
+
+const DirtyBadge: React.FC<{ show: boolean }> = ({ show }) => {
+  if (!show) return null;
+  return (
+    <span className="ml-2 inline-flex items-center rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 border border-amber-200">
+      Diubah
+    </span>
+  );
+};
 
 const WebsiteEditorPage: React.FC = () => {
-  const { draftConfig, loading, error, updateDraftConfig, publishConfig, hasDraftChanges } = useLandingPageContent();
-  const [activeTab, setActiveTab] = useState<'hero' | 'features' | 'testimonials' | 'general' | 'theme' | 'custom_pages' | 'login_page'>('hero');
+  const {
+    draftConfig,
+    publishedConfig,
+    loading,
+    error: backendError,
+    lastDraftSavedAt,
+    lastPublishedAt,
+    updateDraftConfig,
+    publishConfig,
+    hasDraftChanges,
+    clearError,
+  } = useLandingPageContent();
+
+  const [activeTab, setActiveTab] = useState<EditorTabId>('hero');
+  const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop');
+  const [publishModalOpen, setPublishModalOpen] = useState(false);
+  const [publishReason, setPublishReason] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
-  const [saveMessage, setSaveMessage] = useState<{text: string, type: 'success'|'error'} | null>(null);
-  const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
-
-  // We use local state cloned from draftConfig for instant edits, 
-  // but we debounce saving it to draftConfig to avoid too many DB calls.
   const [localConfig, setLocalConfig] = useState<LandingPageConfig | null>(null);
+  const [statusFeedback, setStatusFeedback] = useState<{
+    type: 'success' | 'error' | 'info';
+    message: string;
+  } | null>(null);
 
+  // Unsaved navigation & reset dialogs
+  const [pendingNavCallback, setPendingNavCallback] = useState<(() => void) | null>(null);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+
+  // Sync initial draftConfig from backend once loaded
   useEffect(() => {
     if (!loading && draftConfig && !localConfig) {
-      setLocalConfig(JSON.parse(JSON.stringify(draftConfig)));
+      const cloned: LandingPageConfig = JSON.parse(JSON.stringify(draftConfig));
+      setLocalConfig(cloned);
     }
-  }, [loading, draftConfig]);
+  }, [loading, draftConfig, localConfig]);
 
-  if (loading || !localConfig) {
-    return <div className="p-8 text-center"><div className="animate-spin w-8 h-8 rounded-full border-4 border-blue-600 border-t-transparent mx-auto"></div></div>;
+  const isDirty = useMemo(() => {
+    if (!localConfig || !draftConfig) return false;
+    return JSON.stringify(localConfig) !== JSON.stringify(draftConfig);
+  }, [localConfig, draftConfig]);
+
+  // Browser reload / close tab guard when dirty
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty]);
+
+  // Internal route change guard (Sidebar / Header navigation) when dirty
+  useEffect(() => {
+    if (isDirty) {
+      (window as any).__LQ_UNSAVED_NAVIGATION_GUARD__ = (_targetPath: string, proceed: () => void) => {
+        setPendingNavCallback(() => proceed);
+        return true;
+      };
+    } else {
+      delete (window as any).__LQ_UNSAVED_NAVIGATION_GUARD__;
+    }
+    return () => {
+      delete (window as any).__LQ_UNSAVED_NAVIGATION_GUARD__;
+    };
+  }, [isDirty]);
+
+  const getSection = useCallback(
+    (cfg: LandingPageConfig | null, id: string) => cfg?.sections.find((s) => s.id === id),
+    []
+  );
+
+  // Field validation errors
+  const validationErrors = useMemo(() => {
+    const errs: Record<string, string> = {};
+    if (!localConfig) return errs;
+    if (!localConfig.theme?.appName?.trim()) {
+      errs.appName = 'Nama aplikasi/brand wajib diisi.';
+    }
+    if (!localConfig.seo?.title?.trim()) {
+      errs.seoTitle = 'Meta Title (SEO) wajib diisi.';
+    }
+    const hero = getSection(localConfig, 'hero');
+    if (!hero?.data?.headline?.trim()) {
+      errs.heroHeadline = 'Headline utama wajib diisi.';
+    }
+    if (!hero?.data?.buttonText?.trim()) {
+      errs.heroButtonText = 'Teks tombol CTA utama wajib diisi.';
+    }
+    const feat = getSection(localConfig, 'features');
+    if (!feat?.data?.title?.trim()) {
+      errs.featuresTitle = 'Judul section fitur wajib diisi.';
+    }
+    const details = getSection(localConfig, 'details');
+    if (!details?.data?.title?.trim()) {
+      errs.detailsTitle = 'Judul section cara kerja wajib diisi.';
+    }
+    const pricing = getSection(localConfig, 'pricing');
+    if (!pricing?.data?.title?.trim()) {
+      errs.pricingTitle = 'Judul section paket/harga wajib diisi.';
+    }
+    return errs;
+  }, [localConfig, getSection]);
+
+  const hasValidationErrors = Object.keys(validationErrors).length > 0;
+
+  // Section-level dirty tracking compared to saved draftConfig
+  const sectionDirtyMap = useMemo(() => {
+    const map: Record<EditorTabId, boolean> = {
+      theme: false,
+      hero: false,
+      features: false,
+      details: false,
+      pricing: false,
+      testimonials: false,
+      footer: false,
+      custom_pages: false,
+      login_page: false,
+    };
+    if (!localConfig || !draftConfig) return map;
+
+    map.theme =
+      JSON.stringify(localConfig.theme) !== JSON.stringify(draftConfig.theme) ||
+      JSON.stringify(localConfig.seo) !== JSON.stringify(draftConfig.seo);
+    map.hero =
+      JSON.stringify(getSection(localConfig, 'hero')) !==
+      JSON.stringify(getSection(draftConfig, 'hero'));
+    map.features =
+      JSON.stringify(getSection(localConfig, 'features')) !==
+      JSON.stringify(getSection(draftConfig, 'features'));
+    map.details =
+      JSON.stringify(getSection(localConfig, 'details')) !==
+      JSON.stringify(getSection(draftConfig, 'details'));
+    map.pricing =
+      JSON.stringify(getSection(localConfig, 'pricing')) !==
+      JSON.stringify(getSection(draftConfig, 'pricing'));
+    map.testimonials =
+      JSON.stringify(getSection(localConfig, 'testimonials')) !==
+      JSON.stringify(getSection(draftConfig, 'testimonials'));
+    map.footer =
+      JSON.stringify(localConfig.footer) !== JSON.stringify(draftConfig.footer) ||
+      JSON.stringify(getSection(localConfig, 'cta')) !==
+        JSON.stringify(getSection(draftConfig, 'cta'));
+    map.custom_pages =
+      JSON.stringify(localConfig.customPages || []) !==
+      JSON.stringify(draftConfig.customPages || []);
+    map.login_page =
+      JSON.stringify(localConfig.loginPage || {}) !==
+      JSON.stringify(draftConfig.loginPage || {});
+
+    return map;
+  }, [localConfig, draftConfig, getSection]);
+
+  // Summary of changes between current localConfig and publishedConfig for the Publish confirmation dialog
+  const publishDiffSummary = useMemo(() => {
+    if (!localConfig || !publishedConfig) return [];
+    const changes: string[] = [];
+
+    if (
+      JSON.stringify(localConfig.theme) !== JSON.stringify(publishedConfig.theme) ||
+      JSON.stringify(localConfig.seo) !== JSON.stringify(publishedConfig.seo)
+    ) {
+      changes.push('Tema Brand, Identitas Aplikasi & Metadata SEO');
+    }
+    if (
+      JSON.stringify(getSection(localConfig, 'hero')) !==
+      JSON.stringify(getSection(publishedConfig, 'hero'))
+    ) {
+      changes.push('Hero Section (Announcement, Headline, Deskripsi & Tombol CTA)');
+    }
+    if (
+      JSON.stringify(getSection(localConfig, 'features')) !==
+      JSON.stringify(getSection(publishedConfig, 'features'))
+    ) {
+      changes.push('Section Fitur Unggulan');
+    }
+    if (
+      JSON.stringify(getSection(localConfig, 'details')) !==
+      JSON.stringify(getSection(publishedConfig, 'details'))
+    ) {
+      changes.push('Section Cara Kerja & Tahapan Implementasi');
+    }
+    if (
+      JSON.stringify(getSection(localConfig, 'pricing')) !==
+      JSON.stringify(getSection(publishedConfig, 'pricing'))
+    ) {
+      changes.push('Section Paket & Kapasitas Lembaga');
+    }
+    if (
+      JSON.stringify(getSection(localConfig, 'testimonials')) !==
+      JSON.stringify(getSection(publishedConfig, 'testimonials'))
+    ) {
+      changes.push('Section Testimoni Mitra Lembaga');
+    }
+    if (
+      JSON.stringify(localConfig.footer) !== JSON.stringify(publishedConfig.footer) ||
+      JSON.stringify(getSection(localConfig, 'cta')) !==
+        JSON.stringify(getSection(publishedConfig, 'cta'))
+    ) {
+      changes.push('Section Penutup (CTA Bawah) & Informasi Footer');
+    }
+    if (
+      JSON.stringify(localConfig.customPages || []) !==
+      JSON.stringify(publishedConfig.customPages || [])
+    ) {
+      changes.push('Daftar Halaman Artikel / Panduan Custom');
+    }
+    if (
+      JSON.stringify(localConfig.loginPage || {}) !==
+      JSON.stringify(publishedConfig.loginPage || {})
+    ) {
+      changes.push('Konfigurasi Tampilan Halaman Login');
+    }
+
+    return changes;
+  }, [localConfig, publishedConfig, getSection]);
+
+  if (loading && !localConfig) {
+    return (
+      <div className="p-12 text-center">
+        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-[#2563EB] border-t-transparent" />
+        <p className="mt-3 text-xs font-medium text-[#667085]">
+          Memuat konfigurasi Website Editor dari server...
+        </p>
+      </div>
+    );
   }
 
-  const updateLocalAndDraft = (newConfig: LandingPageConfig) => {
-    setLocalConfig(newConfig);
-    // Ideally we debounce this, but for simplicity let's save immediately
-    // Or we require manual "Save Draft" click. 
-    // Manual "Simpan ke Draft" is better to avoid DB spam.
+  if (!localConfig) return null;
+
+  const updateSectionData = (id: string, dataObj: Record<string, any>) => {
+    setStatusFeedback(null);
+    setLocalConfig({
+      ...localConfig,
+      sections: localConfig.sections.map((s) =>
+        s.id === id ? { ...s, data: { ...s.data, ...dataObj } } : s
+      ),
+    });
+  };
+
+  const updateTheme = (key: string, value: string) => {
+    setStatusFeedback(null);
+    setLocalConfig({ ...localConfig, theme: { ...localConfig.theme, [key]: value } });
+  };
+
+  const updateSEO = (key: string, value: string) => {
+    setStatusFeedback(null);
+    setLocalConfig({ ...localConfig, seo: { ...localConfig.seo, [key]: value } });
+  };
+
+  const updateFooter = (key: string, value: string) => {
+    setStatusFeedback(null);
+    setLocalConfig({ ...localConfig, footer: { ...localConfig.footer, [key]: value } });
   };
 
   const handleSaveDraft = async () => {
+    if (hasValidationErrors) {
+      setStatusFeedback({
+        type: 'error',
+        message: 'Mohon lengkapi seluruh field wajib yang ditandai merah sebelum menyimpan draft.',
+      });
+      NotificationStore.addNotification(
+        'Masih ada field wajib yang kosong pada editor.',
+        'error'
+      );
+      return;
+    }
+
+    clearError();
+    setStatusFeedback(null);
     setIsSaving(true);
-    setSaveMessage(null);
-    const success = await updateDraftConfig(localConfig);
+    const ok = await updateDraftConfig(localConfig);
     setIsSaving(false);
-    if (success) {
-      setSaveMessage({ text: 'Draft berhasil disimpan!', type: 'success' });
-      setTimeout(() => setSaveMessage(null), 3000);
+
+    if (ok) {
+      setStatusFeedback({
+        type: 'success',
+        message: 'Draft berhasil disimpan ke database server.',
+      });
+      NotificationStore.addNotification('Draft berhasil disimpan ke server.', 'success');
     } else {
-      setSaveMessage({ text: 'Gagal menyimpan draft.', type: 'error' });
+      setStatusFeedback({
+        type: 'error',
+        message:
+          backendError ||
+          'Gagal menyimpan draft ke server. Perubahan lokal Anda tetap dipertahankan.',
+      });
+      NotificationStore.addNotification('Gagal menyimpan draft ke server.', 'error');
     }
   };
 
-  const handlePublish = async () => {
-    // First, save the draft
-    await updateDraftConfig(localConfig);
-    
+  const handleConfirmPublish = async () => {
+    if (hasValidationErrors) {
+      setStatusFeedback({
+        type: 'error',
+        message: 'Mohon perbaiki field yang belum valid sebelum mempublikasikan.',
+      });
+      return;
+    }
+
+    clearError();
+    setStatusFeedback(null);
     setIsPublishing(true);
-    setSaveMessage(null);
-    const success = await publishConfig();
-    setIsPublishing(false);
-    if (success) {
-      setSaveMessage({ text: 'Perubahan berhasil di-publish dan live!', type: 'success' });
-      setTimeout(() => setSaveMessage(null), 3000);
-    } else {
-      setSaveMessage({ text: 'Gagal mempublish.', type: 'error' });
-    }
-  };
-
-  const renderIconSelector = (value: string, onChange: (val: string) => void) => {
-    return (
-      <select 
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white"
-      >
-        <option value="">Pilih Icon</option>
-        <option value="ShieldCheck">Keamanan (Shield)</option>
-        <option value="Users">Pengguna (Users)</option>
-        <option value="LineChart">Statistik (LineChart)</option>
-        <option value="BookOpen">Buku (BookOpen)</option>
-        <option value="CheckCircle2">Ceklis (CheckCircle2)</option>
-        <option value="Clock">Waktu (Clock)</option>
-        <option value="TrendingUp">Meningkat (TrendingUp)</option>
-        <option value="FileText">Dokumen (FileText)</option>
-        <option value="CalendarCheck">Kalender (Calendar)</option>
-      </select>
+    const ok = await publishConfig(
+      localConfig,
+      publishReason.trim() || 'Publikasi versi baru dari Website Editor Superadmin'
     );
-  };
+    setIsPublishing(false);
 
-  // Section Helpers
-  const updateTheme = (key: string, value: string) => updateLocalAndDraft({ ...localConfig, theme: { ...localConfig.theme, [key]: value } });
-  const updateSEO = (key: string, value: string) => updateLocalAndDraft({ ...localConfig, seo: { ...localConfig.seo, [key]: value } });
-  const updateFooter = (key: string, value: string) => updateLocalAndDraft({ ...localConfig, footer: { ...localConfig.footer, [key]: value } });
-  
-  const getSection = (id: string) => localConfig.sections.find(s => s.id === id);
-  const updateSectionData = (id: string, dataObj: any) => {
-    updateLocalAndDraft({
-      ...localConfig,
-      sections: localConfig.sections.map(s => s.id === id ? { ...s, data: { ...s.data, ...dataObj } } : s)
-    });
-  };
-  const toggleSection = (id: string) => {
-    updateLocalAndDraft({
-      ...localConfig,
-      sections: localConfig.sections.map(s => s.id === id ? { ...s, isVisible: !s.isVisible } : s)
-    });
-  };
-  const moveSection = (index: number, direction: 'up'|'down') => {
-    const newSections = [...localConfig.sections];
-    if (direction === 'up' && index > 0) {
-      [newSections[index-1], newSections[index]] = [newSections[index], newSections[index-1]];
-    } else if (direction === 'down' && index < newSections.length - 1) {
-      [newSections[index], newSections[index+1]] = [newSections[index+1], newSections[index]];
+    if (ok) {
+      setPublishModalOpen(false);
+      setPublishReason('');
+      setStatusFeedback({
+        type: 'success',
+        message: 'Landing page berhasil dipublikasikan dan kini aktif di halaman publik!',
+      });
+      NotificationStore.addNotification(
+        'Landing page berhasil dipublikasikan ke versi publik!',
+        'success'
+      );
+    } else {
+      setStatusFeedback({
+        type: 'error',
+        message:
+          backendError ||
+          'Gagal mempublikasikan landing page. Silakan periksa koneksi atau coba kembali.',
+      });
+      NotificationStore.addNotification('Gagal mempublikasikan landing page.', 'error');
     }
-    updateLocalAndDraft({ ...localConfig, sections: newSections });
   };
 
-  const heroSec = getSection('hero');
-  const featSec = getSection('features');
-  const testSec = getSection('testimonials');
-  const detailsSec = getSection('details');
-  const pricingSec = getSection('pricing');
-  const ctaSec = getSection('cta');
+  const handleResetToSavedDraft = () => {
+    const cloned: LandingPageConfig = JSON.parse(JSON.stringify(draftConfig));
+    setLocalConfig(cloned);
+    setResetConfirmOpen(false);
+    setStatusFeedback({
+      type: 'info',
+      message: 'Perubahan lokal dibatalkan dan dikembalikan ke draft terakhir di server.',
+    });
+  };
+
+  const heroSec = getSection(localConfig, 'hero');
+  const draftHeroSec = getSection(draftConfig, 'hero');
+  const featSec = getSection(localConfig, 'features');
+  const draftFeatSec = getSection(draftConfig, 'features');
+  const detailsSec = getSection(localConfig, 'details');
+  const draftDetailsSec = getSection(draftConfig, 'details');
+  const pricingSec = getSection(localConfig, 'pricing');
+  const draftPricingSec = getSection(draftConfig, 'pricing');
+  const testSec = getSection(localConfig, 'testimonials');
+  const ctaSec = getSection(localConfig, 'cta');
+  const draftCtaSec = getSection(draftConfig, 'cta');
+
+  const announcementBadge =
+    (heroSec?.data as any)?.badgeText ??
+    localConfig.seo?.description ??
+    'Platform manajemen tahfidz generasi baru';
+  const draftAnnouncementBadge =
+    (draftHeroSec?.data as any)?.badgeText ??
+    draftConfig.seo?.description ??
+    'Platform manajemen tahfidz generasi baru';
+
+  const secondaryCtaText = (heroSec?.data as any)?.secondaryButtonText ?? 'Lihat cara kerja';
+  const draftSecondaryCtaText =
+    (draftHeroSec?.data as any)?.secondaryButtonText ?? 'Lihat cara kerja';
+
+  const formatShortTime = (iso: string | null) => {
+    if (!iso) return null;
+    try {
+      return new Date(iso).toLocaleTimeString('id-ID', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return null;
+    }
+  };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-slate-100">
-      
-      {/* Top Bar for Editor */}
-      <div className="flex items-center justify-between px-6 py-3 bg-white border-b border-slate-200 flex-shrink-0 shadow-sm z-10">
-        <div>
-          <h1 className="text-lg font-bold text-slate-800 flex items-center">
-            <Layout className="mr-2 text-blue-600 w-5 h-5" />
-            Website Editor
-          </h1>
+    <div className="-m-4 flex min-h-[calc(100vh-4rem)] flex-col bg-white sm:-m-6 lg:-m-8 relative z-0">
+      {/* Top Toolbar (Static / Non-overlapping) */}
+      <div className="relative flex flex-wrap items-center justify-between gap-3 border-b border-[#E1E7EF] bg-white px-4 py-3.5 sm:px-6">
+        <div className="flex flex-wrap items-center gap-3 min-w-0">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-base sm:text-lg font-bold text-[#101828] tracking-tight">
+                Website Editor
+              </h1>
+
+              {/* Status Perubahan */}
+              {isDirty ? (
+                <Badge tone="warning" dot label="Perubahan belum disimpan" />
+              ) : (
+                <Badge
+                  tone="success"
+                  dot
+                  label={
+                    lastDraftSavedAt
+                      ? `Draft tersimpan (${formatShortTime(lastDraftSavedAt)})`
+                      : 'Draft tersimpan di server'
+                  }
+                />
+              )}
+
+              {/* Status Publikasi */}
+              {hasDraftChanges || isDirty ? (
+                <Badge tone="info" label="Memiliki Draft Belum Dipublish" />
+              ) : (
+                <Badge tone="neutral" label="Sinkron dengan Publik" />
+              )}
+            </div>
+            <p className="mt-0.5 text-xs text-[#667085] truncate">
+              Kelola konten halaman publik <span className="font-mono text-[#1557D5]">/</span> dengan
+              penyimpanan draft dan publikasi langsung ke database produksi.
+              {lastPublishedAt && (
+                <span className="hidden xl:inline">
+                  {' '}
+                  · Terakhir dipublish {formatShortTime(lastPublishedAt)}
+                </span>
+              )}
+            </p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          {saveMessage && (
-            <div className={`px-3 py-1.5 rounded-lg text-sm font-medium flex items-center ${saveMessage.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-               {saveMessage.text}
+        {/* Right Toolbar Controls */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Desktop / Mobile Viewport Switcher */}
+          <div
+            role="group"
+            aria-label="Pilih ukuran layar preview"
+            className="hidden rounded-[12px] bg-[#F3F6FB] p-1 border border-[#E1E7EF] sm:flex"
+          >
+            <button
+              type="button"
+              aria-pressed={device === 'desktop'}
+              onClick={() => setDevice('desktop')}
+              className={`inline-flex min-h-8 items-center gap-1.5 rounded-[8px] px-3 text-xs font-semibold transition-all ${
+                device === 'desktop'
+                  ? 'bg-white text-[#101828] shadow-2xs border border-[#E1E7EF]'
+                  : 'text-[#667085] hover:text-[#101828]'
+              }`}
+            >
+              <Monitor size={14} />
+              Desktop
+            </button>
+            <button
+              type="button"
+              aria-pressed={device === 'mobile'}
+              onClick={() => setDevice('mobile')}
+              className={`inline-flex min-h-8 items-center gap-1.5 rounded-[8px] px-3 text-xs font-semibold transition-all ${
+                device === 'mobile'
+                  ? 'bg-white text-[#101828] shadow-2xs border border-[#E1E7EF]'
+                  : 'text-[#667085] hover:text-[#101828]'
+              }`}
+            >
+              <Smartphone size={14} />
+              Mobile
+            </button>
+          </div>
+
+          {/* Link to Public Page */}
+          <a
+            href="/"
+            target="_blank"
+            rel="noreferrer"
+            className="hidden md:inline-flex min-h-9 items-center gap-1.5 rounded-[10px] border border-[#E1E7EF] bg-white px-3 py-1.5 text-xs font-semibold text-[#475467] hover:bg-[#F8FAFC] hover:text-[#101828] transition-colors"
+            title="Buka halaman publik di tab baru"
+          >
+            <ExternalLink size={14} />
+            Lihat Publik
+          </a>
+
+          {/* Reset Unsaved Changes */}
+          {isDirty && (
+            <button
+              type="button"
+              onClick={() => setResetConfirmOpen(true)}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-[10px] border border-[#E1E7EF] bg-white px-3 py-1.5 text-xs font-semibold text-[#667085] hover:bg-[#F8FAFC] hover:text-[#101828] transition-colors"
+              title="Kembalikan ke draft terakhir yang tersimpan"
+            >
+              <RotateCcw size={14} />
+              <span className="hidden sm:inline">Reset</span>
+            </button>
+          )}
+
+          {/* Simpan Draft */}
+          <button
+            type="button"
+            disabled={!isDirty || isSaving || isPublishing}
+            onClick={handleSaveDraft}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-[10px] border border-[#E1E7EF] bg-white px-3.5 py-2 text-xs font-semibold text-[#101828] hover:bg-[#F8FAFC] disabled:opacity-45 transition-colors"
+          >
+            {isSaving ? <RefreshCw size={14} className="animate-spin text-[#2563EB]" /> : <Save size={14} />}
+            {isSaving ? 'Menyimpan...' : 'Simpan draft'}
+          </button>
+
+          {/* Publish */}
+          <button
+            type="button"
+            disabled={isPublishing || isSaving}
+            onClick={() => setPublishModalOpen(true)}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-[10px] bg-[#2563EB] px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#1557D5] disabled:opacity-50 transition-colors"
+          >
+            <Eye size={14} />
+            Publish
+          </button>
+        </div>
+      </div>
+
+      {/* Inline Status / Error Feedback Banner */}
+      {(statusFeedback || backendError) && (
+        <div
+          role="status"
+          className={`flex items-center justify-between gap-3 border-b px-4 py-2.5 text-xs font-medium sm:px-6 ${
+            statusFeedback?.type === 'error' || backendError
+              ? 'border-rose-200 bg-rose-50 text-rose-800'
+              : statusFeedback?.type === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              : 'border-blue-200 bg-blue-50 text-blue-800'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {statusFeedback?.type === 'error' || backendError ? (
+              <AlertTriangle size={15} className="shrink-0 text-rose-600" />
+            ) : (
+              <CheckCircle2 size={15} className="shrink-0 text-emerald-600" />
+            )}
+            <span>{statusFeedback?.message || backendError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setStatusFeedback(null);
+              clearError();
+            }}
+            className="text-[11px] font-semibold underline hover:opacity-80"
+          >
+            Tutup
+          </button>
+        </div>
+      )}
+
+      {/* Main Unified Editor + Full Page Workspace */}
+      <div className="grid flex-1 min-h-0 lg:grid-cols-[440px_1fr] xl:grid-cols-[460px_1fr]">
+        {/* Left Editor Panel */}
+        <div className="flex flex-col border-b lg:border-b-0 lg:border-r border-[#E1E7EF] bg-white">
+          {/* Section Navigation Tabs */}
+          <div
+            role="tablist"
+            aria-label="Bagian konten landing page"
+            className="flex overflow-x-auto border-b border-[#E1E7EF] bg-[#F8FAFC]/60 p-2 gap-1 custom-scrollbar"
+          >
+            {EDITOR_TABS.map((tab) => {
+              const isSectionDirty = sectionDirtyMap[tab.id];
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-[10px] px-3 py-2 text-xs font-semibold transition-colors ${
+                    activeTab === tab.id
+                      ? 'bg-[#E7F0FF] text-[#1557D5] border border-[#BFDBFE]/60 shadow-2xs'
+                      : 'text-[#667085] hover:bg-white hover:text-[#101828]'
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  {isSectionDirty && (
+                    <span
+                      className="h-1.5 w-1.5 rounded-full bg-amber-500"
+                      title="Bagian ini memiliki perubahan belum disimpan"
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Form Controls */}
+          <div className="grid gap-5 p-5 pb-24 lg:pb-8">
+            {/* TAB 1: TEMA & UMUM */}
+            {activeTab === 'theme' && (
+              <>
+                <div>
+                  <label
+                    htmlFor="cms-announcement"
+                    className="mb-1.5 flex items-center text-xs font-semibold text-[#101828]"
+                  >
+                    Announcement Badge
+                    <DirtyBadge show={announcementBadge !== draftAnnouncementBadge} />
+                  </label>
+                  <input
+                    id="cms-announcement"
+                    type="text"
+                    value={announcementBadge}
+                    onChange={(e) => updateSectionData('hero', { badgeText: e.target.value })}
+                    className="w-full rounded-[12px] border border-[#E1E7EF] px-3.5 py-2.5 text-sm text-[#101828] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="cms-app-name"
+                    className="mb-1.5 flex items-center text-xs font-semibold text-[#101828]"
+                  >
+                    Nama Aplikasi / Brand <span className="ml-1 text-rose-600">*</span>
+                    <DirtyBadge show={localConfig.theme.appName !== draftConfig.theme.appName} />
+                  </label>
+                  <input
+                    id="cms-app-name"
+                    type="text"
+                    value={localConfig.theme.appName}
+                    onChange={(e) => updateTheme('appName', e.target.value)}
+                    className={`w-full rounded-[12px] border px-3.5 py-2.5 text-sm text-[#101828] outline-none focus:ring-2 ${
+                      validationErrors.appName
+                        ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/15'
+                        : 'border-[#E1E7EF] focus:border-[#2563EB] focus:ring-[#2563EB]/15'
+                    }`}
+                  />
+                  {validationErrors.appName && (
+                    <p className="mt-1 text-xs text-rose-600">{validationErrors.appName}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="cms-primary-color"
+                    className="mb-1.5 flex items-center text-xs font-semibold text-[#101828]"
+                  >
+                    Warna Aksen Utama (Hex)
+                    <DirtyBadge
+                      show={localConfig.theme.primaryColor !== draftConfig.theme.primaryColor}
+                    />
+                  </label>
+                  <div className="flex items-center gap-2.5">
+                    <input
+                      id="cms-primary-color"
+                      type="color"
+                      value={localConfig.theme.primaryColor || '#2563eb'}
+                      onChange={(e) => updateTheme('primaryColor', e.target.value)}
+                      className="h-10 w-12 cursor-pointer rounded-[10px] border border-[#E1E7EF] bg-white p-1"
+                    />
+                    <input
+                      type="text"
+                      aria-label="Kode hex warna aksen"
+                      value={localConfig.theme.primaryColor || '#2563eb'}
+                      onChange={(e) => updateTheme('primaryColor', e.target.value)}
+                      className="flex-1 rounded-[12px] border border-[#E1E7EF] px-3.5 py-2 text-sm font-mono text-[#101828] outline-none focus:border-[#2563EB]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="cms-seo-title"
+                    className="mb-1.5 flex items-center text-xs font-semibold text-[#101828]"
+                  >
+                    Meta Title (SEO) <span className="ml-1 text-rose-600">*</span>
+                    <DirtyBadge show={localConfig.seo.title !== draftConfig.seo.title} />
+                  </label>
+                  <input
+                    id="cms-seo-title"
+                    type="text"
+                    value={localConfig.seo.title}
+                    onChange={(e) => updateSEO('title', e.target.value)}
+                    className={`w-full rounded-[12px] border px-3.5 py-2.5 text-sm text-[#101828] outline-none focus:ring-2 ${
+                      validationErrors.seoTitle
+                        ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/15'
+                        : 'border-[#E1E7EF] focus:border-[#2563EB] focus:ring-[#2563EB]/15'
+                    }`}
+                  />
+                  {validationErrors.seoTitle && (
+                    <p className="mt-1 text-xs text-rose-600">{validationErrors.seoTitle}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="cms-seo-description"
+                    className="mb-1.5 flex items-center text-xs font-semibold text-[#101828]"
+                  >
+                    Meta Description (SEO)
+                    <DirtyBadge
+                      show={localConfig.seo.description !== draftConfig.seo.description}
+                    />
+                  </label>
+                  <textarea
+                    id="cms-seo-description"
+                    rows={3}
+                    value={localConfig.seo.description}
+                    onChange={(e) => updateSEO('description', e.target.value)}
+                    className="w-full rounded-[12px] border border-[#E1E7EF] p-3.5 text-sm text-[#101828] outline-none focus:border-[#2563EB]"
+                  />
+                </div>
+
+                <div className="rounded-[14px] border border-[#BFDBFE] bg-[#F3F7FF] p-4">
+                  <div className="text-xs font-bold text-[#101828]">Standar Desain Platform</div>
+                  <p className="mt-1 text-xs text-[#475467]">
+                    Royal Blue & Slate · Plus Jakarta Sans · Enterprise Multi-Tenant SaaS
+                  </p>
+                </div>
+              </>
+            )}
+
+            {/* TAB 2: HERO */}
+            {activeTab === 'hero' && heroSec && (
+              <>
+                <div>
+                  <label
+                    htmlFor="cms-hero-badge"
+                    className="mb-1.5 flex items-center text-xs font-semibold text-[#101828]"
+                  >
+                    Label Pengumuman Atas (Badge)
+                    <DirtyBadge show={announcementBadge !== draftAnnouncementBadge} />
+                  </label>
+                  <input
+                    id="cms-hero-badge"
+                    type="text"
+                    value={announcementBadge}
+                    onChange={(e) => updateSectionData('hero', { badgeText: e.target.value })}
+                    className="w-full rounded-[12px] border border-[#E1E7EF] px-3.5 py-2.5 text-sm text-[#101828] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="cms-hero-headline"
+                    className="mb-1.5 flex items-center text-xs font-semibold text-[#101828]"
+                  >
+                    Headline <span className="ml-1 text-rose-600">*</span>
+                    <DirtyBadge
+                      show={heroSec.data.headline !== draftHeroSec?.data?.headline}
+                    />
+                  </label>
+                  <textarea
+                    id="cms-hero-headline"
+                    rows={3}
+                    value={heroSec.data.headline}
+                    onChange={(e) => updateSectionData('hero', { headline: e.target.value })}
+                    className={`w-full rounded-[12px] border p-3.5 text-sm text-[#101828] outline-none focus:ring-2 ${
+                      validationErrors.heroHeadline
+                        ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/15'
+                        : 'border-[#E1E7EF] focus:border-[#2563EB] focus:ring-[#2563EB]/15'
+                    }`}
+                  />
+                  {validationErrors.heroHeadline && (
+                    <p className="mt-1 text-xs text-rose-600">{validationErrors.heroHeadline}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="cms-hero-subheadline"
+                    className="mb-1.5 flex items-center text-xs font-semibold text-[#101828]"
+                  >
+                    Deskripsi
+                    <DirtyBadge
+                      show={heroSec.data.subheadline !== draftHeroSec?.data?.subheadline}
+                    />
+                  </label>
+                  <textarea
+                    id="cms-hero-subheadline"
+                    rows={3}
+                    value={heroSec.data.subheadline}
+                    onChange={(e) => updateSectionData('hero', { subheadline: e.target.value })}
+                    className="w-full rounded-[12px] border border-[#E1E7EF] p-3.5 text-sm text-[#101828] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label
+                      htmlFor="cms-hero-cta-primary"
+                      className="mb-1.5 flex items-center text-xs font-semibold text-[#101828]"
+                    >
+                      CTA utama <span className="ml-1 text-rose-600">*</span>
+                      <DirtyBadge
+                        show={heroSec.data.buttonText !== draftHeroSec?.data?.buttonText}
+                      />
+                    </label>
+                    <input
+                      id="cms-hero-cta-primary"
+                      type="text"
+                      value={heroSec.data.buttonText}
+                      onChange={(e) => updateSectionData('hero', { buttonText: e.target.value })}
+                      className={`w-full rounded-[12px] border px-3.5 py-2.5 text-sm text-[#101828] outline-none focus:ring-2 ${
+                        validationErrors.heroButtonText
+                          ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/15'
+                          : 'border-[#E1E7EF] focus:border-[#2563EB] focus:ring-[#2563EB]/15'
+                      }`}
+                    />
+                    {validationErrors.heroButtonText && (
+                      <p className="mt-1 text-xs text-rose-600">
+                        {validationErrors.heroButtonText}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="cms-hero-cta-secondary"
+                      className="mb-1.5 flex items-center text-xs font-semibold text-[#101828]"
+                    >
+                      CTA kedua
+                      <DirtyBadge show={secondaryCtaText !== draftSecondaryCtaText} />
+                    </label>
+                    <input
+                      id="cms-hero-cta-secondary"
+                      type="text"
+                      value={secondaryCtaText}
+                      onChange={(e) =>
+                        updateSectionData('hero', { secondaryButtonText: e.target.value })
+                      }
+                      className="w-full rounded-[12px] border border-[#E1E7EF] px-3.5 py-2.5 text-sm text-[#101828] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="cms-hero-cta-link"
+                    className="mb-1.5 flex items-center text-xs font-semibold text-[#101828]"
+                  >
+                    Tautan CTA Utama (URL / Rute)
+                    <DirtyBadge
+                      show={heroSec.data.buttonLink !== draftHeroSec?.data?.buttonLink}
+                    />
+                  </label>
+                  <input
+                    id="cms-hero-cta-link"
+                    type="text"
+                    value={heroSec.data.buttonLink || '/login'}
+                    onChange={(e) => updateSectionData('hero', { buttonLink: e.target.value })}
+                    placeholder="/login atau https://wa.me/..."
+                    className="w-full rounded-[12px] border border-[#E1E7EF] px-3.5 py-2.5 text-sm text-[#101828] outline-none focus:border-[#2563EB]"
+                  />
+                </div>
+              </>
+            )}
+
+            {/* TAB 3: FITUR */}
+            {activeTab === 'features' && featSec && (
+              <div className="grid gap-4">
+                <div>
+                  <label
+                    htmlFor="cms-features-title"
+                    className="mb-1.5 flex items-center text-xs font-semibold text-[#101828]"
+                  >
+                    Judul Section Fitur <span className="ml-1 text-rose-600">*</span>
+                    <DirtyBadge show={featSec.data.title !== draftFeatSec?.data?.title} />
+                  </label>
+                  <input
+                    id="cms-features-title"
+                    type="text"
+                    value={featSec.data.title}
+                    onChange={(e) => updateSectionData('features', { title: e.target.value })}
+                    className={`w-full rounded-[12px] border px-3.5 py-2.5 text-sm text-[#101828] outline-none ${
+                      validationErrors.featuresTitle
+                        ? 'border-rose-400'
+                        : 'border-[#E1E7EF] focus:border-[#2563EB]'
+                    }`}
+                  />
+                  {validationErrors.featuresTitle && (
+                    <p className="mt-1 text-xs text-rose-600">{validationErrors.featuresTitle}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="cms-features-desc"
+                    className="mb-1.5 flex items-center text-xs font-semibold text-[#101828]"
+                  >
+                    Subjudul Section Fitur
+                    <DirtyBadge
+                      show={featSec.data.description !== draftFeatSec?.data?.description}
+                    />
+                  </label>
+                  <input
+                    id="cms-features-desc"
+                    type="text"
+                    value={featSec.data.description || ''}
+                    onChange={(e) =>
+                      updateSectionData('features', { description: e.target.value })
+                    }
+                    className="w-full rounded-[12px] border border-[#E1E7EF] px-3.5 py-2.5 text-sm text-[#101828] outline-none focus:border-[#2563EB]"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
+                  <span className="text-xs font-bold text-[#101828]">
+                    Daftar fitur ({(featSec.data.features || []).length})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateSectionData('features', {
+                        features: [
+                          ...(featSec.data.features || []),
+                          {
+                            id: Date.now().toString(),
+                            icon: 'CheckCircle2',
+                            title: 'Fitur baru',
+                            description: 'Terintegrasi, aman, dan siap digunakan oleh tim.',
+                          },
+                        ],
+                      })
+                    }
+                    className="inline-flex items-center gap-1 rounded-[8px] bg-[#E7F0FF] px-2.5 py-1.5 text-xs font-semibold text-[#1557D5] hover:bg-blue-100"
+                  >
+                    <Plus size={14} /> Tambah Fitur
+                  </button>
+                </div>
+
+                {(featSec.data.features || []).map((f: any, idx: number) => (
+                  <div
+                    key={f.id || idx}
+                    className="rounded-[12px] border border-[#E1E7EF] p-3.5 space-y-2.5 bg-[#F8FAFC]/60"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <label
+                        htmlFor={`cms-feature-title-${idx}`}
+                        className="text-[11px] font-bold uppercase tracking-wider text-[#667085]"
+                      >
+                        Fitur #{idx + 1}
+                      </label>
+                      <button
+                        type="button"
+                        aria-label={`Hapus fitur ${f.title || idx + 1}`}
+                        onClick={() =>
+                          updateSectionData('features', {
+                            features: featSec.data.features.filter(
+                              (_: any, i: number) => i !== idx
+                            ),
+                          })
+                        }
+                        className="rounded-lg p-1.5 text-[#667085] hover:bg-rose-50 hover:text-rose-600"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                    <input
+                      id={`cms-feature-title-${idx}`}
+                      type="text"
+                      value={f.title}
+                      onChange={(e) =>
+                        updateSectionData('features', {
+                          features: featSec.data.features.map((item: any, i: number) =>
+                            i === idx ? { ...item, title: e.target.value } : item
+                          ),
+                        })
+                      }
+                      placeholder="Judul fitur"
+                      className="w-full rounded-[10px] border border-[#E1E7EF] bg-white px-3 py-2 text-sm font-medium text-[#101828] outline-none focus:border-[#2563EB]"
+                    />
+                    <textarea
+                      rows={2}
+                      aria-label={`Deskripsi fitur ${idx + 1}`}
+                      value={f.description}
+                      onChange={(e) =>
+                        updateSectionData('features', {
+                          features: featSec.data.features.map((item: any, i: number) =>
+                            i === idx ? { ...item, description: e.target.value } : item
+                          ),
+                        })
+                      }
+                      placeholder="Deskripsi singkat fitur"
+                      className="w-full rounded-[10px] border border-[#E1E7EF] bg-white p-2.5 text-xs text-[#475467] outline-none focus:border-[#2563EB]"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* TAB 4: CARA KERJA */}
+            {activeTab === 'details' && detailsSec && (
+              <div className="grid gap-4">
+                <div>
+                  <label
+                    htmlFor="cms-details-title"
+                    className="mb-1.5 flex items-center text-xs font-semibold text-[#101828]"
+                  >
+                    Judul Cara Kerja <span className="ml-1 text-rose-600">*</span>
+                    <DirtyBadge
+                      show={detailsSec.data.title !== draftDetailsSec?.data?.title}
+                    />
+                  </label>
+                  <input
+                    id="cms-details-title"
+                    type="text"
+                    value={detailsSec.data.title}
+                    onChange={(e) => updateSectionData('details', { title: e.target.value })}
+                    className={`w-full rounded-[12px] border px-3.5 py-2.5 text-sm text-[#101828] outline-none ${
+                      validationErrors.detailsTitle
+                        ? 'border-rose-400'
+                        : 'border-[#E1E7EF] focus:border-[#2563EB]'
+                    }`}
+                  />
+                  {validationErrors.detailsTitle && (
+                    <p className="mt-1 text-xs text-rose-600">{validationErrors.detailsTitle}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="cms-details-desc"
+                    className="mb-1.5 flex items-center text-xs font-semibold text-[#101828]"
+                  >
+                    Deskripsi Cara Kerja
+                    <DirtyBadge
+                      show={detailsSec.data.description !== draftDetailsSec?.data?.description}
+                    />
+                  </label>
+                  <textarea
+                    id="cms-details-desc"
+                    rows={2}
+                    value={detailsSec.data.description || ''}
+                    onChange={(e) =>
+                      updateSectionData('details', { description: e.target.value })
+                    }
+                    className="w-full rounded-[12px] border border-[#E1E7EF] p-3 text-sm text-[#101828] outline-none focus:border-[#2563EB]"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
+                  <span className="text-xs font-bold text-[#101828]">
+                    Tahapan implementasi ({(detailsSec.data.items || []).length})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateSectionData('details', {
+                        items: [
+                          ...(detailsSec.data.items || []),
+                          {
+                            id: Date.now().toString(),
+                            icon: 'CheckCircle2',
+                            title: 'Tahap baru',
+                            description: 'Penjelasan tahap implementasi lembaga.',
+                            imageUrl: '',
+                            bullets: [],
+                            imageRight: false,
+                          },
+                        ],
+                      })
+                    }
+                    className="inline-flex items-center gap-1 rounded-[8px] bg-[#E7F0FF] px-2.5 py-1.5 text-xs font-semibold text-[#1557D5] hover:bg-blue-100"
+                  >
+                    <Plus size={14} /> Tambah Tahap
+                  </button>
+                </div>
+
+                {(detailsSec.data.items || []).map((item: any, idx: number) => (
+                  <div
+                    key={item.id || idx}
+                    className="rounded-[12px] border border-[#E1E7EF] p-3.5 space-y-2.5 bg-[#F8FAFC]/60"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <label
+                        htmlFor={`cms-step-title-${idx}`}
+                        className="text-[11px] font-bold uppercase tracking-wider text-[#667085]"
+                      >
+                        Langkah #{idx + 1}
+                      </label>
+                      <button
+                        type="button"
+                        aria-label={`Hapus langkah ${item.title || idx + 1}`}
+                        onClick={() =>
+                          updateSectionData('details', {
+                            items: detailsSec.data.items.filter((_: any, i: number) => i !== idx),
+                          })
+                        }
+                        className="rounded-lg p-1.5 text-[#667085] hover:bg-rose-50 hover:text-rose-600"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                    <input
+                      id={`cms-step-title-${idx}`}
+                      type="text"
+                      value={item.title}
+                      onChange={(e) =>
+                        updateSectionData('details', {
+                          items: detailsSec.data.items.map((it: any, i: number) =>
+                            i === idx ? { ...it, title: e.target.value } : it
+                          ),
+                        })
+                      }
+                      placeholder="Judul langkah"
+                      className="w-full rounded-[10px] border border-[#E1E7EF] bg-white px-3 py-2 text-sm font-medium text-[#101828] outline-none focus:border-[#2563EB]"
+                    />
+                    <textarea
+                      rows={2}
+                      aria-label={`Deskripsi langkah ${idx + 1}`}
+                      value={item.description || ''}
+                      onChange={(e) =>
+                        updateSectionData('details', {
+                          items: detailsSec.data.items.map((it: any, i: number) =>
+                            i === idx ? { ...it, description: e.target.value } : it
+                          ),
+                        })
+                      }
+                      placeholder="Penjelasan langkah"
+                      className="w-full rounded-[10px] border border-[#E1E7EF] bg-white p-2.5 text-xs text-[#475467] outline-none focus:border-[#2563EB]"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* TAB 5: HARGA / PLAN */}
+            {activeTab === 'pricing' && pricingSec && (
+              <div className="grid gap-4">
+                <div>
+                  <label
+                    htmlFor="cms-pricing-title"
+                    className="mb-1.5 flex items-center text-xs font-semibold text-[#101828]"
+                  >
+                    Judul Section Paket <span className="ml-1 text-rose-600">*</span>
+                    <DirtyBadge
+                      show={pricingSec.data.title !== draftPricingSec?.data?.title}
+                    />
+                  </label>
+                  <input
+                    id="cms-pricing-title"
+                    type="text"
+                    value={pricingSec.data.title || ''}
+                    onChange={(e) => updateSectionData('pricing', { title: e.target.value })}
+                    className={`w-full rounded-[12px] border px-3.5 py-2.5 text-sm text-[#101828] outline-none ${
+                      validationErrors.pricingTitle
+                        ? 'border-rose-400'
+                        : 'border-[#E1E7EF] focus:border-[#2563EB]'
+                    }`}
+                  />
+                  {validationErrors.pricingTitle && (
+                    <p className="mt-1 text-xs text-rose-600">{validationErrors.pricingTitle}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="cms-pricing-desc"
+                    className="mb-1.5 flex items-center text-xs font-semibold text-[#101828]"
+                  >
+                    Subjudul Section Paket
+                    <DirtyBadge
+                      show={pricingSec.data.description !== draftPricingSec?.data?.description}
+                    />
+                  </label>
+                  <input
+                    id="cms-pricing-desc"
+                    type="text"
+                    value={pricingSec.data.description || ''}
+                    onChange={(e) =>
+                      updateSectionData('pricing', { description: e.target.value })
+                    }
+                    className="w-full rounded-[12px] border border-[#E1E7EF] px-3.5 py-2.5 text-sm text-[#101828] outline-none focus:border-[#2563EB]"
+                  />
+                </div>
+
+                {(pricingSec.data.plans || []).map((plan: any, idx: number) => (
+                  <div
+                    key={plan.id || idx}
+                    className="rounded-[12px] border border-[#E1E7EF] p-3.5 space-y-2.5 bg-[#F8FAFC]/60"
+                  >
+                    <div className="flex items-center justify-between">
+                      <label
+                        htmlFor={`cms-plan-name-${idx}`}
+                        className="text-xs font-bold uppercase text-[#1557D5]"
+                      >
+                        Paket {idx + 1}
+                      </label>
+                      {plan.isRecommended && (
+                        <span className="rounded bg-[#E7F0FF] px-2 py-0.5 text-[10px] font-bold text-[#1557D5]">
+                          Rekomendasi
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      id={`cms-plan-name-${idx}`}
+                      type="text"
+                      value={plan.name}
+                      onChange={(e) =>
+                        updateSectionData('pricing', {
+                          plans: pricingSec.data.plans.map((p: any, i: number) =>
+                            i === idx ? { ...p, name: e.target.value } : p
+                          ),
+                        })
+                      }
+                      placeholder="Nama paket"
+                      className="w-full rounded-[10px] border border-[#E1E7EF] bg-white px-3 py-2 text-sm font-semibold text-[#101828] outline-none focus:border-[#2563EB]"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label
+                          htmlFor={`cms-plan-price-${idx}`}
+                          className="mb-1 block text-[11px] font-medium text-[#667085]"
+                        >
+                          Harga
+                        </label>
+                        <input
+                          id={`cms-plan-price-${idx}`}
+                          type="text"
+                          value={plan.price}
+                          onChange={(e) =>
+                            updateSectionData('pricing', {
+                              plans: pricingSec.data.plans.map((p: any, i: number) =>
+                                i === idx ? { ...p, price: e.target.value } : p
+                              ),
+                            })
+                          }
+                          placeholder="Harga"
+                          className="w-full rounded-[10px] border border-[#E1E7EF] bg-white px-3 py-1.5 text-xs text-[#101828] outline-none focus:border-[#2563EB]"
+                        />
+                      </div>
+                      <div>
+                        <label
+                          htmlFor={`cms-plan-cap-${idx}`}
+                          className="mb-1 block text-[11px] font-medium text-[#667085]"
+                        >
+                          Label Kapasitas
+                        </label>
+                        <input
+                          id={`cms-plan-cap-${idx}`}
+                          type="text"
+                          value={plan.capacityLabel || ''}
+                          onChange={(e) =>
+                            updateSectionData('pricing', {
+                              plans: pricingSec.data.plans.map((p: any, i: number) =>
+                                i === idx ? { ...p, capacityLabel: e.target.value } : p
+                              ),
+                            })
+                          }
+                          placeholder="Kapasitas"
+                          className="w-full rounded-[10px] border border-[#E1E7EF] bg-white px-3 py-1.5 text-xs text-[#101828] outline-none focus:border-[#2563EB]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* TAB 6: TESTIMONI */}
+            {activeTab === 'testimonials' && testSec && (
+              <div className="grid gap-4">
+                {(testSec.data.testimonials || []).map((t: any, idx: number) => (
+                  <div
+                    key={t.id || idx}
+                    className="rounded-[12px] border border-[#E1E7EF] p-3.5 space-y-2.5 bg-[#F8FAFC]/60"
+                  >
+                    <label
+                      htmlFor={`cms-testi-quote-${idx}`}
+                      className="block text-xs font-semibold text-[#101828]"
+                    >
+                      Testimoni #{idx + 1}
+                    </label>
+                    <textarea
+                      id={`cms-testi-quote-${idx}`}
+                      rows={3}
+                      value={t.quote}
+                      onChange={(e) =>
+                        updateSectionData('testimonials', {
+                          testimonials: testSec.data.testimonials.map((item: any, i: number) =>
+                            i === idx ? { ...item, quote: e.target.value } : item
+                          ),
+                        })
+                      }
+                      className="w-full rounded-[10px] border border-[#E1E7EF] bg-white p-2.5 text-sm text-[#101828] outline-none focus:border-[#2563EB]"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        aria-label={`Nama pemberi testimoni ${idx + 1}`}
+                        value={t.name}
+                        onChange={(e) =>
+                          updateSectionData('testimonials', {
+                            testimonials: testSec.data.testimonials.map((item: any, i: number) =>
+                              i === idx ? { ...item, name: e.target.value } : item
+                            ),
+                          })
+                        }
+                        placeholder="Nama tokoh"
+                        className="rounded-[10px] border border-[#E1E7EF] bg-white px-3 py-1.5 text-xs text-[#101828]"
+                      />
+                      <input
+                        type="text"
+                        aria-label={`Jabatan pemberi testimoni ${idx + 1}`}
+                        value={t.role}
+                        onChange={(e) =>
+                          updateSectionData('testimonials', {
+                            testimonials: testSec.data.testimonials.map((item: any, i: number) =>
+                              i === idx ? { ...item, role: e.target.value } : item
+                            ),
+                          })
+                        }
+                        placeholder="Jabatan / Lembaga"
+                        className="rounded-[10px] border border-[#E1E7EF] bg-white px-3 py-1.5 text-xs text-[#101828]"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* TAB 7: DOKUMENTASI & FOOTER */}
+            {activeTab === 'footer' && (
+              <div className="grid gap-4">
+                <div>
+                  <label
+                    htmlFor="cms-footer-desc"
+                    className="mb-1.5 flex items-center text-xs font-semibold text-[#101828]"
+                  >
+                    Deskripsi Footer
+                    <DirtyBadge
+                      show={localConfig.footer.description !== draftConfig.footer.description}
+                    />
+                  </label>
+                  <textarea
+                    id="cms-footer-desc"
+                    rows={3}
+                    value={localConfig.footer.description}
+                    onChange={(e) => updateFooter('description', e.target.value)}
+                    className="w-full rounded-[12px] border border-[#E1E7EF] p-3 text-sm text-[#101828] outline-none focus:border-[#2563EB]"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="cms-footer-wa"
+                    className="mb-1.5 flex items-center text-xs font-semibold text-[#101828]"
+                  >
+                    Kontak WhatsApp / Email Publik
+                    <DirtyBadge
+                      show={localConfig.footer.whatsapp !== draftConfig.footer.whatsapp}
+                    />
+                  </label>
+                  <input
+                    id="cms-footer-wa"
+                    type="text"
+                    value={localConfig.footer.whatsapp}
+                    onChange={(e) => updateFooter('whatsapp', e.target.value)}
+                    className="w-full rounded-[12px] border border-[#E1E7EF] px-3.5 py-2.5 text-sm text-[#101828] outline-none focus:border-[#2563EB]"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="cms-footer-ig"
+                    className="mb-1.5 flex items-center text-xs font-semibold text-[#101828]"
+                  >
+                    Link Instagram
+                    <DirtyBadge
+                      show={localConfig.footer.instagram !== draftConfig.footer.instagram}
+                    />
+                  </label>
+                  <input
+                    id="cms-footer-ig"
+                    type="text"
+                    value={localConfig.footer.instagram}
+                    onChange={(e) => updateFooter('instagram', e.target.value)}
+                    className="w-full rounded-[12px] border border-[#E1E7EF] px-3.5 py-2.5 text-sm text-[#101828] outline-none focus:border-[#2563EB]"
+                  />
+                </div>
+                {ctaSec && (
+                  <div>
+                    <label
+                      htmlFor="cms-cta-bottom"
+                      className="mb-1.5 flex items-center text-xs font-semibold text-[#101828]"
+                    >
+                      Judul Penutup (CTA Bawah)
+                      <DirtyBadge show={ctaSec.data.title !== draftCtaSec?.data?.title} />
+                    </label>
+                    <input
+                      id="cms-cta-bottom"
+                      type="text"
+                      value={ctaSec.data.title}
+                      onChange={(e) => updateSectionData('cta', { title: e.target.value })}
+                      className="w-full rounded-[12px] border border-[#E1E7EF] px-3.5 py-2.5 text-sm text-[#101828] outline-none focus:border-[#2563EB]"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 8: HALAMAN CUSTOM */}
+            {activeTab === 'custom_pages' && (
+              <div className="grid gap-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#101828]">
+                    Halaman artikel / panduan ({(localConfig.customPages || []).length})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setLocalConfig({
+                        ...localConfig,
+                        customPages: [
+                          ...(localConfig.customPages || []),
+                          {
+                            id: Date.now().toString(),
+                            slug: `halaman-${Date.now().toString().slice(-4)}`,
+                            menuTitle: 'Halaman Baru',
+                            title: 'Halaman Baru',
+                            sections: [],
+                          },
+                        ],
+                      })
+                    }
+                    className="inline-flex items-center gap-1 rounded-[8px] bg-[#E7F0FF] px-2.5 py-1.5 text-xs font-semibold text-[#1557D5] hover:bg-blue-100"
+                  >
+                    <Plus size={14} /> Tambah Halaman
+                  </button>
+                </div>
+                {(localConfig.customPages || []).map((page, pIdx) => (
+                  <div
+                    key={page.id}
+                    className="rounded-[12px] border border-[#E1E7EF] p-3.5 space-y-2.5 bg-[#F8FAFC]/60"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <input
+                        type="text"
+                        aria-label={`Judul halaman custom ${pIdx + 1}`}
+                        value={page.menuTitle || page.title || ''}
+                        onChange={(e) =>
+                          setLocalConfig({
+                            ...localConfig,
+                            customPages: localConfig.customPages!.map((p) =>
+                              p.id === page.id
+                                ? { ...p, menuTitle: e.target.value, title: e.target.value }
+                                : p
+                            ),
+                          })
+                        }
+                        className="flex-1 rounded-[10px] border border-[#E1E7EF] bg-white px-3 py-1.5 text-sm font-semibold text-[#101828]"
+                      />
+                      <button
+                        type="button"
+                        aria-label={`Hapus halaman ${page.title || pIdx + 1}`}
+                        onClick={() =>
+                          setLocalConfig({
+                            ...localConfig,
+                            customPages: localConfig.customPages!.filter((p) => p.id !== page.id),
+                          })
+                        }
+                        className="rounded-lg p-1.5 text-[#667085] hover:text-rose-600"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      aria-label={`Slug halaman custom ${pIdx + 1}`}
+                      value={page.slug}
+                      onChange={(e) =>
+                        setLocalConfig({
+                          ...localConfig,
+                          customPages: localConfig.customPages!.map((p) =>
+                            p.id === page.id
+                              ? { ...p, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') }
+                              : p
+                          ),
+                        })
+                      }
+                      placeholder="slug-halaman"
+                      className="w-full rounded-[10px] border border-[#E1E7EF] bg-white px-3 py-1.5 text-xs font-mono text-[#475467]"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* TAB 9: HALAMAN LOGIN */}
+            {activeTab === 'login_page' && (
+              <div className="grid gap-4">
+                <div>
+                  <label
+                    htmlFor="cms-login-status"
+                    className="mb-1.5 flex items-center text-xs font-semibold text-[#101828]"
+                  >
+                    Status Sistem di Halaman Login
+                  </label>
+                  <input
+                    id="cms-login-status"
+                    type="text"
+                    value={localConfig.loginPage?.systemStatusText || ''}
+                    onChange={(e) =>
+                      setLocalConfig({
+                        ...localConfig,
+                        loginPage: {
+                          ...(localConfig.loginPage || ({} as any)),
+                          systemStatusText: e.target.value,
+                        },
+                      })
+                    }
+                    className="w-full rounded-[12px] border border-[#E1E7EF] px-3.5 py-2.5 text-sm text-[#101828] outline-none focus:border-[#2563EB]"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="cms-login-quote"
+                    className="mb-1.5 flex items-center text-xs font-semibold text-[#101828]"
+                  >
+                    Teks Kutipan Login
+                  </label>
+                  <textarea
+                    id="cms-login-quote"
+                    rows={3}
+                    value={localConfig.loginPage?.quoteText || ''}
+                    onChange={(e) =>
+                      setLocalConfig({
+                        ...localConfig,
+                        loginPage: {
+                          ...(localConfig.loginPage || ({} as any)),
+                          quoteText: e.target.value,
+                        },
+                      })
+                    }
+                    className="w-full rounded-[12px] border border-[#E1E7EF] p-3 text-sm text-[#101828] outline-none focus:border-[#2563EB]"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Unified Full Page Preview */}
+        <div className="flex flex-col min-h-0 overflow-x-hidden bg-[#F3F6FB] p-4 sm:p-6 pb-12">
+          {activeTab === 'login_page' ? (
+            <div
+              className={`mx-auto overflow-hidden rounded-[20px] border border-[#E1E7EF] bg-white shadow-xl transition-all ${
+                device === 'mobile' ? 'w-[390px] max-w-full' : 'w-full max-w-6xl'
+              }`}
+            >
+              <Login configOverrides={localConfig} onBack={() => {}} />
+            </div>
+          ) : (
+            <div
+              className={`mx-auto overflow-hidden rounded-[20px] border border-[#E1E7EF] bg-white shadow-xl transition-all ${
+                device === 'mobile' ? 'w-[390px] max-w-full' : 'w-full max-w-6xl'
+              }`}
+            >
+              <LandingPage configOverrides={localConfig} />
             </div>
           )}
-          
-          <div className="flex bg-slate-100 p-1 rounded-lg">
-            <button onClick={() => setPreviewMode('desktop')} className={`px-3 py-1 rounded-md text-sm transition-all ${previewMode === 'desktop' ? 'bg-white shadow-sm font-medium text-slate-900' : 'text-slate-500'}`}><Monitor size={16}/></button>
-            <button onClick={() => setPreviewMode('mobile')} className={`px-3 py-1 rounded-md text-sm transition-all ${previewMode === 'mobile' ? 'bg-white shadow-sm font-medium text-slate-900' : 'text-slate-500'}`}><Smartphone size={16}/></button>
-          </div>
-
-          <div className="h-6 w-px bg-slate-200"></div>
-
-          <button 
-            onClick={handleSaveDraft}
-            disabled={isSaving}
-            className="flex items-center px-4 py-2 text-sm font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50"
-          >
-            {isSaving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-            Simpan Draft
-          </button>
-
-          <button 
-            onClick={handlePublish}
-            disabled={isPublishing}
-            className="flex items-center px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-          >
-            {isPublishing ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Eye className="w-4 h-4 mr-2" />}
-            Publish Sekarang {hasDraftChanges && <span className="ml-1.5 flex h-2 w-2 rounded-full bg-red-400"></span>}
-          </button>
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        
-        {/* LEFT PANEL: Editor Controls */}
-        <div className="w-full md:w-[450px] flex-shrink-0 bg-white border-r border-slate-200 flex flex-col h-full z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
-          <div className="flex overflow-x-auto border-b border-slate-200 custom-scrollbar flex-shrink-0">
-            {[
-              { id: 'theme', label: 'Tema & Umum' },
-              { id: 'hero', label: 'Hero' },
-              { id: 'features', label: 'Fitur' },
-              { id: 'details', label: 'Cara Kerja' },
-              { id: 'pricing', label: 'Harga/Plan' },
-              { id: 'testimonials', label: 'Testimoni' },
-              { id: 'cta', label: 'Aksi (CTA)' },
-              { id: 'custom_pages', label: 'Halaman Custom' },
-              { id: 'login_page', label: 'Halaman Login' }
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`px-4 py-3 whitespace-nowrap text-[13px] font-semibold border-b-2 transition-colors ${activeTab === tab.id ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-5 custom-scrollbar bg-slate-50">
-            
-            {/* THEME TAB */}
-            {activeTab === 'theme' && (
-              <div className="space-y-6 animate-in fade-in">
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-4">
-                  <h3 className="font-bold text-slate-800 text-sm">Identitas Web (Global)</h3>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Nama Aplikasi</label>
-                    <input type="text" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm" value={localConfig.theme.appName} onChange={e => updateTheme('appName', e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Logo URL (Kosongkan jika icon)</label>
-                    <input type="text" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm" placeholder="https://..." value={localConfig.theme.logoUrl} onChange={e => updateTheme('logoUrl', e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Warna Utama (Primary Color)</label>
-                    <div className="flex items-center gap-3">
-                      <input type="color" className="w-10 h-10 rounded border border-slate-300 cursor-pointer" value={localConfig.theme.primaryColor} onChange={e => updateTheme('primaryColor', e.target.value)} />
-                      <input type="text" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm" value={localConfig.theme.primaryColor} onChange={e => updateTheme('primaryColor', e.target.value)} />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-4">
-                  <h3 className="font-bold text-slate-800 text-sm">SEO Meta Attributes</h3>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Meta Title</label>
-                    <input type="text" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm" value={localConfig.seo.title} onChange={e => updateSEO('title', e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Meta Description</label>
-                    <textarea className="w-full p-2.5 border border-slate-300 rounded-lg text-sm h-16" value={localConfig.seo.description} onChange={e => updateSEO('description', e.target.value)}></textarea>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Meta Image URL (og:image)</label>
-                    <input type="text" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm" placeholder="https://..." value={localConfig.seo.ogImage} onChange={e => updateSEO('ogImage', e.target.value)} />
-                    {localConfig.seo.ogImage && (
-                      <div className="mt-2 text-xs text-slate-500">
-                        Preview:
-                        <img src={localConfig.seo.ogImage} alt="OG Preview" className="mt-1 w-full max-w-[240px] h-auto object-cover rounded border border-slate-200" />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-4">
-                  <h3 className="font-bold text-slate-800 text-sm">Footer Konfigurasi</h3>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Deskripsi Footer Singkat</label>
-                    <textarea className="w-full p-2.5 border border-slate-300 rounded-lg text-sm h-16" value={localConfig.footer.description} onChange={e => updateFooter('description', e.target.value)}></textarea>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Link Instagram</label>
-                    <input type="text" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm" value={localConfig.footer.instagram} onChange={e => updateFooter('instagram', e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Link WhatsApp</label>
-                    <input type="text" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm" value={localConfig.footer.whatsapp} onChange={e => updateFooter('whatsapp', e.target.value)} />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* HERO TAB */}
-            {activeTab === 'hero' && heroSec && (
-              <div className="space-y-4 animate-in fade-in">
-                <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                  <span className="text-sm font-semibold text-slate-700">Tampilkan Section Ini</span>
-                  <button onClick={() => toggleSection('hero')} className={`w-10 h-5 rounded-full relative transition-colors ${heroSec.isVisible ? 'bg-blue-600' : 'bg-slate-300'}`}>
-                    <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-transform ${heroSec.isVisible ? 'left-5' : 'left-0.5'}`}></div>
-                  </button>
-                </div>
-
-                <div className={`space-y-4 ${heroSec.isVisible ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
-                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Judul Besar (Headline)</label>
-                      <textarea className="w-full p-2.5 border border-slate-300 rounded-lg text-sm h-16" value={heroSec.data.headline} onChange={e => updateSectionData('hero', { headline: e.target.value })}></textarea>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Sub-judul (Deskripsi)</label>
-                      <textarea className="w-full p-2.5 border border-slate-300 rounded-lg text-sm h-20" value={heroSec.data.subheadline} onChange={e => updateSectionData('hero', { subheadline: e.target.value })}></textarea>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Teks Tombol Aksi</label>
-                      <input type="text" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm" value={heroSec.data.buttonText} onChange={e => updateSectionData('hero', { buttonText: e.target.value })} />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Link Tujuan Tombol (kosongkan ttp akan membuka app)</label>
-                      <input type="text" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm" value={heroSec.data.buttonLink} onChange={e => updateSectionData('hero', { buttonLink: e.target.value })} />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Daftar URL Gambar Mockup (Carousel)</label>
-                      <div className="space-y-2">
-                        {(heroSec.data.heroImages || [heroSec.data.heroImage || '']).map((img: string, idx: number) => (
-                           <div key={idx} className="flex gap-2">
-                              <input type="text" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm" value={img} onChange={e => {
-                                 const newImages = [...(heroSec.data.heroImages || [heroSec.data.heroImage || ''])];
-                                 newImages[idx] = e.target.value;
-                                 updateSectionData('hero', { heroImages: newImages, heroImage: newImages[0] });
-                              }} />
-                              <button onClick={() => {
-                                 const newImages = [...(heroSec.data.heroImages || [heroSec.data.heroImage || ''])];
-                                 newImages.splice(idx, 1);
-                                 updateSectionData('hero', { heroImages: newImages, heroImage: newImages[0] || '' });
-                              }} className="p-2 text-slate-400 hover:text-red-500 bg-slate-50 border border-slate-200 rounded-lg"><Trash2 size={16}/></button>
-                           </div>
-                        ))}
-                      </div>
-                      <button onClick={() => {
-                         const newImages = [...(heroSec.data.heroImages || [heroSec.data.heroImage || '']), ''];
-                         updateSectionData('hero', { heroImages: newImages });
-                      }} className="text-xs mt-2 font-semibold text-blue-600 flex items-center bg-blue-50 px-2 py-1.5 rounded hover:bg-blue-100">
-                        <Plus size={14} className="mr-1"/> Tambah Gambar
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* FEATURES TAB */}
-            {activeTab === 'features' && featSec && (
-              <div className="space-y-4 animate-in fade-in">
-                <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                  <span className="text-sm font-semibold text-slate-700">Tampilkan Section Fitur/Masalah</span>
-                  <button onClick={() => toggleSection('features')} className={`w-10 h-5 rounded-full relative transition-colors ${featSec.isVisible ? 'bg-blue-600' : 'bg-slate-300'}`}>
-                    <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-transform ${featSec.isVisible ? 'left-5' : 'left-0.5'}`}></div>
-                  </button>
-                </div>
-
-                <div className={`space-y-4 ${featSec.isVisible ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
-                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Judul Section Utama</label>
-                      <input type="text" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm" value={featSec.data.title} onChange={e => updateSectionData('features', { title: e.target.value })} />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Deskripsi Singkat</label>
-                      <textarea className="w-full p-2.5 border border-slate-300 rounded-lg text-sm h-16" value={featSec.data.description} onChange={e => updateSectionData('features', { description: e.target.value })}></textarea>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-slate-800 text-sm">Daftar Point/Fitur</h3>
-                    <button onClick={() => updateSectionData('features', { features: [...featSec.data.features, { id: Date.now().toString(), icon: '', title: '', description: ''}] })} className="text-xs font-semibold text-blue-600 flex items-center bg-blue-50 px-2 py-1 rounded hover:bg-blue-100">
-                      <Plus size={14} className="mr-1"/> Tambah Data
-                    </button>
-                  </div>
-
-                  <div className="space-y-3">
-                    {featSec.data.features.map((f: any, idx: number) => (
-                      <div key={f.id} className="bg-white p-3 rounded-lg border border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.02)] space-y-3 relative group">
-                        <button onClick={() => updateSectionData('features', { features: featSec.data.features.filter((f2:any) => f2.id !== f.id) })} className="absolute top-2 right-2 text-slate-400 hover:text-red-500 bg-slate-50 rounded p-1">
-                          <Trash2 size={14}/>
-                        </button>
-                        <div className="pr-8">
-                           <label className="block text-[11px] font-semibold text-slate-500 mb-1 flex items-center justify-between">No. {idx+1} (Icon) </label>
-                           {renderIconSelector(f.icon, (v) => updateSectionData('features', { features: featSec.data.features.map((f2:any) => f2.id === f.id ? {...f2, icon: v}: f2)}))}
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">Judul Point</label>
-                          <input type="text" className="w-full p-2 border border-slate-200 rounded text-sm" value={f.title} onChange={(e) => updateSectionData('features', { features: featSec.data.features.map((f2:any) => f2.id === f.id ? {...f2, title: e.target.value}: f2)})} />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">Penjelasan</label>
-                          <textarea className="w-full p-2 border border-slate-200 rounded text-sm h-14" value={f.description} onChange={(e) => updateSectionData('features', { features: featSec.data.features.map((f2:any) => f2.id === f.id ? {...f2, description: e.target.value}: f2)})}></textarea>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* PRICING TAB */}
-            {activeTab === 'pricing' && pricingSec && (
-              <div className="space-y-4 animate-in fade-in">
-                <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                  <span className="text-sm font-semibold text-slate-700">Tampilkan Section Harga</span>
-                  <button onClick={() => toggleSection('pricing')} className={`w-10 h-5 rounded-full relative transition-colors ${pricingSec.isVisible ? 'bg-blue-600' : 'bg-slate-300'}`}>
-                    <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-transform ${pricingSec.isVisible ? 'left-5' : 'left-0.5'}`}></div>
-                  </button>
-                </div>
-
-                <div className={`space-y-4 ${pricingSec.isVisible ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
-                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Judul Section Utama</label>
-                      <input type="text" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm" value={pricingSec.data.title || ''} onChange={e => updateSectionData('pricing', { title: e.target.value })} />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Deskripsi Singkat</label>
-                      <textarea className="w-full p-2.5 border border-slate-300 rounded-lg text-sm h-16" value={pricingSec.data.description || ''} onChange={e => updateSectionData('pricing', { description: e.target.value })}></textarea>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-slate-800 text-sm">Daftar Paket</h3>
-                    <button onClick={() => updateSectionData('pricing', { plans: [...(pricingSec.data.plans || []), { id: Date.now().toString(), name: 'Baru', description: '', currency: 'Rp', price: '0', period: '/bulan', capacityLabel: '', features: [''], buttonText: 'Beli', buttonLink: '', isRecommended: false, recommendedLabel: 'Populer'}] })} className="text-xs font-semibold text-blue-600 flex items-center bg-blue-50 px-2 py-1 rounded hover:bg-blue-100">
-                      <Plus size={14} className="mr-1"/> Tambah Paket
-                    </button>
-                  </div>
-
-                  <div className="space-y-3">
-                    {(pricingSec.data.plans || []).map((plan: any, idx: number) => (
-                      <div key={plan.id} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm space-y-3 relative group">
-                        <button onClick={() => updateSectionData('pricing', { plans: pricingSec.data.plans.filter((p:any) => p.id !== plan.id) })} className="absolute top-2 right-2 text-slate-400 hover:text-red-500 bg-slate-50 rounded p-1">
-                          <Trash2 size={14}/>
-                        </button>
-                        
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">Nama Paket</label>
-                          <input type="text" className="w-full p-2 border border-slate-200 rounded text-sm" value={plan.name} onChange={(e) => updateSectionData('pricing', { plans: pricingSec.data.plans.map((p:any) => p.id === plan.id ? {...p, name: e.target.value}: p)})} />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">Deskripsi Paket</label>
-                          <textarea className="w-full p-2 border border-slate-200 rounded text-sm h-14" value={plan.description} onChange={(e) => updateSectionData('pricing', { plans: pricingSec.data.plans.map((p:any) => p.id === plan.id ? {...p, description: e.target.value}: p)})}></textarea>
-                        </div>
-                        <div className="flex gap-2">
-                           <div className="w-1/4">
-                             <label className="block text-[11px] font-semibold text-slate-500 mb-1">Mata Uang</label>
-                             <input type="text" className="w-full p-2 border border-slate-200 rounded text-sm" value={plan.currency} onChange={(e) => updateSectionData('pricing', { plans: pricingSec.data.plans.map((p:any) => p.id === plan.id ? {...p, currency: e.target.value}: p)})} />
-                           </div>
-                           <div className="w-1/2">
-                             <label className="block text-[11px] font-semibold text-slate-500 mb-1">Harga</label>
-                             <input type="text" className="w-full p-2 border border-slate-200 rounded text-sm" value={plan.price} onChange={(e) => updateSectionData('pricing', { plans: pricingSec.data.plans.map((p:any) => p.id === plan.id ? {...p, price: e.target.value}: p)})} />
-                           </div>
-                           <div className="w-1/4">
-                             <label className="block text-[11px] font-semibold text-slate-500 mb-1">Periode</label>
-                             <input type="text" className="w-full p-2 border border-slate-200 rounded text-sm" value={plan.period} onChange={(e) => updateSectionData('pricing', { plans: pricingSec.data.plans.map((p:any) => p.id === plan.id ? {...p, period: e.target.value}: p)})} />
-                           </div>
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">Label Kapasitas</label>
-                          <input type="text" className="w-full p-2 border border-slate-200 rounded text-sm" value={plan.capacityLabel} onChange={(e) => updateSectionData('pricing', { plans: pricingSec.data.plans.map((p:any) => p.id === plan.id ? {...p, capacityLabel: e.target.value}: p)})} />
-                        </div>
-                        <div>
-                           <label className="block text-[11px] font-semibold text-slate-500 mb-1">Fitur Paket (pisahkan per baris)</label>
-                           <textarea className="w-full p-2 border border-slate-200 rounded text-sm h-24" value={(plan.features||[]).join('\n')} onChange={(e) => updateSectionData('pricing', { plans: pricingSec.data.plans.map((p:any) => p.id === plan.id ? {...p, features: e.target.value.split('\n').filter((s:string)=>s.trim().length > 0)}: p)})}></textarea>
-                        </div>
-                        <div className="flex gap-2">
-                           <div className="w-1/2">
-                             <label className="block text-[11px] font-semibold text-slate-500 mb-1">Teks Tombol</label>
-                             <input type="text" className="w-full p-2 border border-slate-200 rounded text-sm" value={plan.buttonText} onChange={(e) => updateSectionData('pricing', { plans: pricingSec.data.plans.map((p:any) => p.id === plan.id ? {...p, buttonText: e.target.value}: p)})} />
-                           </div>
-                           <div className="w-1/2">
-                             <label className="block text-[11px] font-semibold text-slate-500 mb-1">Link Tujuan</label>
-                             <input type="text" className="w-full p-2 border border-slate-200 rounded text-sm" value={plan.buttonLink} onChange={(e) => updateSectionData('pricing', { plans: pricingSec.data.plans.map((p:any) => p.id === plan.id ? {...p, buttonLink: e.target.value}: p)})} />
-                           </div>
-                        </div>
-                        <div className="flex items-center gap-3 pt-2">
-                           <span className="text-[11px] font-semibold text-slate-500">Rekomendasi / Paling Diminati?</span>
-                           <button onClick={(e) => updateSectionData('pricing', { plans: pricingSec.data.plans.map((p:any) => p.id === plan.id ? {...p, isRecommended: !p.isRecommended}: p)})} className={`w-8 h-4 rounded-full relative transition-colors ${plan.isRecommended ? 'bg-blue-600' : 'bg-slate-300'}`}>
-                             <div className={`w-3 h-3 bg-white rounded-full absolute top-0.5 transition-transform ${plan.isRecommended ? 'left-4' : 'left-0.5'}`}></div>
-                           </button>
-                        </div>
-                        {plan.isRecommended && (
-                          <div className="mt-2">
-                            <label className="block text-[11px] font-semibold text-slate-500 mb-1">Teks Label Rekomendasi</label>
-                            <input type="text" className="w-full p-2 border border-slate-200 rounded text-sm" value={plan.recommendedLabel} onChange={(e) => updateSectionData('pricing', { plans: pricingSec.data.plans.map((p:any) => p.id === plan.id ? {...p, recommendedLabel: e.target.value}: p)})} />
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* TESTIMONIALS TAB */}
-            {activeTab === 'testimonials' && testSec && (
-              <div className="space-y-4 animate-in fade-in">
-                <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                  <span className="text-sm font-semibold text-slate-700">Tampilkan Section Testimoni</span>
-                  <button onClick={() => toggleSection('testimonials')} className={`w-10 h-5 rounded-full relative transition-colors ${testSec.isVisible ? 'bg-blue-600' : 'bg-slate-300'}`}>
-                    <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-transform ${testSec.isVisible ? 'left-5' : 'left-0.5'}`}></div>
-                  </button>
-                </div>
-
-                <div className={`space-y-4 ${testSec.isVisible ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
-                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Judul Section Utama</label>
-                      <input type="text" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm" value={testSec.data.title} onChange={e => updateSectionData('testimonials', { title: e.target.value })} />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-slate-800 text-sm">Daftar Testimoni</h3>
-                    <button onClick={() => updateSectionData('testimonials', { testimonials: [...testSec.data.testimonials, { id: Date.now().toString(), quote: '', name: '', role: ''}] })} className="text-xs font-semibold text-blue-600 flex items-center bg-blue-50 px-2 py-1 rounded hover:bg-blue-100">
-                      <Plus size={14} className="mr-1"/> Tambah
-                    </button>
-                  </div>
-
-                  <div className="space-y-3">
-                    {testSec.data.testimonials.map((t: any, idx: number) => (
-                      <div key={t.id} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm space-y-3 relative group">
-                        <button onClick={() => updateSectionData('testimonials', { testimonials: testSec.data.testimonials.filter((t2:any) => t2.id !== t.id) })} className="absolute top-2 right-2 text-slate-400 hover:text-red-500 bg-slate-50 rounded p-1">
-                          <Trash2 size={14}/>
-                        </button>
-                        <div className="pr-8">
-                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">Kutipan Review</label>
-                          <textarea className="w-full p-2 border border-slate-200 rounded text-sm h-14" value={t.quote} onChange={(e) => updateSectionData('testimonials', { testimonials: testSec.data.testimonials.map((t2:any) => t2.id === t.id ? {...t2, quote: e.target.value}: t2)})}></textarea>
-                        </div>
-                        <div className="flex gap-2">
-                           <div className="w-1/2">
-                             <label className="block text-[11px] font-semibold text-slate-500 mb-1">Nama</label>
-                             <input type="text" className="w-full p-2 border border-slate-200 rounded text-sm" value={t.name} onChange={(e) => updateSectionData('testimonials', { testimonials: testSec.data.testimonials.map((t2:any) => t2.id === t.id ? {...t2, name: e.target.value}: t2)})} />
-                           </div>
-                           <div className="w-1/2">
-                             <label className="block text-[11px] font-semibold text-slate-500 mb-1">Jabatan</label>
-                             <input type="text" className="w-full p-2 border border-slate-200 rounded text-sm" value={t.role} onChange={(e) => updateSectionData('testimonials', { testimonials: testSec.data.testimonials.map((t2:any) => t2.id === t.id ? {...t2, role: e.target.value}: t2)})} />
-                           </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* DETAILS TAB */}
-            {activeTab === 'details' && detailsSec && (
-              <div className="space-y-4 animate-in fade-in">
-                <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                  <span className="text-sm font-semibold text-slate-700">Tampilkan Section Cara Kerja</span>
-                  <button onClick={() => toggleSection('details')} className={`w-10 h-5 rounded-full relative transition-colors ${detailsSec.isVisible ? 'bg-blue-600' : 'bg-slate-300'}`}>
-                    <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-transform ${detailsSec.isVisible ? 'left-5' : 'left-0.5'}`}></div>
-                  </button>
-                </div>
-
-                <div className={`space-y-4 ${detailsSec.isVisible ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
-                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Judul Section Utama</label>
-                      <input type="text" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm" value={detailsSec.data.title} onChange={e => updateSectionData('details', { title: e.target.value })} />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Deskripsi Singkat</label>
-                      <textarea className="w-full p-2.5 border border-slate-300 rounded-lg text-sm h-16" value={detailsSec.data.description} onChange={e => updateSectionData('details', { description: e.target.value })}></textarea>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-slate-800 text-sm">Daftar Konten / Blok</h3>
-                    <button onClick={() => updateSectionData('details', { items: [...(detailsSec.data.items || []), { id: Date.now().toString(), icon: '', title: '', description: '', imageUrl: '', bullets: [''], imageRight: false}] })} className="text-xs font-semibold text-blue-600 flex items-center bg-blue-50 px-2 py-1 rounded hover:bg-blue-100">
-                      <Plus size={14} className="mr-1"/> Tambah
-                    </button>
-                  </div>
-
-                  <div className="space-y-3">
-                    {(detailsSec.data.items || []).map((item: any, idx: number) => (
-                      <div key={item.id} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm space-y-3 relative group">
-                        <button onClick={() => updateSectionData('details', { items: detailsSec.data.items.filter((i:any) => i.id !== item.id) })} className="absolute top-2 right-2 text-slate-400 hover:text-red-500 bg-slate-50 rounded p-1">
-                          <Trash2 size={14}/>
-                        </button>
-                        <div className="pr-8">
-                           <label className="block text-[11px] font-semibold text-slate-500 mb-1 flex items-center justify-between">No. {idx+1} (Icon) </label>
-                           {renderIconSelector(item.icon, (v) => updateSectionData('details', { items: detailsSec.data.items.map((i:any) => i.id === item.id ? {...i, icon: v}: i)}))}
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">Judul Blok</label>
-                          <input type="text" className="w-full p-2 border border-slate-200 rounded text-sm" value={item.title} onChange={(e) => updateSectionData('details', { items: detailsSec.data.items.map((i:any) => i.id === item.id ? {...i, title: e.target.value}: i)})} />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">Penjelasan Singkat</label>
-                          <textarea className="w-full p-2 border border-slate-200 rounded text-sm h-14" value={item.description} onChange={(e) => updateSectionData('details', { items: detailsSec.data.items.map((i:any) => i.id === item.id ? {...i, description: e.target.value}: i)})}></textarea>
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">URL Gambar Mockup</label>
-                          <input type="text" className="w-full p-2 border border-slate-200 rounded text-sm" value={item.imageUrl} onChange={(e) => updateSectionData('details', { items: detailsSec.data.items.map((i:any) => i.id === item.id ? {...i, imageUrl: e.target.value}: i)})} />
-                        </div>
-                        <div>
-                           <label className="block text-[11px] font-semibold text-slate-500 mb-1">Poin Tambahan (Bullets, pisahkan dengan koma)</label>
-                           <input type="text" className="w-full p-2 border border-slate-200 rounded text-sm" value={(item.bullets||[]).join(', ')} onChange={(e) => updateSectionData('details', { items: detailsSec.data.items.map((i:any) => i.id === item.id ? {...i, bullets: e.target.value.split(',').map((s:string)=>s.trim())}: i)})} />
-                        </div>
-                        <div className="flex items-center justify-between pt-2">
-                           <span className="text-[11px] font-semibold text-slate-500">Posisi Gambar di Kanan?</span>
-                           <button onClick={(e) => updateSectionData('details', { items: detailsSec.data.items.map((i:any) => i.id === item.id ? {...i, imageRight: !i.imageRight}: i)})} className={`w-8 h-4 rounded-full relative transition-colors ${item.imageRight ? 'bg-blue-600' : 'bg-slate-300'}`}>
-                             <div className={`w-3 h-3 bg-white rounded-full absolute top-0.5 transition-transform ${item.imageRight ? 'left-4' : 'left-0.5'}`}></div>
-                           </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* CTA TAB */}
-            {activeTab === 'cta' && ctaSec && (
-              <div className="space-y-4 animate-in fade-in">
-                <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                  <span className="text-sm font-semibold text-slate-700">Tampilkan Section CTA</span>
-                  <button onClick={() => toggleSection('cta')} className={`w-10 h-5 rounded-full relative transition-colors ${ctaSec.isVisible ? 'bg-blue-600' : 'bg-slate-300'}`}>
-                    <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-transform ${ctaSec.isVisible ? 'left-5' : 'left-0.5'}`}></div>
-                  </button>
-                </div>
-
-                <div className={`space-y-4 ${ctaSec.isVisible ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
-                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Headline CTA</label>
-                      <input type="text" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm" value={ctaSec.data.title} onChange={e => updateSectionData('cta', { title: e.target.value })} />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Deskripsi Tambahan</label>
-                      <textarea className="w-full p-2.5 border border-slate-300 rounded-lg text-sm h-16" value={ctaSec.data.description} onChange={e => updateSectionData('cta', { description: e.target.value })}></textarea>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Teks Tombol Aksi</label>
-                      <input type="text" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm" value={ctaSec.data.buttonText} onChange={e => updateSectionData('cta', { buttonText: e.target.value })} />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Link Tujuan Tombol Utama (kosongkan ttp akan membuka app)</label>
-                      <input type="text" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm" value={ctaSec.data.buttonLink || ''} onChange={e => updateSectionData('cta', { buttonLink: e.target.value })} />
-                    </div>
-                    <div className="pt-4 border-t border-slate-100">
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Teks Tombol Kedua (Opsional)</label>
-                      <input type="text" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm" value={ctaSec.data.secondaryButtonText || ''} onChange={e => updateSectionData('cta', { secondaryButtonText: e.target.value })} placeholder="Cth: Hubungi Sales" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Link Tombol Kedua</label>
-                      <input type="text" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm" value={ctaSec.data.secondaryButtonLink || ''} onChange={e => updateSectionData('cta', { secondaryButtonLink: e.target.value })} placeholder="Cth: https://wa.me/..." />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* CUSTOM PAGES TAB */}
-            {activeTab === 'custom_pages' && (
-              <div className="space-y-4 animate-in fade-in">
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
-                  <div>
-                    <h3 className="font-bold text-slate-800 text-sm">Halaman Ekstra (Menu Artikel)</h3>
-                    <p className="text-xs text-slate-500 mt-1">Halaman ini akan muncul di menu navigasi utama. Anda dapat membuat halaman untuk panduan, syarat ketentuan, program lajnah, dll.</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-slate-800 text-sm">Daftar Halaman</h3>
-                  <button onClick={() => updateLocalAndDraft({ ...localConfig, customPages: [...(localConfig.customPages || []), { id: Date.now().toString(), slug: `halaman-${Date.now().toString().slice(-4)}`, menuTitle: 'Halaman Baru', title: 'Halaman Baru', sections: [] }] })} className="text-xs font-semibold text-blue-600 flex items-center bg-blue-50 px-2 py-1 rounded hover:bg-blue-100">
-                    <Plus size={14} className="mr-1"/> Tambah Halaman
-                  </button>
-                </div>
-
-                <div className="space-y-4">
-                  {(localConfig.customPages || []).map((page, idx) => (
-                    <div key={page.id} className="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm space-y-4 relative group">
-                      <button onClick={() => updateLocalAndDraft({ ...localConfig, customPages: localConfig.customPages!.filter(p => p.id !== page.id) })} className="absolute top-2 right-2 text-slate-400 hover:text-red-500 bg-white rounded p-1 shadow-sm">
-                        <Trash2 size={16}/>
-                      </button>
-                      
-                      <div className="pr-8 bg-white p-4 rounded-lg border border-slate-200">
-                        <h4 className="font-bold text-sm text-slate-800 mb-3 border-b border-slate-100 pb-2">Informasi Dasar</h4>
-                        <div className="space-y-3">
-                          <div>
-                            <label className="block text-xs font-semibold text-slate-700 mb-1">Nama di Menu Navigasi</label>
-                            <input type="text" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm" value={page.menuTitle || page.title || ''} onChange={(e) => updateLocalAndDraft({ ...localConfig, customPages: localConfig.customPages!.map(p => p.id === page.id ? {...p, menuTitle: e.target.value}: p)})} />
-                          </div>
-                          
-                          <div>
-                            <label className="block text-xs font-semibold text-slate-700 mb-1">Judul Utama Halaman</label>
-                            <input type="text" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm" value={page.title || ''} onChange={(e) => updateLocalAndDraft({ ...localConfig, customPages: localConfig.customPages!.map(p => p.id === page.id ? {...p, title: e.target.value}: p)})} />
-                          </div>
-                          
-                          <div>
-                            <label className="block text-xs font-semibold text-slate-700 mb-1">Sub Judul Halaman (Opsional)</label>
-                            <input type="text" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm" value={page.subtitle || ''} onChange={(e) => updateLocalAndDraft({ ...localConfig, customPages: localConfig.customPages!.map(p => p.id === page.id ? {...p, subtitle: e.target.value}: p)})} />
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-semibold text-slate-700 mb-1">Slug URL (e.g. cara-penggunaan)</label>
-                            <input type="text" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm" value={page.slug} onChange={(e) => updateLocalAndDraft({ ...localConfig, customPages: localConfig.customPages!.map(p => p.id === page.id ? {...p, slug: e.target.value.toLowerCase().replace(/\s+/g, '-')}: p)})} />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bg-white p-4 rounded-lg border border-slate-200">
-                        <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
-                          <h4 className="font-bold text-sm text-slate-800">Isi Halaman (Section)</h4>
-                          <button onClick={() => {
-                             const newSection = { id: Date.now().toString(), title: '', content: '' };
-                             updateLocalAndDraft({ ...localConfig, customPages: localConfig.customPages!.map(p => p.id === page.id ? {...p, sections: [...(p.sections || []), newSection]}: p)});
-                          }} className="text-[11px] font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                            + Tambah Section
-                          </button>
-                        </div>
-
-                        <div className="space-y-4">
-                          {((page.sections && page.sections.length > 0) ? page.sections : [
-                             // Backward compatibility: map old root level fields to a section
-                             { id: 'default', title: page.title || '', subtitle: page.subtitle || '', content: (page as any).content || '', mediaUrl: (page as any).mediaUrl || '' }
-                          ]).map((sec, sIdx) => (
-                             <div key={sec.id} className="relative bg-slate-50 border border-slate-200 p-3 rounded-lg">
-                               <button onClick={() => {
-                                  let currentSections = page.sections || [];
-                                  if (currentSections.length === 0) currentSections = [{ id: 'default', title: page.title || '', subtitle: page.subtitle || '', content: (page as any).content || '', mediaUrl: (page as any).mediaUrl || '' }];
-                                  updateLocalAndDraft({ ...localConfig, customPages: localConfig.customPages!.map(p => p.id === page.id ? {...p, sections: currentSections.filter(s => s.id !== sec.id)}: p)});
-                               }} className="absolute top-2 right-2 text-slate-400 hover:text-red-500">
-                                 <Trash2 size={14}/>
-                               </button>
-
-                                <div className="space-y-3 pr-6">
-                                  <div>
-                                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Judul Section (Opsional)</label>
-                                    <input type="text" className="w-full p-2 border border-slate-200 rounded text-sm" value={sec.title || ''} onChange={(e) => {
-                                        const newSections = [...(page.sections || [])];
-                                        if (newSections.length === 0) newSections.push({ id: 'default', title: page.title || '', subtitle: page.subtitle || '', content: (page as any).content || '', mediaUrl: (page as any).mediaUrl || '' });
-                                        const tgt = newSections.find(s => s.id === sec.id);
-                                        if (tgt) tgt.title = e.target.value;
-                                        updateLocalAndDraft({ ...localConfig, customPages: localConfig.customPages!.map(p => p.id === page.id ? {...p, sections: newSections}: p)});
-                                    }} />
-                                  </div>
-                                  <div>
-                                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Media URL (Gambar / YouTube)</label>
-                                    <input type="text" className="w-full p-2 border border-slate-200 rounded text-sm" placeholder="https://..." value={sec.mediaUrl || ''} onChange={(e) => {
-                                        const newSections = [...(page.sections || [])];
-                                        if (newSections.length === 0) newSections.push({ id: 'default', title: page.title || '', subtitle: page.subtitle || '', content: (page as any).content || '', mediaUrl: (page as any).mediaUrl || '' });
-                                        const tgt = newSections.find(s => s.id === sec.id);
-                                        if (tgt) tgt.mediaUrl = e.target.value;
-                                        updateLocalAndDraft({ ...localConfig, customPages: localConfig.customPages!.map(p => p.id === page.id ? {...p, sections: newSections}: p)});
-                                    }} />
-                                  </div>
-                                  <div>
-                                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Konten Text</label>
-                                    <textarea className="w-full p-2 border border-slate-200 rounded text-sm h-24" value={sec.content || ''} onChange={(e) => {
-                                        const newSections = [...(page.sections || [])];
-                                        if (newSections.length === 0) newSections.push({ id: 'default', title: page.title || '', subtitle: page.subtitle || '', content: (page as any).content || '', mediaUrl: (page as any).mediaUrl || '' });
-                                        const tgt = newSections.find(s => s.id === sec.id);
-                                        if (tgt) tgt.content = e.target.value;
-                                        updateLocalAndDraft({ ...localConfig, customPages: localConfig.customPages!.map(p => p.id === page.id ? {...p, sections: newSections}: p)});
-                                    }}></textarea>
-                                  </div>
-                                </div>
-                             </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* LOGIN PAGE TAB */}
-            {activeTab === 'login_page' && (
-               <div className="space-y-4 animate-in fade-in">
-                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-4">
-                   <h3 className="font-bold text-slate-800 text-sm">Pengaturan Konten Halaman Login</h3>
-                   
-                   <div>
-                     <label className="block text-xs font-semibold text-slate-700 mb-1">Status Sistem (Kiri Atas Kanan)</label>
-                     <input type="text" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm" value={localConfig.loginPage?.systemStatusText || ''} onChange={(e) => updateLocalAndDraft({ ...localConfig, loginPage: { ...(localConfig.loginPage || {} as any), systemStatusText: e.target.value } })} />
-                   </div>
-
-                   <div>
-                     <label className="block text-xs font-semibold text-slate-700 mb-1">Teks Kutipan / Testimoni</label>
-                     <textarea className="w-full p-2.5 border border-slate-300 rounded-lg text-sm h-24" value={localConfig.loginPage?.quoteText || ''} onChange={(e) => updateLocalAndDraft({ ...localConfig, loginPage: { ...(localConfig.loginPage || {} as any), quoteText: e.target.value } })}></textarea>
-                   </div>
-
-                   <div className="grid grid-cols-2 gap-4">
-                     <div>
-                       <label className="block text-xs font-semibold text-slate-700 mb-1">Nama Author</label>
-                       <input type="text" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm" value={localConfig.loginPage?.authorName || ''} onChange={(e) => updateLocalAndDraft({ ...localConfig, loginPage: { ...(localConfig.loginPage || {} as any), authorName: e.target.value } })} />
-                     </div>
-                     <div>
-                       <label className="block text-xs font-semibold text-slate-700 mb-1">Role / Jabatan Author</label>
-                       <input type="text" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm" value={localConfig.loginPage?.authorRole || ''} onChange={(e) => updateLocalAndDraft({ ...localConfig, loginPage: { ...(localConfig.loginPage || {} as any), authorRole: e.target.value } })} />
-                     </div>
-                   </div>
-
-                   <div>
-                     <label className="block text-xs font-semibold text-slate-700 mb-1">Avatar URL Author</label>
-                     <input type="text" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm" placeholder="https://..." value={localConfig.loginPage?.authorAvatarUrl || ''} onChange={(e) => updateLocalAndDraft({ ...localConfig, loginPage: { ...(localConfig.loginPage || {} as any), authorAvatarUrl: e.target.value } })} />
-                   </div>
-                 </div>
-
-                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-4">
-                   <div className="flex items-center justify-between">
-                     <h3 className="font-bold text-slate-800 text-sm">Statistik Tambahan (Max 3)</h3>
-                     <button 
-                       onClick={() => {
-                         const currentStats = localConfig.loginPage?.stats || [];
-                         if (currentStats.length < 3) {
-                           updateLocalAndDraft({ ...localConfig, loginPage: { ...(localConfig.loginPage || {} as any), stats: [...currentStats, { value: '100+', label: 'Stat Baru' }] } });
-                         }
-                       }} 
-                       className="text-[11px] font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded"
-                       disabled={(localConfig.loginPage?.stats || []).length >= 3}
-                     >
-                       + Tambah Stat
-                     </button>
-                   </div>
-                   
-                   <div className="space-y-3">
-                     {(localConfig.loginPage?.stats || []).map((stat: any, idx: number) => (
-                       <div key={idx} className="flex items-center gap-2 bg-slate-50 p-2 rounded border border-slate-200">
-                         <input type="text" className="w-1/3 p-2 border border-slate-300 rounded text-sm placeholder:text-slate-400" placeholder="Nilai (100k+)" value={stat.value} onChange={(e) => {
-                           const newStats = [...(localConfig.loginPage?.stats || [])];
-                           newStats[idx].value = e.target.value;
-                           updateLocalAndDraft({ ...localConfig, loginPage: { ...(localConfig.loginPage || {} as any), stats: newStats } });
-                         }} />
-                         <input type="text" className="flex-1 p-2 border border-slate-300 rounded text-sm placeholder:text-slate-400" placeholder="Label (Santri Aktif)" value={stat.label} onChange={(e) => {
-                           const newStats = [...(localConfig.loginPage?.stats || [])];
-                           newStats[idx].label = e.target.value;
-                           updateLocalAndDraft({ ...localConfig, loginPage: { ...(localConfig.loginPage || {} as any), stats: newStats } });
-                         }} />
-                         <button onClick={() => {
-                           const newStats = [...(localConfig.loginPage?.stats || [])];
-                           newStats.splice(idx, 1);
-                           updateLocalAndDraft({ ...localConfig, loginPage: { ...(localConfig.loginPage || {} as any), stats: newStats } });
-                         }} className="p-2 text-slate-400 hover:text-red-500 hover:bg-white rounded border border-transparent shadow-sm">
-                           <Trash2 size={16}/>
-                         </button>
-                       </div>
-                     ))}
-                   </div>
-                 </div>
-               </div>
-            )}
-
-            {/* Reorder sections visual */}
-            <div className="mt-10 pt-6 border-t border-slate-200">
-               <h3 className="font-bold text-slate-800 text-sm mb-3">Reorder Sections (Urutan)</h3>
-               <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-2 space-y-1">
-                 {localConfig.sections.map((s, idx) => (
-                    <div key={s.id} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg group">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${s.isVisible ? 'bg-green-500' : 'bg-slate-300'}`}></div>
-                        <span className="text-sm font-medium capitalize text-slate-700">{s.id}</span>
-                      </div>
-                      <div className="flex gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
-                         <button onClick={() => moveSection(idx, 'up')} disabled={idx===0} className="p-1 hover:bg-slate-200 rounded disabled:opacity-30"><ChevronUp size={16}/></button>
-                         <button onClick={() => moveSection(idx, 'down')} disabled={idx===localConfig.sections.length-1} className="p-1 hover:bg-slate-200 rounded disabled:opacity-30"><ChevronDown size={16}/></button>
-                      </div>
-                    </div>
-                 ))}
-               </div>
+      {/* Publish Confirmation Modal */}
+      <Modal
+        isOpen={publishModalOpen}
+        onClose={() => !isPublishing && setPublishModalOpen(false)}
+        title="Publikasikan Landing Page ke Versi Publik?"
+        description="Draft konfigurasi saat ini akan diterapkan langsung ke halaman depan publik (/)."
+        maxWidthClass="max-w-lg"
+        footer={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isPublishing}
+              onClick={() => setPublishModalOpen(false)}
+            >
+              Batal
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              isLoading={isPublishing}
+              disabled={hasValidationErrors}
+              onClick={handleConfirmPublish}
+            >
+              {isPublishing ? 'Mempublikasikan...' : 'Publish Sekarang'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4 text-xs">
+          {/* Ringkasan Perubahan */}
+          <div className="rounded-[12px] border border-[#E1E7EF] bg-[#F8FAFC] p-3.5">
+            <div className="font-bold text-[#101828] mb-2">
+              Ringkasan Perubahan ({publishDiffSummary.length} bagian)
             </div>
+            {publishDiffSummary.length > 0 ? (
+              <ul className="space-y-1.5 text-[#475467]">
+                {publishDiffSummary.map((item, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <Check size={14} className="mt-0.5 shrink-0 text-[#2563EB]" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-[#667085]">
+                Konfigurasi saat ini sudah identik dengan versi publik terakhir, namun Anda tetap
+                dapat memperbarui timestamp publikasi.
+              </p>
+            )}
+          </div>
 
+          {/* Peringatan Konsekuensi */}
+          <div className="rounded-[12px] border border-amber-200 bg-amber-50 p-3.5 text-amber-900 leading-relaxed">
+            <div className="font-bold flex items-center gap-1.5 mb-1">
+              <AlertTriangle size={14} className="text-amber-600 shrink-0" />
+              Konsekuensi Publikasi
+            </div>
+            Perubahan pada headline, fitur, cara kerja, paket harga, dan informasi kontak akan
+            langsung terlihat oleh seluruh pengunjung publik di URL utama aplikasi dan dicatat pada{' '}
+            <span className="font-mono font-semibold">audit_logs</span>.
+          </div>
+
+          {/* Catatan Audit */}
+          <div>
+            <label
+              htmlFor="cms-publish-reason"
+              className="mb-1.5 block text-xs font-semibold text-[#101828]"
+            >
+              Catatan Publikasi (Tercatat di Audit Log)
+            </label>
+            <input
+              id="cms-publish-reason"
+              type="text"
+              value={publishReason}
+              onChange={(e) => setPublishReason(e.target.value)}
+              placeholder="Contoh: Pembaruan informasi kuota paket tahun ajaran baru"
+              className="w-full rounded-[10px] border border-[#E1E7EF] px-3 py-2 text-xs text-[#101828] outline-none focus:border-[#2563EB]"
+            />
           </div>
         </div>
+      </Modal>
 
-        {/* RIGHT PANEL: Live Preview */}
-        <div className="flex-1 bg-slate-900 overflow-hidden relative flex items-center justify-center p-4">
-          <div className="absolute top-4 left-6 px-3 py-1 bg-black/40 backdrop-blur rounded-full border border-white/10 z-20">
-             <span className="flex items-center gap-2 text-xs font-medium text-white/90">
-               <span className="flex h-1.5 w-1.5 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-               </span>
-               Live Preview
-             </span>
-          </div>
+      {/* Confirm Reset Unsaved Edits */}
+      <ConfirmDialog
+        isOpen={resetConfirmOpen}
+        onCancel={() => setResetConfirmOpen(false)}
+        onConfirm={handleResetToSavedDraft}
+        title="Batalkan Perubahan Belum Disimpan?"
+        description="Seluruh perubahan yang belum disimpan ke draft server akan dikembalikan ke versi draft terakhir yang tersimpan."
+        confirmLabel="Ya, Reset Perubahan"
+        cancelLabel="Kembali Mengedit"
+        tone="primary"
+      />
 
-          <div className={`w-full bg-white shadow-2xl rounded-lg overflow-hidden transition-all duration-300 ${previewMode === 'mobile' ? 'max-w-[375px] h-[812px]' : 'max-w-[1440px] h-full'}`}>
-             {/* Instead of iframe, we inject LandingPage in a scrollable div */}
-             <div className="h-full w-full overflow-y-auto overflow-x-hidden custom-scrollbar bg-slate-50">
-               {/* Non-interactive overlay to block clicks so they don't leave the preview page */}
-               <div className="pointer-events-none relative w-full transform origin-top left-0 top-0 pb-16">
-                 {/* Re-enable pointer events for links or let user scroll? We want scroll, but not link clicks. We can use a trick inside LandingPage or just render it directly */}
-                 <div className="pointer-events-auto">
-                    {activeTab === 'login_page' ? (
-                       <Login configOverrides={localConfig} onBack={() => {}} />
-                    ) : (
-                       <LandingPage 
-                           configOverrides={localConfig} 
-                           onLoginClick={() => NotificationStore.addNotification("Preview mode: Tombol Login ditekan.", "info")} 
-                       />
-                    )}
-                 </div>
-               </div>
-             </div>
-          </div>
-        </div>
-
-      </div>
+      {/* Confirm Leave Route With Unsaved Changes */}
+      <ConfirmDialog
+        isOpen={Boolean(pendingNavCallback)}
+        onCancel={() => setPendingNavCallback(null)}
+        onConfirm={() => {
+          const proceed = pendingNavCallback;
+          setPendingNavCallback(null);
+          delete (window as any).__LQ_UNSAVED_NAVIGATION_GUARD__;
+          if (proceed) proceed();
+        }}
+        title="Tinggalkan Website Editor Tanpa Menyimpan?"
+        description="Anda masih memiliki perubahan konten landing page yang belum disimpan ke draft server. Jika Anda berpindah halaman sekarang, perubahan tersebut akan hilang."
+        confirmLabel="Tinggalkan Halaman"
+        cancelLabel="Tetap di Editor"
+        tone="danger"
+      />
     </div>
   );
 };

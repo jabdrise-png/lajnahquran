@@ -30,8 +30,10 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, configOverrides
   
   const { publishedConfig, loading } = useLandingPageContent();
 
+  const isEmbeddedPreview = Boolean(configOverrides);
+
   useEffect(() => {
-    if (publishedConfig && publishedConfig.seo) {
+    if (!isEmbeddedPreview && publishedConfig && publishedConfig.seo) {
       document.title = publishedConfig.seo.title || "Halaqah Attendance System";
       
       const metaDesc = document.querySelector('meta[name="description"]');
@@ -103,7 +105,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, configOverrides
   const ctaSection = config.sections.find(s => s.id === 'cta');
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900" style={{ '--primary-color': primaryColor } as React.CSSProperties}>
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 relative isolate" style={{ '--primary-color': primaryColor } as React.CSSProperties}>
       <style>{`
         .bg-primary { background-color: var(--primary-color) !important; }
         .text-primary { color: var(--primary-color) !important; }
@@ -112,7 +114,13 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, configOverrides
       `}</style>
       
       {/* Navigation */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? "bg-white/90 backdrop-blur-md shadow-sm border-b border-slate-200/50 py-3" : "bg-transparent py-5"}`}>
+      <nav
+        className={
+          isEmbeddedPreview
+            ? "relative z-10 bg-white/95 backdrop-blur-md border-b border-slate-200/70 py-4"
+            : `fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? "bg-white/90 backdrop-blur-md shadow-sm border-b border-slate-200/50 py-3" : "bg-transparent py-5"}`
+        }
+      >
         <div className="max-w-[1200px] mx-auto px-6 md:px-8 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {config.theme.logoUrl ? (
@@ -205,8 +213,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, configOverrides
            { id: 'default', title: '', subtitle: '', content: (activePage as any).content || '', mediaUrl: (activePage as any).mediaUrl || '' }
          ];
 
-         return (
-           <article className="pt-32 pb-20 md:pt-40 md:pb-32 px-6 max-w-[800px] mx-auto min-h-screen">
+          return (
+            <article className={`${isEmbeddedPreview ? 'pt-12 pb-20 md:pt-16 md:pb-24' : 'pt-32 pb-20 md:pt-40 md:pb-32'} px-6 max-w-[800px] mx-auto min-h-screen`}>
              <div className="mb-10 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
                {activePage.subtitle && <p className="text-primary font-semibold tracking-wide text-sm mb-3 uppercase">{activePage.subtitle}</p>}
                <h1 className="text-3xl md:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight">{activePage.title}</h1>
@@ -255,9 +263,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, configOverrides
          );
       })() : (
         <>
-          {/* Hero Section */}
+      {/* Hero Section */}
       {heroSection?.isVisible && (
-      <section className="relative pt-32 pb-20 md:pt-40 md:pb-32 overflow-hidden">
+      <section className={`relative ${isEmbeddedPreview ? 'pt-12 pb-16 md:pt-16 md:pb-24' : 'pt-32 pb-20 md:pt-40 md:pb-32'} overflow-hidden`}>
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-slate-100 via-slate-50 to-slate-50 -z-10"></div>
         <div className="absolute top-0 right-0 -translate-y-12 translate-x-1/3 w-[600px] h-[600px] bg-primary/5 rounded-full blur-3xl -z-10 opacity-70"></div>
         
@@ -266,7 +274,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, configOverrides
             <div className="flex-1 max-w-[600px] z-10">
               <div className="inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-3 py-1 mb-8 shadow-sm">
                 <span className="flex h-1.5 w-1.5 rounded-full bg-primary mr-2"></span>
-                <span className="text-[12px] font-medium text-primary tracking-tight">{config.seo.description}</span>
+                <span className="text-[12px] font-medium text-primary tracking-tight">
+                  {(heroSection.data as any).badgeText || config.seo.description}
+                </span>
               </div>
               
               <h1 className="text-4xl md:text-[56px] font-extrabold tracking-tight text-slate-900 mb-6 leading-[1.1]" dangerouslySetInnerHTML={{__html: heroSection.data.headline.replace(/\n/g, '<br class="hidden md:block"/>')}}>
@@ -281,6 +291,19 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, configOverrides
                   {heroSection.data.buttonText}
                   <ArrowRight className="ml-2 w-4 h-4 text-white" />
                 </button>
+                {(heroSection.data as any).secondaryButtonText && (
+                  <button
+                    onClick={() => {
+                      setActiveCustomPageSlug(null);
+                      setTimeout(() => {
+                        window.location.hash = 'fitur';
+                      }, 50);
+                    }}
+                    className="w-full sm:w-auto inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-6 text-[14px] font-medium text-slate-700 shadow-2xs transition-all"
+                  >
+                    {(heroSection.data as any).secondaryButtonText}
+                  </button>
+                )}
               </div>
             </div>
             

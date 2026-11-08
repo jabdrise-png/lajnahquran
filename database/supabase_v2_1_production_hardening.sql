@@ -26,6 +26,98 @@ BEGIN
 END;
 $$;
 
+-- 1.0.0 Persiapan Tabel Inti Keamanan & Role Kanonikal (user_profiles, access_grants, audit_logs, support_access_sessions, integration_secrets)
+CREATE TABLE IF NOT EXISTS public.user_profiles (
+  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  id uuid UNIQUE DEFAULT gen_random_uuid(),
+  full_name text,
+  email text,
+  phone text,
+  avatar_url text,
+  is_superadmin boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.user_profiles
+  ADD COLUMN IF NOT EXISTS id uuid UNIQUE DEFAULT gen_random_uuid(),
+  ADD COLUMN IF NOT EXISTS is_superadmin boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
+CREATE TABLE IF NOT EXISTS public.access_grants (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  organization_id uuid REFERENCES public.organizations(id) ON DELETE CASCADE,
+  role text NOT NULL CHECK (role IN ('superadmin', 'admin', 'musammi')),
+  status text NOT NULL DEFAULT 'active' CHECK (status IN ('invited', 'active', 'suspended', 'revoked', 'expired')),
+  invited_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  accepted_at timestamptz,
+  revoked_at timestamptz,
+  expires_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.access_grants
+  ADD COLUMN IF NOT EXISTS accepted_at timestamptz,
+  ADD COLUMN IF NOT EXISTS revoked_at timestamptz,
+  ADD COLUMN IF NOT EXISTS expires_at timestamptz,
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
+CREATE TABLE IF NOT EXISTS public.support_access_sessions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  superadmin_user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  target_organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  reason text NOT NULL,
+  ticket_ref text,
+  access_mode text NOT NULL DEFAULT 'read_only' CHECK (access_mode IN ('read_only', 'read_write')),
+  started_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz NOT NULL DEFAULT (now() + interval '2 hours'),
+  ended_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.audit_logs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid REFERENCES public.organizations(id) ON DELETE SET NULL,
+  actor_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  actor_id uuid,
+  actor_role text,
+  action text NOT NULL,
+  entity_type text NOT NULL,
+  resource_type text,
+  entity_id text,
+  resource_id text,
+  ip_address inet,
+  user_agent text,
+  before_state jsonb,
+  after_state jsonb,
+  diff_json jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.integration_secrets (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  provider text NOT NULL,
+  secret_key_name text NOT NULL,
+  encrypted_secret text NOT NULL,
+  key_version integer NOT NULL DEFAULT 1,
+  rotation_count integer NOT NULL DEFAULT 0,
+  last_rotated_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (organization_id, provider, secret_key_name)
+);
+
+ALTER TABLE public.integration_secrets
+  ADD COLUMN IF NOT EXISTS rotation_count integer NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS last_rotated_at timestamptz,
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
 -- 1.1 Otoritas Role & Tenant Context (access_grants sebagai single source of truth)
 --     Jangan pernah fallback ke profiles apabila user sudah memiliki baris di access_grants
 CREATE OR REPLACE FUNCTION public.get_canonical_role()
@@ -944,6 +1036,20 @@ CREATE POLICY "Tenant Isolation Student Classes Modify" ON public.student_classe
   WITH CHECK (public.is_admin_of_org(organization_id));
 
 -- B. master_kelas, master_kelas_relasi, master_marhalah, app_settings, musyrifs, class_targets, evaluation_settings, halaqah_evaluation_questions, informasi
+ALTER TABLE public.master_marhalah
+  ADD COLUMN IF NOT EXISTS urutan integer DEFAULT 1;
+
+ALTER TABLE public.master_kelas_relasi
+  ADD COLUMN IF NOT EXISTS urutan integer DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS wali_kelas_name text,
+  ADD COLUMN IF NOT EXISTS wali_kelas_phone text,
+  ADD COLUMN IF NOT EXISTS musyrif_name text;
+
+ALTER TABLE public.master_kelas
+  ADD COLUMN IF NOT EXISTS urutan integer DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS wali_kelas_name text,
+  ADD COLUMN IF NOT EXISTS wali_kelas_phone text,
+  ADD COLUMN IF NOT EXISTS musyrif_name text;
 DROP POLICY IF EXISTS "Pengguna dapat melihat master_kelas organisasi mereka" ON public.master_kelas;
 DROP POLICY IF EXISTS "Admin dapat menambah master_kelas organisasi mereka" ON public.master_kelas;
 DROP POLICY IF EXISTS "Admin dapat mengubah master_kelas organisasi mereka" ON public.master_kelas;
@@ -1310,6 +1416,46 @@ CREATE POLICY ujian_semester_delete ON public.ujian_semester
   USING (public.is_admin_of_org(organization_id));
 
 -- E. exam_attempts (Izinkan Musammi menginput/mengubah nilai santri binaan pada halaqah yang ditugaskan; hapus khusus Admin)
+CREATE TABLE IF NOT EXISTS public.exam_attempts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  academic_year_id bigint,
+  semester_name text NOT NULL DEFAULT 'Ganjil',
+  exam_type text NOT NULL DEFAULT 'semester' CHECK (exam_type IN ('monthly', 'semester')),
+  santri_id bigint NOT NULL,
+  student_id bigint,
+  attempt_no integer NOT NULL DEFAULT 1,
+  is_remedial boolean NOT NULL DEFAULT false,
+  materi_juz text,
+  detail_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+  raw_score numeric(5,2),
+  final_score numeric(5,2),
+  predikat text,
+  notes text,
+  evaluator_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  evaluated_at timestamptz DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  remedial_required boolean NOT NULL DEFAULT false,
+  passed boolean NOT NULL DEFAULT true
+);
+
+ALTER TABLE public.exam_attempts
+  ADD COLUMN IF NOT EXISTS student_id bigint REFERENCES public.santri(id) ON DELETE RESTRICT,
+  ADD COLUMN IF NOT EXISTS santri_id bigint REFERENCES public.santri(id) ON DELETE RESTRICT,
+  ADD COLUMN IF NOT EXISTS exam_id uuid,
+  ADD COLUMN IF NOT EXISTS remedial_required boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS passed boolean NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
+UPDATE public.exam_attempts
+SET student_id = santri_id
+WHERE student_id IS NULL AND santri_id IS NOT NULL;
+
+UPDATE public.exam_attempts
+SET santri_id = student_id
+WHERE santri_id IS NULL AND student_id IS NOT NULL;
+
 DROP POLICY IF EXISTS exam_attempts_admin_write ON public.exam_attempts;
 DROP POLICY IF EXISTS exam_attempts_role_insert ON public.exam_attempts;
 DROP POLICY IF EXISTS exam_attempts_role_update ON public.exam_attempts;
@@ -1340,6 +1486,15 @@ CREATE POLICY exam_attempts_role_delete ON public.exam_attempts
 -- ---------------------------------------------------------------------------------
 
 -- 2.0 Perluas status siklus hidup organizations agar mendukung provisioning & provisioning_failed
+ALTER TABLE public.organizations
+  ADD COLUMN IF NOT EXISTS slug text,
+  ADD COLUMN IF NOT EXISTS setup_state text NOT NULL DEFAULT 'completed',
+  ADD COLUMN IF NOT EXISTS timezone text NOT NULL DEFAULT 'Asia/Jakarta',
+  ADD COLUMN IF NOT EXISTS locale text NOT NULL DEFAULT 'id-ID',
+  ADD COLUMN IF NOT EXISTS plan_id text NOT NULL DEFAULT 'standard',
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
 ALTER TABLE public.organizations
   DROP CONSTRAINT IF EXISTS organizations_status_check;
 
@@ -1768,6 +1923,26 @@ BEGIN
   );
 END;
 $$;
+
+CREATE TABLE IF NOT EXISTS public.musammi_staff (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  legacy_musammi_id bigint NOT NULL,
+  user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  santri_id bigint,
+  nama text NOT NULL,
+  kode text,
+  no_hp text,
+  status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (organization_id, legacy_musammi_id)
+);
+
+ALTER TABLE public.musammi_staff
+  ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
 
 -- 2.4 RPC Atomik Aktivasi Undangan Sekali Pakai (rpc_accept_invitation)
 DROP FUNCTION IF EXISTS public.rpc_accept_invitation(uuid);
@@ -2301,6 +2476,40 @@ GRANT EXECUTE ON FUNCTION public.rpc_link_telegram_chat_id(text, text, uuid) TO 
 -- FASE 4: FONDASI AKADEMIK & DATA MASTER HARDENING (CANONICAL V2 DATA)
 -- ---------------------------------------------------------------------------------
 
+-- 4.0.0 Persiapan Kolom & Struktur Tabel Fondasi Akademik (academic_years & semesters)
+ALTER TABLE public.academic_years
+  ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'active',
+  ADD COLUMN IF NOT EXISTS lifecycle_status text NOT NULL DEFAULT 'active',
+  ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS active_semester text DEFAULT 'Ganjil',
+  ADD COLUMN IF NOT EXISTS closed_at timestamptz,
+  ADD COLUMN IF NOT EXISTS closed_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
+CREATE TABLE IF NOT EXISTS public.semesters (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  academic_year_id bigint NOT NULL,
+  name text NOT NULL CHECK (name IN ('Ganjil', 'Genap')),
+  start_date date,
+  end_date date,
+  is_active boolean NOT NULL DEFAULT false,
+  status text NOT NULL DEFAULT 'active' CHECK (status IN ('draft', 'active', 'closed')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (organization_id, academic_year_id, name),
+  UNIQUE (organization_id, id)
+);
+
+ALTER TABLE public.semesters
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'active',
+  ADD COLUMN IF NOT EXISTS start_date date,
+  ADD COLUMN IF NOT EXISTS end_date date;
+
 -- 4.0 Jaminan Maksimal Satu Tahun Ajaran Aktif per Organisasi & Satu Semester Aktif per Tahun Ajaran
 WITH ranked_active_ay AS (
   SELECT id,
@@ -2322,7 +2531,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_one_active_academic_year_per_org
 
 WITH ranked_active_sem AS (
   SELECT id,
-         ROW_NUMBER() OVER (PARTITION BY organization_id, academic_year_id ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST) AS rn
+         ROW_NUMBER() OVER (
+           PARTITION BY organization_id, academic_year_id 
+           ORDER BY COALESCE(updated_at, created_at, now()) DESC NULLS LAST, created_at DESC NULLS LAST
+         ) AS rn
   FROM public.semesters
   WHERE is_active = true
 )
@@ -2337,18 +2549,84 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_one_active_semester_per_ay
   WHERE is_active = true;
 
 -- 4.1 Kompatibilitas & Integritas student_enrollments (Kanonikal V2 <-> student_classes)
+CREATE TABLE IF NOT EXISTS public.student_enrollments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  student_id bigint NOT NULL,
+  academic_year_id bigint NOT NULL,
+  class_id uuid,
+  marhalah_id uuid,
+  kelas_id uuid,
+  marhalah_name text,
+  class_name text,
+  wali_kelas_name text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (organization_id, student_id, academic_year_id)
+);
+
 ALTER TABLE public.student_enrollments
   ADD COLUMN IF NOT EXISTS santri_id bigint,
+  ADD COLUMN IF NOT EXISTS student_id bigint,
   ADD COLUMN IF NOT EXISTS marhalah_id uuid,
   ADD COLUMN IF NOT EXISTS kelas_id uuid,
-  ADD COLUMN IF NOT EXISTS master_marhalah_id bigint REFERENCES public.master_marhalah(id) ON DELETE SET NULL,
-  ADD COLUMN IF NOT EXISTS master_kelas_id bigint REFERENCES public.master_kelas_relasi(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS master_marhalah_id uuid,
+  ADD COLUMN IF NOT EXISTS master_kelas_id uuid,
   ADD COLUMN IF NOT EXISTS marhalah text,
   ADD COLUMN IF NOT EXISTS kelas text,
+  ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'active',
   ADD COLUMN IF NOT EXISTS enrollment_status text NOT NULL DEFAULT 'active',
   ADD COLUMN IF NOT EXISTS enrolled_at date NOT NULL DEFAULT CURRENT_DATE,
   ADD COLUMN IF NOT EXISTS left_at date,
-  ADD COLUMN IF NOT EXISTS notes text;
+  ADD COLUMN IF NOT EXISTS notes text,
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
+-- Perbaikan tipe data & constraint foreign key master_marhalah_id dan master_kelas_id (kompatibel 100% uuid)
+DO $$
+BEGIN
+  -- 1. Pastikan kolom master_marhalah_id bertipe uuid jika sebelumnya terlanjur dibuat bigint
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+      AND table_name = 'student_enrollments' 
+      AND column_name = 'master_marhalah_id' 
+      AND data_type <> 'uuid'
+  ) THEN
+    ALTER TABLE public.student_enrollments DROP CONSTRAINT IF EXISTS student_enrollments_master_marhalah_id_fkey;
+    ALTER TABLE public.student_enrollments ALTER COLUMN master_marhalah_id TYPE uuid USING NULL;
+  END IF;
+
+  -- 2. Pastikan kolom master_kelas_id bertipe uuid jika sebelumnya terlanjur dibuat bigint
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+      AND table_name = 'student_enrollments' 
+      AND column_name = 'master_kelas_id' 
+      AND data_type <> 'uuid'
+  ) THEN
+    ALTER TABLE public.student_enrollments DROP CONSTRAINT IF EXISTS student_enrollments_master_kelas_id_fkey;
+    ALTER TABLE public.student_enrollments ALTER COLUMN master_kelas_id TYPE uuid USING NULL;
+  END IF;
+
+  -- 3. Tambahkan foreign key constraint master_marhalah_id -> master_marhalah(id) jika belum ada
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'student_enrollments_master_marhalah_id_fkey'
+  ) THEN
+    ALTER TABLE public.student_enrollments
+      ADD CONSTRAINT student_enrollments_master_marhalah_id_fkey
+      FOREIGN KEY (master_marhalah_id) REFERENCES public.master_marhalah(id) ON DELETE SET NULL;
+  END IF;
+
+  -- 4. Tambahkan foreign key constraint master_kelas_id -> master_kelas_relasi(id) jika belum ada
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'student_enrollments_master_kelas_id_fkey'
+  ) THEN
+    ALTER TABLE public.student_enrollments
+      ADD CONSTRAINT student_enrollments_master_kelas_id_fkey
+      FOREIGN KEY (master_kelas_id) REFERENCES public.master_kelas_relasi(id) ON DELETE SET NULL;
+  END IF;
+END $$;
 
 -- Perluas CHECK status pada student_enrollments agar mendukung 'promoted' dan 'inactive' selain 'active', 'transferred', 'graduated', 'withdrawn'
 DO $$
@@ -2551,6 +2829,28 @@ EXECUTE FUNCTION public.sync_legacy_student_classes_to_v2_enrollment();
 
 
 -- 4.1b Integritas & Sinkronisasi halaqah_student_memberships (Kanonikal V2 <-> halaqah_santri)
+CREATE TABLE IF NOT EXISTS public.halaqah_student_memberships (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  academic_year_id bigint,
+  halaqah_id bigint NOT NULL,
+  student_id bigint NOT NULL,
+  valid_from date NOT NULL DEFAULT CURRENT_DATE,
+  valid_to date,
+  status text NOT NULL DEFAULT 'active',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.halaqah_student_memberships
+  ADD COLUMN IF NOT EXISTS academic_year_id bigint,
+  ADD COLUMN IF NOT EXISTS student_id bigint,
+  ADD COLUMN IF NOT EXISTS valid_from date NOT NULL DEFAULT CURRENT_DATE,
+  ADD COLUMN IF NOT EXISTS valid_to date,
+  ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'active',
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
 ALTER TABLE public.halaqah_student_memberships
   DROP CONSTRAINT IF EXISTS chk_hsm_dates_valid;
 ALTER TABLE public.halaqah_student_memberships
@@ -2722,10 +3022,32 @@ EXECUTE FUNCTION public.sync_legacy_halaqah_santri_to_v2_hsm();
 
 
 -- 4.2 Kompatibilitas & Validasi halaqah_musammi_assignments (assignment_type <-> is_primary)
+CREATE TABLE IF NOT EXISTS public.halaqah_musammi_assignments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  academic_year_id bigint,
+  halaqah_id bigint NOT NULL,
+  musammi_id bigint NOT NULL,
+  user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  musammi_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  assignment_type text NOT NULL DEFAULT 'primary' CHECK (assignment_type IN ('primary', 'substitute')),
+  valid_from date NOT NULL DEFAULT CURRENT_DATE,
+  valid_to date,
+  is_active boolean NOT NULL DEFAULT true,
+  is_primary boolean NOT NULL DEFAULT true,
+  notes text,
+  status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'ended')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
 ALTER TABLE public.halaqah_musammi_assignments
+  ADD COLUMN IF NOT EXISTS musammi_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true,
   ADD COLUMN IF NOT EXISTS is_primary boolean NOT NULL DEFAULT true,
-  ADD COLUMN IF NOT EXISTS notes text;
+  ADD COLUMN IF NOT EXISTS notes text,
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
 
 ALTER TABLE public.halaqah_musammi_assignments
   DROP CONSTRAINT IF EXISTS chk_hma_dates_valid;
@@ -2774,7 +3096,8 @@ BEGIN
       RAISE EXCEPTION 'Tenant isolation violation: Musammi % bukan berasal dari organisasi yang sama dengan Halaqah %', NEW.musammi_id, NEW.halaqah_id;
     END IF;
 
-    NEW.musammi_user_id := COALESCE(NEW.musammi_user_id, v_musammi_uid);
+    NEW.user_id := COALESCE(NEW.user_id, NEW.musammi_user_id, v_musammi_uid);
+    NEW.musammi_user_id := COALESCE(NEW.musammi_user_id, NEW.user_id, v_musammi_uid);
   END IF;
 
   NEW.organization_id := COALESCE(NEW.organization_id, v_halaqah_org);
@@ -3227,25 +3550,26 @@ BEGIN
 
   -- 3. Ujian yang belum lengkap/final
   SELECT COUNT(*) INTO v_incomplete_exams
-  FROM public.exams
-  WHERE organization_id = v_year.organization_id
-    AND academic_year_id = p_academic_year_id
-    AND status IN ('draft', 'open');
+  FROM public.exam_attempts ea
+  WHERE ea.organization_id = v_year.organization_id
+    AND ea.academic_year_id = p_academic_year_id
+    AND (ea.final_score IS NULL OR ea.raw_score IS NULL);
 
-  -- 4. Remedial yang belum selesai (attempt yang mewajibkan remedial namun belum ada attempt remedial lulus)
+  -- 4. Remedial yang belum selesai (attempt yang bernilai < 60 namun belum ada attempt lulus)
   SELECT COUNT(*) INTO v_unfinished_remedials
   FROM public.exam_attempts ea
-  JOIN public.exams e ON e.id = ea.exam_id
   WHERE ea.organization_id = v_year.organization_id
-    AND e.academic_year_id = p_academic_year_id
-    AND ea.remedial_required = true
+    AND ea.academic_year_id = p_academic_year_id
+    AND COALESCE(ea.final_score, 0) < 60
     AND NOT EXISTS (
       SELECT 1
       FROM public.exam_attempts r
-      WHERE r.exam_id = ea.exam_id
-        AND r.student_id = ea.student_id
+      WHERE r.organization_id = ea.organization_id
+        AND r.academic_year_id = ea.academic_year_id
+        AND r.santri_id = ea.santri_id
+        AND r.exam_type = ea.exam_type
         AND r.attempt_no > ea.attempt_no
-        AND (r.passed = true OR r.remedial_required = false)
+        AND COALESCE(r.final_score, 0) >= 60
     );
 
   -- 5. Raport yang masih berstatus draft (belum diterbitkan/published)
@@ -3454,6 +3778,9 @@ $$;
 
 
 -- 4.4 RPC Atomik Promosi / Kelulusan / Mutasi Enrollment Santri (Tanpa Menimpa Histori Tahun Lama)
+DROP FUNCTION IF EXISTS public.rpc_promote_or_graduate_students(bigint, bigint, bigint[], text, text, text, bigint, bigint, date, text);
+DROP FUNCTION IF EXISTS public.rpc_promote_or_graduate_students(bigint, bigint, bigint[], text, text, text, uuid, uuid, date, text);
+
 CREATE OR REPLACE FUNCTION public.rpc_promote_or_graduate_students(
   p_source_academic_year_id bigint,
   p_target_academic_year_id bigint DEFAULT NULL,
@@ -3461,8 +3788,8 @@ CREATE OR REPLACE FUNCTION public.rpc_promote_or_graduate_students(
   p_action text DEFAULT 'promoted',
   p_target_marhalah text DEFAULT NULL,
   p_target_kelas text DEFAULT NULL,
-  p_master_marhalah_id bigint DEFAULT NULL,
-  p_master_kelas_id bigint DEFAULT NULL,
+  p_master_marhalah_id uuid DEFAULT NULL,
+  p_master_kelas_id uuid DEFAULT NULL,
   p_effective_date date DEFAULT CURRENT_DATE,
   p_notes text DEFAULT NULL
 )
@@ -4221,6 +4548,61 @@ $$;
 -- FASE 5: SESI HALAQAH & ABSENSI HARDENING
 -- ---------------------------------------------------------------------------------
 
+CREATE TABLE IF NOT EXISTS public.halaqah_sessions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  academic_year_id bigint,
+  halaqah_id bigint NOT NULL,
+  session_date date NOT NULL DEFAULT CURRENT_DATE,
+  session_slot text NOT NULL DEFAULT 'Shubuh',
+  status text NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'open', 'submitted', 'completed', 'cancelled', 'locked')),
+  roster_snapshot jsonb NOT NULL DEFAULT '[]'::jsonb,
+  opened_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  opened_at timestamptz DEFAULT now(),
+  completed_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  completed_at timestamptz,
+  locked_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  locked_at timestamptz,
+  notes text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (organization_id, halaqah_id, session_date, session_slot)
+);
+
+ALTER TABLE public.halaqah_sessions
+  ADD COLUMN IF NOT EXISTS locked_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS locked_at timestamptz,
+  ADD COLUMN IF NOT EXISTS completed_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS completed_at timestamptz,
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
+CREATE TABLE IF NOT EXISTS public.attendance_records (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  academic_year_id bigint,
+  session_id uuid REFERENCES public.halaqah_sessions(id) ON DELETE CASCADE,
+  halaqah_id bigint NOT NULL,
+  student_id bigint NOT NULL,
+  santri_id bigint,
+  attendance_date date NOT NULL DEFAULT CURRENT_DATE,
+  session_slot text NOT NULL DEFAULT 'Shubuh',
+  status text NOT NULL DEFAULT 'Hadir' CHECK (status IN ('Hadir', 'Sakit', 'Izin', 'Alpa')),
+  marked_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  idempotency_key text,
+  correction_reason text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (session_id, student_id)
+);
+
+ALTER TABLE public.attendance_records
+  ADD COLUMN IF NOT EXISTS santri_id bigint,
+  ADD COLUMN IF NOT EXISTS idempotency_key text,
+  ADD COLUMN IF NOT EXISTS correction_reason text,
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
 -- 5.1 Helper Validasi Penugasan Musammi pada Tanggal Tertentu (Date-Aware Assignment)
 CREATE OR REPLACE FUNCTION public.is_musammi_assigned_to_halaqah_on_date(
   target_org_id uuid,
@@ -4249,7 +4631,7 @@ AS $$
           AND hma.is_active = true
           AND (hma.valid_from IS NULL OR hma.valid_from <= target_date)
           AND (hma.valid_to IS NULL OR hma.valid_to >= target_date)
-          AND (hma.musammi_user_id = auth.uid() OR hma.user_id = auth.uid() OR m.user_id = auth.uid())
+          AND (COALESCE(hma.musammi_user_id, hma.user_id) = auth.uid() OR hma.user_id = auth.uid() OR m.user_id = auth.uid())
       )
       OR EXISTS (
         SELECT 1
@@ -4902,6 +5284,58 @@ GRANT EXECUTE ON FUNCTION public.rpc_lock_halaqah_session(uuid, text) TO authent
 -- FASE 6: SETORAN & MURAJAAH HARDENING
 -- ---------------------------------------------------------------------------------
 
+CREATE TABLE IF NOT EXISTS public.recitation_entries (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  academic_year_id bigint,
+  session_id uuid REFERENCES public.halaqah_sessions(id) ON DELETE SET NULL,
+  halaqah_id bigint NOT NULL,
+  student_id bigint NOT NULL,
+  santri_id bigint,
+  musammi_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  recitation_date date NOT NULL DEFAULT CURRENT_DATE,
+  entry_date date,
+  session_slot text NOT NULL DEFAULT 'Shubuh',
+  kind text NOT NULL DEFAULT 'ziyadah' CHECK (kind IN ('ziyadah', 'sabqi', 'manzil')),
+  surah_start_no integer NOT NULL CHECK (surah_start_no BETWEEN 1 AND 114),
+  ayah_start integer NOT NULL CHECK (ayah_start >= 1),
+  surah_end_no integer NOT NULL CHECK (surah_end_no BETWEEN 1 AND 114),
+  ayah_end integer NOT NULL CHECK (ayah_end >= 1),
+  start_surah text,
+  end_surah text,
+  start_ayah integer,
+  end_ayah integer,
+  calculated_pages numeric(6,2) NOT NULL DEFAULT 1.0,
+  pages numeric(6,2),
+  minor_mistakes integer NOT NULL DEFAULT 0,
+  major_mistakes integer NOT NULL DEFAULT 0,
+  mistakes_minor integer NOT NULL DEFAULT 0,
+  mistakes_major integer NOT NULL DEFAULT 0,
+  predicate text,
+  notes text,
+  status text NOT NULL DEFAULT 'submitted' CHECK (status IN ('draft', 'submitted', 'accepted', 'returned', 'voided')),
+  revision_no integer NOT NULL DEFAULT 1,
+  idempotency_key text,
+  legacy_setoran_id bigint,
+  reviewed_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  reviewed_at timestamptz,
+  review_reason text,
+  created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.recitation_revisions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  recitation_entry_id uuid REFERENCES public.recitation_entries(id) ON DELETE CASCADE,
+  organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  revision_no integer NOT NULL,
+  status text NOT NULL,
+  reason text,
+  actor_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
 ALTER TABLE public.recitation_entries
   ADD COLUMN IF NOT EXISTS santri_id bigint,
   ADD COLUMN IF NOT EXISTS entry_date date,
@@ -4913,7 +5347,9 @@ ALTER TABLE public.recitation_entries
   ADD COLUMN IF NOT EXISTS legacy_setoran_id bigint,
   ADD COLUMN IF NOT EXISTS major_mistakes integer NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS minor_mistakes integer NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS reviewed_at timestamptz;
+  ADD COLUMN IF NOT EXISTS reviewed_at timestamptz,
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
 
 CREATE OR REPLACE FUNCTION public.normalize_recitation_entries_row()
 RETURNS trigger
@@ -5571,6 +6007,39 @@ CREATE INDEX IF NOT EXISTS idx_recitation_entries_idempotency
 -- FASE 7: UJIAN, RUBRIK & RAPORT IMMUTABILITY HARDENING
 -- ---------------------------------------------------------------------------------
 
+CREATE TABLE IF NOT EXISTS public.report_cards (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  academic_year_id bigint NOT NULL,
+  semester_name text NOT NULL DEFAULT 'Ganjil',
+  santri_id bigint NOT NULL,
+  version_no integer NOT NULL DEFAULT 1,
+  status text NOT NULL DEFAULT 'published' CHECK (status IN ('draft', 'reviewed', 'published', 'archived', 'amended')),
+  final_score numeric(5,2) DEFAULT 0,
+  predikat text,
+  snapshot_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+  snapshot_hash text,
+  verification_code text,
+  published_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  published_at timestamptz DEFAULT now(),
+  parent_report_card_id uuid REFERENCES public.report_cards(id) ON DELETE SET NULL,
+  amendment_reason text,
+  is_superseded boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.report_cards
+  ADD COLUMN IF NOT EXISTS snapshot_hash text,
+  ADD COLUMN IF NOT EXISTS verification_code text,
+  ADD COLUMN IF NOT EXISTS parent_report_card_id uuid REFERENCES public.report_cards(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS amendment_reason text,
+  ADD COLUMN IF NOT EXISTS is_superseded boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS published_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS published_at timestamptz DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_report_cards_org_year_sem_santri_ver_uniq
   ON public.report_cards(organization_id, academic_year_id, semester_name, santri_id, version_no);
 
@@ -5819,6 +6288,32 @@ END;
 $$;
 
 -- 7.2 RPC Pengelolaan Versi Rubrik Penilaian (Membuat Versi Baru Bila Sudah Dipakai)
+CREATE TABLE IF NOT EXISTS public.rubric_versions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  academic_year_id bigint,
+  semester_name text NOT NULL DEFAULT 'Ganjil',
+  version_no integer NOT NULL DEFAULT 1,
+  name text NOT NULL DEFAULT 'Standar Penilaian Tahfidz',
+  initial_score numeric(5,2) NOT NULL DEFAULT 100,
+  deduction_minor numeric(5,2) NOT NULL DEFAULT 1.25,
+  deduction_major numeric(5,2) NOT NULL DEFAULT 5.00,
+  min_score numeric(5,2) NOT NULL DEFAULT 50.00,
+  passing_score numeric(5,2) NOT NULL DEFAULT 70.00,
+  predicates jsonb NOT NULL DEFAULT '[{"label":"Mumtaz","minScore":90},{"label":"Jayyid Jiddan","minScore":80},{"label":"Jayyid","minScore":70},{"label":"Maqbul","minScore":60},{"label":"Rasib","minScore":0}]'::jsonb,
+  is_active boolean NOT NULL DEFAULT true,
+  effective_from date NOT NULL DEFAULT CURRENT_DATE,
+  created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.rubric_versions
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS passing_score numeric(5,2) NOT NULL DEFAULT 70.00,
+  ADD COLUMN IF NOT EXISTS predicates jsonb NOT NULL DEFAULT '[]'::jsonb;
+
 CREATE OR REPLACE FUNCTION public.rpc_save_rubric_version(
   p_org_id uuid,
   p_academic_year_id bigint,
@@ -6208,7 +6703,7 @@ REVOKE ALL ON FUNCTION public.rpc_close_semester(bigint, text, text) FROM PUBLIC
 REVOKE ALL ON FUNCTION public.rpc_upsert_academic_year(bigint, text, text, text, date, date, date, date) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.rpc_check_academic_year_closing_readiness(bigint) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.rpc_close_academic_year(bigint, text) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.rpc_promote_or_graduate_students(bigint, bigint, bigint[], text, text, text, bigint, bigint, date, text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.rpc_promote_or_graduate_students(bigint, bigint, bigint[], text, text, text, uuid, uuid, date, text) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.rpc_mutate_halaqah_student(bigint, bigint, bigint, date, text) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.rpc_get_halaqah_roster_as_of(bigint, date) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.rpc_assign_halaqah_musammi(bigint, bigint, text, date, date, text) FROM PUBLIC, anon;
@@ -6246,7 +6741,7 @@ GRANT EXECUTE ON FUNCTION public.rpc_close_semester(bigint, text, text) TO authe
 GRANT EXECUTE ON FUNCTION public.rpc_upsert_academic_year(bigint, text, text, text, date, date, date, date) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.rpc_check_academic_year_closing_readiness(bigint) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.rpc_close_academic_year(bigint, text) TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.rpc_promote_or_graduate_students(bigint, bigint, bigint[], text, text, text, bigint, bigint, date, text) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.rpc_promote_or_graduate_students(bigint, bigint, bigint[], text, text, text, uuid, uuid, date, text) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.rpc_mutate_halaqah_student(bigint, bigint, bigint, date, text) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.rpc_get_halaqah_roster_as_of(bigint, date) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.rpc_assign_halaqah_musammi(bigint, bigint, text, date, date, text) TO authenticated, service_role;

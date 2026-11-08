@@ -174,6 +174,11 @@ const App: React.FC = () => {
       const route = resolveRouteByPageKey(page);
       const targetPath = route?.path || '/app/dashboard';
       if (location.pathname !== targetPath) {
+        const navGuard = (window as any).__LQ_UNSAVED_NAVIGATION_GUARD__;
+        if (typeof navGuard === 'function') {
+          const handled = navGuard(targetPath, () => navigate(targetPath));
+          if (handled === true) return;
+        }
         navigate(targetPath);
       }
     },
