@@ -2,6 +2,16 @@
 
 Sistem Manajemen Tahfidz Al-Qur'an Multi-Tenant berbasis cloud yang dirancang untuk pondok pesantren, madrasah, dan lembaga tahfidz Al-Qur'an. Sistem ini menyediakan isolasi data yang ketat antar lembaga (multi-tenant), model hak akses berbasis peran (RBAC), siklus sesi halaqah presisi, pencatatan setoran hafalan (recitation ledger), penilaian terstandarisasi, dan penerbitan raport digital dengan verifikasi publik anti-pemalsuan.
 
+> **Pengembangan v2 sedang berjalan.** Acuan utama untuk semua perubahan:
+>
+> - [`docs/SPESIFIKASI_V2.md`](docs/SPESIFIKASI_V2.md) — kebutuhan produk (menggantikan deskripsi lama bila bertentangan)
+> - [`docs/RENCANA_V2.md`](docs/RENCANA_V2.md) — 9 fase pengerjaan dan checklist tiap fase
+> - [`docs/audit/BUG_REPORT_2026-11.md`](docs/audit/BUG_REPORT_2026-11.md) — daftar bug hasil uji November 2026
+> - [`docs/LINGKUNGAN.md`](docs/LINGKUNGAN.md) — lingkungan pengembangan v2 vs produksi lama
+> - [`database/migrations/README.md`](database/migrations/README.md) — aturan migrasi database
+>
+> Catatan: skrip `scripts/verify-fase*.ts` memakai penomoran fase lama dan tidak terkait dengan fase di `RENCANA_V2.md`.
+
 ---
 
 ## 1. Gambaran Umum Sistem
