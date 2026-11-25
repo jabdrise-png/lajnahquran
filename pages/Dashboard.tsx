@@ -1,1313 +1,1363 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MarhalahLabel, KelasLabel } from '../components/Labels';
-import Card, { WidgetCard } from '../components/Card';
-import { AttendanceColumnChart, MultiLineChart } from '../components/Chart';
 import { useSupabaseData } from '../hooks/useSupabaseData';
 import { useAcademicYear } from '../lib/AcademicYearContext';
 import { formatPeriodName } from '../lib/utils';
-import { AttendanceStatus, Marhalah, Waktu, MasterEvaluationPeriod } from '../types';
-import { Users, BookOpen, MoreVertical, Download, Clock, UserCheck, TrendingUp, ArrowUpRight, Filter, X } from 'lucide-react';
-import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Line, Area } from 'recharts';
-import { format } from 'date-fns';
-import { supabase } from '../lib/supabaseClient';
-import { ALL_ATTENDANCE_STATUS } from '../constants';
-import html2canvas from 'html2canvas';
-import { StatusBadge } from '../components/ui/SaaSPrimitives';
+import {
+  Download,
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  Lock,
+  ChevronRight,
+  UserX,
+  Phone,
+  ExternalLink,
+  BookOpen
+} from 'lucide-react';
+import {
+  ResponsiveContainer,
+  ComposedChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Line,
+  Area,
+  BarChart,
+  Bar,
+  Legend
+} from 'recharts';
+import { format, startOfWeek, subDays } from 'date-fns';
+import { id as localeId } from 'date-fns/locale';
 
 interface DashboardProps {
-    onNavigate?: (page: string) => void;
-    userRole?: string;
+  onNavigate?: (page: string) => void;
+  userRole?: string;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) => {
-    const navigate = useNavigate();
-    const { santri, musammi, halaqah, attendance, setoranHarian, studentProgress, appSettings, loading, error, masterKelas , globalWaktuHalaqah, globalAttendanceStatus, classTargets , masterMarhalahs, masterKelasRelasi, getOrgId} = useSupabaseData();
-    const { selectedAcademicYear } = useAcademicYear();
+export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) => {
+  const navigate = useNavigate();
+  const {
+    santri,
+    musammi,
+    halaqah,
+    attendance,
+    setoranHarian,
+    studentProgress,
+    studentEvaluations,
+    appSettings,
+    loading,
+    error,
+    masterMarhalahs,
+    selectedAcademicYear: dataAcademicYear,
+    userProfile
+  } = useSupabaseData();
+  const { selectedAcademicYear: ctxAcademicYear } = useAcademicYear();
+  const currentAcademicYear = ctxAcademicYear || dataAcademicYear;
 
-    const globalMarhalahs = useMemo(() => masterMarhalahs.map((m: any) => m.nama), [masterMarhalahs]);
-    
-    // Attendance Chart Menu & Timeframe State
-    const [attendanceRange, setAttendanceRange] = useState<'7' | '30'>('7');
-    const [isAttendanceMenuOpen, setIsAttendanceMenuOpen] = useState(false);
-    const attendanceChartRef = useRef<HTMLDivElement>(null);
-    const attendanceMenuRef = useRef<HTMLDivElement>(null);
+  // State Tabs & Filters
+  const [trendRange, setTrendRange] = useState<'7' | '30' | '90'>('30');
+  const [progressScheme, setProgressScheme] = useState<string>('Total Hafalan');
 
-    const [waktuStats, setWaktuStats] = useState({ total: 0, today: 0, Shubuh: 0, Dhuha: 0, Ashar: 0, Maghrib: 0, Isya: 0 });
-    const [statsData, setStatsData] = useState<any[]>([]);
-    const [weeklyAttendanceData, setWeeklyAttendanceData] = useState<any[]>([]);
-    const [isAttendanceLoading, setIsAttendanceLoading] = useState(false);
-    
-    // Percentage Chart Menu & Timeframe State
-    const [percentageRange, setPercentageRange] = useState<'30d' | '6m' | '1y'>('30d');
-    const [isPercentageMenuOpen, setIsPercentageMenuOpen] = useState(false);
-    const [trendData, setTrendData] = useState<any[]>([]);
-    const [isTrendLoading, setIsTrendLoading] = useState(false);
-    const percentageChartRef = useRef<HTMLDivElement>(null);
-    const percentageMenuRef = useRef<HTMLDivElement>(null);
+  // Filter Statistik Kehadiran per Marhalah (Row 4 Kanan)
+  const todayStr = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
+  const [marhalahDateRange, setMarhalahDateRange] = useState({
+    startDate: todayStr,
+    endDate: todayStr,
+    waktu: 'all'
+  });
 
-    // Close menus on outside click
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (attendanceMenuRef.current && !attendanceMenuRef.current.contains(event.target as Node)) {
-                setIsAttendanceMenuOpen(false);
-            }
-            if (percentageMenuRef.current && !percentageMenuRef.current.contains(event.target as Node)) {
-                setIsPercentageMenuOpen(false);
-            }
+  // --------------------------------------------------------------------------
+  // PERHITUNGAN KPI UTAMA — 100% DATA ASLI DARI DATABASE
+  // --------------------------------------------------------------------------
+
+  // 1. Total Santri Aktif
+  const totalSantriAktif = useMemo(() => {
+    return (santri || []).filter((s) => s.status !== 'Keluar' && s.status !== 'Lulus').length;
+  }, [santri]);
+
+  // 2. Total Musammi'
+  const totalMusammi = useMemo(() => {
+    return (musammi || []).length;
+  }, [musammi]);
+
+  // 3. Total Halaqah Aktif
+  const totalHalaqahAktif = useMemo(() => {
+    return (halaqah || []).filter((h) => h.is_active !== false).length;
+  }, [halaqah]);
+
+  // 4. Kehadiran 7 Hari Terakhir & Perbandingan dengan 7 Hari Sebelumnya
+  const attendanceKpi = useMemo(() => {
+    const now = new Date();
+    const last7DaysStart = subDays(now, 6);
+    const prev7DaysStart = subDays(now, 13);
+    const prev7DaysEnd = subDays(now, 7);
+
+    const l7Str = format(last7DaysStart, 'yyyy-MM-dd');
+    const p7StartStr = format(prev7DaysStart, 'yyyy-MM-dd');
+    const p7EndStr = format(prev7DaysEnd, 'yyyy-MM-dd');
+
+    let l7Total = 0;
+    let l7Hadir = 0;
+    let p7Total = 0;
+    let p7Hadir = 0;
+
+    (attendance || []).forEach((a) => {
+      const d = a.date;
+      const sLower = (a.status || '').toLowerCase();
+      const isPresent = sLower === 'hadir' || sLower === 'terlambat';
+
+      if (d >= l7Str && d <= todayStr) {
+        l7Total++;
+        if (isPresent) l7Hadir++;
+      } else if (d >= p7StartStr && d <= p7EndStr) {
+        p7Total++;
+        if (isPresent) p7Hadir++;
+      }
+    });
+
+    const currentPct = l7Total > 0 ? Math.round((l7Hadir / l7Total) * 100) : 0;
+    const prevPct = p7Total > 0 ? Math.round((p7Hadir / p7Total) * 100) : 0;
+    const diff = p7Total > 0 ? currentPct - prevPct : 0;
+
+    return {
+      currentPct,
+      diff,
+      hasData: l7Total > 0,
+      hasPrevData: p7Total > 0,
+      l7Total,
+      l7Hadir
+    };
+  }, [attendance, todayStr]);
+
+  // 2. Sesi Selesai Hari Ini
+  const sessionKpi = useMemo(() => {
+    const activeHalaqahs = (halaqah || []).filter((h) => h.is_active !== false);
+    const totalExpectedSessions = activeHalaqahs.length;
+
+    // Sesi dianggap selesai jika ada record absensi untuk tanggal hari ini
+    const recordedHalaqahIds = new Set(
+      (attendance || [])
+        .filter((a) => a.date === todayStr)
+        .map((a) => a.halaqahId)
+    );
+
+    const completed = activeHalaqahs.filter((h) => recordedHalaqahIds.has(h.id)).length;
+    const unrecordedCount = Math.max(0, totalExpectedSessions - completed);
+
+    return {
+      completed,
+      total: totalExpectedSessions,
+      unrecordedCount,
+      note:
+        totalExpectedSessions === 0
+          ? 'Belum ada halaqah aktif'
+          : unrecordedCount > 0
+          ? `${unrecordedCount} halaqah belum tercatat`
+          : 'Semua halaqah telah tercatat'
+    };
+  }, [halaqah, attendance, todayStr]);
+
+  // 3. Setoran Menunggu Review
+  const pendingRecitationsKpi = useMemo(() => {
+    const pendingItems = (setoranHarian || []).filter(
+      (s: any) => s.status === 'submitted' || s.status === 'pending' || !s.status
+    );
+
+    let oldestDays = 0;
+    if (pendingItems.length > 0) {
+      const oldestDateStr = pendingItems.reduce((minDate: string, item: any) => {
+        const itemDate = item.tanggal || item.created_at?.slice(0, 10) || todayStr;
+        return itemDate < minDate ? itemDate : minDate;
+      }, todayStr);
+
+      const diffMs = new Date().getTime() - new Date(oldestDateStr).getTime();
+      oldestDays = Math.max(1, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+    }
+
+    return {
+      count: pendingItems.length,
+      oldestDays: pendingItems.length > 0 ? oldestDays : 0
+    };
+  }, [setoranHarian, todayStr]);
+
+  // 4. Halaman Disetor Pekan Ini
+  const recitationsVolumeKpi = useMemo(() => {
+    const now = new Date();
+    const weekStartStr = format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+
+    let totalPages = 0;
+    const activeSantriSet = new Set<number>();
+
+    (setoranHarian || []).forEach((r: any) => {
+      const rDate = r.tanggal || r.created_at?.slice(0, 10);
+      if (rDate && rDate >= weekStartStr && rDate <= todayStr) {
+        const start = Number(r.halaman_mulai || 0);
+        const end = Number(r.halaman_selesai || r.halaman || start);
+        const pages = Math.max(1, end >= start ? end - start + 1 : 1);
+        totalPages += pages;
+        if (r.santri_id) activeSantriSet.add(r.santri_id);
+      }
+    });
+
+    return {
+      totalPages,
+      activeSantriCount: activeSantriSet.size
+    };
+  }, [setoranHarian, todayStr]);
+
+  // --------------------------------------------------------------------------
+  // ROW 2: TREN KEHADIRAN (KIRI 65%) & PERLU TINDAKAN (KANAN 35%)
+  // --------------------------------------------------------------------------
+
+  // Data Tren Kehadiran Garis (Persentase Per Hari) — 100% Data Aktual
+  const lineTrendData = useMemo(() => {
+    const daysCount = trendRange === '90' ? 90 : trendRange === '30' ? 30 : 7;
+    const result: Array<{
+      date: string;
+      name: string;
+      percentage: number;
+      total: number;
+      hadir: number;
+    }> = [];
+
+    for (let i = daysCount - 1; i >= 0; i--) {
+      const d = subDays(new Date(), i);
+      const str = format(d, 'yyyy-MM-dd');
+      const label = daysCount <= 7 ? format(d, 'eee', { locale: localeId }) : format(d, 'd/M');
+
+      const dayRecords = (attendance || []).filter((a) => a.date === str);
+      let pct = 0;
+      let hadirCount = 0;
+
+      if (dayRecords.length > 0) {
+        hadirCount = dayRecords.filter((a) => {
+          const sLower = (a.status || '').toLowerCase();
+          return sLower === 'hadir' || sLower === 'terlambat';
+        }).length;
+        pct = Math.round((hadirCount / dayRecords.length) * 100);
+      }
+
+      result.push({
+        date: str,
+        name: label,
+        percentage: pct,
+        total: dayRecords.length,
+        hadir: hadirCount
+      });
+    }
+
+    return result;
+  }, [attendance, trendRange]);
+
+  // --------------------------------------------------------------------------
+  // PERHITUNGAN SANTRI PERLU PERHATIAN (MENGGANTIKAN MATRIKS DETAIL KEHADIRAN)
+  // Berdasarkan akumulasi Alpha, izin/sakit beruntun, atau catatan evaluasi
+  // --------------------------------------------------------------------------
+  const santriPerluPerhatian = useMemo(() => {
+    // Map halaqah
+    const halaqahMap = new Map<number, { nama: string; musammiNama: string }>();
+    (halaqah || []).forEach((h) => {
+      halaqahMap.set(h.id, {
+        nama: h.nama,
+        musammiNama: h.musammi?.nama || 'Musammi'
+      });
+    });
+
+    // Akumulasi absensi per santri
+    const studentStats = new Map<
+      number,
+      {
+        hadir: number;
+        izin: number;
+        sakit: number;
+        terlambat: number;
+        alpa: number;
+        total: number;
+        lastAlpaDate?: string;
+      }
+    >();
+
+    (attendance || []).forEach((a) => {
+      if (a.peran === 'Santri' && a.personId) {
+        const existing = studentStats.get(a.personId) || {
+          hadir: 0,
+          izin: 0,
+          sakit: 0,
+          terlambat: 0,
+          alpa: 0,
+          total: 0
         };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
 
-    // --- Data Calculations ---
-    
-    // Role filtering for display
-    const { userProfile } = useSupabaseData();
-    const myHalaqahs = useMemo(() => {
-        if (userRole === 'musammi' && userProfile) {
-            return halaqah.filter(h => 
-                Boolean(h.musammi?.user_id && h.musammi.user_id === userProfile.id)
-            );
+        const sLower = (a.status || '').toLowerCase();
+        if (sLower === 'hadir') existing.hadir++;
+        else if (sLower === 'terlambat') existing.terlambat++;
+        else if (sLower === 'izin') existing.izin++;
+        else if (sLower === 'sakit') existing.sakit++;
+        else if (sLower === 'alpa' || sLower === 'alpha') {
+          existing.alpa++;
+          if (!existing.lastAlpaDate || a.date > existing.lastAlpaDate) {
+            existing.lastAlpaDate = a.date;
+          }
         }
-        return halaqah;
-    }, [halaqah, userRole, userProfile]);
+        existing.total++;
+        studentStats.set(a.personId, existing);
+      }
+    });
 
-    const displaySantri = useMemo(() => {
-        if (userRole === 'musammi' && myHalaqahs) {
-            const activeSantriIds = myHalaqahs.flatMap(h => h.active_santri.map(s => s.id));
-            return santri.filter(s => activeSantriIds.includes(s.id));
+    // Gabungkan dengan data santri aktif
+    const candidates = (santri || [])
+      .filter((s) => s.status !== 'Keluar' && s.status !== 'Lulus')
+      .map((s) => {
+        const stats = studentStats.get(s.id) || {
+          hadir: 0,
+          izin: 0,
+          sakit: 0,
+          terlambat: 0,
+          alpa: 0,
+          total: 0
+        };
+
+        const hInfo = s.halaqah_id ? halaqahMap.get(s.halaqah_id) : null;
+        const attRate =
+          stats.total > 0
+            ? Math.round(((stats.hadir + stats.terlambat) / stats.total) * 100)
+            : 100;
+
+        // Ambil catatan evaluasi musammi bila ada
+        const evals = (studentEvaluations || []).filter((e) => e.santri_id === s.id);
+        const latestEval = evals.length > 0 ? evals[evals.length - 1] : null;
+
+        // Tentukan urgensi status
+        let urgency: 'kritis' | 'waspada' | 'pantau' | 'aman' = 'aman';
+        let statusKeterangan = 'Kehadiran tertib';
+
+        if (stats.alpa >= 3) {
+          urgency = 'kritis';
+          statusKeterangan = `${stats.alpa} Alpa terakumulasi · Peringatan wali`;
+        } else if (stats.alpa >= 1) {
+          urgency = 'waspada';
+          statusKeterangan = `${stats.alpa} Alpa tanpa keterangan`;
+        } else if (stats.sakit + stats.izin >= 4) {
+          urgency = 'pantau';
+          statusKeterangan = `${stats.sakit + stats.izin} hari izin/sakit`;
+        } else if (stats.total > 5 && attRate < 75) {
+          urgency = 'pantau';
+          statusKeterangan = `Kehadiran rendah (${attRate}%)`;
         }
-        return santri;
-    }, [santri, myHalaqahs, userRole]);
-
-    const displayHalaqahCount = userRole === 'musammi' ? myHalaqahs.length : halaqah.length;
-
-    // 1. Dynamic Master Marhalah Distribution
-    const marhalahColorPalette = [
-        { bg: 'bg-slate-800', dot: 'bg-slate-800', text: 'text-slate-800' },
-        { bg: 'bg-blue-600', dot: 'bg-blue-600', text: 'text-blue-600' },
-        { bg: 'bg-emerald-600', dot: 'bg-emerald-600', text: 'text-emerald-600' },
-        { bg: 'bg-amber-500', dot: 'bg-amber-500', text: 'text-amber-500' },
-        { bg: 'bg-purple-600', dot: 'bg-purple-600', text: 'text-purple-600' },
-        { bg: 'bg-rose-500', dot: 'bg-rose-500', text: 'text-rose-500' },
-        { bg: 'bg-cyan-600', dot: 'bg-cyan-600', text: 'text-cyan-600' },
-        { bg: 'bg-indigo-600', dot: 'bg-indigo-600', text: 'text-indigo-600' },
-    ];
-
-    const marhalahDistribution = useMemo(() => {
-        const total = displaySantri.length || 1;
-        const marhalahList: { id?: string; nama: string }[] = [];
-
-        if (masterMarhalahs && masterMarhalahs.length > 0) {
-            masterMarhalahs.forEach((m: any) => {
-                marhalahList.push({ id: m.id, nama: m.nama });
-            });
-        }
-
-        // Also check if any santri has a marhalah name not yet in list
-        displaySantri.forEach(s => {
-            if (s.marhalah && !marhalahList.some(m => m.nama === s.marhalah || (s.marhalah_id && m.id === s.marhalah_id))) {
-                marhalahList.push({ id: s.marhalah_id, nama: s.marhalah });
-            }
-        });
-
-        if (marhalahList.length === 0) {
-            marhalahList.push({ nama: 'Semua' });
-        }
-
-        const calculated = marhalahList.map((m, index) => {
-            const count = displaySantri.filter(s => 
-                (m.id && s.marhalah_id === m.id) || 
-                (s.marhalah && s.marhalah.toLowerCase().trim() === m.nama.toLowerCase().trim())
-            ).length;
-            const percentage = Math.round((count / total) * 100);
-            const color = marhalahColorPalette[index % marhalahColorPalette.length];
-            return {
-                id: m.id,
-                nama: m.nama,
-                count,
-                percentage,
-                color
-            };
-        });
-
-        const activeItems = calculated.filter(item => item.count > 0);
-        return activeItems.length > 0 ? activeItems : calculated.slice(0, 4);
-    }, [displaySantri, masterMarhalahs]);
-
-    // New: Calculate Actual Executed Sessions based on Attendance Data
-    
-    const myAttendanceStats = useMemo(() => {
-        if (userRole !== 'musammi' || !userProfile) return null;
-        const myMusammi = musammi.find(m => Boolean(m.user_id && m.user_id === userProfile.id));
-        if (!myMusammi) return null;
-
-        const myRecords = attendance.filter(a => a.peran === 'Musammi' && a.personId === myMusammi.id);
-        const total = myRecords.length;
-        if (total === 0) return { total: 0, Hadir: 0, Izin: 0, Sakit: 0, Alpa: 0, Terlambat: 0, percentage: 0 };
-        
-        const counts = { Hadir: 0, Izin: 0, Sakit: 0, Alpa: 0, Terlambat: 0 };
-        myRecords.forEach(r => {
-            if (counts[r.status as keyof typeof counts] !== undefined) counts[r.status as keyof typeof counts]++;
-        });
-
-        const percentage = Math.round(((counts['Hadir'] + counts['Terlambat']) / total) * 100);
 
         return {
-            total,
-            ...counts,
-            percentage
+          id: s.id,
+          nama: s.nama,
+          nis: s.nis || '-',
+          kelas: s.kelas || '-',
+          marhalah: s.marhalah || '-',
+          halaqahNama: hInfo?.nama || 'Tanpa halaqah',
+          musammiNama: hInfo?.musammiNama || '-',
+          waliNama: s.nama_wali || 'Wali Santri',
+          waliPhone: s.no_hp_wali || s.no_telepon_wali || '',
+          alpa: stats.alpa,
+          sakit: stats.sakit,
+          izin: stats.izin,
+          terlambat: stats.terlambat,
+          hadir: stats.hadir,
+          total: stats.total,
+          attRate,
+          urgency,
+          statusKeterangan,
+          lastAlpaDate: stats.lastAlpaDate,
+          catatanMusammi: latestEval?.catatan_musammi || null
         };
-    }, [attendance, musammi, userRole, userProfile]);
+      });
 
-    useEffect(() => {
-        let isMounted = true;
-        const fetchWaktuStats = async () => {
-            try {
-                const orgId = await getOrgId();
-                if (!orgId) return;
-                const today = format(new Date(), 'yyyy-MM-dd');
-                const { data, error } = await (supabase as any).rpc('rpc_get_waktu_stats', {
-                    p_org_id: orgId,
-                    p_today: today,
-                    p_academic_year_id: selectedAcademicYear?.id || null
-                });
-                
-                if (error) throw error;
-                if (data && data.length > 0 && isMounted) {
-                    setWaktuStats({
-                        total: data[0].total,
-                        today: data[0].today,
-                        Shubuh: data[0].shubuh,
-                        Dhuha: data[0].dhuha,
-                        Ashar: data[0].ashar,
-                        Maghrib: data[0].maghrib || 0,
-                        Isya: data[0].isya
-                    });
-                }
-            } catch (err: any) {
-                if (err?.message?.includes('not authenticated') || err?.message?.includes('Sesi telah habis') || !err) {
-                    return;
-                }
-                console.warn("Could not fetch waktuStats:", err);
-            }
-        };
-        fetchWaktuStats();
-        return () => { isMounted = false; };
-    }, [getOrgId, selectedAcademicYear]);
+    // Filter santri yang memiliki catatan alpa atau terlambat atau kehadiran bermasalah
+    const attentionList = candidates.filter(
+      (c) => c.alpa > 0 || c.terlambat > 0 || c.sakit + c.izin >= 2 || (c.total > 0 && c.attRate < 80)
+    );
 
-    // 2. Statistics Logic (With Filters)
-    const todayString = format(new Date(), 'yyyy-MM-dd');
-    const [statsFilter, setStatsFilter] = useState({
-        startDate: todayString,
-        endDate: todayString,
-        waktu: 'all',
+    // Urutkan: Terbanyak Alpa DESC -> Terbanyak Terlambat DESC -> Sakit/Izin DESC -> Rasio Kehadiran ASC
+    attentionList.sort((a, b) => {
+      if (b.alpa !== a.alpa) return b.alpa - a.alpa;
+      if (b.terlambat !== a.terlambat) return b.terlambat - a.terlambat;
+      const bAbsen = b.sakit + b.izin;
+      const aAbsen = a.sakit + a.izin;
+      if (bAbsen !== aAbsen) return bAbsen - aAbsen;
+      return a.attRate - b.attRate;
     });
 
-    const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
-    const [globalFilter, setGlobalFilter] = useState({
-        marhalah: 'all',
-        kelas: 'all',
-        halaqah: 'all'
+    return {
+      items: attentionList.slice(0, 8),
+      totalNeedingAttention: attentionList.length,
+      criticalCount: attentionList.filter((c) => c.urgency === 'kritis').length,
+      totalAlpaCount: attentionList.reduce((acc, c) => acc + c.alpa, 0),
+      totalTerlambatCount: attentionList.reduce((acc, c) => acc + c.terlambat, 0)
+    };
+  }, [santri, halaqah, attendance, studentEvaluations]);
+
+  // Card Perlu Tindakan (Action Items) — 100% Data Aktual
+  const actionItems = useMemo(() => {
+    const list: Array<{
+      id: string;
+      level: 'mendesak' | 'hari_ini' | 'rutin';
+      levelLabel: string;
+      title: string;
+      subtitle: string;
+      actionLabel: string;
+      onAction: () => void;
+    }> = [];
+
+    // 1. Santri dengan Alpa Kritis (>= 2 alpa)
+    if (santriPerluPerhatian.items.some((c) => c.alpa >= 2)) {
+      const topAlpa = santriPerluPerhatian.items[0];
+      list.push({
+        id: 'critical_alpa_santri',
+        level: 'mendesak',
+        levelLabel: 'Mendesak',
+        title: `${santriPerluPerhatian.totalNeedingAttention} santri terakumulasi alpa`,
+        subtitle: `Tertinggi: ${topAlpa.nama} (${topAlpa.alpa} Alpa) · ${topAlpa.kelas}`,
+        actionLabel: 'Tindak lanjuti',
+        onAction: () => navigate('/app/attendance-book')
+      });
+    }
+
+    // 2. Sesi halaqah aktif yang belum diisi absensi hari ini
+    const activeHalaqahs = (halaqah || []).filter((h) => h.is_active !== false);
+    const unrecordedHalaqah = activeHalaqahs.find((h) =>
+      !(attendance || []).some((a) => a.date === todayStr && a.halaqahId === h.id)
+    );
+
+    if (unrecordedHalaqah) {
+      list.push({
+        id: 'unrecorded_session',
+        level: 'mendesak',
+        levelLabel: 'Mendesak',
+        title: `${sessionKpi.unrecordedCount} halaqah belum isi absensi`,
+        subtitle: `${unrecordedHalaqah.nama} · ${unrecordedHalaqah.musammi?.nama || 'Musammi'}`,
+        actionLabel: 'Buka sesi',
+        onAction: () =>
+          navigate(
+            `/app/sessions?halaqahId=${unrecordedHalaqah.id}&date=${todayStr}&slot=${
+              unrecordedHalaqah.waktu?.[0] || 'Shubuh'
+            }`
+          )
+      });
+    }
+
+    // 3. Setoran santri menunggu review
+    const pendingRecitations = (setoranHarian || []).filter(
+      (s: any) => s.status === 'submitted' || s.status === 'pending' || !s.status
+    );
+    if (pendingRecitations.length > 0) {
+      list.push({
+        id: 'pending_recitations',
+        level: 'hari_ini',
+        levelLabel: 'Hari ini',
+        title: `${pendingRecitations.length} setoran menunggu review`,
+        subtitle: 'Validasi bacaan dan kelayakan halaman santri',
+        actionLabel: 'Review',
+        onAction: () => navigate('/app/recitations?status=submitted')
+      });
+    }
+
+    // 4. Pengarsipan atau Kunci Sesi
+    list.push({
+      id: 'lock_sessions',
+      level: 'rutin',
+      levelLabel: 'Rutin',
+      title: 'Kunci sesi & arsip rekap',
+      subtitle: 'Sinkronisasi riwayat absensi dan evaluasi santri',
+      actionLabel: 'Kelola sesi',
+      onAction: () => navigate('/app/sessions')
     });
-    const [progressChartScheme, setProgressChartScheme] = useState('Total Hafalan');
 
-    const applyGlobalFilterToAttendance = (a: any) => {
-        if (globalFilter.marhalah !== 'all' && a.marhalah !== globalFilter.marhalah) return false;
-        if (globalFilter.kelas !== 'all' && a.kelas !== globalFilter.kelas) return false;
-        if (globalFilter.halaqah !== 'all' && a.halaqah_id?.toString() !== globalFilter.halaqah) return false;
-        return true;
-    };
-    
-    useEffect(() => {
-        let isMounted = true;
-        const fetchStatsData = async () => {
-            try {
-                const orgId = await getOrgId();
-                if (!orgId) return;
+    return list;
+  }, [halaqah, attendance, setoranHarian, todayStr, navigate, sessionKpi, santriPerluPerhatian]);
 
-                const { data, error } = await (supabase as any).rpc('rpc_get_attendance_stats', {
-                    p_org_id: orgId,
-                    p_start_date: statsFilter.startDate || format(new Date(), 'yyyy-MM-dd'),
-                    p_end_date: statsFilter.endDate || format(new Date(), 'yyyy-MM-dd'),
-                    p_waktu: statsFilter.waktu,
-                    p_marhalah: globalFilter.marhalah,
-                    p_kelas: globalFilter.kelas,
-                    p_halaqah: globalFilter.halaqah
-                });
+  // --------------------------------------------------------------------------
+  // ROW 3: ANALITIK & PROGRES (KIRI 50% & KANAN 50%) — 100% DATA ASLI
+  // --------------------------------------------------------------------------
 
-                if (error) throw error;
-                
-                if (data) {
-                    const groups: Record<string, any> = {};
-                    globalMarhalahs.forEach(m => {
-                        groups[m] = { marhalah: m, stats: {} };
-                        globalAttendanceStatus?.forEach(s => groups[m].stats[s] = 0);
-                    });
+  // Distribusi Status Kehadiran Minggu Ini (Stacked Bar Chart) — Data Aktual
+  const stackedWeeklyData = useMemo(() => {
+    const days: Array<{
+      name: string;
+      Hadir: number;
+      Izin: number;
+      Sakit: number;
+      Terlambat: number;
+      Alpa: number;
+    }> = [];
+    const now = new Date();
+    const monday = startOfWeek(now, { weekStartsOn: 1 });
 
-                    data.forEach((row: any) => {
-                        const m = row.marhalah;
-                        if (groups[m]) {
-                            const statusMapped = globalAttendanceStatus?.find(s => s.toLowerCase() === row.status.toLowerCase()) || row.status;
-                            groups[m].stats[statusMapped] = (groups[m].stats[statusMapped] || 0) + Number(row.count);
-                        }
-                    });
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const strDate = format(d, 'yyyy-MM-dd');
+      const dayLabel = format(d, 'eee', { locale: localeId });
 
-                    const finalData = Object.values(groups).sort((a, b) => globalMarhalahs.indexOf(a.marhalah) - globalMarhalahs.indexOf(b.marhalah));
-                    if (isMounted) setStatsData(finalData);
-                }
-            } catch (err: any) {
-                if (err?.message?.includes('not authenticated') || err?.message?.includes('Sesi telah habis') || !err) {
-                    return;
-                }
-                console.warn("Could not fetch stats data:", err);
-            }
-        };
-        fetchStatsData();
-        return () => { isMounted = false; };
-    }, [statsFilter, globalFilter, globalMarhalahs, globalAttendanceStatus, getOrgId]);
+      const dayRecords = (attendance || []).filter((a) => a.date === strDate);
+      const counts = { Hadir: 0, Izin: 0, Sakit: 0, Terlambat: 0, Alpa: 0 };
 
-    // 3. Attendance Stacked Bar Chart Data (7 or 30 days)
-    useEffect(() => {
-        let isMounted = true;
-        const fetchWeeklyData = async () => {
-            setIsAttendanceLoading(true);
-            try {
-                const orgId = await getOrgId();
-                if (!orgId) return;
+      dayRecords.forEach((r) => {
+        const sLower = (r.status || '').toLowerCase();
+        if (sLower === 'hadir') counts.Hadir++;
+        else if (sLower === 'izin') counts.Izin++;
+        else if (sLower === 'sakit') counts.Sakit++;
+        else if (sLower === 'terlambat') counts.Terlambat++;
+        else if (sLower === 'alpa' || sLower === 'alpha') counts.Alpa++;
+      });
 
-                const daysCount = attendanceRange === '30' ? 30 : 7;
-                const endDate = new Date();
-                const startDate = new Date();
-                startDate.setDate(endDate.getDate() - (daysCount - 1));
-
-                const { data, error } = await (supabase as any).rpc('rpc_get_attendance_trend', {
-                    p_org_id: orgId,
-                    p_start_date: format(startDate, 'yyyy-MM-dd'),
-                    p_end_date: format(endDate, 'yyyy-MM-dd'),
-                    p_group_by: 'day',
-                    p_marhalah: globalFilter.marhalah,
-                    p_kelas: globalFilter.kelas,
-                    p_halaqah: globalFilter.halaqah
-                });
-
-                if (error) throw error;
-
-                const days: Record<string, any> = {};
-                for (let i = daysCount - 1; i >= 0; i--) {
-                    const d = new Date();
-                    d.setDate(d.getDate() - i);
-                    const strDate = format(d, 'yyyy-MM-dd');
-                    const dayName = daysCount === 7 ? format(d, 'eee') : format(d, 'd/M');
-                    days[strDate] = { name: dayName };
-                    globalAttendanceStatus?.forEach(s => days[strDate][s] = 0);
-                }
-
-                if (data) {
-                    data.forEach((row: any) => {
-                        const period = row.period;
-                        if (days[period] && row.status) {
-                            const statusMapped = globalAttendanceStatus?.find(s => s.toLowerCase() === row.status.toLowerCase()) || row.status;
-                            days[period][statusMapped] = (days[period][statusMapped] || 0) + Number(row.count);
-                        }
-                    });
-                }
-
-                if (isMounted) setWeeklyAttendanceData(Object.values(days));
-            } catch (err: any) {
-                if (err?.message?.includes('not authenticated') || err?.message?.includes('Sesi telah habis') || !err) {
-                    return;
-                }
-                console.warn("Could not fetch weekly data:", err);
-            } finally {
-                if (isMounted) setIsAttendanceLoading(false);
-            }
-        };
-        fetchWeeklyData();
-        return () => { isMounted = false; };
-    }, [attendanceRange, globalFilter, globalAttendanceStatus, getOrgId]);
-
-    // 4. Trend Data (30 Days / 6 Months / 1 Year) - Percentage Calculation
-    useEffect(() => {
-        let isMounted = true;
-        const fetchTrendData = async () => {
-            setIsTrendLoading(true);
-            try {
-                const orgId = await getOrgId();
-                if (!orgId) return;
-
-                const endDate = new Date();
-                let startDate = new Date();
-                let groupBy = 'day';
-
-                if (percentageRange === '30d') {
-                    startDate.setDate(endDate.getDate() - 30);
-                    groupBy = 'day';
-                } else if (percentageRange === '6m') {
-                    startDate.setMonth(endDate.getMonth() - 5);
-                    startDate.setDate(1);
-                    groupBy = 'month';
-                } else if (percentageRange === '1y') {
-                    startDate.setFullYear(endDate.getFullYear() - 1);
-                    startDate.setDate(1);
-                    groupBy = 'month';
-                }
-
-                const days: Record<string, any> = {};
-                
-                // Prepare skeletons
-                if (percentageRange === '30d') {
-                    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-                        if (d.getDay() === 5) continue;
-                        const strDate = format(d, 'yyyy-MM-dd');
-                        days[strDate] = { date: format(d, 'MMM d'), fullDate: strDate };
-                        globalAttendanceStatus?.forEach(s => days[strDate][s] = 0);
-                    }
-                } else {
-                    const startM = new Date(startDate);
-                    while(startM <= endDate) {
-                        const monthKey = format(startM, 'yyyy-MM');
-                        days[monthKey] = { date: format(startM, 'MMM yyyy'), fullDate: monthKey };
-                        globalAttendanceStatus?.forEach(s => days[monthKey][s] = 0);
-                        startM.setMonth(startM.getMonth() + 1);
-                    }
-                }
-
-                const { data, error } = await (supabase as any).rpc('rpc_get_attendance_trend', {
-                    p_org_id: orgId,
-                    p_start_date: format(startDate, 'yyyy-MM-dd'),
-                    p_end_date: format(endDate, 'yyyy-MM-dd'),
-                    p_group_by: groupBy,
-                    p_marhalah: globalFilter.marhalah,
-                    p_kelas: globalFilter.kelas,
-                    p_halaqah: globalFilter.halaqah
-                });
-
-                if (error) {
-                    // Fallback using loaded data if RPC fails or doesn't exist
-                    console.warn("RPC failed or not found, falling back to local data:", error);
-                    attendance.filter(applyGlobalFilterToAttendance).forEach(r => {
-                        if (!r.date || !r.status) return;
-                        const key = percentageRange === '30d' ? r.date : r.date.slice(0, 7);
-                        if (days[key]) {
-                            days[key][r.status] = (days[key][r.status] || 0) + 1;
-                        }
-                    });
-                } else if (data) {
-                    data.forEach((row: any) => {
-                        const period = row.period;
-                        if (days[period] && row.status) {
-                            // Map 'Alpa' to 'Alpha' if needed based on constant
-                            const statusMapped = globalAttendanceStatus?.find(s => s.toLowerCase() === row.status.toLowerCase()) || row.status;
-                            days[period][statusMapped] = (days[period][statusMapped] || 0) + Number(row.count);
-                        }
-                    });
-                }
-
-                const sortedDays = Object.values(days).sort((a: any, b: any) => a.fullDate.localeCompare(b.fullDate));
-                const finalData = sortedDays.map((day: any) => {
-                    let total = 0;
-                    globalAttendanceStatus?.forEach(s => total += (day[s] || 0));
-                    const result = { ...day };
-                    if (total > 0) {
-                        globalAttendanceStatus?.forEach(s => {
-                            if (day[s] !== undefined) result[s] = parseFloat(((day[s] / total) * 100).toFixed(1));
-                        });
-                    }
-                    return result;
-                });
-
-                if (isMounted) setTrendData(finalData);
-            } catch (err: any) {
-                if (err?.message?.includes('not authenticated') || err?.message?.includes('Sesi telah habis') || !err) {
-                    return;
-                }
-                console.warn("Could not build trend data:", err);
-            } finally {
-                if (isMounted) setIsTrendLoading(false);
-            }
-        };
-
-        fetchTrendData();
-        return () => { isMounted = false; };
-    }, [percentageRange, globalFilter, globalAttendanceStatus]); // removed getOrgId and attendance to prevent infinite loops
-
-    const getStatusColor = (status: string) => {
-        const lower = status?.toLowerCase();
-        if (lower === 'hadir') return 'bg-emerald-500';
-        if (lower === 'izin') return 'bg-blue-500';
-        if (lower === 'sakit') return 'bg-amber-500';
-        if (lower === 'terlambat') return 'bg-orange-500';
-        if (lower === 'alpa') return 'bg-red-500';
-        return 'bg-slate-200';
-    };
-
-    const _santriConfig = useMemo(() => {
-        return santri.filter(s => {
-            if (s.kelas === '-') return false;
-            if (globalFilter.marhalah !== 'all' && s.marhalah !== globalFilter.marhalah) return false;
-            if (globalFilter.kelas !== 'all' && s.kelas !== globalFilter.kelas) return false;
-            if (globalFilter.halaqah !== 'all') {
-                const h = halaqah.find(hh => hh.id.toString() === globalFilter.halaqah);
-                if (!h) return false;
-                if (h.history) {
-                    if (!h.history.find((hs: any) => hs.santri_id === s.id)) return false;
-                } else {
-                    if (!h.santri.find(hs => hs.id === s.id)) return false;
-                }
-            }
-            return true;
-        });
-    }, [santri, globalFilter, halaqah]);
-
-    const { dashboardProgressData, averageTarget } = useMemo(() => {
-        let masterPeriods: MasterEvaluationPeriod[] = [];
-        const periodSettings = appSettings?.find(s => s.key === 'EVALUATION_PERIODS')?.value;
-        let availableMonths: string[] = [];
-        if (periodSettings) {
-            try {
-                if (periodSettings.startsWith('[')) {
-                    masterPeriods = JSON.parse(periodSettings);
-                    availableMonths = masterPeriods.map((p: any) => p.id);
-                } else {
-                    availableMonths = periodSettings.split(',').filter((p: string) => p.trim() !== '');
-                }
-            } catch(e) {}
-        } else {
-             const months = new Set<string>();
-             studentProgress?.forEach(p => months.add(p.month_key));
-             if (months.size === 0) months.add(format(new Date(), 'yyyy-MM'));
-             availableMonths = Array.from(months);
-        }
-
-        // Chronological sort: oldest / earliest month first -> newest / latest month last (e.g., month 5 -> 7)
-        availableMonths.sort((aId, bId) => {
-            const pA = masterPeriods.find(p => p.id === aId);
-            const pB = masterPeriods.find(p => p.id === bId);
-
-            const dateA = pA?.startDate ? new Date(pA.startDate).getTime() : NaN;
-            const dateB = pB?.startDate ? new Date(pB.startDate).getTime() : NaN;
-
-            if (!isNaN(dateA) && !isNaN(dateB) && dateA !== dateB) {
-                return dateA - dateB;
-            }
-
-            // Check if string contains standard YYYY-MM
-            const regDate = /(\d{4})[/-](\d{1,2})/;
-            const matchA = aId.match(regDate) || (pA?.name || '').match(regDate);
-            const matchB = bId.match(regDate) || (pB?.name || '').match(regDate);
-            if (matchA && matchB) {
-                const valA = parseInt(matchA[1], 10) * 100 + parseInt(matchA[2], 10);
-                const valB = parseInt(matchB[1], 10) * 100 + parseInt(matchB[2], 10);
-                if (valA !== valB) return valA - valB;
-            }
-
-            // Check if name or id has any month/period number (e.g. "Bulan 5" vs "Bulan 7", "Periode 5" vs "Periode 7")
-            const numA = (pA?.name || aId).match(/\d+/);
-            const numB = (pB?.name || bId).match(/\d+/);
-            if (numA && numB && numA[0] !== numB[0]) {
-                return parseInt(numA[0], 10) - parseInt(numB[0], 10);
-            }
-
-            return aId.localeCompare(bId);
-        });
-
-        let totalTarget = 0;
-        let targetCount = 0;
-
-        const activeSem = selectedAcademicYear?.active_semester || 'Ganjil';
-        _santriConfig.forEach(s => {
-            let targetVal = 0;
-            const targetConfig = classTargets?.find(t => (t.semester === activeSem || !t.semester) && t.marhalah === s.marhalah && (t.kelas === s.kelas ));
-            
-            if (targetConfig) {
-                if (progressChartScheme === 'Total Hafalan' || progressChartScheme === 'Hafalan Depan' || progressChartScheme === 'Hafalan Belakang') {
-                     targetVal = targetConfig.target_hafalan || 0;
-                } else if (progressChartScheme === 'Ziyadah') {
-                     targetVal = targetConfig.target_ziyadah || 0;
-                } else if (progressChartScheme === 'Murojaah') {
-                     targetVal = targetConfig.target_murojaah || 0;
-                }
-            }
-            
-            if (targetConfig && targetVal >= 0) {
-                totalTarget += targetVal;
-                targetCount++;
-            }
-        });
-        const averageTarget = targetCount > 0 ? parseFloat((totalTarget / targetCount).toFixed(2)) : null;
-
-        const data = availableMonths.map(month => {
-            let total = 0; let count = 0;
-            _santriConfig.forEach(s => {
-                   let valStr: string | undefined;
-                   if (progressChartScheme === 'Total Hafalan' || progressChartScheme === 'Ziyadah') {
-                       const HD = parseFloat(studentProgress.find(p => p.santri_id === s.id && p.month_key === month && p.progress_type === 'Hafalan Depan')?.value ?? '0') || 0;
-                       const HB = parseFloat(studentProgress.find(p => p.santri_id === s.id && p.month_key === month && p.progress_type === 'Hafalan Belakang')?.value ?? '0') || 0;
-                       
-                       if (progressChartScheme === 'Total Hafalan') {
-                             if (HD > 0 || HB > 0 || studentProgress.some(p => p.santri_id === s.id && p.month_key === month)) valStr = (HD + HB).toString();
-                       } else if (progressChartScheme === 'Ziyadah') {
-                            const currIdx = availableMonths.indexOf(month);
-                            const prevMonthKey = currIdx > 0 ? availableMonths[currIdx - 1] : null;
-                            const prevHD = prevMonthKey ? parseFloat(studentProgress.find(x => x.santri_id === s.id && x.month_key === prevMonthKey && x.progress_type === 'Hafalan Depan')?.value ?? '0') || 0 : 0;
-                            const prevHB = prevMonthKey ? parseFloat(studentProgress.find(x => x.santri_id === s.id && x.month_key === prevMonthKey && x.progress_type === 'Hafalan Belakang')?.value ?? '0') || 0 : 0;
-                            if (HD > 0 || HB > 0 || studentProgress.some(p => p.santri_id === s.id && p.month_key === month)) {
-                                valStr = (((HD + HB) - (prevHD + prevHB)) * 20).toString();
-                            }
-                       }
-                   }
-                   if (valStr === undefined) {
-                        const entry = studentProgress.find(p => p.santri_id === s.id && p.month_key === month && p.progress_type === progressChartScheme);
-                        if (entry) valStr = entry.value;
-                   }
-
-                   if (valStr) {
-                       const val = parseFloat(valStr);
-                       if (!isNaN(val)) { total += val; count++; }
-                   }
-            });
-            const avg = count > 0 ? parseFloat((total / count).toFixed(2)) : 0;
-            return { name: formatPeriodName(month, appSettings), value: avg, target: averageTarget };
-        });
-        return { dashboardProgressData: data, averageTarget };
-    }, [progressChartScheme, _santriConfig, studentProgress, appSettings, classTargets]);
-
-    const handleDownloadAttendanceChart = async () => {
-        if (attendanceChartRef.current) {
-            try {
-                const canvas = await html2canvas(attendanceChartRef.current, { scale: 2, backgroundColor: '#ffffff' });
-                const link = document.createElement('a');
-                link.download = `Tren_Kehadiran_${attendanceRange === '7' ? 'Seminggu' : '30Hari'}_${format(new Date(), 'yyyy-MM-dd')}.png`;
-                link.href = canvas.toDataURL("image/png");
-                link.click();
-            } catch (err) {
-                console.error("Failed to download attendance chart", err);
-            }
-        }
-    };
-
-    const handleDownloadPercentageChart = async () => {
-        if (percentageChartRef.current) {
-            try {
-                const canvas = await html2canvas(percentageChartRef.current, { scale: 2, backgroundColor: '#ffffff' });
-                const link = document.createElement('a');
-                link.download = `Tren_Persentase_${percentageRange}_${format(new Date(), 'yyyy-MM-dd')}.png`;
-                link.href = canvas.toDataURL("image/png");
-                link.click();
-            } catch (err) {
-                console.error("Failed to download percentage chart", err);
-            }
-        }
-    };
-
-    if (loading) {
-        return (
-            <div className="flex h-full items-center justify-center">
-                 <div className="text-center p-8">Memuat data dashboard...</div>
-            </div>
-        );
-    }
-    
-    if (error) {
-        return <div className="text-center p-8 text-error">Error: {error}</div>;
+      days.push({
+        name: dayLabel,
+        ...counts
+      });
     }
 
-    if (!selectedAcademicYear) {
-        return (
-            <div className="flex h-full items-center justify-center">
-                <div className="text-center p-8 bg-amber-50 rounded-xl border border-amber-200 max-w-md">
-                    <h3 className="text-lg font-bold text-amber-800 mb-2">Tahun Ajaran Belum Diatur</h3>
-                    <p className="text-amber-700 mb-4">Silakan buat Tahun Ajaran baru di menu Manajemen Data untuk mulai menggunakan aplikasi.</p>
-                </div>
-            </div>
-        );
+    return days;
+  }, [attendance]);
+
+  // Tren Perkembangan Hafalan Santri dari Evaluasi & Progres Produksi
+  const hafalanTrendData = useMemo(() => {
+    // 1. Ambil master periode evaluasi yang dikonfigurasi di appSettings
+    const masterPeriodsSetting = appSettings?.find((s) => s.key === 'EVALUATION_PERIODS')?.value;
+    let periods: Array<{ id: string; name: string }> = [];
+
+    if (masterPeriodsSetting) {
+      try {
+        if (masterPeriodsSetting.startsWith('[')) {
+          const parsed = JSON.parse(masterPeriodsSetting);
+          periods = parsed.map((p: any) => ({
+            id: p.id || p.name,
+            name: p.name || p.id
+          }));
+        }
+      } catch (e) {}
     }
+
+    // 2. Jika setting periode belum ada, kumpulkan dari catatan studentProgress & studentEvaluations nyata
+    if (periods.length === 0) {
+      const monthKeySet = new Set<string>();
+      (studentProgress || []).forEach((sp) => {
+        if (sp.month_key) monthKeySet.add(sp.month_key);
+      });
+      (studentEvaluations || []).forEach((se) => {
+        if (se.month_key) monthKeySet.add(se.month_key);
+      });
+
+      if (monthKeySet.size > 0) {
+        periods = Array.from(monthKeySet)
+          .sort()
+          .map((m) => ({
+            id: m,
+            name: formatPeriodName(m, appSettings)
+          }));
+      } else {
+        // Fallback label periode canonical P1-P6 jika belum ada rekam data sama sekali
+        periods = [
+          { id: 'P1', name: 'P1' },
+          { id: 'P2', name: 'P2' },
+          { id: 'P3', name: 'P3' },
+          { id: 'P4', name: 'P4' },
+          { id: 'P5', name: 'P5' },
+          { id: 'P6', name: 'P6' }
+        ];
+      }
+    }
+
+    // Ambil maksimal 6 periode terurut
+    const displayPeriods = periods.slice(0, 6);
+
+    // Hitung rata-rata capaian hafalan/ziyadah/murojaah per santri dari data nyata
+    return displayPeriods.map((period) => {
+      let avg = 0;
+      let total = 0;
+      let count = 0;
+
+      if (studentProgress && studentProgress.length > 0) {
+        const matches = studentProgress.filter((sp) => {
+          const matchPeriod = sp.month_key === period.id || sp.month_key === period.name;
+          const matchType =
+            progressScheme === 'Total Hafalan'
+              ? sp.progress_type === 'Total Hafalan' || sp.progress_type === 'Hafalan'
+              : sp.progress_type?.toLowerCase() === progressScheme.toLowerCase();
+          return matchPeriod && matchType;
+        });
+
+        if (matches.length > 0) {
+          matches.forEach((m) => {
+            const val = parseFloat(m.value) || 0;
+            if (!isNaN(val)) {
+              total += val;
+              count++;
+            }
+          });
+          avg = count > 0 ? parseFloat((total / count).toFixed(1)) : 0;
+        }
+      }
+
+      return {
+        name: period.name,
+        value: avg
+      };
+    });
+  }, [appSettings, studentProgress, studentEvaluations, progressScheme]);
+
+  // --------------------------------------------------------------------------
+  // ROW 4 KANAN: STATISTIK KEHADIRAN PER MARHALAH — 100% DATA ASLI
+  // --------------------------------------------------------------------------
+  const marhalahStats = useMemo(() => {
+    const list =
+      masterMarhalahs && masterMarhalahs.length > 0
+        ? masterMarhalahs.map((m: any) => m.nama)
+        : ['Marhalah Ula', 'Marhalah Wustha', 'Marhalah Ulya'];
+
+    return list.map((mName: string) => {
+      const filteredAtt = (attendance || []).filter((a) => {
+        const matchesDate =
+          (!marhalahDateRange.startDate || a.date >= marhalahDateRange.startDate) &&
+          (!marhalahDateRange.endDate || a.date <= marhalahDateRange.endDate);
+        const matchesWaktu =
+          marhalahDateRange.waktu === 'all' ||
+          a.waktu?.toLowerCase() === marhalahDateRange.waktu.toLowerCase();
+        const matchesMarhalah = a.marhalah?.toLowerCase() === mName.toLowerCase();
+        return matchesDate && matchesWaktu && matchesMarhalah;
+      });
+
+      let hadir = 0;
+      let izin = 0;
+      let sakit = 0;
+      let alpa = 0;
+
+      filteredAtt.forEach((item) => {
+        const sLower = (item.status || '').toLowerCase();
+        if (sLower === 'hadir' || sLower === 'terlambat') hadir++;
+        else if (sLower === 'izin') izin++;
+        else if (sLower === 'sakit') sakit++;
+        else if (sLower === 'alpa' || sLower === 'alpha') alpa++;
+      });
+
+      const total = hadir + izin + sakit + alpa;
+      const pct = total > 0 ? Math.round((hadir / total) * 100) : 0;
+
+      return {
+        marhalah: mName,
+        percentage: pct,
+        hadir,
+        izin,
+        sakit,
+        alpa,
+        total
+      };
+    });
+  }, [masterMarhalahs, attendance, marhalahDateRange]);
+
+  // Statistik Kehadiran Kumulatif Santri
+  const overallAttendanceStats = useMemo(() => {
+    let hadir = 0;
+    let izin = 0;
+    let sakit = 0;
+    let terlambat = 0;
+    let alpa = 0;
+
+    (attendance || []).forEach((a) => {
+      const sLower = (a.status || '').toLowerCase();
+      if (sLower === 'hadir') hadir++;
+      else if (sLower === 'terlambat') terlambat++;
+      else if (sLower === 'izin') izin++;
+      else if (sLower === 'sakit') sakit++;
+      else if (sLower === 'alpa' || sLower === 'alpha') alpa++;
+    });
+
+    const total = hadir + izin + sakit + terlambat + alpa;
+    const rate = total > 0 ? Math.round(((hadir + terlambat) / total) * 100) : 0;
+
+    return { hadir, izin, sakit, terlambat, alpa, total, rate };
+  }, [attendance]);
+
+  // Loading & Error States
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#F3F6FB]">
+        <div className="text-center p-8 bg-white rounded-2xl shadow-sm border border-slate-200">
+          <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-xs font-semibold text-slate-700">Memuat dashboard operasional...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8 text-center bg-rose-50 rounded-2xl border border-rose-200 text-rose-700 text-xs font-semibold">
+        Terjadi kendala saat memuat data: {error}
+      </div>
+    );
+  }
 
   return (
-    <>
-      <div className="space-y-4 sm:space-y-6 lg:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20 max-w-[1400px] font-sans">
-      
-      {/* Filter Lanjutan Inline */}
-      {showAdvancedFilter && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-5 animate-in slide-in-from-top-2 duration-300">
-            <div className="flex justify-between items-center mb-3 sm:mb-4">
-                <h3 className="font-semibold text-slate-800 text-xs sm:text-sm flex items-center">
-                    <Filter size={16} className="mr-2 text-blue-500" />
-                    Filter Lanjutan
-                </h3>
-                <button onClick={() => setShowAdvancedFilter(false)} className="text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full p-1 transition-colors">
-                    <X size={16} />
-                </button>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                 <div>
-                     <label className="block text-[11px] font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Marhalah</label>
-                     <select 
-                         value={globalFilter.marhalah}
-                         onChange={(e) => setGlobalFilter({...globalFilter, marhalah: e.target.value})}
-                         className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs sm:text-sm rounded-xl focus:ring-blue-500 focus:border-blue-500 block p-2 sm:p-2.5 transition-colors outline-none cursor-pointer"
-                     >
-                         <option value="all">Semua Marhalah</option>
-                         {globalMarhalahs.map(m => <option key={m} value={m}>{m}</option>)}
-                     </select>
-                 </div>
-                 <div>
-                     <label className="block text-[11px] font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Kelas</label>
-                     <select 
-                         value={globalFilter.kelas}
-                         onChange={(e) => setGlobalFilter({...globalFilter, kelas: e.target.value})}
-                         className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs sm:text-sm rounded-xl focus:ring-blue-500 focus:border-blue-500 block p-2 sm:p-2.5 transition-colors outline-none cursor-pointer"
-                     >
-                         <option value="all">Semua Kelas</option>
-                         {(globalFilter.marhalah !== 'all' ? masterKelas.filter(m => m.marhalah === globalFilter.marhalah).map(m => m.nama_kelas) : []).map(k => <option key={k} value={k}>{k}</option>)}
-                     </select>
-                 </div>
-                 <div>
-                     <label className="block text-[11px] font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Halaqah</label>
-                     <select 
-                         value={globalFilter.halaqah}
-                         onChange={(e) => setGlobalFilter({...globalFilter, halaqah: e.target.value})}
-                         className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs sm:text-sm rounded-xl focus:ring-blue-500 focus:border-blue-500 block p-2 sm:p-2.5 transition-colors outline-none cursor-pointer"
-                     >
-                         <option value="all">Semua Halaqah</option>
-                         {[...halaqah].sort((a,b)=>a.nama.localeCompare(b.nama)).map(h => <option key={h.id} value={h.id.toString()}>{h.nama}</option>)}
-                     </select>
-                 </div>
-            </div>
+    <div className="space-y-6 pb-12 font-sans max-w-[1400px] mx-auto">
+      {/* =====================================================================
+          HEADER ATAS (Greeting + Tanggal + Action Buttons)
+      ===================================================================== */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#E1E7EF]">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#101828]">
+            Assalamualaikum, {userProfile?.name || 'Ustadz'}
+          </h1>
+          <p className="text-xs sm:text-sm text-[#667085] mt-0.5 capitalize">
+            {format(new Date(), 'EEEE, dd MMMM yyyy', { locale: localeId })}
+          </p>
         </div>
-      )}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => navigate('/app/attendance-book')}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] border border-[#E1E7EF] bg-white hover:bg-[#F3F6FB] text-xs font-semibold text-[#344054] shadow-2xs transition-colors"
+          >
+            <BookOpen size={14} className="text-[#667085]" />
+            Buku Absensi
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/app/sessions')}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[10px] bg-[#1557D5] hover:bg-[#1E40AF] text-white text-xs font-semibold shadow-xs transition-colors"
+          >
+            Buka Ruang Sesi →
+          </button>
+        </div>
+      </div>
 
-      {/* Panel Kontekstual Operasional Harian (Fase 7: Beranda Musammi vs Monitoring Sesi Admin) */}
-      {userRole === 'musammi' ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-xs space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* =====================================================================
+          ROW 1: 4 KARTU KPI RINGKAS & TINGGI DIPERPENDEK
+      ===================================================================== */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        {/* KPI 1: Total Santri */}
+        <div className="bg-white rounded-[14px] border border-[#E1E7EF] p-4 shadow-2xs flex flex-col justify-between">
+          <span className="text-[11px] font-semibold text-[#667085] uppercase tracking-wider">
+            Total Santri
+          </span>
+          <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-[#101828] tabular-nums">
+            {totalSantriAktif}
+          </div>
+          <div className="mt-1 text-[11px] text-[#667085]">
+            santri aktif terdaftar
+          </div>
+        </div>
+
+        {/* KPI 2: Total Musammi' */}
+        <div className="bg-white rounded-[14px] border border-[#E1E7EF] p-4 shadow-2xs flex flex-col justify-between">
+          <span className="text-[11px] font-semibold text-[#667085] uppercase tracking-wider">
+            Total Musammi'
+          </span>
+          <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-[#101828] tabular-nums">
+            {totalMusammi}
+          </div>
+          <div className="mt-1 text-[11px] text-[#667085]">
+            pengampu halaqah aktif
+          </div>
+        </div>
+
+        {/* KPI 3: Total Halaqah */}
+        <div className="bg-white rounded-[14px] border border-[#E1E7EF] p-4 shadow-2xs flex flex-col justify-between">
+          <span className="text-[11px] font-semibold text-[#667085] uppercase tracking-wider">
+            Total Halaqah
+          </span>
+          <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-[#101828] tabular-nums">
+            {totalHalaqahAktif}
+          </div>
+          <div className="mt-1 text-[11px] text-[#667085]">
+            kelompok halaqah berjalan
+          </div>
+        </div>
+
+        {/* KPI 4: Sesi Berjalan (Murni Angka & per hari ini, tanpa jadwal sholat) */}
+        <div className="bg-white rounded-[14px] border border-[#E1E7EF] p-4 shadow-2xs flex flex-col justify-between">
+          <span className="text-[11px] font-semibold text-[#667085] uppercase tracking-wider">
+            Sesi Berjalan
+          </span>
+          <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-[#101828] tabular-nums">
+            {sessionKpi.completed} / {sessionKpi.total}
+          </div>
+          <div className="mt-1 text-[11px] text-[#667085]">
+            per hari ini
+          </div>
+        </div>
+      </div>
+
+      {/* =====================================================================
+          GRID BARIS 1: TREN PERSENTASE 30 HARI (65%) & HAL MENDESAK (35%)
+      ===================================================================== */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Kiri (65% / 8 Kolom): Tren Persentase 30 Hari Terakhir */}
+        <div className="lg:col-span-8 bg-white rounded-[16px] border border-[#E1E7EF] p-5 shadow-2xs flex flex-col justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-4">
             <div>
-              <div className="text-[11px] font-bold uppercase tracking-wider text-blue-600">
-                BERANDA OPERASIONAL MUSAMMI
-              </div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-900 mt-0.5">
-                Jadwal & Sesi Halaqah Saya Hari Ini ({todayString})
+              <h2 className="text-sm sm:text-base font-bold text-[#101828]">
+                Tren Persentase (30 Hari Terakhir)
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Pilih sesi halaqah binaan Anda untuk membuka absensi batch atau mencatat setoran Al-Qur'an terstruktur.
+              <p className="text-xs text-[#667085] mt-0.5">Persentase kehadiran harian santri</p>
+            </div>
+            <div className="inline-flex rounded-[8px] bg-[#F3F6FB] p-0.5 border border-[#E1E7EF]">
+              {(['7', '30', '90'] as const).map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setTrendRange(r)}
+                  className={`px-3 py-1 rounded-[6px] text-xs font-semibold transition-colors ${
+                    trendRange === r
+                      ? 'bg-white text-[#1557D5] shadow-2xs'
+                      : 'text-[#667085] hover:text-[#101828]'
+                  }`}
+                >
+                  {r} hari
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="h-[220px] w-full pt-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart
+                data={lineTrendData}
+                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="attendanceGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#1557D5" stopOpacity={0.12} />
+                    <stop offset="95%" stopColor="#1557D5" stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                <XAxis
+                  dataKey="name"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: '#64748b' }}
+                />
+                <YAxis
+                  domain={[0, 100]}
+                  ticks={[0, 50, 75, 100]}
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: '#64748b' }}
+                  tickFormatter={(val) => `${val}%`}
+                />
+                <Tooltip
+                  wrapperStyle={{ zIndex: 1000 }}
+                  contentStyle={{
+                    borderRadius: '10px',
+                    border: '1px solid #E1E7EF',
+                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05)'
+                  }}
+                  formatter={(val: any) => [`${val}%`, 'Persentase']}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="percentage"
+                  stroke="#1557D5"
+                  strokeWidth={2.5}
+                  fill="url(#attendanceGradient)"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="percentage"
+                  stroke="#1557D5"
+                  strokeWidth={2.5}
+                  dot={{ r: 3, fill: '#1557D5' }}
+                  activeDot={{ r: 5 }}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Kanan (35% / 4 Kolom): Card Hal-Hal Mendesak Perlu Tindakan */}
+        <div className="lg:col-span-4 bg-white rounded-[16px] border border-[#E1E7EF] p-5 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between pb-3 border-b border-[#E1E7EF]">
+              <h2 className="text-sm sm:text-base font-bold text-[#101828]">
+                Hal-Hal Mendesak Perlu Tindakan
+              </h2>
+              <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-800 text-[11px] font-bold flex items-center justify-center">
+                {actionItems.length}
+              </span>
+            </div>
+            <p className="text-xs text-[#667085] mt-1.5 mb-3">
+              Diurutkan dari prioritas operasional lembaga
+            </p>
+
+            <div className="space-y-3">
+              {actionItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="p-3 rounded-[12px] bg-[#F8FAFC] border border-[#E1E7EF] flex items-center justify-between gap-3 hover:border-[#CBD5E1] transition-colors"
+                >
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
+                          item.level === 'mendesak'
+                            ? 'bg-rose-100 text-rose-800'
+                            : item.level === 'hari_ini'
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-blue-100 text-blue-800'
+                        }`}
+                      >
+                        {item.levelLabel}
+                      </span>
+                    </div>
+                    <div className="text-xs font-bold text-[#101828] truncate">{item.title}</div>
+                    <div className="text-[11px] text-[#667085] truncate">{item.subtitle}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={item.onAction}
+                    className="px-3 py-1.5 rounded-[8px] border border-[#E1E7EF] bg-white hover:bg-[#F3F6FB] text-xs font-semibold text-[#101828] transition-colors shrink-0 shadow-2xs"
+                  >
+                    {item.actionLabel}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* =====================================================================
+          GRID BARIS 2: TREN KEHADIRAN 7 HARI (50%) & HAFALAN & MATERI (50%)
+      ===================================================================== */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Kiri (50%): Stacked Bar Kehadiran Minggu Ini */}
+        <div className="bg-white rounded-[16px] border border-[#E1E7EF] p-5 shadow-2xs flex flex-col justify-between">
+          <div className="pb-3">
+            <h2 className="text-sm sm:text-base font-bold text-[#101828]">
+              Tren Kehadiran Seminggu Terakhir
+            </h2>
+            <p className="text-xs text-[#667085] mt-0.5">Distribusi status per hari (Senin – Ahad)</p>
+          </div>
+
+          <div className="h-[240px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={stackedWeeklyData}
+                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                <XAxis
+                  dataKey="name"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: '#64748b' }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: '#64748b' }}
+                />
+                <Tooltip
+                  cursor={{ fill: '#f1f5f9' }}
+                  contentStyle={{
+                    borderRadius: '10px',
+                    border: '1px solid #E1E7EF',
+                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05)'
+                  }}
+                />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
+                <Bar
+                  dataKey="Hadir"
+                  stackId="a"
+                  fill="#1557D5"
+                  name="Hadir"
+                  radius={[0, 0, 0, 0]}
+                />
+                <Bar dataKey="Izin" stackId="a" fill="#60A5FA" name="Izin" />
+                <Bar dataKey="Sakit" stackId="a" fill="#F59E0B" name="Sakit" />
+                <Bar dataKey="Terlambat" stackId="a" fill="#F97316" name="Terlambat" />
+                <Bar
+                  dataKey="Alpa"
+                  stackId="a"
+                  fill="#EF4444"
+                  name="Alpa"
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Kanan (50%): Tren Perkembangan Hafalan dan Materi */}
+        <div className="bg-white rounded-[16px] border border-[#E1E7EF] p-5 shadow-2xs flex flex-col justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-3">
+            <div>
+              <h2 className="text-sm sm:text-base font-bold text-[#101828]">
+                Tren Perkembangan Hafalan dan Materi
+              </h2>
+              <p className="text-xs text-[#667085] mt-0.5">
+                Rata-rata halaman/juz per santri per periode evaluasi
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => navigate('/app/my-halaqah')}
-                className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700"
-              >
-                Halaqah & Progres Binaan
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/app/my-schedule')}
-                className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700"
-              >
-                Jadwal & Riwayat Saya
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/app/sessions')}
-                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold"
-              >
-                Buka Ruang Sesi →
-              </button>
-            </div>
+            <select
+              value={progressScheme}
+              onChange={(e) => setProgressScheme(e.target.value)}
+              className="border border-[#E1E7EF] rounded-[8px] px-2.5 py-1 text-xs font-semibold text-[#344054] bg-white focus:outline-none focus:border-[#1557D5]"
+            >
+              <option value="Total Hafalan">Total hafalan</option>
+              <option value="Ziyadah">Ziyadah</option>
+              <option value="Murojaah">Muroja'ah</option>
+            </select>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {myHalaqahs.map((mh) => {
-              const todayAttCount = (attendance || []).filter(
-                (a) => a.date === todayString && a.halaqahId === mh.id && a.peran === 'Santri'
-              ).length;
-              const todayRecCount = (setoranHarian || []).filter(
-                (r: any) => r.tanggal === todayString && r.halaqah_id === mh.id
-              ).length;
-              return (
-                <div
-                  key={mh.id}
-                  className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/60 flex flex-col justify-between gap-3"
-                >
-                  <div>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="text-sm font-bold text-slate-900">{mh.nama}</div>
-                      <StatusBadge
-                        label={todayAttCount > 0 ? 'SESI TERCATAT' : 'BELUM DIISI'}
-                        tone={todayAttCount > 0 ? 'success' : 'warning'}
-                      />
-                    </div>
-                    <div className="text-xs text-slate-500 mt-1">
-                      {mh.marhalah} · {mh.active_santri?.length || mh.santri?.length || 0} Santri · Jadwal:{' '}
-                      {(mh.waktu || []).join(', ') || 'Shubuh'}
-                    </div>
-                  </div>
-                  <div className="pt-2.5 border-t border-slate-200/80 flex items-center justify-between text-xs">
-                    <span className="text-slate-600 font-medium">
-                      Hari ini: {todayAttCount} absensi · {todayRecCount} setoran
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        navigate(
-                          `/app/sessions?halaqahId=${mh.id}&date=${todayString}&slot=${
-                            mh.waktu?.[0] || 'Shubuh'
-                          }`
-                        )
-                      }
-                      className="font-semibold text-blue-600 hover:text-blue-800"
-                    >
-                      Lanjutkan Sesi →
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="h-[240px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart
+                data={hafalanTrendData}
+                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="hafalanGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#10B981" stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                <XAxis
+                  dataKey="name"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: '#64748b' }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: '#64748b' }}
+                />
+                <Tooltip
+                  wrapperStyle={{ zIndex: 1000 }}
+                  contentStyle={{
+                    borderRadius: '10px',
+                    border: '1px solid #E1E7EF',
+                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05)'
+                  }}
+                  formatter={(val: any) => [`${val}`, progressScheme]}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#10B981"
+                  strokeWidth={2.5}
+                  fill="url(#hafalanGradient)"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#10B981"
+                  strokeWidth={2.5}
+                  dot={{ r: 4, fill: '#10B981' }}
+                  activeDot={{ r: 6 }}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
           </div>
         </div>
-      ) : (
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      </div>
+
+      {/* =====================================================================
+          GRID BARIS 3: SANTRI PERLU PERHATIAN (65%) & STATISTIK KEHADIRAN (35%)
+      ===================================================================== */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Kiri (65% / 8 Kolom): SECTION SANTRI-SANTRI PERLU PERHATIAN */}
+        <div className="lg:col-span-8 bg-white rounded-[16px] border border-[#E1E7EF] p-5 shadow-2xs flex flex-col justify-between">
           <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-blue-600">
-                MONITORING OPERASIONAL HARIAN ADMIN
-              </span>
-              <StatusBadge
-                label={`${
-                  halaqah.filter(
-                    (h) =>
-                      h.is_active !== false &&
-                      !(attendance || []).some(
-                        (a) => a.date === todayString && a.halaqahId === h.id
-                      )
-                  ).length
-                } HALAQAH BELUM ISI ABSENSI HARI INI`}
-                tone="warning"
-              />
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#E1E7EF]">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm sm:text-base font-bold text-[#101828]">
+                    Santri-Santri Perlu Perhatian
+                  </h2>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                      santriPerluPerhatian.totalNeedingAttention > 0
+                        ? 'bg-rose-100 text-rose-800'
+                        : 'bg-emerald-100 text-emerald-800'
+                    }`}
+                  >
+                    {santriPerluPerhatian.totalNeedingAttention} Santri
+                  </span>
+                </div>
+                <p className="text-xs text-[#667085] mt-0.5">
+                  Menampilkan santri-santri yang banyak alfa dan terlambatnya
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/app/attendance-book')}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-[#1557D5] hover:text-[#1E40AF] transition-colors"
+              >
+                Buku Absensi Lengkap
+                <ChevronRight size={14} />
+              </button>
             </div>
-            <p className="text-xs sm:text-sm text-slate-600 mt-1">
-              Pantau kelengkapan sesi halaqah hari ini ({todayString}), tinjau setoran santri yang
-              diajukan Musammi, atau lakukan koreksi kehadiran teraudit.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => navigate('/app/sessions')}
-              className="px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold"
-            >
-              Monitoring Ruang Sesi
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/app/attendance')}
-              className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700"
-            >
-              Input & Koreksi Absensi
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/app/recitations')}
-              className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700"
-            >
-              Validasi Ledger Setoran
-            </button>
+
+            {/* List / Tabel Santri Perlu Perhatian */}
+            {santriPerluPerhatian.items.length === 0 ? (
+              <div className="py-12 px-4 text-center">
+                <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3">
+                  <CheckCircle2 size={24} />
+                </div>
+                <h3 className="text-sm font-bold text-[#101828]">
+                  Tidak ada santri dengan catatan alpa atau terlambat
+                </h3>
+                <p className="text-xs text-[#667085] mt-1 max-w-md mx-auto">
+                  Alhamdulillah, seluruh santri aktif memiliki catatan kehadiran tertib dan tidak memiliki catatan alpa atau keterlambatan berulang.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto mt-3">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-[#E1E7EF] text-[#667085] text-[11px] font-semibold">
+                      <th className="py-2.5 px-3">Santri</th>
+                      <th className="py-2.5 px-2">Halaqah & Pengampu</th>
+                      <th className="py-2.5 px-2 text-center">Akumulasi Alpa</th>
+                      <th className="py-2.5 px-2 text-center">Terlambat</th>
+                      <th className="py-2.5 px-2 text-center">Izin / Sakit</th>
+                      <th className="py-2.5 px-2 text-center">Kehadiran</th>
+                      <th className="py-2.5 px-3">Status & Rekomendasi</th>
+                      <th className="py-2.5 px-2 text-right">Tindakan</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#E1E7EF]">
+                    {santriPerluPerhatian.items.map((s) => (
+                      <tr
+                        key={s.id}
+                        className="hover:bg-[#F3F7FF]/50 transition-colors group"
+                      >
+                        <td className="py-3 px-3">
+                          <div className="font-semibold text-[#101828]">{s.nama}</div>
+                          <div className="text-[11px] text-[#667085]">
+                            NIS: {s.nis} · Kelas {s.kelas}
+                          </div>
+                        </td>
+                        <td className="py-3 px-2">
+                          <div className="font-medium text-[#344054]">{s.halaqahNama}</div>
+                          <div className="text-[11px] text-[#667085]">{s.musammiNama}</div>
+                        </td>
+                        <td className="py-3 px-2 text-center">
+                          {s.alpa > 0 ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800">
+                              {s.alpa} Alpa
+                            </span>
+                          ) : (
+                            <span className="text-[#667085] font-normal">0</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-2 text-center">
+                          {s.terlambat > 0 ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+                              {s.terlambat}x
+                            </span>
+                          ) : (
+                            <span className="text-[#667085] font-normal">0</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-2 text-center">
+                          <span className="text-[11px] text-[#475467] font-medium">
+                            {s.izin} Izin · {s.sakit} Sakit
+                          </span>
+                        </td>
+                        <td className="py-3 px-2 text-center">
+                          <div className="font-semibold text-[#101828]">{s.attRate}%</div>
+                          <div className="w-16 bg-[#E1E7EF] rounded-full h-1.5 mx-auto mt-1 overflow-hidden">
+                            <div
+                              className={`h-1.5 rounded-full ${
+                                s.attRate < 75
+                                  ? 'bg-rose-500'
+                                  : s.attRate < 90
+                                  ? 'bg-amber-500'
+                                  : 'bg-emerald-500'
+                              }`}
+                              style={{ width: `${s.attRate}%` }}
+                            />
+                          </div>
+                        </td>
+                        <td className="py-3 px-3">
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${
+                              s.urgency === 'kritis'
+                                ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                : s.urgency === 'waspada'
+                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                : 'bg-slate-50 text-slate-700 border border-slate-200'
+                            }`}
+                          >
+                            {s.statusKeterangan}
+                          </span>
+                        </td>
+                        <td className="py-3 px-2 text-right">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(`/app/attendance-book?search=${encodeURIComponent(s.nama)}`)
+                            }
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[6px] border border-[#E1E7EF] bg-white hover:bg-[#F3F6FB] text-[11px] font-semibold text-[#344054] shadow-2xs transition-colors whitespace-nowrap"
+                          >
+                            Riwayat
+                            <ExternalLink size={12} className="text-[#667085]" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Catatan Kaki */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-3 mt-3 border-t border-[#E1E7EF] text-[11px] text-[#667085]">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-rose-500" />
+                  Kritis: ≥ 3 Alpa (Peringatan Wali)
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+                  Waspada: 1–2 Alpa / Terlambat
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-blue-500" />
+                  Pantau: Izin/Sakit intensif
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/app/rekap-absensi')}
+                className="text-xs font-semibold text-[#1557D5] hover:text-[#1E40AF] transition-colors"
+              >
+                ➔ Buka Rekap Absensi Global
+              </button>
+            </div>
           </div>
         </div>
-      )}
 
-      {/* Summary Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 xl:gap-6">
-        
-        {/* Card 1: Total Santri */}
-        <WidgetCard className="flex flex-col justify-between !rounded-2xl !p-4 sm:!p-6 shadow-sm hover:shadow-md transition-shadow bg-white">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2 text-slate-600">
-                    <Users size={18} strokeWidth={2}/>
-                    <p className="text-sm sm:text-[15px] font-medium">{userRole === 'musammi' ? 'Santri Halaqah Saya' : 'Total Santri'}</p>
-                </div>
+        {/* Kanan (35% / 4 Kolom): Statistik Kehadiran */}
+        <div className="lg:col-span-4 bg-white rounded-[16px] border border-[#E1E7EF] p-5 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="pb-3 border-b border-[#E1E7EF]">
+              <h2 className="text-sm sm:text-base font-bold text-[#101828]">Statistik Kehadiran</h2>
+              <p className="text-xs text-[#667085] mt-0.5">
+                Ketercapaian presensi lembaga dan per marhalah
+              </p>
             </div>
-            
-            <div className="mt-3 sm:mt-4">
-                <p className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-800">{displaySantri.length}</p>
-            </div>
-            
-            {userRole !== 'musammi' && (
-              <div className="mt-4 sm:mt-6 flex-1 flex flex-col justify-end">
-                  <div className="h-1.5 w-full flex rounded-full overflow-hidden bg-slate-100">
-                      {marhalahDistribution.map(item => (
-                          <div 
-                              key={item.nama} 
-                              className={item.color.bg} 
-                              style={{ width: `${item.percentage}%` }}
-                              title={`${item.nama}: ${item.count} santri (${item.percentage}%)`}
-                          />
-                      ))}
-                  </div>
-                  <div className="flex flex-wrap items-center justify-between gap-x-2.5 gap-y-1.5 mt-3 text-[11px] font-medium text-slate-500">
-                      {marhalahDistribution.map(item => (
-                          <div key={item.nama} className="flex items-center">
-                              <div className={`w-2 h-2 rounded-full ${item.color.dot} mr-1.5 flex-shrink-0`}></div>
-                              <span className="truncate max-w-[120px] sm:max-w-[85px]" title={item.nama}>
-                                  {item.nama}
-                              </span>
-                              <span className="ml-1 text-slate-400">({item.percentage}%)</span>
-                          </div>
-                      ))}
-                  </div>
+
+            {/* Ringkasan Keseluruhan Lembaga */}
+            <div className="p-3.5 rounded-[12px] bg-[#F8FAFC] border border-[#E1E7EF] mt-3 mb-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-[#667085]">Tingkat Kehadiran Global</span>
+                <span className="text-base font-extrabold text-[#1557D5] tabular-nums">
+                  {overallAttendanceStats.rate}%
+                </span>
               </div>
-            )}
-        </WidgetCard>
-
-        {userRole !== 'musammi' && (
-          <WidgetCard className="flex flex-col justify-between !rounded-2xl !p-4 sm:!p-6 shadow-sm hover:shadow-md transition-shadow bg-white">
-              <div className="flex items-center space-x-2 text-slate-600">
-                  <UserCheck size={18} strokeWidth={2}/>
-                  <p className="text-sm sm:text-[15px] font-medium">Total Musammi'</p>
+              <div className="w-full bg-[#E1E7EF] rounded-full h-2 mt-2 overflow-hidden">
+                <div
+                  className="bg-[#1557D5] h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${overallAttendanceStats.rate}%` }}
+                />
               </div>
-              
-              <div className="mt-3 sm:mt-4">
-                  <p className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-800">{musammi.length}</p>
-              </div>
-              
-              <div className="mt-4 sm:mt-6 flex-1 flex flex-col justify-end">
-                  <button onClick={() => onNavigate && onNavigate('DataMusammi')} className="text-xs font-semibold text-slate-500 hover:text-slate-800 flex items-center transition-colors text-left focus:outline-none">
-                      Lihat daftar pengajar <ArrowUpRight size={14} className="ml-1" />
-                  </button>
-              </div>
-          </WidgetCard>
-        )}
-
-        {/* Card 3: Total Halaqah */}
-        <WidgetCard className="flex flex-col justify-between !rounded-2xl !p-4 sm:!p-6 shadow-sm hover:shadow-md transition-shadow bg-white">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2 text-slate-600">
-                    <BookOpen size={18} strokeWidth={2}/>
-                    <p className="text-sm sm:text-[15px] font-medium">{userRole === 'musammi' ? 'Halaqah Saya' : 'Total Halaqah'}</p>
-                </div>
-                <div className="bg-slate-100 text-slate-600 text-xs font-semibold px-2.5 py-0.5 rounded-full">
-                    Aktif
-                </div>
-            </div>
-            
-            <div className="mt-3 sm:mt-4">
-                <p className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-800">{displayHalaqahCount}</p>
-            </div>
-            
-            {userRole !== 'musammi' && (
-              <div className="mt-4 sm:mt-6 flex-1 flex flex-col justify-end">
-                  <button onClick={() => onNavigate && onNavigate('DataHalaqah')} className="text-xs font-semibold text-slate-500 hover:text-slate-800 flex items-center transition-colors text-left focus:outline-none">
-                      Kelola kelompok belajar <ArrowUpRight size={14} className="ml-1" />
-                  </button>
-              </div>
-            )}
-        </WidgetCard>
-
-        
-        {/* Card 4: Sesi Berjalan */}
-        <WidgetCard className="flex flex-col justify-between !rounded-2xl !p-4 sm:!p-6 shadow-sm hover:shadow-md transition-shadow bg-white">
-            <div className="flex items-center space-x-2 text-slate-600">
-                <Clock size={18} strokeWidth={2}/>
-                <p className="text-sm sm:text-[15px] font-medium">Sesi Berjalan</p>
-            </div>
-            
-            <div className="mt-3 sm:mt-4 flex items-baseline">
-                <p className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-800">{waktuStats.total}</p>
-                <p className="ml-2 text-slate-500 text-xs sm:text-sm font-medium">/ hari ini</p>
-            </div>
-            
-            <div className="mt-4 sm:mt-6 flex-1 flex flex-col justify-end">
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="flex justify-between items-center bg-slate-50 px-2 sm:px-2.5 py-1.5 rounded-md">
-                        <span className="text-slate-500 font-medium">Shubuh</span>
-                        <span className="font-semibold text-slate-800">{waktuStats[Waktu.Shubuh]}</span>
-                    </div>
-                    <div className="flex justify-between items-center bg-slate-50 px-2 sm:px-2.5 py-1.5 rounded-md">
-                        <span className="text-slate-500 font-medium">Dhuha</span>
-                        <span className="font-semibold text-slate-800">{waktuStats[Waktu.Dhuha]}</span>
-                    </div>
-                    <div className="flex justify-between items-center bg-slate-50 px-2 sm:px-2.5 py-1.5 rounded-md">
-                        <span className="text-slate-500 font-medium">Ashar</span>
-                        <span className="font-semibold text-slate-800">{waktuStats[Waktu.Ashar]}</span>
-                    </div>
-                    <div className="flex justify-between items-center bg-slate-50 px-2 sm:px-2.5 py-1.5 rounded-md">
-                        <span className="text-slate-500 font-medium">Isya</span>
-                        <span className="font-semibold text-slate-800">{waktuStats[Waktu.Isya]}</span>
-                    </div>
-                </div>
-            </div>
-        </WidgetCard>
-
-        {userRole === 'musammi' && myAttendanceStats && (
-            <WidgetCard className="flex flex-col justify-between !rounded-2xl !p-4 sm:!p-6 shadow-sm hover:shadow-md transition-shadow bg-white">
-                <div className="flex items-center space-x-2 text-slate-600">
-                    <UserCheck size={18} strokeWidth={2}/>
-                    <p className="text-sm sm:text-[15px] font-medium">Kehadiran Saya</p>
-                </div>
-                
-                <div className="mt-3 sm:mt-4 flex items-baseline">
-                    <p className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-800">{myAttendanceStats.percentage}%</p>
-                    <p className="ml-2 text-slate-500 text-xs sm:text-sm font-medium">hadir</p>
-                </div>
-                
-                <div className="mt-4 sm:mt-6 flex-1 flex flex-col justify-end">
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div className="flex justify-between items-center bg-slate-50 px-2 sm:px-2.5 py-1.5 rounded-md">
-                            <span className="text-slate-500 font-medium">Izin</span>
-                            <span className="font-semibold text-slate-800">{myAttendanceStats.Izin}</span>
-                        </div>
-                        <div className="flex justify-between items-center bg-slate-50 px-2 sm:px-2.5 py-1.5 rounded-md">
-                            <span className="text-slate-500 font-medium">Sakit</span>
-                            <span className="font-semibold text-slate-800">{myAttendanceStats.Sakit}</span>
-                        </div>
-                        <div className="flex justify-between items-center bg-slate-50 px-2 sm:px-2.5 py-1.5 rounded-md">
-                            <span className="text-slate-500 font-medium">Alpa</span>
-                            <span className="font-semibold text-slate-800">{myAttendanceStats.Alpa}</span>
-                        </div>
-                        <div className="flex justify-between items-center bg-slate-50 px-2 sm:px-2.5 py-1.5 rounded-md">
-                            <span className="text-slate-500 font-medium">Terlambat</span>
-                            <span className="font-semibold text-slate-800">{myAttendanceStats.Terlambat}</span>
-                        </div>
-                    </div>
-                </div>
-            </WidgetCard>
-        )}
-
-      </div>
-      
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 gap-4 sm:gap-6">
-          {/* Bar Chart - Tren Kehadiran */}
-          <Card className="!rounded-2xl !p-4 sm:!p-6 border-slate-200 w-full overflow-hidden bg-white shadow-sm">
-            <div className="flex items-start justify-between mb-4 sm:mb-6 gap-2">
+              <div className="grid grid-cols-5 gap-1 text-center mt-3 pt-2.5 border-t border-[#E1E7EF] text-[10px]">
                 <div>
-                    <h2 className="text-sm sm:text-base font-semibold text-slate-800">
-                        Tren Kehadiran ({attendanceRange === '7' ? 'Seminggu Terakhir' : '30 Hari Terakhir'})
-                    </h2>
-                    <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                        Distribusi absensi harian dalam {attendanceRange === '7' ? '7' : '30'} hari terakhir.
-                    </p>
+                  <div className="font-bold text-[#101828]">{overallAttendanceStats.hadir}</div>
+                  <div className="text-[#667085]">Hadir</div>
                 </div>
-                <div className="relative shrink-0" ref={attendanceMenuRef}>
-                    <button
-                        onClick={() => setIsAttendanceMenuOpen(!isAttendanceMenuOpen)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors focus:outline-none"
-                        title="Opsi Chart"
-                        aria-label="Opsi Chart Kehadiran"
-                    >
-                        <MoreVertical size={18} />
-                    </button>
-                    {isAttendanceMenuOpen && (
-                        <div className="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-lg border border-slate-200 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-150">
-                            <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                Rentang Waktu
-                            </div>
-                            <button
-                                onClick={() => {
-                                    setAttendanceRange('7');
-                                    setIsAttendanceMenuOpen(false);
-                                }}
-                                className={`w-full text-left px-3.5 py-2 text-xs flex items-center justify-between transition-colors ${
-                                    attendanceRange === '7' ? 'text-blue-600 font-semibold bg-blue-50/60' : 'text-slate-700 hover:bg-slate-50'
-                                }}`}
-                            >
-                                <span>Seminggu Terakhir</span>
-                                {attendanceRange === '7' && <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>}
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setAttendanceRange('30');
-                                    setIsAttendanceMenuOpen(false);
-                                }}
-                                className={`w-full text-left px-3.5 py-2 text-xs flex items-center justify-between transition-colors ${
-                                    attendanceRange === '30' ? 'text-blue-600 font-semibold bg-blue-50/60' : 'text-slate-700 hover:bg-slate-50'
-                                }}`}
-                            >
-                                <span>30 Hari Terakhir</span>
-                                {attendanceRange === '30' && <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>}
-                            </button>
-                            <div className="my-1 border-t border-slate-100"></div>
-                            <button
-                                onClick={() => {
-                                    setIsAttendanceMenuOpen(false);
-                                    handleDownloadAttendanceChart();
-                                }}
-                                className="w-full text-left px-3.5 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center transition-colors"
-                            >
-                                <Download size={14} className="mr-2 text-slate-400" />
-                                <span>Download</span>
-                            </button>
-                        </div>
-                    )}
+                <div>
+                  <div className="font-bold text-amber-600">{overallAttendanceStats.terlambat}</div>
+                  <div className="text-[#667085]">Terlambat</div>
                 </div>
+                <div>
+                  <div className="font-bold text-blue-600">{overallAttendanceStats.izin}</div>
+                  <div className="text-[#667085]">Izin</div>
+                </div>
+                <div>
+                  <div className="font-bold text-orange-600">{overallAttendanceStats.sakit}</div>
+                  <div className="text-[#667085]">Sakit</div>
+                </div>
+                <div>
+                  <div className="font-bold text-rose-600">{overallAttendanceStats.alpa}</div>
+                  <div className="text-[#667085]">Alpa</div>
+                </div>
+              </div>
             </div>
-            
-            <div className="overflow-x-auto hide-scrollbar -mx-1 sm:mx-0">
-                <div className="h-[260px] sm:h-[300px] w-full min-w-[340px] sm:min-w-[500px]" ref={attendanceChartRef}>
-                    <AttendanceColumnChart data={weeklyAttendanceData} keys={globalAttendanceStatus} />
-                </div>
-            </div>
-          </Card>
 
-          {/* Area/Line Chart - Tren Persentase */}
-          <Card className="!rounded-2xl !p-4 sm:!p-6 border-slate-200 w-full overflow-hidden bg-white shadow-sm">
-             <div className="flex items-start justify-between mb-4 sm:mb-6 gap-2">
-                <div>
-                    <h2 className="text-sm sm:text-base font-semibold text-slate-800">
-                        Tren Persentase ({percentageRange === '30d' ? '30 Hari Terakhir' : percentageRange === '6m' ? '6 Bulan Terakhir' : '1 Tahun Terakhir'})
-                    </h2>
-                    <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                        {percentageRange === '30d' && 'Pergerakan persentase kehadiran harian secara proporsional.'}
-                        {percentageRange === '6m' && 'Pergerakan persentase kehadiran dalam 6 bulan terakhir.'}
-                        {percentageRange === '1y' && 'Pergerakan persentase kehadiran dalam 1 tahun terakhir.'}
-                    </p>
-                </div>
-                <div className="relative shrink-0" ref={percentageMenuRef}>
-                    <button
-                        onClick={() => setIsPercentageMenuOpen(!isPercentageMenuOpen)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors focus:outline-none"
-                        title="Opsi Chart"
-                        aria-label="Opsi Chart Persentase"
-                    >
-                        <MoreVertical size={18} />
-                    </button>
-                    {isPercentageMenuOpen && (
-                        <div className="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-lg border border-slate-200 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-150">
-                            <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                Rentang Waktu
-                            </div>
-                            <button
-                                onClick={() => {
-                                    setPercentageRange('30d');
-                                    setIsPercentageMenuOpen(false);
-                                }}
-                                className={`w-full text-left px-3.5 py-2 text-xs flex items-center justify-between transition-colors ${
-                                    percentageRange === '30d' ? 'text-blue-600 font-semibold bg-blue-50/60' : 'text-slate-700 hover:bg-slate-50'
-                                }}`}
-                            >
-                                <span>30 Hari Terakhir</span>
-                                {percentageRange === '30d' && <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>}
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setPercentageRange('6m');
-                                    setIsPercentageMenuOpen(false);
-                                }}
-                                className={`w-full text-left px-3.5 py-2 text-xs flex items-center justify-between transition-colors ${
-                                    percentageRange === '6m' ? 'text-blue-600 font-semibold bg-blue-50/60' : 'text-slate-700 hover:bg-slate-50'
-                                }}`}
-                            >
-                                <span>6 Bulan Terakhir</span>
-                                {percentageRange === '6m' && <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>}
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setPercentageRange('1y');
-                                    setIsPercentageMenuOpen(false);
-                                }}
-                                className={`w-full text-left px-3.5 py-2 text-xs flex items-center justify-between transition-colors ${
-                                    percentageRange === '1y' ? 'text-blue-600 font-semibold bg-blue-50/60' : 'text-slate-700 hover:bg-slate-50'
-                                }}`}
-                            >
-                                <span>1 Tahun Terakhir</span>
-                                {percentageRange === '1y' && <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>}
-                            </button>
-                            <div className="my-1 border-t border-slate-100"></div>
-                            <button
-                                onClick={() => {
-                                    setIsPercentageMenuOpen(false);
-                                    handleDownloadPercentageChart();
-                                }}
-                                className="w-full text-left px-3.5 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center transition-colors"
-                            >
-                                <Download size={14} className="mr-2 text-slate-400" />
-                                <span>Download</span>
-                            </button>
-                        </div>
-                    )}
-                </div>
-             </div>
-             
-             <div className="overflow-x-auto hide-scrollbar -mx-1 sm:mx-0">
-                 <div className="h-[260px] sm:h-[300px] w-full min-w-[360px] sm:min-w-[600px]" ref={percentageChartRef}>
-                    <MultiLineChart data={trendData} isPercentage={true} keys={globalAttendanceStatus} />
-                 </div>
-             </div>
-          </Card>
-          {/* Line Chart Progress */}
-          <Card className="!rounded-2xl !p-4 sm:!p-6 border-slate-200 w-full overflow-hidden bg-white shadow-sm">
-             <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
-                <div>
-                    <h2 className="text-sm sm:text-base font-semibold text-slate-800">Tren Perkembangan Hafalan / Materi</h2>
-                    <p className="text-xs sm:text-sm text-slate-500 mt-0.5">Grafik rata-rata dari skema perkembangan santri.</p>
-                </div>
-                <select 
-                    className="border border-slate-200 text-slate-600 font-medium rounded-xl text-xs sm:text-sm py-2 px-3 bg-white shadow-sm focus:ring-2 focus:ring-blue-100 focus:outline-none focus:border-blue-500 transition-all cursor-pointer w-full sm:w-auto"
-                    value={progressChartScheme}
-                    onChange={(e) => setProgressChartScheme(e.target.value)}
+            {/* Filter Tanggal & Waktu Mini */}
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <input
+                type="date"
+                value={marhalahDateRange.startDate}
+                onChange={(e) =>
+                  setMarhalahDateRange({ ...marhalahDateRange, startDate: e.target.value })
+                }
+                className="border border-[#E1E7EF] rounded-[8px] px-2 py-1.5 text-xs text-[#101828] bg-white focus:outline-none focus:border-[#1557D5]"
+              />
+              <select
+                value={marhalahDateRange.waktu}
+                onChange={(e) =>
+                  setMarhalahDateRange({ ...marhalahDateRange, waktu: e.target.value })
+                }
+                className="border border-[#E1E7EF] rounded-[8px] px-2 py-1.5 text-xs font-medium text-[#344054] bg-white focus:outline-none focus:border-[#1557D5]"
+              >
+                <option value="all">Semua Waktu</option>
+                <option value="Shubuh">Shubuh</option>
+                <option value="Ashar">Ashar</option>
+                <option value="Maghrib">Maghrib</option>
+                <option value="Isya">Isya</option>
+              </select>
+            </div>
+
+            {/* List Progress Bar per Marhalah */}
+            <div className="space-y-3">
+              {marhalahStats.map((item) => (
+                <div
+                  key={item.marhalah}
+                  className="p-3 rounded-[12px] bg-[#F8FAFC] border border-[#E1E7EF] space-y-2"
                 >
-                    <option value="Total Hafalan">Total Hafalan</option>
-                    <option value="Hafalan Depan">Hafalan Depan</option>
-                    <option value="Hafalan Belakang">Hafalan Belakang</option>
-                    <option value="Ziyadah">Ziyadah</option>
-                    <option value="Murojaah">Murojaah</option>
-                </select>
-             </div>
-             
-             <div className="overflow-x-auto hide-scrollbar -mx-1 sm:mx-0">
-                 <div className="h-[260px] sm:h-[300px] w-full min-w-[360px] sm:min-w-[600px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={dashboardProgressData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                            <defs>
-                                <linearGradient id="colorValue-dashboard" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15}/>
-                                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} dy={10} />
-                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} dx={-10} />
-                            <Tooltip wrapperStyle={{ zIndex: 1000 }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)' }} cursor={{ fill: '#f8fafc' }} />
-                            <Area 
-                                type="monotone" 
-                                dataKey="value" 
-                                stroke="#3b82f6" 
-                                strokeWidth={2.5} 
-                                fillOpacity={1}
-                                fill="url(#colorValue-dashboard)"
-                                activeDot={{ r: 6, fill: "#3b82f6", stroke: "#ffffff", strokeWidth: 2 }} 
-                                name="Rata-rata" 
-                            />
-                            {averageTarget !== null && (
-                                <Line 
-                                    type="step" 
-                                    dataKey="target" 
-                                    stroke="#f59e0b" 
-                                    strokeWidth={2} 
-                                    strokeDasharray="4 4"
-                                    dot={false}
-                                    activeDot={false}
-                                    name="Target Rata-rata" 
-                                />
-                            )}
-                        </ComposedChart>
-                    </ResponsiveContainer>
-                 </div>
-             </div>
-          </Card>
-      </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-[#101828]">{item.marhalah}</span>
+                    <span className="font-mono font-bold text-[#1557D5]">
+                      {item.percentage}%
+                    </span>
+                  </div>
 
-      {/* Table Section */}
-      <div className="pt-2">
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div>
-                  <h2 className="text-base sm:text-lg font-semibold text-slate-800">Statistik Kehadiran</h2>
-                  <p className="text-xs sm:text-sm text-slate-500 mt-0.5">Berdasarkan filter tanggal dan waktu per marhalah.</p>
-              </div>
+                  {/* Horizontal Bar */}
+                  <div className="w-full bg-[#E1E7EF] rounded-full h-2 overflow-hidden">
+                    <div
+                      className="bg-[#1557D5] h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${item.percentage}%` }}
+                    />
+                  </div>
+
+                  {/* Breakdown Singkat */}
+                  <div className="flex items-center justify-between text-[11px] text-[#667085]">
+                    <span>
+                      Hadir: <b>{item.hadir}</b>
+                    </span>
+                    <span>
+                      Izin: <b>{item.izin}</b>
+                    </span>
+                    <span>
+                      Sakit: <b>{item.sakit}</b>
+                    </span>
+                    <span>
+                      Alpa: <b>{item.alpa}</b>
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-
-          <Card className="!rounded-2xl !p-0 border-slate-200 overflow-hidden bg-white shadow-sm">
-            <div className="bg-slate-50 border-b border-slate-100 p-3 sm:p-4 lg:px-6 lg:py-4 flex flex-col md:flex-row gap-3 sm:gap-4 justify-between items-start md:items-center">
-                <div className="flex items-center text-xs sm:text-sm font-semibold text-slate-700">
-                    Filter Statistik
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 w-full md:w-auto">
-                    <input 
-                        type="date"
-                        className="border-slate-200 text-slate-600 font-medium rounded-xl text-xs sm:text-sm h-10 px-3 bg-white w-full sm:w-auto border shadow-sm focus:ring-2 focus:ring-blue-100 focus:outline-none focus:border-blue-500 transition-all cursor-pointer"
-                        value={statsFilter.startDate}
-                        onChange={(e) => setStatsFilter({...statsFilter, startDate: e.target.value})}
-                    />
-                    <span className="text-slate-400 self-center hidden sm:block">-</span>
-                    <input 
-                        type="date"
-                        className="border-slate-200 text-slate-600 font-medium rounded-xl text-xs sm:text-sm h-10 px-3 bg-white w-full sm:w-auto border shadow-sm focus:ring-2 focus:ring-blue-100 focus:outline-none focus:border-blue-500 transition-all cursor-pointer"
-                        value={statsFilter.endDate}
-                        onChange={(e) => setStatsFilter({...statsFilter, endDate: e.target.value})}
-                    />
-                    <select
-                        className="border-slate-200 text-slate-600 font-medium rounded-xl text-xs sm:text-sm h-10 px-3 bg-white w-full sm:w-auto border shadow-sm focus:ring-2 focus:ring-blue-100 focus:outline-none focus:border-blue-500 transition-all cursor-pointer"
-                        value={statsFilter.waktu}
-                        onChange={(e) => setStatsFilter({...statsFilter, waktu: e.target.value})}
-                    >
-                        <option value="all">Semua Waktu</option>
-                        {globalWaktuHalaqah.map(w => <option key={w} value={w}>{w}</option>)}
-                    </select>
-                </div>
-            </div>
-            <div className="overflow-x-auto hide-scrollbar">
-                <table className="w-full text-xs sm:text-sm text-center whitespace-nowrap">
-                    <thead>
-                        <tr className="border-b border-slate-100 bg-white">
-                            <th className="p-3 sm:p-4 text-left font-semibold text-slate-500 text-[11px] sm:text-xs tracking-wider uppercase">Marhalah</th>
-                            {globalAttendanceStatus?.map(status => (
-                                <th key={status} className="p-3 sm:p-4 font-semibold text-slate-500 text-[11px] sm:text-xs tracking-wider uppercase">
-                                    {status}
-                                </th>
-                            ))}
-                            <th className="p-3 sm:p-4 font-semibold text-slate-800 text-[11px] sm:text-xs tracking-wider uppercase">Total</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {statsData.map((row, idx) => {
-                            const totalRow = globalAttendanceStatus?.reduce((s, status) => s + (row.stats[status] || 0), 0) || 0;
-                            
-                            return (
-                                <tr key={idx} className="hover:bg-slate-50/50 transition-colors bg-white">
-                                    <td className="p-3 sm:p-4 text-left font-semibold text-slate-700"><MarhalahLabel text={row.marhalah} id={row.marhalah_id} /></td>
-                                    {globalAttendanceStatus?.map(status => {
-                                        const val = row.stats[status] || 0;
-                                        return (
-                                            <td key={status} className="p-3 sm:p-4">
-                                                {val > 0 ? (
-                                                    <div className="flex items-center justify-center">
-                                                        {status?.toLowerCase() === 'hadir' && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-2"></div>}
-                                                        <span className="font-semibold text-slate-700">{val}</span>
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-slate-300">-</span>
-                                                )}
-                                            </td>
-                                        );
-                                    })}
-                                    <td className="p-3 sm:p-4 font-bold text-slate-800">{totalRow}</td>
-                                </tr>
-                            );
-                        })}
-                        {/* Summary Row */}
-                        <tr className="bg-slate-50/50 font-bold border-t border-slate-200">
-                            <td className="p-3 sm:p-4 text-left text-slate-500 text-[11px] sm:text-xs tracking-widest uppercase">Grand Total</td>
-                            {globalAttendanceStatus?.map(status => {
-                                const totalCol = statsData.reduce((sum: number, row) => sum + (row.stats[status] || 0), 0);
-                                return (
-                                    <td key={status} className="p-3 sm:p-4 text-slate-700">
-                                        {totalCol > 0 ? (
-                                            <div className="flex items-center justify-center">
-                                                {status?.toLowerCase() === 'hadir' && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-2"></div>}
-                                                {totalCol}
-                                            </div>
-                                        ) : "-"}
-                                    </td>
-                                );
-                            })}
-                            <td className="p-3 sm:p-4 text-slate-900 font-black">
-                                {statsData.reduce((sum: number, row) => {
-                                    const rowTotal = globalAttendanceStatus?.reduce((s, status) => s + (row.stats[status] || 0), 0) || 0;
-                                    return sum + rowTotal;
-                                }, 0)}
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            {statsData.length === 0 && <div className="p-6 sm:p-8 text-center text-slate-400 italic text-xs sm:text-sm">Tidak ada data untuk hari ini.</div>}
-          </Card>
+        </div>
       </div>
     </div>
-    </>
   );
 };
 
