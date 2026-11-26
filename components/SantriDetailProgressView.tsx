@@ -298,8 +298,8 @@ export const SantriDetailProgressView: React.FC<SantriDetailProgressViewProps> =
 
     // Available dynamic skemas
     const availableSkemas = useMemo(() => {
-        const fromSettings = (appSettings.find((s: any) => s.key === 'SETORAN_SKEMA_OPTIONS')?.value?.split(',') || ['Ziyadah', 'Murojaah', 'Sabqi', 'Manzil'])
-            .map((s: string) => s.trim()).filter(Boolean);
+        // Fase 2: nama jenis setoran diambil dari data setoran (recitation_kinds); daftar bawaan sebagai cadangan
+        const fromSettings = ['Ziyadah', 'Murojaah', 'Sabqi', 'Manzil'];
         const fromSantri = Array.from(new Set((setoranHarian || [])
             .filter(sh => isMatchSantri(sh.santri_id))
             .map(sh => sh.skema?.trim())

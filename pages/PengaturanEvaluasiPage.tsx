@@ -135,7 +135,7 @@ export const PengaturanEvaluasiPage: React.FC = () => {
         deleteEvaluationCategory, updateEvaluationCategory,
         halaqahEvalQuestions, saveHalaqahEvalQuestion, deleteHalaqahEvalQuestion,
         globalMarhalahs, masterKelas, classTargets, saveClassTargetBatch, masterMarhalahs, masterKelasRelasi,
-        globalWaktuHalaqah, selectedAcademicYear, userProfile, getOrgId
+        globalWaktuHalaqah, selectedAcademicYear, userProfile, getOrgId, recitationKinds
     } = useSupabaseData();
 
     // =========================================================================
@@ -728,8 +728,8 @@ export const PengaturanEvaluasiPage: React.FC = () => {
     // =========================================================================
     // SECTION 4: PENGATURAN SETORAN HARIAN
     // =========================================================================
-    const [skemaOptions, setSkemaOptions] = useState<string>('Ziyadah,Murojaah,Sabqi,Manzil,Lainnya');
-    const [waktuMap, setWaktuMap] = useState<Record<string, string>>({});
+    // Fase 2: jenis setoran & jenis bawaan per waktu dari tabel referensi (Pengaturan > Referensi Data Dasar)
+    const skemaOptions = useMemo(() => recitationKinds.filter(k => k.is_active).map(k => k.name).join(','), [recitationKinds]);
     const [telegramEnable, setTelegramEnable] = useState<boolean>(false);
     const [telegramTemplate, setTelegramTemplate] = useState<string>(
         'Laporan Setoran Tahfidz\nSantri: {nama_santri}\nHalaqah: {halaqah}\nTanggal: {tanggal} ({waktu})\nSkema: {skema}\nSurat: {surat} Ayat: {ayat}\nNilai: {nilai}\nKhoto: {khoto_kabir} Kabir, {khoto_shoghir} Shoghir\nKeterangan: {keterangan}'
@@ -748,13 +748,6 @@ export const PengaturanEvaluasiPage: React.FC = () => {
     const [isSavingSetoran, setIsSavingSetoran] = useState(false);
 
     useEffect(() => {
-        const skemaSetting = appSettings.find(s => s.key === 'SETORAN_SKEMA_OPTIONS');
-        if (skemaSetting) setSkemaOptions(skemaSetting.value);
-
-        const waktuSetting = appSettings.find(s => s.key === 'SETORAN_WAKTU_SKEMA_MAP');
-        if (waktuSetting) {
-            try { setWaktuMap(JSON.parse(waktuSetting.value)); } catch { setWaktuMap({}); }
-        }
 
         const telEnableSetting = appSettings.find(s => s.key === 'SETORAN_TELEGRAM_NOTIF_ENABLE');
         if (telEnableSetting) setTelegramEnable(telEnableSetting.value === 'true');
@@ -794,8 +787,6 @@ export const PengaturanEvaluasiPage: React.FC = () => {
         setIsSavingSetoran(true);
         try {
             await saveMultipleAppSettings([
-                { key: 'SETORAN_SKEMA_OPTIONS', value: skemaOptions },
-                { key: 'SETORAN_WAKTU_SKEMA_MAP', value: JSON.stringify(waktuMap) },
                 { key: 'SETORAN_TELEGRAM_NOTIF_ENABLE', value: telegramEnable ? 'true' : 'false' },
                 { key: 'SETORAN_TELEGRAM_NOTIF_TEMPLATE', value: telegramTemplate },
                 { key: 'SETORAN_AUTO_ENABLE', value: autoEnable ? 'true' : 'false' },
@@ -1932,34 +1923,16 @@ export const PengaturanEvaluasiPage: React.FC = () => {
 
                 {/* ROW 1: Tautan Waktu & Automasi Perhitungan Nilai */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6 items-start">
-                    {/* 1. Tautan Waktu ke Skema Default */}
-                    <div className="bg-white border border-slate-200/80 rounded-2xl p-5 sm:p-6 shadow-xs space-y-3.5 self-start w-full">
+                    {/* 1. Jenis setoran per waktu: kini di Pengaturan > Referensi Data Dasar (Fase 2) */}
+                    <div className="bg-white border border-slate-200/80 rounded-2xl p-5 sm:p-6 shadow-xs space-y-2 self-start w-full">
                         <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
-                            Tautan Waktu ke Skema Default
+                            Jenis Setoran & Waktu Halaqah
                         </label>
                         <p className="text-xs text-slate-500 leading-relaxed">
-                            Pilih skema default otomatis saat guru menginput setoran berdasarkan waktu halaqah.
+                            Daftar jenis setoran (termasuk penanda “menambah hafalan”) dan jenis bawaan tiap waktu halaqah diatur di
+                            <b> Pengaturan &gt; Referensi Data Dasar</b>.
                         </p>
-                        <div className="space-y-2 pt-1">
-                            {(globalWaktuHalaqah || []).map(waktu => (
-                                <div key={waktu} className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50/70 px-3.5 py-2.5 rounded-xl border border-slate-200/70 text-xs gap-2">
-                                    <span className="font-bold text-slate-700">{waktu}</span>
-                                    <select 
-                                        value={(waktuMap || {})[waktu] || ''} 
-                                        onChange={e => setWaktuMap({ ...(waktuMap || {}), [waktu]: e.target.value })}
-                                        className="border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                                    >
-                                        <option value="">Pilih Skema</option>
-                                        {(typeof skemaOptions === 'string' ? skemaOptions : '').split(',').map(s => s.trim()).filter(Boolean).map(s => (
-                                            <option key={s} value={s}>{s}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            ))}
-                            {(!globalWaktuHalaqah || globalWaktuHalaqah.length === 0) && (
-                                <p className="text-xs text-slate-400 italic py-2">Belum ada data waktu halaqah.</p>
-                            )}
-                        </div>
+                        <p className="text-xs text-slate-600">Jenis aktif: {skemaOptions.split(',').filter(Boolean).join(', ') || '-'}</p>
                     </div>
 
                     {/* 2. Automasi Perhitungan Nilai Setoran */}
@@ -2085,22 +2058,6 @@ export const PengaturanEvaluasiPage: React.FC = () => {
 
                 {/* ROW 2: Opsi Skema Setoran & Notifikasi Telegram Bersebelahan secara Fleksibel di Bawah */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6 items-start pt-1">
-                    {/* 3. Opsi Skema Setoran (Disandingkan di bawah dengan Telegram) */}
-                    <div className="bg-white border border-slate-200/80 rounded-2xl p-5 sm:p-6 shadow-xs space-y-3 self-start w-full">
-                        <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
-                            Opsi Skema Setoran
-                        </label>
-                        <p className="text-xs text-slate-500 leading-relaxed">
-                            Pisahkan dengan koma (,). Contoh: Ziyadah, Murojaah, Sabqi, Manzil
-                        </p>
-                        <input 
-                            type="text" 
-                            value={skemaOptions || ''} 
-                            onChange={e => setSkemaOptions(e.target.value)} 
-                            className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold bg-slate-50/50 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" 
-                        />
-                    </div>
-
                     {/* 4. Notifikasi Telegram Wali Santri */}
                     <div className="bg-white border border-slate-200/80 rounded-2xl p-5 sm:p-6 shadow-xs space-y-3.5 self-start w-full">
                         <div className="flex items-center justify-between gap-3">

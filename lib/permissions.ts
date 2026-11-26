@@ -1,3 +1,4 @@
+import { ActiveRoleStore, pilihPeranAktif } from './activeRole';
 import type { Page } from '../types';
 
 export type CanonicalRole = 'superadmin' | 'admin' | 'musammi';
@@ -621,6 +622,8 @@ export interface ResolvedTenantContext {
   supportSession: ActiveSupportSession | null;
   isSuperAdmin: boolean;
   isAuthorized: boolean;
+  /** Fase 2: semua peran aktif pengguna di lembaga ini (mis. ['admin','musammi']) */
+  availableRoles?: string[];
 }
 
 export function isGrantExpired(expiresAt?: string | null): boolean {
@@ -658,7 +661,8 @@ export function getEffectiveGrantStatus(
  */
 export async function resolveTenantContext(
   supabaseClient: any,
-  preferredOrgId?: string | null
+  preferredOrgId?: string | null,
+  preferredRole?: string | null
 ): Promise<ResolvedTenantContext> {
   const emptyCtx: ResolvedTenantContext = {
     userId: null,
@@ -873,12 +877,19 @@ export async function resolveTenantContext(
         };
       }
 
-      // Deterministic sort if multiple role rows exist in the same org: admin before musammi
-      const targetGrant = [...matchingOrgGrants].sort((a, b) => {
-        const rA = normalizeRole(a.role) === 'admin' ? 0 : 1;
-        const rB = normalizeRole(b.role) === 'admin' ? 0 : 1;
-        return rA - rB;
-      })[0];
+      // Fase 2: satu akun bisa punya beberapa peran aktif di lembaga yang sama.
+      // Peran yang dipakai = pilihan pengguna (ActiveRoleStore) bila masih aktif; jika tidak, Admin lebih dulu.
+      const activeOrgGrants = matchingOrgGrants.filter((g) => getEffectiveGrantStatus(g) === 'active');
+      const availableRoles = Array.from(new Set(activeOrgGrants.map((g) => normalizeRole(g.role) as string)))
+        .filter((r) => r === 'admin' || r === 'musammi');
+      const chosenRole = pilihPeranAktif(availableRoles, preferredRole ?? ActiveRoleStore.get());
+      const targetGrant =
+        activeOrgGrants.find((g) => normalizeRole(g.role) === chosenRole) ||
+        [...matchingOrgGrants].sort((a, b) => {
+          const rA = normalizeRole(a.role) === 'admin' ? 0 : 1;
+          const rB = normalizeRole(b.role) === 'admin' ? 0 : 1;
+          return rA - rB;
+        })[0];
 
       const effectiveStatus = getEffectiveGrantStatus(targetGrant);
       if (effectiveStatus !== 'active') {
@@ -913,6 +924,7 @@ export async function resolveTenantContext(
         supportSession: null,
         isSuperAdmin: false,
         isAuthorized: isValidTenantRole && Boolean(targetGrant.organization_id),
+        availableRoles,
       };
     }
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { cekAlasan } from '../../lib/pesanError';
+import { ringkasStatusDb } from '../../lib/aksesPengguna';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import {
@@ -958,11 +959,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
             category: 'Serverless API',
             status: body.status === 'healthy' ? 'healthy' : 'degraded',
             latencyMs: apiMs,
-            detail: `Probe HTTP ${res.status} OK (${apiMs} ms) — DB: ${
-              body.database?.status || body.services?.database?.status || 'tidak diketahui'
-            }${body.database?.latencyMs ? ` (${body.database.latencyMs} ms)` : ''}${
-              body.database?.error ? ` — ${body.database.error}` : ''
-            }.`,
+            detail: `Probe HTTP ${res.status} OK (${apiMs} ms) — ${ringkasStatusDb(body)}.`,
             checkedAt: new Date().toISOString(),
           });
         } else {

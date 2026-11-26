@@ -14,6 +14,19 @@ import { supabase } from '../../lib/supabaseClient';
 import { StatusBadge } from '../../components/ui/SaaSPrimitives';
 import { NotificationStore } from '../../lib/NotificationStore';
 
+/** Terima tanggal "2012-05-01", "01/05/2012", atau angka tanggal Excel. */
+const normalizeTanggal = (v: any): string | null => {
+    if (v === null || v === undefined || v === '') return null;
+    if (typeof v === 'number') {
+        const d = new Date(Math.round((v - 25569) * 86400 * 1000));
+        return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+    }
+    const t = String(v).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+    const m = t.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
+    return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : null;
+};
+
 const SantriPage: React.FC = () => {
     const { studentId } = useParams<{ studentId?: string }>();
     const navigate = useNavigate();
@@ -36,7 +49,8 @@ const SantriPage: React.FC = () => {
     const [formData, setFormData] = useState({
         nama: '', kode: '', marhalah: '', 
         kelas: '',
-        nama_wali: '', no_hp_wali: '', status: 'active', telegram_chat_id: ''
+        nama_wali: '', no_hp_wali: '', status: 'active', telegram_chat_id: '',
+        tanggal_lahir: '', asal: ''
     });
 
     // Filters
@@ -91,30 +105,15 @@ const SantriPage: React.FC = () => {
         try {
             const orgId = await getOrgId();
             if (!orgId) return;
-            const [{ data: v2Data, error: v2Err }, { data: legacyData, error: legErr }] = await Promise.all([
-                (supabase.from('student_enrollments' as any) as any)
-                    .select('*')
-                    .eq('organization_id', orgId)
-                    .eq('student_id', person.id)
-                    .order('academic_year_id', { ascending: false }),
-                (supabase.from('student_classes' as any) as any)
-                    .select('*')
-                    .eq('organization_id', orgId)
-                    .eq('santri_id', person.id)
-                    .order('academic_year_id', { ascending: false }),
-            ]);
+            // Fase 2: riwayat kelas hanya dari student_enrollments
+            const { data: v2Data, error: v2Err } = await (supabase.from('student_enrollments' as any) as any)
+                .select('*')
+                .eq('organization_id', orgId)
+                .eq('student_id', person.id)
+                .order('academic_year_id', { ascending: false });
             if (v2Err) throw v2Err;
-            if (legErr) throw legErr;
 
             const mergedByAy = new Map<number, any>();
-            (legacyData || []).forEach((row: any) => {
-                mergedByAy.set(Number(row.academic_year_id), {
-                    ...row,
-                    status: 'active',
-                    enrolled_at: null,
-                    left_at: null,
-                });
-            });
             (v2Data || []).forEach((row: any) => {
                 const ayId = Number(row.academic_year_id);
                 const prev = mergedByAy.get(ayId);
@@ -241,7 +240,9 @@ const SantriPage: React.FC = () => {
                 nama_wali: person.nama_wali || '',
                 no_hp_wali: person.no_hp_wali || '',
                 status: person.status || 'active',
-                telegram_chat_id: person.telegram_chat_id || ''
+                telegram_chat_id: person.telegram_chat_id || '',
+                tanggal_lahir: (person as any).tanggal_lahir || '',
+                asal: (person as any).asal || ''
             });
         } else {
             const initialMarhalah = masterMarhalahs?.length > 0 ? masterMarhalahs[0].nama : (globalMarhalahs?.[0] || 'Mutawassithah');
@@ -260,7 +261,9 @@ const SantriPage: React.FC = () => {
                 nama_wali: '', 
                 no_hp_wali: '', 
                 status: 'active',
-                telegram_chat_id: ''
+                telegram_chat_id: '',
+                tanggal_lahir: '',
+                asal: ''
             });
         }
         setIsModalOpen(true);
@@ -269,6 +272,15 @@ const SantriPage: React.FC = () => {
     const handleSubmit = async () => {
         if (!formData.nama) {
             NotificationStore.addNotification("Nama wajib diisi", "error");
+            return;
+        }
+        // Fase 2: NIS wajib (juga dijaga database)
+        if (!formData.kode.trim()) {
+            NotificationStore.addNotification("NIS wajib diisi", "error");
+            return;
+        }
+        if (formData.tanggal_lahir && formData.tanggal_lahir > new Date().toISOString().slice(0, 10)) {
+            NotificationStore.addNotification("Tanggal lahir tidak boleh di masa depan", "error");
             return;
         }
         
@@ -295,11 +307,13 @@ const SantriPage: React.FC = () => {
                 nama: formData.nama,
                 marhalah: formData.marhalah,
                 kelas: finalKelas,
-                kode: formData.kode || null,
+                kode: formData.kode.trim(),
                 nama_wali: formData.nama_wali || null,
                 no_hp_wali: formData.no_hp_wali || null,
                 telegram_chat_id: formData.telegram_chat_id || null,
-                status: formData.status
+                status: formData.status,
+                tanggal_lahir: formData.tanggal_lahir || null,
+                asal: formData.asal.trim() || null
             };
 
             let santriId = editingPerson?.id;
@@ -334,8 +348,8 @@ const SantriPage: React.FC = () => {
                         student_id: santriId,
                         santri_id: santriId,
                         academic_year_id: selectedAcademicYear.id,
-                        master_marhalah_id: m_id ? Number(m_id) : null,
-                        master_kelas_id: k_id ? Number(k_id) : null,
+                        master_marhalah_id: m_id || null,
+                        master_kelas_id: k_id || null,
                         marhalah: formData.marhalah,
                         kelas: finalKelas,
                         status: enrollmentStatus,
@@ -393,6 +407,8 @@ const SantriPage: React.FC = () => {
                 'ID Kelas': sampleKelas ? sampleKelas.id : 101,
                 'Nama Kelas': sampleKelas ? sampleKelas.nama_kelas : '10-A',
                 'NIS / Kode': 'S001',
+                'Tanggal Lahir': '2012-05-01',
+                'Asal': 'Bogor',
                 'Nama Wali': 'Fulan Ahmad',
                 'No HP Wali': '08123456789'
             },
@@ -403,6 +419,8 @@ const SantriPage: React.FC = () => {
                 'ID Kelas': sampleKelas ? sampleKelas.id : 101,
                 'Nama Kelas': sampleKelas ? sampleKelas.nama_kelas : '10-A',
                 'NIS / Kode': 'S002',
+                'Tanggal Lahir': '2011-11-20',
+                'Asal': 'Bandung',
                 'Nama Wali': 'Tsabit',
                 'No HP Wali': '08129876543'
             }
@@ -546,8 +564,14 @@ const SantriPage: React.FC = () => {
                     kode: (row['nis / kode'] || row.nis || row.kode || '')?.toString().trim() || null,
                     nama_wali: (row['nama wali'] || row.nama_wali || '')?.toString().trim() || null,
                     no_hp_wali: (row['no hp wali'] || row.no_hp_wali || '')?.toString().trim() || null,
+                    tanggal_lahir: normalizeTanggal(row['tanggal lahir'] || row.tanggal_lahir) || null,
+                    asal: (row['asal'] || row.asal || '')?.toString().trim() || null,
                     status: 'active'
                 };
+                if (!payload.kode) {
+                    errors.push(`Baris ${rowNum} (${nama}): NIS wajib diisi.`);
+                    continue;
+                }
                 
                 let { data: newSantri, error } = await supabase.from('santri').insert(payload).select().single();
                 if (error && (error.message?.toLowerCase().includes('enum') || error.code === '22P02')) {
@@ -569,8 +593,8 @@ const SantriPage: React.FC = () => {
                                 student_id: newSantri.id,
                                 santri_id: newSantri.id,
                                 academic_year_id: selectedAcademicYear.id,
-                                master_marhalah_id: m_id ? Number(m_id) : null,
-                                master_kelas_id: k_id ? Number(k_id) : null,
+                                master_marhalah_id: m_id || null,
+                                master_kelas_id: k_id || null,
                                 marhalah: m_nama,
                                 kelas: k_nama,
                                 status: 'active',
@@ -894,12 +918,22 @@ const SantriPage: React.FC = () => {
                 <div className="space-y-5">
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Kode / NIS</label>
+                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">NIS <span className="text-red-500">*</span></label>
                             <input type="text" placeholder="Masukkan NIS" className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-[13px] font-semibold text-slate-800 placeholder:text-slate-400" value={formData.kode} onChange={e => setFormData({...formData, kode: e.target.value})} />
                         </div>
                         <div>
                             <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Nama Lengkap <span className="text-red-500">*</span></label>
                             <input type="text" placeholder="Nama Lengkap" className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-[13px] font-semibold text-slate-800 placeholder:text-slate-400" value={formData.nama} onChange={e => setFormData({...formData, nama: e.target.value})} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-5">
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Tanggal Lahir</label>
+                                <input type="date" max={new Date().toISOString().slice(0, 10)} className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white text-[13px] font-semibold text-slate-800" value={formData.tanggal_lahir} onChange={e => setFormData({...formData, tanggal_lahir: e.target.value})} />
+                            </div>
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Asal</label>
+                                <input type="text" placeholder="Kota/kabupaten asal" className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white text-[13px] font-semibold text-slate-800 placeholder:text-slate-400" value={formData.asal} onChange={e => setFormData({...formData, asal: e.target.value})} />
+                            </div>
                         </div>
                         <div className="grid grid-cols-2 gap-5">
                             <div>

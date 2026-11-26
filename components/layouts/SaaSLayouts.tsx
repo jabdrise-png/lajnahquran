@@ -15,6 +15,7 @@ import {
   isRouteAllowed,
 } from '../../lib/permissions';
 import type { Page } from '../../types';
+import { tujuanSuperadminTanpaSupport } from '../../lib/aksesPengguna';
 
 export interface ShellCommonProps {
   session: any | null;
@@ -28,6 +29,8 @@ export interface ShellCommonProps {
   onNavigatePage: (page: Page) => void;
   onLogout: () => void;
   onEndSupportSession: () => void;
+  availableRoles?: string[];
+  onSwitchRole?: (role: string) => void;
 }
 
 /**
@@ -65,6 +68,8 @@ export const PlatformLayout: React.FC<ShellCommonProps> = ({
   onNavigatePage,
   onLogout,
   onEndSupportSession,
+  availableRoles,
+  onSwitchRole,
 }) => {
   const location = useLocation();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -157,6 +162,8 @@ export const TenantLayout: React.FC<ShellCommonProps> = ({
   onNavigatePage,
   onLogout,
   onEndSupportSession,
+  availableRoles,
+  onSwitchRole,
 }) => {
   const location = useLocation();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -170,10 +177,7 @@ export const TenantLayout: React.FC<ShellCommonProps> = ({
   // BUG-29: rute bawaan (/app, /app/dashboard) diarahkan ke Dashboard Platform, bukan ke
   // Support Access. Support Access hanya ditawarkan bila superadmin membuka halaman tenant tertentu.
   if ((isSuperAdmin || canonicalRole === 'superadmin') && !supportSession) {
-    const isDefaultTenantRoute = ['/app', '/app/', '/app/dashboard'].includes(location.pathname);
-    return (
-      <Navigate to={isDefaultTenantRoute ? '/platform/dashboard' : '/platform/support-sessions'} replace />
-    );
+    return <Navigate to={tujuanSuperadminTanpaSupport(location.pathname)} replace />;
   }
 
   const matchedRoute = resolveRouteByPath(location.pathname);
@@ -236,6 +240,8 @@ export const TenantLayout: React.FC<ShellCommonProps> = ({
               userRole={isSuperAdmin ? 'superadmin' : userRole}
               onNavigate={handleSetPage}
               className="print:hidden"
+              availableRoles={isSuperAdmin ? undefined : availableRoles}
+              onSwitchRole={onSwitchRole}
             />
             <main className="flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-neutral p-4 sm:p-6 lg:p-8 print:p-0 print:overflow-visible print:bg-white print:w-full">
               {allowed ? <Outlet /> : <Navigate to="/app/dashboard" replace />}

@@ -138,12 +138,15 @@ check(
 check(
   'FASE5-10',
   'Data absensi konsisten di halaman input, buku absensi, dan laporan terpadu',
-  hardeningSql.includes('INSERT INTO public.attendance_records') &&
-    hardeningSql.includes('INSERT INTO public.attendance') &&
-    useSupabaseDataCode.includes('existingSession.status !== \'locked\'') &&
+  // Diperbarui Fase 2 v2 (27-11-2026): satu sumber data. Semua halaman membaca attendance_records /
+  // musammi_attendance_records lewat useSupabaseData dan menulis lewat rpc_record_attendance.
+  fs.readFileSync(path.resolve(process.cwd(), 'database/migrations/2026_11_27_07_f2_rpc_hanya_v2.sql'), 'utf8')
+    .includes('create or replace function public.rpc_record_attendance') &&
+    useSupabaseDataCode.includes("rpc_record_attendance") &&
+    !useSupabaseDataCode.includes("from('attendance')") &&
     bukuAbsensiCode.includes('attendance_records') &&
     sesiPageCode.includes('fetchData()'),
-  'Dual write within atomic RPC and unified hook cache synchronization guarantee consistency across pages.'
+  'Satu sumber data V2 (tanpa tulis ganda ke tabel lama) dan cache hook terpadu menjamin data sama di semua halaman.'
 );
 
 // Summary Output

@@ -6,6 +6,7 @@ import { Trash2, Search, Building, Plus, Edit, User, Mail, KeyRound, CheckCircle
 import { NotificationStore } from '../lib/NotificationStore';
 import { ConfirmDialog } from '../components/ui/SaaSPrimitives';
 import { resolveTenantContext } from '../lib/permissions';
+import { bolehKelolaAkses } from '../lib/aksesPengguna';
 
 interface UserProfile {
     id: string;
@@ -14,6 +15,8 @@ interface UserProfile {
     role: string;
     grant_id?: string | null;
     grant_status?: 'active' | 'invited' | 'suspended' | 'revoked' | 'expired';
+    /** Fase 2: semua grant pengguna di lembaganya (satu akun bisa Admin + Musammi') */
+    grants?: { id: string; role: string; status: string }[];
     organization_id: string;
     organizations: {
         name: string;
@@ -44,6 +47,8 @@ const Users: React.FC = () => {
     
     // Form Data
     const [creationType, setCreationType] = useState<'new_org' | 'existing_org'>('new_org');
+    // Fase 2: peran yang dicentang di modal edit (satu akun boleh Admin + Musammi')
+    const [formRoles, setFormRoles] = useState<string[]>([]);
     const [formData, setFormData] = useState({
         email: '',
         password: '',
@@ -95,6 +100,7 @@ const Users: React.FC = () => {
 
             // Ambil status access_grants otoritatif
             let grantsMap = new Map<string, { id: string; role: string; status: string; expires_at?: string | null }>();
+            const grantsByUserOrg = new Map<string, { id: string; role: string; status: string }[]>();
             try {
                 let gQuery = (supabase as any)
                     .from('access_grants')
@@ -106,7 +112,11 @@ const Users: React.FC = () => {
                 if (Array.isArray(gRows)) {
                     for (const g of gRows as any[]) {
                         const key = `${g.user_id}:${g.organization_id || 'global'}`;
-                        grantsMap.set(key, g);
+                        grantsByUserOrg.set(key, [...(grantsByUserOrg.get(key) || []), g]);
+                        // Grant utama baris = peran aktif tertinggi (admin sebelum musammi)
+                        const prev = grantsMap.get(key) as any;
+                        const rank = (x: any) => (x?.status === 'active' ? 0 : 10) + (x?.role === 'superadmin' ? 0 : x?.role === 'admin' ? 1 : 2);
+                        if (!prev || rank(g) < rank(prev)) grantsMap.set(key, g);
                         if (!grantsMap.has(g.user_id)) {
                             grantsMap.set(g.user_id, g);
                         }
@@ -129,6 +139,7 @@ const Users: React.FC = () => {
                     role: g?.role === 'superadmin' ? 'super_admin' : g?.role || u.role,
                     grant_id: g?.id || null,
                     grant_status: grantStatus,
+                    grants: grantsByUserOrg.get(`${u.id}:${u.organization_id || 'global'}`) || [],
                 };
             });
 
@@ -163,17 +174,8 @@ const Users: React.FC = () => {
         fetchData();
     }, []);
 
-    // BUG-04/05: siapa boleh mengubah grant baris ini?
-    // - Tidak ada yang boleh mengubah akses akun sendiri.
-    // - Superadmin boleh mengelola semua akun lain.
-    // - Admin Lembaga hanya mengelola Musammi' (bukan Admin lain, bukan Superadmin).
-    const canManageGrant = (user: UserProfile): boolean => {
-        if (!currentUser || user.id === currentUser.id) return false;
-        const callerIsSuper = currentUser.role === 'super_admin' || currentUser.role === 'superadmin';
-        if (callerIsSuper) return true;
-        const targetRole = String(user.role || '').toLowerCase();
-        return !['super_admin', 'superadmin', 'admin', 'admin_mahad'].includes(targetRole);
-    };
+    // BUG-04/05: siapa boleh mengubah grant baris ini? (aturan di lib/aksesPengguna.ts)
+    const canManageGrant = (user: UserProfile): boolean => bolehKelolaAkses(currentUser, user);
 
     const handleApproveUser = (id: string, name: string) => {
         setConfirmApproveTarget({ id, name });
@@ -294,6 +296,7 @@ const Users: React.FC = () => {
     const openEditModal = (user: UserProfile) => {
         setModalMode('edit');
         setCurrentUserId(user.id);
+        setFormRoles((user.grants || []).filter(g => g.status === 'active' && g.role !== 'superadmin').map(g => g.role));
         setFormData({
             email: user.email || '',
             password: '', // Password unused in edit
@@ -453,22 +456,40 @@ const Users: React.FC = () => {
                 const { error: profileError } = await profileUpdateQuery;
                 if (profileError) throw profileError;
 
-                // 2. Perubahan otorisasi (role/grant) wajib melalui fungsi server rpc_manage_access_grant.
-                //    Akun sendiri hanya boleh mengubah nama (BUG-05); Admin hanya mengelola Musammi' (BUG-04).
+                // 2. Peran (Fase 2: multi-peran). Setiap perubahan lewat rpc_manage_access_grant;
+                //    server menolak perubahan yang tidak sah (akun sendiri, Admin mengubah Admin/Superadmin).
                 const isEditingSelf = currentUserId === currentUser?.id;
-                const targetIsMusammi = ['musammi', 'pengajar'].includes(String(userToEdit.role || '').toLowerCase());
-                const mayChangeGrant = !isEditingSelf && (isSuperCaller || targetIsMusammi);
                 const targetOrgId = isSuperCaller ? userToEdit.organization_id : currentUser?.organization_id;
-                if (mayChangeGrant && (targetOrgId || targetRole === 'superadmin')) {
+                if (targetRole === 'superadmin' && isSuperCaller && !isEditingSelf) {
                     const { error: rpcErr } = await (supabase as any).rpc('rpc_manage_access_grant', {
-                        p_grant_id: null,
-                        p_target_user_id: currentUserId,
-                        p_organization_id: targetRole === 'superadmin' ? null : targetOrgId,
-                        p_role: targetRole,
-                        p_status: 'active',
-                        p_reason: `Pembaruan hak akses pengguna (${formData.fullName})`,
+                        p_grant_id: null, p_target_user_id: currentUserId, p_organization_id: null,
+                        p_role: 'superadmin', p_status: 'active', p_reason: `Penetapan Superadmin (${formData.fullName})`,
                     });
                     if (rpcErr) throw rpcErr;
+                } else if (targetOrgId) {
+                    const activeNow = (userToEdit.grants || []).filter(g => g.status === 'active' && g.role !== 'superadmin');
+                    const manageable = (role: string) => isSuperCaller ? true : role === 'musammi';
+                    const toAdd = formRoles.filter(r => !activeNow.some(g => g.role === r) && manageable(r));
+                    const toRemove = isEditingSelf ? [] : activeNow.filter(g => !formRoles.includes(g.role) && manageable(g.role));
+                    if (!isEditingSelf && formRoles.length === 0) {
+                        throw new Error('Pilih minimal satu peran. Untuk menonaktifkan akun, gunakan tombol Cabut Akses.');
+                    }
+                    for (const role of toAdd) {
+                        // Admin hanya boleh menambah peran Musammi' untuk dirinya sendiri
+                        if (isEditingSelf && role !== 'musammi') continue;
+                        const { error: rpcErr } = await (supabase as any).rpc('rpc_manage_access_grant', {
+                            p_grant_id: null, p_target_user_id: currentUserId, p_organization_id: targetOrgId,
+                            p_role: role, p_status: 'active', p_reason: `Penambahan peran ${role} (${formData.fullName})`,
+                        });
+                        if (rpcErr) throw rpcErr;
+                    }
+                    for (const g of toRemove) {
+                        const { error: rpcErr } = await (supabase as any).rpc('rpc_manage_access_grant', {
+                            p_grant_id: g.id, p_target_user_id: currentUserId, p_organization_id: targetOrgId,
+                            p_role: g.role, p_status: 'revoked', p_reason: `Pencabutan peran ${g.role} (${formData.fullName})`,
+                        });
+                        if (rpcErr) throw rpcErr;
+                    }
                 }
 
                 // 3. Update Org Name (Only if super_admin and org name actually changed)
@@ -610,6 +631,13 @@ const Users: React.FC = () => {
                                                         Admin Lembaga
                                                     </span>
                                                 )}
+                                                {(user.grants || [])
+                                                    .filter(g => g.status === 'active' && g.role !== 'superadmin' && g.role !== user.role)
+                                                    .map(g => (
+                                                        <span key={g.id} className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                            + {g.role === 'musammi' ? "Musammi'" : g.role === 'admin' ? 'Admin Lembaga' : g.role}
+                                                        </span>
+                                                    ))}
                                                 {user.grant_status && (
                                                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                                                         user.grant_status === 'active'
@@ -833,7 +861,36 @@ const Users: React.FC = () => {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Role Kanonik (3-Role SaaS)</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">{modalMode === 'edit' ? 'Peran' : 'Role Kanonik (3-Role SaaS)'}</label>
+                        {modalMode === 'edit' && formData.role !== 'super_admin' && formData.role !== 'superadmin' ? (
+                            <div className="space-y-2 rounded-md border border-slate-200 p-3">
+                                {[
+                                    { role: 'admin', label: 'Admin Lembaga' },
+                                    { role: 'musammi', label: "Musammi' (Pengampu Halaqah)" },
+                                ].map(opt => {
+                                    const isSelf = currentUserId === currentUser?.id;
+                                    const callerIsSuper = currentUser?.role === 'super_admin' || currentUser?.role === 'superadmin';
+                                    const alreadyActive = formRoles.includes(opt.role);
+                                    // Super: semua; Admin: hanya Musammi'; akun sendiri: hanya menambah Musammi'
+                                    const editable = isSelf
+                                        ? opt.role === 'musammi' && !users.find(u => u.id === currentUserId)?.grants?.some(g => g.role === 'musammi' && g.status === 'active')
+                                        : callerIsSuper || opt.role === 'musammi';
+                                    return (
+                                        <label key={opt.role} className={`flex items-center gap-2 text-sm ${editable ? 'text-slate-800' : 'text-slate-400'}`}>
+                                            <input
+                                                type="checkbox"
+                                                className="rounded border-slate-300"
+                                                checked={alreadyActive}
+                                                disabled={!editable}
+                                                onChange={e => setFormRoles(prev => e.target.checked ? [...prev, opt.role] : prev.filter(r => r !== opt.role))}
+                                            />
+                                            {opt.label}
+                                        </label>
+                                    );
+                                })}
+                                <p className="text-[11px] text-slate-500">Satu akun boleh memegang lebih dari satu peran. Setelah login, pengguna memilih peran yang dipakai.</p>
+                            </div>
+                        ) : (
                         <select 
                             className="block w-full border-slate-300 rounded-md focus:ring-secondary focus:border-secondary sm:text-sm"
                             value={formData.role}
@@ -850,6 +907,7 @@ const Users: React.FC = () => {
                                 <option value="super_admin">Superadmin Platform</option>
                             )}
                         </select>
+                        )}
                         <p className="text-xs text-slate-400 mt-1">
                             Sesuai arsitektur keamanan 3-Role SaaS, Admin Lembaga hanya dapat membuat/mengelola akun Musammi. Penunjukan Admin Lembaga hanya dilakukan oleh Superadmin Platform.
                         </p>

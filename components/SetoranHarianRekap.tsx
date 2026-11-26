@@ -39,7 +39,8 @@ const SetoranHarianRekap = forwardRef<SetoranHarianRekapRef, Props>(({
         attendance, 
         appSettings,
         globalMarhalahs,
-        globalJenisHalaqah
+        globalJenisHalaqah,
+        recitationKinds
     } = useSupabaseData();
 
 
@@ -48,10 +49,8 @@ const SetoranHarianRekap = forwardRef<SetoranHarianRekapRef, Props>(({
     const [visibleCount, setVisibleCount] = useState(50);
     
 
-    const skemaOptions = useMemo(() => {
-        const val = appSettings.find(s => s.key === 'SETORAN_SKEMA_OPTIONS')?.value;
-        return val ? val.split(',') : ['Ziyadah', 'Murojaah', 'Murojaah Sabqi', 'Murojaah Manzil'];
-    }, [appSettings]);
+    // Fase 2: daftar jenis setoran dari tabel recitation_kinds
+    const skemaOptions = useMemo(() => recitationKinds.filter(k => k.is_active).map(k => k.name), [recitationKinds]);
 
     const nilaiRanges = useMemo(() => {
         const val = appSettings.find(s => s.key === 'SETORAN_AUTO_RANGES')?.value;
@@ -120,11 +119,12 @@ const SetoranHarianRekap = forwardRef<SetoranHarianRekapRef, Props>(({
             if (startDate) sSetoran = sSetoran.filter(sh => sh.tanggal >= startDate);
             if (endDate) sSetoran = sSetoran.filter(sh => sh.tanggal <= endDate);
             
-            const ziyadahCount = sSetoran.filter(sh => sh.skema?.toLowerCase().includes('ziyadah')).length;
+            // Fase 2: jenis yang menambah hafalan ditandai di tabel jenis setoran
+            const ziyadahCount = sSetoran.filter(sh => sh.adds_memorization).length;
             
             if (filterSkema !== 'all') {
                 if (filterSkema === 'Murojaah' || filterSkema === 'murojaah') {
-                    sSetoran = sSetoran.filter(sh => sh.skema?.toLowerCase().includes('murojaah'));
+                    sSetoran = sSetoran.filter(sh => sh.counts_as_murojaah);
                 } else {
                     sSetoran = sSetoran.filter(sh => sh.skema === filterSkema);
                 }

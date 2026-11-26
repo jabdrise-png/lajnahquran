@@ -464,17 +464,6 @@ const HalaqahPage: React.FC = () => {
                     .is('valid_to', null);
                 if (hsmMutErr) throw hsmMutErr;
 
-                const { error: legMutErr } = await (supabase as any)
-                    .from('halaqah_santri')
-                    .update({
-                        end_date: today,
-                        status: 'Mutasi',
-                    })
-                    .eq('organization_id', orgId)
-                    .eq('halaqah_id', m.oldHalaqahId)
-                    .eq('santri_id', m.santriId)
-                    .is('end_date', null);
-                if (legMutErr) throw legMutErr;
             }
             if (mutasiList.length > 0) {
                 await fetchData();
@@ -885,17 +874,24 @@ const HalaqahPage: React.FC = () => {
                         let targetSantri = sData.id ? santri.find(s => s.id === sData.id) : undefined;
                         if (!targetSantri) targetSantri = santri.find(s => s.nama.toLowerCase() === sData.nama.toLowerCase());
 
-                        if (targetSantri) {
+                        // Fase 2: keanggotaan halaqah hanya di halaqah_student_memberships
+                        const alreadyActive = halaqah
+                            .find(h => h.id === targetHalaqahId)?.santri?.some(x => x.id === targetSantri?.id);
+                        if (targetSantri && !alreadyActive) {
                             santriToInsert.push({
                                 organization_id: orgId,
+                                academic_year_id: selectedAcademicYear?.id || null,
                                 halaqah_id: targetHalaqahId,
-                                santri_id: targetSantri.id
+                                student_id: targetSantri.id,
+                                valid_from: new Date().toISOString().slice(0, 10),
+                                status: 'active'
                             });
                         }
                     }
                     if (santriToInsert.length > 0) {
-                        const { error: linkError } = await supabase.from('halaqah_santri').upsert(santriToInsert, { onConflict: 'halaqah_id, santri_id' });
-                        if (!linkError) addedSantriCount += santriToInsert.length;
+                        const { error: linkError } = await (supabase as any).from('halaqah_student_memberships').insert(santriToInsert);
+                        if (linkError) errors.push(`Halaqah ${group.nama_halaqah}: ${linkError.message}`);
+                        else addedSantriCount += santriToInsert.length;
                     }
                 }
             }

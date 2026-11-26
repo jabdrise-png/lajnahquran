@@ -474,7 +474,7 @@ export async function processInvitationPayload(
         expires_at: expiresAtIso,
         revoked_at: null,
       },
-      { onConflict: "organization_id,user_id" }
+      { onConflict: "user_id,organization_id,role" } // Fase 2: unik per peran (multi-peran)
     )
     .select("id")
     .maybeSingle();

@@ -48,12 +48,11 @@ const checklist: ChecklistItem[] = [
   {
     id: 'PRD-04',
     category: 'Data Reconciliation',
-    item: 'Prosedur rekonsiliasi data legacy vs V2 tersedia di server dan dapat dipanggil kapan saja',
-    evidence: 'rpc_get_academic_reconciliation_report & rpc_reconcile_academic_v2_data aktif.',
+    item: 'Prosedur migrasi & rekonsiliasi data lama -> V2 tersedia di server dan dapat dijalankan ulang',
+    evidence: 'f2_migrate_legacy_data & f2_legacy_reconciliation (database/migrations/2026_11_27_06_f2_migrasi_data_lama.sql).',
     verify: () => {
-      const sql = fs.readFileSync(path.resolve(process.cwd(), 'database/supabase_v2_1_production_hardening.sql'), 'utf-8');
-      return sql.includes('rpc_get_academic_reconciliation_report') &&
-             sql.includes('rpc_reconcile_academic_v2_data');
+      const sql = fs.readFileSync(path.resolve(process.cwd(), 'database/migrations/2026_11_27_06_f2_migrasi_data_lama.sql'), 'utf-8');
+      return sql.includes('f2_migrate_legacy_data') && sql.includes('f2_legacy_reconciliation');
     },
   },
   {

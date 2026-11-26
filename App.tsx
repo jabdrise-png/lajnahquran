@@ -46,6 +46,7 @@ import VerifyReportPage from './pages/VerifyReportPage';
 import type { Page } from './types';
 import { supabase } from './lib/supabaseClient';
 import { Lock, LogOut } from 'lucide-react';
+import { ActiveRoleStore, labelPeran } from './lib/activeRole';
 import {
   normalizeRole,
   resolveRouteByPageKey,
@@ -71,6 +72,9 @@ const App: React.FC = () => {
   const [userProfile, setUserProfile] = useState<{ name: string; role: string } | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isPending, setIsPending] = useState(false);
+  // Fase 2: akun multi-peran
+  const [availableRoles, setAvailableRoles] = useState<string[]>([]);
+  const [needsRolePick, setNeedsRolePick] = useState(false);
   const [supportSession, setSupportSession] = useState<ActiveSupportSession | null>(() =>
     SupportSessionStore.getSession()
   );
@@ -93,6 +97,9 @@ const App: React.FC = () => {
       }
 
       const displayRole = ctx.isAuthorized ? ctx.effectiveRole : 'pending';
+      const roles = ctx.isAuthorized && !ctx.isSuperAdmin ? ctx.availableRoles || [] : [];
+      setAvailableRoles(roles);
+      setNeedsRolePick(roles.length > 1 && !ActiveRoleStore.get());
       setUserProfile({
         name: ctx.fullName || 'Pengguna',
         role: displayRole,
@@ -185,7 +192,15 @@ const App: React.FC = () => {
     [location.pathname, navigate]
   );
 
+  const handleSwitchRole = (role: string) => {
+    ActiveRoleStore.set(role);
+    setNeedsRolePick(false);
+    // Muat ulang agar menu, data, dan hak tampilan mengikuti peran baru
+    window.location.assign('/app/dashboard');
+  };
+
   const handleLogout = async () => {
+    ActiveRoleStore.set(null);
     SupportSessionStore.endSession();
     await supabase.auth.signOut();
     setIsSuperAdmin(false);
@@ -260,7 +275,37 @@ const App: React.FC = () => {
     onNavigatePage: handleSetPage,
     onLogout: handleLogout,
     onEndSupportSession: handleEndSupportSession,
+    availableRoles,
+    onSwitchRole: handleSwitchRole,
   };
+
+  if (session && needsRolePick && !location.pathname.startsWith('/invite')) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-neutral p-4">
+        <div className="bg-white p-8 rounded-xl shadow-lg border border-slate-200 max-w-md w-full text-center">
+          <h2 className="text-xl font-bold text-slate-800 mb-2">Masuk sebagai</h2>
+          <p className="text-slate-600 mb-6 text-sm">
+            Akun Anda memiliki lebih dari satu peran. Pilih peran untuk sesi ini; Anda bisa menggantinya kapan saja dari bagian atas layar.
+          </p>
+          <div className="space-y-3">
+            {availableRoles.map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => handleSwitchRole(r)}
+                className="w-full py-3 rounded-lg border border-slate-300 hover:border-secondary hover:bg-slate-50 font-semibold text-slate-800"
+              >
+                {labelPeran(r)}
+              </button>
+            ))}
+          </div>
+          <button onClick={handleLogout} className="mt-6 text-sm text-slate-500 hover:text-slate-700">
+            Keluar
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Routes>

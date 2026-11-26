@@ -7,6 +7,7 @@ import { StatusBadge } from '../components/ui/SaaSPrimitives';
 import { 
     Save, Trash2, Plus, Edit
 } from 'lucide-react';
+import ReferensiLembagaPanel from '../components/ReferensiLembagaPanel';
 
 type SettingsTab = 'organization' | 'methodology' | 'integrations';
 
@@ -165,9 +166,6 @@ const SettingsPage: React.FC = () => {
 
     // Data Referensi states
     const [newRefMarhalah, setNewRefMarhalah] = useState('');
-    const [newRefWaktu, setNewRefWaktu] = useState('');
-    const [newRefJenis, setNewRefJenis] = useState('');
-    const [newRefStatus, setNewRefStatus] = useState('');
     const [newPredikatLabel, setNewPredikatLabel] = useState('');
     const [newPredikatMinScore, setNewPredikatMinScore] = useState('');
 
@@ -402,34 +400,6 @@ const SettingsPage: React.FC = () => {
         }
     };
 
-    const handleSaveReference = async (key: string, arr: string[], newValue: string, setter: (val: string) => void) => {
-        if (!newValue.trim()) return;
-        if (arr.includes(newValue.trim())) {
-            NotificationStore.addNotification('Data sudah ada.', 'error');
-            return;
-        }
-        setIsSaving(true);
-        try {
-            const updated = [...arr, newValue.trim()];
-            await saveAppSetting(key, JSON.stringify(updated));
-            setter('');
-            NotificationStore.addNotification('Referensi berhasil ditambahkan.', 'success');
-        } catch (e: any) {
-            NotificationStore.addNotification('Gagal menyimpan: ' + e.message, 'error');
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const handleDeleteReference = async (key: string, arr: string[], valueToDelete: string) => {
-        try {
-            const updated = arr.filter(v => v !== valueToDelete);
-            await saveAppSetting(key, JSON.stringify(updated));
-            NotificationStore.addNotification(`Referensi "${valueToDelete}" dihapus.`, 'info');
-        } catch (e: any) {
-            NotificationStore.addNotification('Gagal menghapus: ' + e.message, 'error');
-        }
-    };
 
     const handleSavePredikat = async () => {
         if (!newPredikatLabel.trim() || !newPredikatMinScore) return;
@@ -794,76 +764,11 @@ const SettingsPage: React.FC = () => {
             <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
                     <h2 className="text-base font-bold text-slate-800">Referensi Data Dasar</h2>
-                    <p className="text-xs text-slate-500 mt-1">Kelola opsi data yang akan muncul pada dropdown di seluruh sistem.</p>
+                    <p className="text-xs text-slate-500 mt-1">Jenis setoran, waktu halaqah, status kehadiran, dan jenis halaqah lembaga Anda.</p>
                 </div>
                 
-                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Marhalah */}
-                    
-
-                    {/* Waktu Halaqah */}
-                    <div className="border border-slate-200 rounded-lg flex flex-col h-[280px]">
-                        <div className="p-3 border-b border-slate-200 bg-slate-50 rounded-t-lg">
-                            <h3 className="font-bold text-slate-800 text-sm">Waktu Halaqah</h3>
-                        </div>
-                        <div className="p-3 flex gap-2 border-b border-slate-100">
-                            <input type="text" value={newRefWaktu} onChange={e => setNewRefWaktu(e.target.value)} placeholder="Tambah baru..." className="flex-1 text-sm border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 px-3 py-1.5 shadow-sm" />
-                            <button onClick={() => handleSaveReference('GLOBAL_WAKTU_HALAQAH', globalWaktuHalaqah, newRefWaktu, setNewRefWaktu)} disabled={!newRefWaktu || isSaving} className="bg-slate-800 hover:bg-slate-900 text-white w-9 flex items-center justify-center rounded-md disabled:opacity-50 transition-colors shrink-0"><Plus size={18} strokeWidth={2.5} /></button>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-2">
-                            <ul className="divide-y divide-slate-100">
-                                {globalWaktuHalaqah.map(m => (
-                                    <li key={m} className="px-2 py-2 text-sm flex justify-between items-center group rounded hover:bg-slate-50">
-                                        <span className="font-medium text-slate-700">{m}</span>
-                                        <button onClick={() => handleDeleteReference('GLOBAL_WAKTU_HALAQAH', globalWaktuHalaqah, m)} className="text-slate-400 hover:text-red-500 opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-all"><Trash2 size={14}/></button>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    </div>
-
-                    {/* Jenis Halaqah */}
-                    <div className="border border-slate-200 rounded-lg flex flex-col h-[280px]">
-                        <div className="p-3 border-b border-slate-200 bg-slate-50 rounded-t-lg">
-                            <h3 className="font-bold text-slate-800 text-sm">Jenis Halaqah</h3>
-                        </div>
-                        <div className="p-3 flex gap-2 border-b border-slate-100">
-                            <input type="text" value={newRefJenis} onChange={e => setNewRefJenis(e.target.value)} placeholder="Tambah baru..." className="flex-1 text-sm border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 px-3 py-1.5 shadow-sm" />
-                            <button onClick={() => handleSaveReference('GLOBAL_JENIS_HALAQAH', globalJenisHalaqah, newRefJenis, setNewRefJenis)} disabled={!newRefJenis || isSaving} className="bg-slate-800 hover:bg-slate-900 text-white w-9 flex items-center justify-center rounded-md disabled:opacity-50 transition-colors shrink-0"><Plus size={18} strokeWidth={2.5} /></button>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-2">
-                            <ul className="divide-y divide-slate-100">
-                                {globalJenisHalaqah.map(m => (
-                                    <li key={m} className="px-2 py-2 text-sm flex justify-between items-center group rounded hover:bg-slate-50">
-                                        <span className="font-medium text-slate-700">{m}</span>
-                                        <button onClick={() => handleDeleteReference('GLOBAL_JENIS_HALAQAH', globalJenisHalaqah, m)} className="text-slate-400 hover:text-red-500 opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-all"><Trash2 size={14}/></button>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    </div>
-
-                    {/* Status Kehadiran */}
-                    <div className="border border-slate-200 rounded-lg flex flex-col h-[280px]">
-                        <div className="p-3 border-b border-slate-200 bg-slate-50 rounded-t-lg">
-                            <h3 className="font-bold text-slate-800 text-sm">Status Kehadiran</h3>
-                        </div>
-                        <div className="p-3 flex gap-2 border-b border-slate-100">
-                            <input type="text" value={newRefStatus} onChange={e => setNewRefStatus(e.target.value)} placeholder="Tambah baru..." className="flex-1 text-sm border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 px-3 py-1.5 shadow-sm" />
-                            <button onClick={() => handleSaveReference('GLOBAL_ATTENDANCE_STATUS', globalAttendanceStatus, newRefStatus, setNewRefStatus)} disabled={!newRefStatus || isSaving} className="bg-slate-800 hover:bg-slate-900 text-white w-9 flex items-center justify-center rounded-md disabled:opacity-50 transition-colors shrink-0"><Plus size={18} strokeWidth={2.5} /></button>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-2">
-                            <ul className="divide-y divide-slate-100">
-                                {globalAttendanceStatus?.map(m => (
-                                    <li key={m} className="px-2 py-2 text-sm flex justify-between items-center group rounded hover:bg-slate-50">
-                                        <span className="font-medium text-slate-700">{m}</span>
-                                        <button onClick={() => handleDeleteReference('GLOBAL_ATTENDANCE_STATUS', globalAttendanceStatus, m)} className="text-slate-400 hover:text-red-500 opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-all"><Trash2 size={14}/></button>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    </div>
-                </div>
+                {/* Fase 2: referensi disimpan di tabel (bukan app_settings) */}
+                <ReferensiLembagaPanel />
             </section>
             </>
             )}

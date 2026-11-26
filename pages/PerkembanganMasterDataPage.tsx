@@ -102,7 +102,7 @@ const ColorPicker = ({ initialColor, onChangeComplete }: { initialColor: string,
 };
 
 const PerkembanganMasterDataPage: React.FC = () => {
-    const { santri, halaqah, studentEvaluations, evaluationSettings, attendance, studentProgress, setoranHarian, appSettings, halaqahEvalQuestions, halaqahEvaluations, saveHalaqahEvalQuestion, deleteHalaqahEvalQuestion, saveHalaqahEvaluation, saveAppSetting, updateEvaluation, updateEvaluationBatch, updateEvaluationSettingsBatch, saveEvaluationSetting, deleteEvaluationSetting, deleteEvaluationCategory, updateEvaluationCategory, addStudentProgressBatch, loading, fetchData, masterKelas, globalMarhalahs, globalJenisHalaqah, globalAttendanceStatus, saveClassTarget, classTargets, userProfile, selectedAcademicYear , masterMarhalahs, masterKelasRelasi} = useSupabaseData();
+    const { santri, halaqah, studentEvaluations, evaluationSettings, attendance, studentProgress, setoranHarian, appSettings, halaqahEvalQuestions, halaqahEvaluations, saveHalaqahEvalQuestion, deleteHalaqahEvalQuestion, saveHalaqahEvaluation, saveAppSetting, updateEvaluation, updateEvaluationBatch, updateEvaluationSettingsBatch, saveEvaluationSetting, deleteEvaluationSetting, deleteEvaluationCategory, updateEvaluationCategory, addStudentProgressBatch, loading, fetchData, masterKelas, globalMarhalahs, globalJenisHalaqah, globalAttendanceStatus, saveClassTarget, classTargets, userProfile, selectedAcademicYear , masterMarhalahs, masterKelasRelasi, recitationKinds} = useSupabaseData();
     
     // Internal States
     const [selectedMonth, setSelectedMonth] = useState('');
@@ -593,11 +593,11 @@ const PerkembanganMasterDataPage: React.FC = () => {
     }, [appSettings]);
 
     const dynamicSkemaOptions = useMemo(() => {
-        const fromSettings = (appSettings.find(s => s.key === 'SETORAN_SKEMA_OPTIONS')?.value?.split(',') || ['Ziyadah', 'Murojaah', 'Sabqi', 'Manzil'])
-            .map(s => s.trim()).filter(Boolean);
+        // Fase 2: jenis setoran dari tabel recitation_kinds
+        const fromSettings = recitationKinds.filter(k => k.is_active).map(k => k.name);
         const fromData = Array.from(new Set((setoranHarian || []).map(sh => sh.skema?.trim()).filter(Boolean)));
         return Array.from(new Set([...fromSettings, ...fromData])).filter(Boolean);
-    }, [appSettings, setoranHarian]);
+    }, [recitationKinds, setoranHarian]);
 
     const getSantriDailyStats = (santriId: number, monthKey: string, skemaFilter: string = filterSkema) => {
         const periodObj = masterPeriods.find(p => p.id === monthKey);
@@ -881,14 +881,10 @@ const PerkembanganMasterDataPage: React.FC = () => {
         }
         
         try {
-            const { data, error } = await (supabase as any)
-                .from('setoran_harian')
-                .select('santri_id, skema, jumlah_halaman')
-                .gte('tanggal', activePeriod.startDate)
-                .lte('tanggal', activePeriod.endDate);
-                
-            if (error) throw error;
-            if (!data || data.length === 0) {
+            // Fase 2: setoran dari recitation_entries (lewat useSupabaseData), tanpa tabel lama
+            const data = (setoranHarian || []).filter((r: any) =>
+                r.tanggal >= activePeriod.startDate && r.tanggal <= activePeriod.endDate);
+            if (data.length === 0) {
                 NotificationStore.addNotification("Tidak ada data setoran pada periode ini.", 'info');
                 return;
             }
@@ -897,9 +893,9 @@ const PerkembanganMasterDataPage: React.FC = () => {
             const santriMap = new Map();
             
             data.forEach((row: any) => {
-                const skemaStr = row.skema ? String(row.skema).toLowerCase() : '';
-                const isZiyadah = skemaStr.includes('ziyadah');
-                const isMurojaah = !isZiyadah && (skemaStr.includes('murojaah') || skemaStr.includes('sabqi') || skemaStr.includes('manzil'));
+                // Fase 2: penanda dari tabel jenis setoran (recitation_kinds)
+                const isZiyadah = Boolean(row.adds_memorization);
+                const isMurojaah = !isZiyadah && Boolean(row.counts_as_murojaah);
                 
                 if (type === 'ziyadah' && isZiyadah) {
                     santriMap.set(row.santri_id, (santriMap.get(row.santri_id) || 0) + (row.jumlah_halaman || 0));

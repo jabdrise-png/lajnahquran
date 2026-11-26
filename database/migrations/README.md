@@ -30,6 +30,25 @@ contoh: 2026_12_01_01_fix_recitation_revisions_action_check.sql
 | `2026_11_26_02_platform_tenant_stats_rpc.sql` | F1 (BUG-03) | belum |
 | `2026_11_26_03_guard_access_grants.sql` | F1 (BUG-04/05) | belum |
 | `2026_11_26_04_reason_validation.sql` | F1 (BUG-07/08) | belum |
+| `2026_11_27_01_fix_publish_report_card_version.sql` | F1 (temuan test: amandemen raport) | belum |
+| `2026_11_27_02_f2_tabel_referensi.sql` | F2 (referensi & peran) | belum |
+| `2026_11_27_03_f2_multi_peran.sql` | F2 (multi peran) | belum |
+| `2026_11_27_04_f2_santri_dan_nama_marhalah.sql` | F2 (santri, BUG-10) | belum |
+| `2026_11_27_05_f2_tabel_v2_pendukung.sql` | F2 (absensi musammi', validasi) | belum |
+| `2026_11_27_06_f2_migrasi_data_lama.sql` | F2 (migrasi data lama) | belum |
+| `2026_11_27_07_f2_rpc_hanya_v2.sql` | F2 (fungsi hanya V2) | belum |
+| `2026_11_27_08_f2_hapus_kolom_kembar.sql` | F2 (kolom kembar) | belum |
+| `2026_11_27_09_f2_cabut_akses_tabel_lama.sql` | F2 (cabut akses tabel lama) | belum |
+
+## Pemeriksaan sebelum migrasi
+
+Folder `database/checks/` berisi kueri **baca-saja** untuk dijalankan sebelum migrasi besar,
+mis. `database/checks/f2_preflight.sql` sebelum Fase 2. Semua baris harus `OK`/`INFO`.
+
+## Test otomatis
+
+`npm run test:v2` membangun PostgreSQL di memori dari skema repo lalu menjalankan **semua** file di folder ini
+(dua kali, untuk memastikan aman diulang). File baru otomatis ikut diuji dan wajib dicatat di tabel Riwayat.
 
 ## Titik awal
 

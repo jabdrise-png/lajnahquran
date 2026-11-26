@@ -6,6 +6,11 @@ import { useAcademicYear } from '../lib/AcademicYearContext';
 
 import { SupportSessionStore, resolveTenantContext } from '../lib/permissions';
 import { NotificationStore } from '../lib/NotificationStore';
+import {
+    recitationToSetoranRow, setoranInputToRpcArgs, attendanceToLegacy, attendanceInputToRpcRecords, isUuid,
+    DEFAULT_KINDS, DEFAULT_STATUSES,
+    type RecitationKind, type AttendanceStatusRef, type SessionSlotRef, type HalaqahTypeRef, type SetoranRow,
+} from '../lib/v2Adapter';
 
 const useSupabaseDataInternal = () => {
     const { selectedAcademicYear, loading: ayLoading } = useAcademicYear();
@@ -33,7 +38,13 @@ const useSupabaseDataInternal = () => {
     // Ujian states
     const [ujianBulanan, setUjianBulanan] = useState<any[]>([]);
     const [ujianSemester, setUjianSemester] = useState<any[]>([]);
-    const [setoranHarian, setSetoranHarian] = useState<any[]>([]);
+    // Fase 2: setoran dari recitation_entries (bentuk baris lama lewat lib/v2Adapter)
+    const [setoranHarian, setSetoranHarian] = useState<SetoranRow[]>([]);
+    // Fase 2: tabel referensi per lembaga
+    const [recitationKinds, setRecitationKinds] = useState<RecitationKind[]>(DEFAULT_KINDS);
+    const [attendanceStatuses, setAttendanceStatuses] = useState<AttendanceStatusRef[]>(DEFAULT_STATUSES);
+    const [sessionSlots, setSessionSlots] = useState<SessionSlotRef[]>([]);
+    const [halaqahTypes, setHalaqahTypes] = useState<HalaqahTypeRef[]>([]);
     
     const [activeSemesterDates, setActiveSemesterDates] = useState<{ startDate: string | null; endDate: string | null }>({ startDate: null, endDate: null });
     const [studentEnrollments, setStudentEnrollments] = useState<any[]>([]);
@@ -152,13 +163,11 @@ const useSupabaseDataInternal = () => {
             const [
                 { data: santriData, error: santriErr },
                 { data: studentEnrollmentsData },
-                { data: studentClassesData },
                 { data: musammiData },
                 { data: waliKelasData },
                 { data: musyrifsData },
                 { data: halaqahData, error: halaqahErr },
                 { data: halaqahMembershipsData },
-                { data: halaqahSantriData },
                 { data: musammiAssignmentsData },
                 { data: semestersData },
                 { data: masterMarhalahData },
@@ -167,13 +176,11 @@ const useSupabaseDataInternal = () => {
             ] = await Promise.all([
                 executeTableQuery('santri', (supabase as any).from('santri').select('*').eq('organization_id', orgId).limit(5000).order('nama', { ascending: true }), []),
                 executeTableQuery('student_enrollments', (supabase as any).from('student_enrollments').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(5000), []),
-                executeTableQuery('student_classes', (supabase as any).from('student_classes').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(5000), [], { optionalTransitionTable: true }),
                 executeTableQuery('musammi', (supabase as any).from('musammi').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(1000).order('nama', { ascending: true }), []),
                 executeTableQuery('wali_kelas', (supabase as any).from('wali_kelas').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(1000).order('kelas', { ascending: true }), [], { optionalTransitionTable: true }),
                 executeTableQuery('musyrifs', (supabase as any).from('musyrifs').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(1000).order('nama', { ascending: true }), [], { optionalTransitionTable: true }),
                 executeTableQuery('halaqah', (supabase as any).from('halaqah').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(1000).order('id', { ascending: true }), []),
                 executeTableQuery('halaqah_student_memberships', (supabase as any).from('halaqah_student_memberships').select('*').eq('organization_id', orgId).limit(10000), []),
-                executeTableQuery('halaqah_santri', (supabase as any).from('halaqah_santri').select('*').eq('organization_id', orgId).limit(10000), [], { optionalTransitionTable: true }),
                 executeTableQuery('halaqah_musammi_assignments', (supabase as any).from('halaqah_musammi_assignments').select('*').eq('organization_id', orgId).limit(5000), []),
                 executeTableQuery('semesters', (supabase as any).from('semesters').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(20), []),
                 executeTableQuery('master_marhalah', (supabase as any).from('master_marhalah').select('*').eq('organization_id', orgId).limit(500), []),
@@ -190,13 +197,28 @@ const useSupabaseDataInternal = () => {
                 { data: targetsData },
                 { data: settingsData },
                 { data: appSettingsData },
-                { data: halaqahEvalQData }
+                { data: halaqahEvalQData },
+                { data: kindsData },
+                { data: statusesData },
+                { data: slotsData },
+                { data: halaqahTypesData }
             ] = await Promise.all([
                 executeTableQuery('class_targets', (supabase as any).from('class_targets').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(1000), []),
                 executeTableQuery('evaluation_settings', (supabase as any).from('evaluation_settings').select('*').eq('organization_id', orgId).limit(1000).order('score', { ascending: false }), []),
                 executeTableQuery('app_settings', (supabase as any).from('app_settings').select('*').eq('organization_id', orgId).limit(500), []),
-                executeTableQuery('halaqah_evaluation_questions', (supabase as any).from('halaqah_evaluation_questions').select('*').eq('organization_id', orgId).limit(500).order('id', { ascending: true }), [])
+                executeTableQuery('halaqah_evaluation_questions', (supabase as any).from('halaqah_evaluation_questions').select('*').eq('organization_id', orgId).limit(500).order('id', { ascending: true }), []),
+                executeTableQuery('recitation_kinds', (supabase as any).from('recitation_kinds').select('*').eq('organization_id', orgId).order('sort_order', { ascending: true }), []),
+                executeTableQuery('attendance_statuses', (supabase as any).from('attendance_statuses').select('*').eq('organization_id', orgId).order('sort_order', { ascending: true }), []),
+                executeTableQuery('session_slots', (supabase as any).from('session_slots').select('*').eq('organization_id', orgId).order('sort_order', { ascending: true }), []),
+                executeTableQuery('halaqah_types', (supabase as any).from('halaqah_types').select('*').eq('organization_id', orgId).order('sort_order', { ascending: true }), [])
             ]);
+
+            const kindsList: RecitationKind[] = (kindsData as any[])?.length ? (kindsData as any[]) : DEFAULT_KINDS;
+            const statusesList: AttendanceStatusRef[] = (statusesData as any[])?.length ? (statusesData as any[]) : DEFAULT_STATUSES;
+            setRecitationKinds(kindsList);
+            setAttendanceStatuses(statusesList);
+            setSessionSlots((slotsData as any[]) || []);
+            setHalaqahTypes((halaqahTypesData as any[]) || []);
 
             // Batch 3: Progress, Evaluations & Exams
             const [
@@ -237,37 +259,37 @@ const useSupabaseDataInternal = () => {
 
             setActiveSemesterDates({ startDate: activeSemStartDate, endDate: activeSemEndDate });
 
-            // Batch 4: Daily Logs & Attendance
-            let attendanceQuery = (supabase as any)
-                .from('attendance')
-                .select('*')
-                .eq('organization_id', orgId);
-
-            if (activeSemStartDate && activeSemEndDate) {
-                attendanceQuery = attendanceQuery.gte('date', activeSemStartDate).lte('date', activeSemEndDate);
-            } else {
-                attendanceQuery = attendanceQuery.eq('academic_year_id', selectedAcademicYear.id);
-            }
+            // Batch 4: Absensi & setoran — Fase 2: hanya tabel V2
+            const applyRange = (q: any, col: string) => {
+                if (activeSemStartDate && activeSemEndDate) {
+                    return q.gte(col, activeSemStartDate).lte(col, activeSemEndDate);
+                }
+                return q.eq('halaqah_sessions.academic_year_id', selectedAcademicYear.id);
+            };
+            const sessionJoin = activeSemStartDate && activeSemEndDate ? '' : ', halaqah_sessions!inner(academic_year_id)';
 
             const [
-                { data: rawAttendanceData },
-                { data: setoranHarianData }
+                { data: santriAttData },
+                { data: musammiAttData },
+                { data: recitationData }
             ] = await Promise.all([
-                executeTableQuery('attendance', attendanceQuery.limit(50000), []),
-                executeTableQuery('setoran_harian', (supabase as any).from('setoran_harian').select('*').eq('organization_id', orgId).limit(50000), [])
+                executeTableQuery('attendance_records', applyRange((supabase as any).from('attendance_records').select('*' + sessionJoin).eq('organization_id', orgId), 'attendance_date').limit(50000), []),
+                executeTableQuery('musammi_attendance_records', applyRange((supabase as any).from('musammi_attendance_records').select('*' + sessionJoin).eq('organization_id', orgId), 'attendance_date').limit(20000), []),
+                executeTableQuery('recitation_entries', (supabase as any).from('recitation_entries').select('*').eq('organization_id', orgId).neq('status', 'voided').order('recitation_date', { ascending: true }).limit(50000), [])
             ]);
+
+            const rawAttendanceData = [
+                ...((santriAttData as any[]) || []).map(r => attendanceToLegacy(r, 'santri', statusesList)),
+                ...((musammiAttData as any[]) || []).map(r => attendanceToLegacy(r, 'musammi', statusesList)),
+            ];
+            const setoranHarianData = ((recitationData as any[]) || []).map(e => recitationToSetoranRow(e, kindsList));
 
             setQueryErrors(collectedErrors);
             setStudentEnrollments(studentEnrollmentsData || []);
             setHalaqahMemberships(halaqahMembershipsData || []);
             setMusammiAssignments(musammiAssignmentsData || []);
 
-            const attendanceData = (rawAttendanceData || []).filter((a: any) => {
-                if (activeSemStartDate && activeSemEndDate) {
-                    return a.date >= activeSemStartDate && a.date <= activeSemEndDate;
-                }
-                return a.academic_year_id === selectedAcademicYear.id;
-            });
+            const attendanceData = rawAttendanceData;
 
             // Process Class Targets
             let targetsList: ClassTarget[] = [];
@@ -316,15 +338,12 @@ const useSupabaseDataInternal = () => {
             // Map all santri in the organization using Canonical V2 `student_enrollments` first, merged with `student_classes`
             // FASE 4 RULE: Data santri tanpa enrollment pada tahun ajaran terpilih TIDAK otomatis dianggap terdaftar di semua kelas.
             const v2EnrollmentsList = (studentEnrollmentsData as any[]) || [];
-            const legacyClassesList = (studentClassesData as any[]) || [];
 
             const allSantriMapped: Santri[] = (santriData || []).map(s => {
                 const v2Enr = v2EnrollmentsList.find(
                     e => Number(e.student_id || e.santri_id) === Number(s.id)
                 );
-                const legacyCls = legacyClassesList.find(
-                    c => Number(c.santri_id) === Number(s.id)
-                );
+                const legacyCls: any = null;
 
                 const enrStatus = v2Enr
                     ? (v2Enr.status || v2Enr.enrollment_status || 'active')
@@ -425,13 +444,11 @@ const useSupabaseDataInternal = () => {
 
             // Map santri & musammi assignments to their halaqah using Canonical V2 `halaqah_student_memberships` & `halaqah_musammi_assignments`
             const v2MembershipsList = (halaqahMembershipsData as any[]) || [];
-            const legacyMembershipsList = (halaqahSantriData as any[]) || [];
             const v2AssignmentsList = (musammiAssignmentsData as any[]) || [];
 
             const halaqahWithSantri: Halaqah[] = (halaqahData || []).map((h): Halaqah | null => {
                 // 1. Canonical V2 Memberships merged with Legacy `halaqah_santri`
                 const v2ForGroup = v2MembershipsList.filter(m => Number(m.halaqah_id) === Number(h.id));
-                const legacyForGroup = legacyMembershipsList.filter(hs => Number(hs.halaqah_id) === Number(h.id));
 
                 const activeSantriIdsSet = new Set<number>();
                 const historyRecords: any[] = [];
@@ -460,25 +477,6 @@ const useSupabaseDataInternal = () => {
                         end_date: m.valid_to || null,
                         status: statusLabel
                     });
-                });
-
-                legacyForGroup.forEach(hs => {
-                    const sid = Number(hs.santri_id);
-                    const isCurrentlyActive = (!hs.end_date || String(hs.end_date).trim() === '') && (hs.status || 'Aktif') === 'Aktif';
-                    if (isCurrentlyActive && v2ForGroup.length === 0) {
-                        activeSantriIdsSet.add(sid);
-                    }
-                    const key = `${sid}_${hs.start_date || ''}`;
-                    if (!seenStudentStartKeys.has(key) && !v2ForGroup.some(m => Number(m.student_id) === sid)) {
-                        historyRecords.push({
-                            halaqah_id: h.id,
-                            santri_id: sid,
-                            santri: allSantriMapped.find(s => Number(s.id) === sid),
-                            start_date: hs.start_date || '',
-                            end_date: hs.end_date || null,
-                            status: hs.status || (isCurrentlyActive ? 'Aktif' : 'Berhenti')
-                        });
-                    }
                 });
 
                 // 2. Canonical V2 Musammi Assignments (Primary & Substitute)
@@ -555,29 +553,29 @@ const useSupabaseDataInternal = () => {
                 .map((a): AttendanceRecord | null => {
                     let person: any = null;
                     if (a.peran === 'Santri' || a.peran === Peran.Santri) {
-                        person = activeSantriListForApp.find(p => p.id === a.person_id)
-                            || santriList.find(p => p.id === a.person_id)
-                            || allSantriMapped.find((p: any) => p.id === a.person_id);
+                        person = activeSantriListForApp.find(p => p.id === a.personId)
+                            || allSantriMapped.find((p: any) => p.id === a.personId);
                     } else {
-                        person = musammiList.find(p => p.id === a.person_id)
-                            || (musammiData || []).find((p: any) => p.id === a.person_id);
+                        person = musammiList.find(p => p.id === a.personId)
+                            || (musammiData || []).find((p: any) => p.id === a.personId);
                     }
                     
-                    const nama = person?.nama || (a.peran === 'Santri' ? `Santri (${a.person_id})` : `Musammi (${a.person_id})`);
+                    const nama = person?.nama || (a.peran === 'Santri' ? `Santri (${a.personId})` : `Musammi (${a.personId})`);
                     const marhalah = person?.marhalah || '-';
                     const kelas = person?.kelas || '-';
 
                     return {
+                        ...a,
                         id: a.id,
                         date: a.date,
                         waktu: a.waktu as Waktu,
-                        personId: a.person_id,
+                        personId: a.personId,
                         nama,
                         marhalah: marhalah as any,
                         kelas,
                         peran: a.peran as Peran,
                         status: a.status as AttendanceStatus,
-                        halaqahId: a.halaqah_id,
+                        halaqahId: a.halaqahId,
                     };
                 })
                 .filter((a): a is AttendanceRecord => a !== null);
@@ -949,323 +947,117 @@ const useSupabaseDataInternal = () => {
         await fetchData();
     }, [fetchData, getOrgId, selectedAcademicYear?.id]);
     
-    const addAttendanceRecords = async (records: Omit<AttendanceRecord, 'id' | 'nama' | 'marhalah' | 'kelas'>[]) => {
-        if (!records || records.length === 0) return;
-        const orgId = await getOrgId();
-        
-        const dates = Array.from(new Set(records.map(r => r.date).filter(Boolean)));
-        const waktus = Array.from(new Set(records.map(r => r.waktu).filter(Boolean)));
-        const roles = Array.from(new Set(records.map(r => r.peran).filter(Boolean)));
-        const personIds = Array.from(new Set(records.map(r => r.personId).filter(Boolean)));
-        const targetHalaqahIds = Array.from(new Set(records.map(r => r.halaqahId).filter(Boolean)));
-
-        // If records only contains Musammi, we clear prior Musammi records for the targeted halaqahs
-        // so that changing Musammi does not leave orphaned prior-musammi records,
-        // while STRICTLY GUARANTEEING that Santri records are never touched.
-        const isOnlyMusammi = roles.length === 1 && roles[0] === 'Musammi';
-
-        // Delete existing records ONLY for the targeted criteria to avoid duplicates without wiping other people
-        let deleteQuery = (supabase as any)
-            .from('attendance')
-            .delete()
-            .eq('organization_id', orgId);
-
-        if (dates.length === 1) {
-            deleteQuery = deleteQuery.eq('date', dates[0]);
-        } else if (dates.length > 1) {
-            deleteQuery = deleteQuery.in('date', dates);
-        }
-
-        if (waktus.length === 1) {
-            deleteQuery = deleteQuery.eq('waktu', waktus[0]);
-        } else if (waktus.length > 1) {
-            deleteQuery = deleteQuery.in('waktu', waktus);
-        }
-
-        if (targetHalaqahIds.length > 0) {
-            deleteQuery = deleteQuery.in('halaqah_id', targetHalaqahIds);
-        }
-
-        // CRITICAL: Always restrict deletion by the specific roles being inserted
-        if (roles.length > 0) {
-            deleteQuery = deleteQuery.in('peran', roles);
-        }
-
-        // When inserting records for Santri (or mixed), strictly limit deletion to the person_ids being updated
-        // so that inserting attendance for one person NEVER wipes other people's attendance in the same halaqah
-        if (!isOnlyMusammi || targetHalaqahIds.length === 0) {
-            if (personIds.length > 0) {
-                deleteQuery = deleteQuery.in('person_id', personIds);
-            }
-        }
-
-        const { error: delError } = await deleteQuery;
-        if (delError) {
-            console.warn("Delete prior attendance warning:", delError);
-        }
-
-        const recordsToInsert = records.map(r => ({
-            organization_id: orgId, 
-            academic_year_id: selectedAcademicYear?.id, 
-            date: r.date, 
-            waktu: r.waktu, 
-            person_id: r.personId, 
-            peran: r.peran, 
-            status: r.status, 
-            halaqah_id: r.halaqahId,
-        }));
-        const { error } = await supabase.from('attendance').insert(recordsToInsert);
+    // ------------------------------------------------------------------
+    // Fase 2: absensi & setoran hanya lewat RPC V2 (tidak ada tulis ke tabel lama)
+    // ------------------------------------------------------------------
+    const rpcOrThrow = async (fn: string, args: Record<string, any>) => {
+        const { data, error } = await (supabase as any).rpc(fn, args);
         if (error) throw error;
+        return data;
+    };
 
-        // Sinkronisasi V2: halaqah_sessions & attendance_records dengan idempotency_key
-        try {
-            const santriRecords = records.filter(r => r.peran === 'Santri' && r.halaqahId && r.date && r.waktu);
-            const sessionKeys = Array.from(new Set(santriRecords.map(r => `${r.halaqahId}|${r.date}|${r.waktu}`)));
-            for (const sKey of sessionKeys) {
-                const [halIdStr, sDate, sSlot] = sKey.split('|');
-                const halId = Number(halIdStr);
-                const groupRows = santriRecords.filter(r => r.halaqahId === halId && r.date === sDate && r.waktu === sSlot);
-                const idempotencyKey = `att_${orgId}_${halId}_${sDate}_${sSlot}`;
+    const addAttendanceRecords = async (records: Omit<AttendanceRecord, 'id' | 'nama' | 'marhalah' | 'kelas'>[], reason?: string) => {
+        if (!records || records.length === 0) return;
 
-                const { data: existingSession } = await (supabase as any)
-                    .from('halaqah_sessions')
-                    .select('id, status')
-                    .eq('organization_id', orgId)
-                    .eq('halaqah_id', halId)
-                    .eq('session_date', sDate)
-                    .eq('session_slot', sSlot)
-                    .maybeSingle();
-
-                let sessionRowId = existingSession?.id;
-
-                if (!existingSession) {
-                    const { data: insertedSession } = await (supabase as any)
-                        .from('halaqah_sessions')
-                        .insert({
-                            organization_id: orgId,
-                            academic_year_id: selectedAcademicYear?.id || null,
-                            halaqah_id: halId,
-                            session_date: sDate,
-                            session_slot: sSlot,
-                            status: 'submitted',
-                            updated_at: new Date().toISOString()
-                        })
-                        .select('id')
-                        .maybeSingle();
-                    sessionRowId = insertedSession?.id;
-                } else if (existingSession.status !== 'locked') {
-                    await (supabase as any)
-                        .from('halaqah_sessions')
-                        .update({
-                            status: 'submitted',
-                            updated_at: new Date().toISOString()
-                        })
-                        .eq('id', existingSession.id);
-                }
-
-                if (sessionRowId) {
-                    const v2AttRows = groupRows.map(r => ({
-                        organization_id: orgId,
-                        session_id: sessionRowId,
-                        halaqah_id: halId,
-                        santri_id: r.personId,
-                        attendance_date: sDate,
-                        session_slot: sSlot,
-                        status: (r.status || 'hadir').toLowerCase(),
-                        idempotency_key: `${idempotencyKey}_${r.personId}`,
-                        marked_by: userProfile?.id || null,
-                        updated_at: new Date().toISOString()
-                    }));
-                    const { error: v2AttErr } = await (supabase as any).from('attendance_records').upsert(v2AttRows, {
-                        onConflict: 'session_id,santri_id'
-                    });
-                    if (v2AttErr && v2AttErr.code !== '42P01') {
-                        console.warn('V2 attendance_records sync warning:', v2AttErr.message);
-                    }
-                }
+        // Satu musammi' per halaqah per sesi: saat Musammi' lain dicatat untuk halaqah & sesi yang sama,
+        // catatan musammi' sebelumnya dihapus (perilaku sama dengan versi lama).
+        const musammiRecords = records.filter(r => r.peran === 'Musammi' && r.halaqahId);
+        if (musammiRecords.length > 0) {
+            const toRemove = attendance
+                .filter((a: any) => a.peran === 'Musammi' && musammiRecords.some(r =>
+                    r.halaqahId === a.halaqahId && r.date === a.date && r.waktu === a.waktu && r.personId !== a.personId))
+                .map((a: any) => ({ kind: 'musammi', id: a.id }));
+            if (toRemove.length > 0) {
+                await rpcOrThrow('rpc_delete_attendance_entries', { p_items: toRemove, p_reason: reason || 'Pergantian musammi pada sesi' });
             }
-        } catch (v2SyncErr) {
-            console.warn('V2 attendance sync skipped:', v2SyncErr);
         }
 
+        const chunkSize = 300;
+        const payload = attendanceInputToRpcRecords(records);
+        for (let i = 0; i < payload.length; i += chunkSize) {
+            await rpcOrThrow('rpc_record_attendance', { p_records: payload.slice(i, i + chunkSize), p_reason: reason || null });
+        }
         await fetchData();
     };
 
-    const updateAttendanceRecord = useCallback(async (id: number, updates: { status?: AttendanceStatus, date?: string, waktu?: Waktu }) => {
-        const orgId = await getOrgId();
-        const { error } = await supabase.from('attendance').update(updates as any).eq('organization_id', orgId).eq('id', id);
-        if (error) throw error;
-        await fetchData();
-    }, [fetchData, getOrgId]);
+    const findAttendanceById = (id: string | number) => attendance.find((a: any) => String(a.id) === String(id)) as any;
 
-    const deleteAttendanceRecord = useCallback(async (id: number) => {
-        const orgId = await getOrgId();
-        const { error } = await supabase.from('attendance').delete().eq('organization_id', orgId).eq('id', id);
-        if (error) throw error;
+    const updateAttendanceRecord = useCallback(async (id: string | number, updates: { status?: AttendanceStatus, date?: string, waktu?: Waktu }, reason?: string) => {
+        const existing = findAttendanceById(id);
+        if (!existing) throw new Error('Catatan absensi tidak ditemukan. Muat ulang halaman.');
+        if (updates.date && updates.date !== existing.date || updates.waktu && updates.waktu !== existing.waktu) {
+            // Pindah tanggal/waktu = hapus catatan lama + catat di sesi baru
+            await rpcOrThrow('rpc_delete_attendance_entries', { p_items: [{ kind: existing.kind, id: existing.id }], p_reason: reason || 'Pindah tanggal/waktu absensi' });
+            await rpcOrThrow('rpc_record_attendance', {
+                p_records: attendanceInputToRpcRecords([{ ...existing, ...updates, status: updates.status || existing.status }]),
+                p_reason: reason || null,
+            });
+        } else if (updates.status) {
+            await rpcOrThrow('rpc_update_attendance_entry', { p_kind: existing.kind, p_id: existing.id, p_status: updates.status, p_reason: reason || null });
+        }
         await fetchData();
-    }, [fetchData, getOrgId]);
-    
-    const deleteAttendanceBatch = useCallback(async (date: string, waktu: string, options?: { peran?: string; halaqahId?: number; ids?: number[] }) => {
-        const orgId = await getOrgId();
+    }, [fetchData, attendance]);
 
+    const deleteAttendanceRecord = useCallback(async (id: string | number, reason?: string) => {
+        const existing = findAttendanceById(id);
+        if (!existing) return;
+        await rpcOrThrow('rpc_delete_attendance_entries', { p_items: [{ kind: existing.kind, id: existing.id }], p_reason: reason || null });
+        await fetchData();
+    }, [fetchData, attendance]);
+
+    const deleteAttendanceBatch = useCallback(async (date: string, waktu: string, options?: { peran?: string; halaqahId?: number; ids?: (string | number)[] }, reason?: string) => {
+        let targets: any[];
         if (options?.ids && options.ids.length > 0) {
-            const chunkSize = 200;
-            for (let i = 0; i < options.ids.length; i += chunkSize) {
-                const chunk = options.ids.slice(i, i + chunkSize);
-                const { error } = await (supabase as any)
-                    .from('attendance')
-                    .delete()
-                    .eq('organization_id', orgId)
-                    .in('id', chunk);
-                if (error) throw error;
-            }
-            await fetchData();
-            return;
+            const idSet = new Set(options.ids.map(String));
+            targets = attendance.filter((a: any) => idSet.has(String(a.id)));
+        } else {
+            targets = attendance.filter((a: any) =>
+                a.date === date && a.waktu === waktu &&
+                (!options?.peran || options.peran === 'all' || a.peran === options.peran) &&
+                (!options?.halaqahId || a.halaqahId === options.halaqahId));
         }
-
-        let q = (supabase as any)
-            .from('attendance')
-            .delete()
-            .eq('organization_id', orgId)
-            .eq('date', date)
-            .eq('waktu', waktu as Waktu);
-
-        if (options?.peran && options.peran !== 'all') {
-            q = q.eq('peran', options.peran);
+        const items = targets.map((a: any) => ({ kind: a.kind, id: a.id }));
+        for (let i = 0; i < items.length; i += 300) {
+            await rpcOrThrow('rpc_delete_attendance_entries', { p_items: items.slice(i, i + 300), p_reason: reason || null });
         }
-        if (options?.halaqahId) {
-            q = q.eq('halaqah_id', options.halaqahId);
-        }
-
-        const { error } = await q;
-        if (error) throw error;
         await fetchData();
-    }, [fetchData, getOrgId]);
+    }, [fetchData, attendance]);
 
     const addSetoranHarianRecord = useCallback(async (record: Partial<any>) => {
-        const orgId = await getOrgId();
-        const { data: insertedRows, error } = await (supabase as any)
-            .from('setoran_harian')
-            .insert([{ ...record, organization_id: orgId }])
-            .select();
-        if (error) throw error;
-
-        // Sinkronisasi otomatis ke Catatan Setoran V2 (recitation_entries)
-        try {
-            const inserted = Array.isArray(insertedRows) ? insertedRows[0] : insertedRows;
-            if (inserted && orgId) {
-                const rawKind = String(record.jenis_setoran || record.skema || 'ziyadah').toLowerCase();
-                const normalizedKind =
-                    rawKind.includes('sabqi')
-                        ? 'sabqi'
-                        : rawKind.includes('manzil') || rawKind.includes('murojaah') || rawKind.includes('murajaah')
-                        ? 'manzil'
-                        : 'ziyadah';
-                const { error: v2RecErr } = await (supabase as any).from('recitation_entries').upsert(
-                    {
-                        organization_id: orgId,
-                        academic_year_id: selectedAcademicYear?.id || null,
-                        halaqah_id: record.halaqah_id || null,
-                        santri_id: record.santri_id,
-                        recitation_date: record.tanggal,
-                        session_slot: record.waktu || 'Shubuh',
-                        kind: normalizedKind,
-                        surah_start_no: Number(record.surah_start_no) || 1,
-                        ayah_start: Number(record.ayat_mulai) || 1,
-                        surah_end_no: Number(record.surah_end_no) || 1,
-                        ayah_end: Number(record.ayat_akhir || record.ayat_selesai) || 1,
-                        calculated_pages: Number(record.jumlah_halaman) || 0,
-                        minor_mistakes: Number(record.kesalahan_shoghir) || 0,
-                        major_mistakes: Number(record.kesalahan_kabir) || 0,
-                        predicate: record.nilai || null,
-                        notes: record.catatan || record.keterangan || null,
-                        status: 'submitted',
-                        legacy_setoran_id: inserted.id,
-                    },
-                    { onConflict: 'legacy_setoran_id' }
-                );
-                if (v2RecErr && v2RecErr.code !== '42P01') {
-                    console.warn('V2 recitation_entries sync warning:', v2RecErr.message);
-                }
-            }
-        } catch (v2RecSyncErr) {
-            console.warn('V2 recitation sync skipped:', v2RecSyncErr);
-        }
-
+        const args = setoranInputToRpcArgs(record, {
+            idempotencyKey: record.idempotency_key || `setoran_${record.santri_id}_${record.tanggal}_${record.waktu}_${Date.now()}`,
+            sessionId: record.session_id || null,
+        });
+        const result = await rpcOrThrow('rpc_submit_recitation_entry', args);
         await fetchData();
-    }, [fetchData, getOrgId, selectedAcademicYear]);
+        return result;
+    }, [fetchData]);
 
-    const updateSetoranHarianRecord = useCallback(async (id: number, updates: Partial<any>) => {
-        const orgId = await getOrgId();
-        const { error } = await (supabase as any).from('setoran_harian').update(updates).eq('organization_id', orgId).eq('id', id);
-        if (error) throw error;
-
-        // Sinkronkan perubahan ke recitation_entries (trg_audit_recitation_entry_mutation otomatis mencatat ke recitation_revisions)
-        try {
-            const { data: existingV2 } = await (supabase as any)
-                .from('recitation_entries')
-                .select('*')
-                .eq('organization_id', orgId)
-                .eq('legacy_setoran_id', id)
-                .maybeSingle();
-
-            if (existingV2) {
-                const rawKind = String(updates.jenis_setoran || updates.skema || existingV2.kind || 'ziyadah').toLowerCase();
-                const normalizedKind =
-                    rawKind.includes('sabqi')
-                        ? 'sabqi'
-                        : rawKind.includes('manzil') || rawKind.includes('murojaah') || rawKind.includes('murajaah')
-                        ? 'manzil'
-                        : 'ziyadah';
-
-                const v2Updates: any = {
-                    kind: normalizedKind,
-                    ayah_start: Number(updates.ayat_mulai || updates.ayat) || existingV2.ayah_start || 1,
-                    ayah_end: Number(updates.ayat_selesai || updates.ayat_akhir) || existingV2.ayah_end || 1,
-                    calculated_pages: updates.jumlah_halaman !== undefined ? Number(updates.jumlah_halaman) || 0 : existingV2.calculated_pages,
-                    minor_mistakes: updates.kesalahan_shoghir !== undefined ? Number(updates.kesalahan_shoghir) || 0 : existingV2.minor_mistakes,
-                    major_mistakes: updates.kesalahan_kabir !== undefined ? Number(updates.kesalahan_kabir) || 0 : existingV2.major_mistakes,
-                    predicate: updates.nilai !== undefined ? updates.nilai : existingV2.predicate,
-                    notes: updates.keterangan !== undefined ? updates.keterangan : existingV2.notes,
-                    status: existingV2.status === 'returned' ? 'submitted' : existingV2.status,
-                    revision_no: existingV2.status === 'returned' ? (existingV2.revision_no || 1) + 1 : existingV2.revision_no,
-                    updated_at: new Date().toISOString(),
-                };
-
-                const { error: v2Err } = await (supabase as any)
-                    .from('recitation_entries')
-                    .update(v2Updates)
-                    .eq('id', existingV2.id)
-                    .eq('organization_id', orgId);
-
-                if (v2Err && v2Err.code !== '42P01') {
-                    console.warn('V2 recitation_entries update warning:', v2Err.message);
-                }
-            }
-        } catch (v2UpdateErr) {
-            console.warn('V2 recitation update skipped:', v2UpdateErr);
-        }
-
+    const updateSetoranHarianRecord = useCallback(async (id: string | number, updates: Partial<any>) => {
+        const existing: any = setoranHarian.find((r: any) => String(r.id) === String(id) || String(r.legacy_setoran_id) === String(id));
+        if (!existing) throw new Error('Catatan setoran tidak ditemukan. Muat ulang halaman.');
+        const merged = { ...existing, ...updates };
+        // Isian surat/ayat baru menggantikan nomor surat lama
+        if (updates.surat_mulai || updates.surat) { delete merged.surah_start_no; }
+        if (updates.surat_selesai || updates.surat) { delete merged.surah_end_no; }
+        const args = setoranInputToRpcArgs(merged, { existingEntryId: existing.v2_id || (isUuid(existing.id) ? existing.id : null) });
+        const result = await rpcOrThrow('rpc_submit_recitation_entry', args);
         await fetchData();
-    }, [fetchData, getOrgId]);
+        return result;
+    }, [fetchData, setoranHarian]);
 
-    const deleteSetoranHarianRecord = useCallback(async (id: number) => {
-        const orgId = await getOrgId();
-        const { error } = await (supabase as any).from('setoran_harian').delete().eq('organization_id', orgId).eq('id', id);
-        if (error) throw error;
-
-        try {
-            await (supabase as any)
-                .from('recitation_entries')
-                .update({ status: 'voided', updated_at: new Date().toISOString() })
-                .eq('organization_id', orgId)
-                .eq('legacy_setoran_id', id);
-        } catch {
-            // Fallback aman
-        }
-
+    const deleteSetoranHarianRecord = useCallback(async (id: string | number, reason?: string) => {
+        const existing: any = setoranHarian.find((r: any) => String(r.id) === String(id) || String(r.legacy_setoran_id) === String(id));
+        const entryId = existing?.v2_id || (isUuid(id) ? id : null);
+        if (!entryId) throw new Error('Catatan setoran tidak ditemukan. Muat ulang halaman.');
+        // Setoran tidak dihapus permanen: dibatalkan (voided) dan tercatat di riwayat revisi
+        await rpcOrThrow('rpc_review_recitation_entry', {
+            p_entry_id: entryId,
+            p_new_status: 'voided',
+            p_reason: (reason && reason.trim()) || 'Dihapus melalui halaman Setoran Harian',
+        });
         await fetchData();
-    }, [fetchData, getOrgId]);
+    }, [fetchData, setoranHarian]);
 
     // Student Progress Mutations
     const addStudentProgressBatch = useCallback(async (progressRecords: Omit<StudentProgress, 'id'>[], skipFetch = false) => {
@@ -1970,7 +1762,7 @@ const useSupabaseDataInternal = () => {
     ]);
 
     useEffect(() => {
-        if (!loading && appSettings.length > 0) {
+        if (!loading) {
             const marhalahSetting = appSettings.find(s => s.key === 'GLOBAL_MARHALAHS')?.value;
             const waktuSetting = appSettings.find(s => s.key === 'GLOBAL_WAKTU_HALAQAH')?.value;
             const jenisSetting = appSettings.find(s => s.key === 'GLOBAL_JENIS_HALAQAH')?.value;
@@ -1978,15 +1770,17 @@ const useSupabaseDataInternal = () => {
             const predikatSetting = appSettings.find(s => s.key === 'GLOBAL_PREDIKAT_NILAI')?.value;
             
             
-            if (waktuSetting) {
-                try { setGlobalWaktuHalaqah(JSON.parse(waktuSetting)); } catch(e) {}
-            }
-            if (jenisSetting) {
-                try { setGlobalJenisHalaqah(JSON.parse(jenisSetting)); } catch(e) {}
-            }
-            if (statusSetting) {
-                try { setGlobalAttendanceStatus(JSON.parse(statusSetting)); } catch(e) {}
-            }
+            // Fase 2: waktu, jenis halaqah, dan status kehadiran dari tabel referensi.
+            // app_settings lama hanya dipakai bila tabel referensi belum dimigrasikan.
+            const activeSlots = sessionSlots.filter(x => x.is_active).map(x => x.code);
+            const activeTypes = halaqahTypes.filter(x => x.is_active).map(x => x.name);
+            const activeStatuses = attendanceStatuses.filter(x => x.is_active).map(x => x.name);
+            if (activeSlots.length) setGlobalWaktuHalaqah(activeSlots);
+            else if (waktuSetting) { try { setGlobalWaktuHalaqah(JSON.parse(waktuSetting)); } catch(e) {} }
+            if (activeTypes.length) setGlobalJenisHalaqah(activeTypes);
+            else if (jenisSetting) { try { setGlobalJenisHalaqah(JSON.parse(jenisSetting)); } catch(e) {} }
+            if (activeStatuses.length) setGlobalAttendanceStatus(activeStatuses);
+            else if (statusSetting) { try { setGlobalAttendanceStatus(JSON.parse(statusSetting)); } catch(e) {} }
             if (predikatSetting) {
                 try { 
                     const parsed = JSON.parse(predikatSetting);
@@ -1996,7 +1790,7 @@ const useSupabaseDataInternal = () => {
                 } catch(e) {}
             }
         }
-    }, [appSettings, loading]);
+    }, [appSettings, loading, sessionSlots, halaqahTypes, attendanceStatuses]);
 
     
     
@@ -2160,6 +1954,7 @@ const useSupabaseDataInternal = () => {
         ujianBulanan, ujianSemester, masterKelas, masterMarhalahs, masterKelasRelasi,
         studentEnrollments, halaqahMemberships, musammiAssignments, queryErrors,
         userProfile, setoranHarian, orgName, orgLogo, updateOrganization,
+        recitationKinds, attendanceStatuses, sessionSlots, halaqahTypes,
         globalMarhalahs, globalWaktuHalaqah, globalJenisHalaqah, globalAttendanceStatus, globalPredikatNilai,
         loading: loading || ayLoading, error, fetchData, 
         addHalaqah, updateHalaqah, deleteHalaqah, deleteHalaqahBatch, restoreHalaqah, keluarkanSantri, mutasiSantri, 

@@ -85,8 +85,11 @@ check(
     hardeningSql.includes('v_revision_no := COALESCE(v_existing_entry.revision_no, 1) + 1') &&
     hardeningSql.includes('previous_status, new_status, reason') &&
     migrationSql.includes('v_existing_entry.status = \'returned\' AND v_clean_status = \'submitted\'') &&
-    useSupabaseDataCode.includes('existingV2.status === \'returned\' ? (existingV2.revision_no || 1) + 1'),
-  'Resubmission of returned entry automatically increments revision_no and updates legacy table.'
+    // Diperbarui Fase 2 v2: perubahan dari hook lewat rpc_submit_recitation_entry (p_existing_entry_id),
+    // revision_no dinaikkan server; tidak ada lagi salinan ke tabel lama.
+    read('database/migrations/2026_11_27_07_f2_rpc_hanya_v2.sql').includes("when v_existing.status = 'returned' and v_status = 'submitted' then 'resubmit'") &&
+    useSupabaseDataCode.includes('existingEntryId'),
+  'Resubmission of returned entry automatically increments revision_no (server-side, V2 only).'
 );
 
 // 6. Admin membatalkan dengan alasan (voided, reason min 5 karakter)

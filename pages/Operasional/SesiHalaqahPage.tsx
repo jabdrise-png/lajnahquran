@@ -31,7 +31,10 @@ const SesiHalaqahPage: React.FC = () => {
     getOrgId,
     loading,
     fetchData,
+    recitationKinds,
   } = useSupabaseData();
+  // Fase 2: pilihan jenis setoran dari tabel recitation_kinds lembaga
+  const activeKinds = recitationKinds.filter((k) => k.is_active);
 
   const canonicalRole = normalizeRole(userProfile?.role);
   const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -103,7 +106,7 @@ const SesiHalaqahPage: React.FC = () => {
   // State Transaksi Setoran Terstruktur (Ziyadah / Sabqi / Manzil)
   const [recitationForm, setRecitationForm] = useState({
     santriId: 0,
-    kind: 'Ziyadah' as 'Ziyadah' | 'Sabqi' | 'Manzil',
+    kind: 'ziyadah' as string,
     surahStartNo: 1,
     ayahStart: 1,
     surahEndNo: 1,
@@ -225,8 +228,7 @@ const SesiHalaqahPage: React.FC = () => {
       .filter(
         (st: any) =>
           st.santri_id === targetSantriId &&
-          String(st.jenis_setoran || st.skema || 'Ziyadah').toLowerCase() ===
-            recitationForm.kind.toLowerCase()
+          String(st.kind || st.skema || 'ziyadah').toLowerCase() === recitationForm.kind.toLowerCase()
       )
       .sort((a: any, b: any) => (b.tanggal || '').localeCompare(a.tanggal || ''));
 
@@ -398,9 +400,9 @@ const SesiHalaqahPage: React.FC = () => {
       let murajaahPages = 0;
       recRows.forEach((r: any) => {
         const pages = Number(r.jumlah_halaman) || 0;
-        const kindStr = String(r.jenis_setoran || r.skema || 'Ziyadah').toLowerCase();
-        if (kindStr.includes('ziyadah')) ziyadahPages += pages;
-        else murajaahPages += pages;
+        // Fase 2: hanya jenis bertanda "menambah hafalan" yang dihitung sebagai ziyadah
+        if (r.adds_memorization) ziyadahPages += pages;
+        else if (r.counts_as_murojaah) murajaahPages += pages;
       });
 
       const latest = recRows[0] || null;
@@ -1302,11 +1304,11 @@ const SesiHalaqahPage: React.FC = () => {
                       Jenis Kegiatan (Semantic Kind)
                     </label>
                     <div className="grid grid-cols-3 gap-2">
-                      {[
-                        { id: 'Ziyadah', desc: 'Sabaq / Baru' },
-                        { id: 'Sabqi', desc: 'Murajaah Dekat' },
-                        { id: 'Manzil', desc: 'Murajaah Lama' },
-                      ].map((k) => (
+                      {activeKinds.map((k) => ({
+                        id: k.code,
+                        label: k.name,
+                        desc: k.adds_memorization ? 'Menambah hafalan' : k.counts_as_murojaah ? 'Murojaah' : 'Tidak menambah hafalan',
+                      })).map((k) => (
                         <button
                           key={k.id}
                           type="button"
@@ -1319,7 +1321,7 @@ const SesiHalaqahPage: React.FC = () => {
                               : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                           }`}
                         >
-                          <div className="text-xs font-bold">{k.id}</div>
+                          <div className="text-xs font-bold">{k.label}</div>
                           <div className="text-[11px] text-slate-500">{k.desc}</div>
                         </button>
                       ))}

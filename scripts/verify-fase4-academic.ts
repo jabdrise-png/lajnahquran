@@ -137,20 +137,17 @@ check(
     'rpc_check_academic_year_closing_readiness & rpc_close_academic_year enforce all 6 prerequisites on server and UI.'
 );
 
-// 9. Laporan rekonsiliasi data legacy vs V2 tersedia
+// 9. (Diperbarui Fase 2 v2, 27-11-2026) Data lama dipindah oleh migrasi database yang bisa diulang;
+//    rekonsiliasi jumlah baris lewat f2_legacy_reconciliation(). Halaman Rekonsiliasi dihapus.
+const f2MigrationSql = fs.readFileSync(path.resolve(process.cwd(), 'database/migrations/2026_11_27_06_f2_migrasi_data_lama.sql'), 'utf8');
 check(
     'FASE4-09',
-    'Laporan rekonsiliasi data legacy vs V2 tersedia (rpc_get_academic_reconciliation_report & rpc_reconcile_academic_v2_data)',
-    hardeningSql.includes('CREATE OR REPLACE FUNCTION public.rpc_get_academic_reconciliation_report') &&
-        hardeningSql.includes('CREATE OR REPLACE FUNCTION public.rpc_reconcile_academic_v2_data') &&
-        hardeningSql.includes('ACTIVE_SANTRI_WITHOUT_ENROLLMENT') &&
-        hardeningSql.includes('LEGACY_CLASS_MISSING_IN_V2_ENROLLMENTS') &&
-        hardeningSql.includes('LEGACY_HALAQAH_SANTRI_MISSING_IN_V2_MEMBERSHIPS') &&
-        hardeningSql.includes('LEGACY_HALAQAH_MUSAMMI_MISSING_IN_V2_ASSIGNMENTS') &&
-        hardeningSql.includes('ACADEMIC_YEAR_WITHOUT_SEMESTERS') &&
-        tahunAjaranPageCode.includes("rpc('rpc_get_academic_reconciliation_report'") &&
-        tahunAjaranPageCode.includes("rpc('rpc_reconcile_academic_v2_data'"),
-    'All 5 reconciliation checks and automatic V2 backfill RPC are implemented in SQL and exposed in TahunAjaranPage.tsx.'
+    'Migrasi data lama -> V2 dapat diulang & rekonsiliasi jumlah baris tersedia (f2_migrate_legacy_data, f2_legacy_reconciliation)',
+    f2MigrationSql.includes('create or replace function public.f2_migrate_legacy_data') &&
+        f2MigrationSql.includes('create or replace function public.f2_legacy_reconciliation') &&
+        !tahunAjaranPageCode.includes("rpc('rpc_get_academic_reconciliation_report'") &&
+        !tahunAjaranPageCode.includes("rpc('rpc_reconcile_academic_v2_data'"),
+    'Migrasi 2026_11_27_06 memindahkan student_classes, halaqah_santri, attendance, setoran_harian ke V2; halaman tidak lagi memanggil RPC rekonsiliasi lama.'
 );
 
 console.log('\n================================================================');

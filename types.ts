@@ -64,6 +64,8 @@ export interface Santri extends Person {
     nama_wali?: string;
     no_hp_wali?: string;
     telegram_chat_id?: string;
+    tanggal_lahir?: string | null;
+    asal?: string | null;
     musyrif_nama?: string;
     student_class_id?: number; // Added to track current class assignment
     enrollment_status?: 'active' | 'promoted' | 'transferred' | 'graduated' | 'withdrawn' | 'inactive' | 'unenrolled' | string;
@@ -180,7 +182,15 @@ export interface Halaqah {
 }
 
 export interface AttendanceRecord {
-  id: number;
+  /** Fase 2: UUID dari attendance_records / musammi_attendance_records */
+  id: string | number;
+  /** 'santri' | 'musammi' — tabel V2 asal catatan */
+  kind?: 'santri' | 'musammi';
+  /** Kode status di attendance_statuses (mis. 'hadir') */
+  statusCode?: string;
+  sessionId?: string;
+  isBadal?: boolean;
+  badalMusammiId?: number | null;
   date: string;
   waktu: Waktu;
   personId: number;

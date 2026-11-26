@@ -8,6 +8,7 @@ Jalankan berurutan, satu file per kali (salin isi file → Run):
 2. `database/migrations/2026_11_26_02_platform_tenant_stats_rpc.sql`
 3. `database/migrations/2026_11_26_03_guard_access_grants.sql`
 4. `database/migrations/2026_11_26_04_reason_validation.sql`
+5. `database/migrations/2026_11_27_01_fix_publish_report_card_version.sql`
 
 Semua file aman dijalankan ulang. Setelah berhasil, ubah kolom "Dijalankan" di `database/migrations/README.md` menjadi tanggal hari itu.
 
@@ -15,7 +16,27 @@ Semua file aman dijalankan ulang. Setelah berhasil, ubah kolom "Dijalankan" di `
 
 Push branch `fase-1-perbaikan-kritis` → buat Pull Request ke `main` → Netlify membuat Deploy Preview. Uji di preview, lalu merge.
 
-## 3. Checklist uji
+## 3. Test otomatis
+
+```bash
+npm run test:v2     # hanya test v2 (±15 detik)
+npm run test        # test v2 + suite lama
+```
+
+Test v2 membangun PostgreSQL di memori (PGlite) dari file skema repo + **semua** file `database/migrations/`, lalu menjalankan RPC sungguhan sebagai Superadmin/Admin/Musammi'. File:
+
+| File | Menguji |
+| --- | --- |
+| `tests/v2/f1-database.test.ts` | No. 1, 2, 3, 5, 7, 8, 9, 10, 11, 12, 13 di database |
+| `tests/v2/f1-akses-ui.test.ts` | No. 4, 6, 7, 8, 9 (aturan tombol, arah superadmin, monitor health) |
+| `tests/v2/f1-pesan-error.test.ts` | No. 14 dan aturan alasan di layar |
+| `tests/v2/migrasi-umum.test.ts` | Aturan folder migrasi + semua migrasi aman dijalankan ulang |
+
+Test otomatis memakai skema **repo**. Database Supabase Anda pernah berbeda dari repo (penyebab BUG-01), jadi tetap lakukan uji manual singkat di bawah setelah migrasi dijalankan.
+
+Temuan test: `rpc_publish_report_card` versi repo tidak pernah bisa menerbitkan amandemen (nomor versi bentrok). Diperbaiki di `2026_11_27_01_fix_publish_report_card_version.sql`.
+
+## 4. Checklist uji manual
 
 | No | Akun | Langkah | Hasil yang diharapkan | OK |
 | --- | --- | --- | --- | --- |
@@ -36,7 +57,7 @@ Push branch `fase-1-perbaikan-kritis` → buat Pull Request ke `main` → Netlif
 
 Catatan uji no. 13: hanya untuk data uji. Jangan menerbitkan raport santri sungguhan.
 
-## 4. Yang berubah
+## 5. Yang berubah
 
 | Bug | Perbaikan |
 | --- | --- |

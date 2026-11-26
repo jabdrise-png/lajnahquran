@@ -71,7 +71,7 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
           status: correctionTarget.newStatus as any,
           halaqahId: correctionTarget.student.halaqahId
         }
-      ]);
+      ], correctionTarget.reason.trim());
 
       if (userProfile?.organization_id) {
         await (supabase as any).from('audit_logs').insert({

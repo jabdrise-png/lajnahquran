@@ -35,7 +35,8 @@ function AddSetoranForm({
     SCHEME_OPTIONS, 
     NILAI_OPTIONS, 
     AUTO_SETTINGS,
-    isSaving
+    isSaving,
+    setoranHistory
 }: any) {
     const [addForm, setAddForm] = useState(initialData);
 
@@ -43,16 +44,11 @@ function AddSetoranForm({
     useEffect(() => {
         const fetchLastSetoran = async () => {
             if (!addForm.santri_id || !addForm.skema || addForm.id) return;
-            const { data, error } = await (supabase as any)
-                .from('setoran_harian')
-                .select('surat_selesai, ayat_selesai')
-                .eq('santri_id', addForm.santri_id)
-                .eq('skema', addForm.skema)
-                .order('tanggal', { ascending: false })
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .maybeSingle();
-                
+            // Fase 2: setoran terakhir dari data recitation_entries yang sudah dimuat
+            const error = null;
+            const data = [...(setoranHistory || [])]
+                .filter((r: any) => String(r.santri_id) === String(addForm.santri_id) && r.skema === addForm.skema)
+                .sort((a: any, b: any) => (b.tanggal + b.created_at).localeCompare(a.tanggal + a.created_at))[0];
             if (data && !error) {
                 setAddForm((prev: any) => ({
                     ...prev,
@@ -64,7 +60,7 @@ function AddSetoranForm({
             }
         };
         fetchLastSetoran();
-    }, [addForm.santri_id, addForm.skema]);
+    }, [addForm.santri_id, addForm.skema, setoranHistory]);
 
     // Otomatis hitung jumlah halaman dari master indeks mushaf Al-Qur'an (604 halaman)
     useEffect(() => {
@@ -426,28 +422,30 @@ export default function SetoranHarianPage() {
         globalMarhalahs,
         globalJenisHalaqah,
         appSettings,
-        userProfile, waliKelas, loading, masterKelas, masterMarhalahs
+        userProfile, waliKelas, loading, masterKelas, masterMarhalahs,
+        recitationKinds, sessionSlots, fetchData
     } = useSupabaseData();
 
-    // Configuration from appSettings
-    const SCHEME_OPTIONS = useMemo(() => {
-        const setting = appSettings.find(s => s.key === 'SETORAN_SKEMA_OPTIONS');
-        return setting?.value ? setting.value.split(',') : ['Ziyadah', 'Murojaah', 'Sabqi', 'Manzil', 'Lainnya'];
-    }, [appSettings]);
+    // Fase 2: jenis setoran dari tabel recitation_kinds (Pengaturan > Referensi)
+    const SCHEME_OPTIONS = useMemo(
+        () => recitationKinds.filter(k => k.is_active).map(k => k.name),
+        [recitationKinds]
+    );
 
     const NILAI_OPTIONS = useMemo(() => {
         const setting = appSettings.find(s => s.key === 'SETORAN_NILAI_OPTIONS');
         return setting?.value ? setting.value.split(',') : ['Mumtaz', 'Jayyid Jiddan', 'Jayyid', 'Maqbul', 'Dhaif'];
     }, [appSettings]);
 
+    // Fase 2: jenis setoran bawaan per waktu dari tabel session_slots
     const WAKTU_SKEMA_MAP = useMemo(() => {
-        const setting = appSettings.find(s => s.key === 'SETORAN_WAKTU_SKEMA_MAP');
-        try {
-            return setting?.value ? JSON.parse(setting.value) : { "Shubuh": "Ziyadah", "Dhuha": "Murojaah", "Ashar": "Murojaah", "Maghrib": "Ziyadah", "Isya": "Murojaah" };
-        } catch {
-            return {};
-        }
-    }, [appSettings]);
+        const map: Record<string, string> = {};
+        sessionSlots.forEach(slot => {
+            const kind = recitationKinds.find(k => k.code === slot.default_kind_code);
+            if (kind) map[slot.code] = kind.name;
+        });
+        return map;
+    }, [sessionSlots, recitationKinds]);
 
     const AUTO_SETTINGS = useMemo(() => {
         const enable = appSettings.find(s => s.key === 'SETORAN_AUTO_ENABLE')?.value === 'true';
@@ -878,12 +876,8 @@ export default function SetoranHarianPage() {
     // Map legacy setoran record to matching V2 recitation_entries record
     const resolveV2EntryForRecord = useCallback((r: any) => {
         if (!v2Entries || v2Entries.length === 0) return null;
-        return v2Entries.find(e =>
-            (e.legacy_setoran_id && Number(e.legacy_setoran_id) === Number(r.id)) ||
-            (Number(e.santri_id || e.student_id) === Number(r.santri_id) &&
-             Number(e.halaqah_id) === Number(r.halaqah_id) &&
-             ((e.start_surah || e.surah_start_no) === (r.surat_mulai || r.surat) || !r.surat_mulai))
-        ) || null;
+        // Fase 2: baris setoran sudah berasal dari recitation_entries (r.v2_id)
+        return v2Entries.find(e => e.id === (r.v2_id || r.id)) || null;
     }, [v2Entries]);
 
     const handleOpenRevisions = async (r: any, sName: string) => {
@@ -1045,7 +1039,8 @@ export default function SetoranHarianPage() {
                 p_notes: formData.keterangan || null,
                 p_status: formData.status || 'submitted',
                 p_idempotency_key: formData.id ? null : idKey,
-                p_existing_entry_id: formData.v2_id || null
+                p_session_id: null,
+                p_existing_entry_id: formData.v2_id || (typeof formData.id === 'string' && formData.id.length === 36 ? formData.id : null)
             });
 
             if (submitErr) {
@@ -1053,7 +1048,7 @@ export default function SetoranHarianPage() {
                 throw new Error(submitErr.message);
             }
 
-            await fetchV2EntriesForDate();
+            await Promise.all([fetchV2EntriesForDate(), fetchData()]);
             NotificationStore.addNotification('Catatan setoran santri berhasil dicatat ke sistem.', 'success');
 
             // Tele notification logic (token resolved server-side via /api/notify/telegram)
@@ -1102,6 +1097,7 @@ export default function SetoranHarianPage() {
     const handleEditClick = (r: any) => {
         setAddForm({
             id: r.id,
+            v2_id: r.v2_id || r.id,
             santri_id: r.santri_id.toString(),
             waktu: r.waktu || selectedWaktu,
             surat_mulai: r.surat_mulai || r.surat || '',
@@ -1774,6 +1770,7 @@ export default function SetoranHarianPage() {
                     NILAI_OPTIONS={NILAI_OPTIONS}
                     AUTO_SETTINGS={AUTO_SETTINGS}
                     isSaving={isSaving}
+                    setoranHistory={setoranHarian}
                 />
             </Modal>
 

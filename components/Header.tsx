@@ -5,6 +5,7 @@ import { NotificationStore, AppNotification } from '../lib/NotificationStore';
 import { formatDistanceToNow } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { SAAS_ROUTE_MAP, resolveRouteByPageKey, normalizeRole } from '../lib/permissions';
+import { labelPeran } from '../lib/activeRole';
 
 interface HeaderProps {
   currentPage: Page;
@@ -18,6 +19,9 @@ interface HeaderProps {
   userRole?: string;
   onNavigate?: (page: Page) => void;
   className?: string;
+  /** Fase 2: peran aktif lain yang bisa dipilih (akun multi-peran) */
+  availableRoles?: string[];
+  onSwitchRole?: (role: string) => void;
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -26,7 +30,9 @@ const Header: React.FC<HeaderProps> = ({
   toggleSidebarCollapse,
   onNavigate,
   userName,
-  userRole
+  userRole,
+  availableRoles,
+  onSwitchRole
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -155,6 +161,22 @@ const Header: React.FC<HeaderProps> = ({
 
         {/* Right: Quick Search + Notification + Superadmin Role Badge */}
         <div className="flex items-center space-x-2.5 sm:space-x-3 flex-shrink-0">
+          {/* Fase 2: ganti peran untuk akun dengan lebih dari satu peran */}
+          {availableRoles && availableRoles.length > 1 && onSwitchRole && (
+            <label className="flex items-center gap-1.5 text-[12px] text-[#475467]" title="Ganti peran">
+              <span className="hidden md:inline">Masuk sebagai</span>
+              <select
+                aria-label="Ganti peran"
+                className="border border-[#E1E7EF] rounded-[8px] px-2 py-1 text-[12px] font-semibold bg-white"
+                value={normalizeRole(userRole)}
+                onChange={(e) => onSwitchRole(e.target.value)}
+              >
+                {availableRoles.map((r) => (
+                  <option key={r} value={r}>{labelPeran(r)}</option>
+                ))}
+              </select>
+            </label>
+          )}
           {/* Search Bar */}
           <div className="relative w-40 sm:w-52 md:w-64 lg:w-72 xl:w-80 group hidden sm:block transition-all" ref={searchRef}>
             <Search

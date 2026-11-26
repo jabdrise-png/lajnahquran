@@ -62,29 +62,15 @@ const KenaikanKelasPage: React.FC = () => {
         }
         try {
             const orgId = await getOrgId();
-            const [{ data: v2Enrollments, error: v2Err }, { data: legacyClasses, error: legacyErr }] = await Promise.all([
-                (supabase.from('student_enrollments' as any) as any)
-                    .select('student_id, santri_id, marhalah, kelas, master_marhalah_id, master_kelas_id, status')
-                    .eq('organization_id', orgId)
-                    .eq('academic_year_id', tYearId),
-                (supabase.from('student_classes' as any) as any)
-                    .select('santri_id, marhalah, kelas')
-                    .eq('organization_id', orgId)
-                    .eq('academic_year_id', tYearId),
-            ]);
+            // Fase 2: hanya student_enrollments (tabel lama student_classes sudah diarsipkan)
+            const { data: v2Enrollments, error: v2Err } = await (supabase.from('student_enrollments' as any) as any)
+                .select('student_id, santri_id, marhalah, kelas, master_marhalah_id, master_kelas_id, status')
+                .eq('organization_id', orgId)
+                .eq('academic_year_id', tYearId);
 
             if (v2Err) throw v2Err;
-            if (legacyErr) throw legacyErr;
 
             const mergedMap = new Map<number, { santri_id: number; marhalah: string; kelas: string; status?: string }>();
-            (legacyClasses || []).forEach((row: any) => {
-                mergedMap.set(Number(row.santri_id), {
-                    santri_id: Number(row.santri_id),
-                    marhalah: row.marhalah || '',
-                    kelas: row.kelas || '',
-                    status: 'active',
-                });
-            });
             (v2Enrollments || []).forEach((row: any) => {
                 const sid = Number(row.student_id ?? row.santri_id);
                 if (!sid) return;
@@ -117,24 +103,19 @@ const KenaikanKelasPage: React.FC = () => {
         try {
             const orgId = await getOrgId();
 
+            // Fase 2: hanya student_enrollments (tabel lama student_classes sudah diarsipkan)
             const [
                 { data: v2Enrollments, error: v2Err },
-                { data: classData, error: classError },
                 { data: santriData, error: santriError },
             ] = await Promise.all([
                 (supabase.from('student_enrollments' as any) as any)
                     .select('student_id, santri_id, marhalah, kelas, master_marhalah_id, master_kelas_id, status, left_at')
                     .eq('organization_id', orgId)
                     .eq('academic_year_id', sYearId),
-                (supabase.from('student_classes' as any) as any)
-                    .select('santri_id, marhalah, kelas, marhalah_id, kelas_id')
-                    .eq('organization_id', orgId)
-                    .eq('academic_year_id', sYearId),
                 supabase.from('santri').select('*').eq('organization_id', orgId),
             ]);
 
             if (v2Err) throw v2Err;
-            if (classError) throw classError;
             if (santriError) throw santriError;
 
             const enrollmentMap = new Map<
@@ -150,18 +131,6 @@ const KenaikanKelasPage: React.FC = () => {
                 }
             >();
 
-            (classData || []).forEach((c: any) => {
-                const sid = Number(c.santri_id);
-                enrollmentMap.set(sid, {
-                    santri_id: sid,
-                    marhalah: c.marhalah || '',
-                    kelas: c.kelas || '',
-                    marhalah_id: c.marhalah_id || null,
-                    kelas_id: c.kelas_id || null,
-                    status: 'active',
-                    left_at: null,
-                });
-            });
 
             (v2Enrollments || []).forEach((e: any) => {
                 const sid = Number(e.student_id ?? e.santri_id);

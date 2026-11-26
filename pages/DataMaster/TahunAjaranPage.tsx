@@ -27,21 +27,6 @@ interface ClosingReadinessReport {
     prerequisites: ClosingPrerequisite[];
 }
 
-interface ReconciliationFinding {
-    code: string;
-    label: string;
-    count: number;
-    status: 'OK' | 'MISMATCH';
-}
-
-interface ReconciliationReport {
-    organization_id: string;
-    academic_year_id: number | null;
-    is_reconciled: boolean;
-    total_discrepancies: number;
-    findings: ReconciliationFinding[];
-    checked_at: string;
-}
 
 const LIFECYCLE_LABELS: Record<AcademicYearLifecycleStatus, { label: string; tone: 'neutral' | 'warning' | 'success' | 'primary' | 'danger' }> = {
     draft: { label: 'DRAFT', tone: 'neutral' },
@@ -79,7 +64,8 @@ const TahunAjaranPage: React.FC = () => {
         location.pathname.includes('/structure/classes') ||
         searchParams.get('tab') === 'structure';
 
-    const [activeSection, setActiveSection] = useState<'years' | 'structure' | 'reconciliation'>(
+    // Fase 2: tab Rekonsiliasi dihapus (data lama sudah dipindah ke V2 oleh migrasi database)
+    const [activeSection, setActiveSection] = useState<'years' | 'structure'>(
         isStructureRoute ? 'structure' : 'years'
     );
 
@@ -110,10 +96,6 @@ const TahunAjaranPage: React.FC = () => {
         genap_end_date: '',
     });
 
-    // State untuk Rekonsiliasi V2 vs Legacy (Fase 4 Section 6)
-    const [reconciliationReport, setReconciliationReport] = useState<ReconciliationReport | null>(null);
-    const [loadingReconciliation, setLoadingReconciliation] = useState(false);
-    const [runningReconcile, setRunningReconcile] = useState(false);
 
     // State untuk Struktur Marhalah & Kelas (Atribut Wali Kelas / Musyrif)
     const [isMarhalahModalOpen, setIsMarhalahModalOpen] = useState(false);
@@ -150,56 +132,9 @@ const TahunAjaranPage: React.FC = () => {
         setLoading(false);
     };
 
-    const fetchReconciliationReport = async (ayId?: number) => {
-        setLoadingReconciliation(true);
-        try {
-            const targetAyId = ayId ?? selectedAcademicYear?.id ?? null;
-            const { data, error } = await (supabase as any).rpc('rpc_get_academic_reconciliation_report', {
-                p_academic_year_id: targetAyId,
-            });
-            if (error) throw new Error(error.message);
-            setReconciliationReport(data as ReconciliationReport);
-        } catch (err: any) {
-            NotificationStore.addNotification(err.message || 'Gagal memuat laporan rekonsiliasi V2.', 'error');
-        } finally {
-            setLoadingReconciliation(false);
-        }
-    };
-
-    const handleRunReconciliation = async () => {
-        setRunningReconcile(true);
-        try {
-            const targetAyId = selectedAcademicYear?.id ?? null;
-            const { data, error } = await (supabase as any).rpc('rpc_reconcile_academic_v2_data', {
-                p_academic_year_id: targetAyId,
-            });
-            if (error) throw new Error(error.message);
-            if (data?.report) {
-                setReconciliationReport(data.report as ReconciliationReport);
-            } else {
-                await fetchReconciliationReport(targetAyId ?? undefined);
-            }
-            if (fetchData) await fetchData();
-            NotificationStore.addNotification(
-                `Rekonsiliasi V2 berhasil dijalankan (Enrollments: ${data?.synced?.enrollments_synced ?? 0}, Memberships: ${data?.synced?.memberships_synced ?? 0}, Assignments: ${data?.synced?.assignments_synced ?? 0}).`,
-                'success'
-            );
-        } catch (err: any) {
-            NotificationStore.addNotification(err.message || 'Gagal menjalankan rekonsiliasi V2.', 'error');
-        } finally {
-            setRunningReconcile(false);
-        }
-    };
-
     useEffect(() => {
         fetchAcademicYears();
     }, []);
-
-    useEffect(() => {
-        if (activeSection === 'reconciliation') {
-            fetchReconciliationReport(selectedAcademicYear?.id);
-        }
-    }, [activeSection, selectedAcademicYear?.id]);
 
     // Indikator Kesiapan Enrollment Tahun Ajaran Terpilih
     const enrollmentReadiness = useMemo(() => {
@@ -732,8 +667,8 @@ const TahunAjaranPage: React.FC = () => {
         <PageShell>
             <PageHeader
                 kicker="FONDASI AKADEMIK & DATA KANONIKAL V2 (FASE 4)"
-                title="Tahun Ajaran, Semester, Struktur Kelas & Rekonsiliasi V2"
-                description="Kelola siklus hidup tahun ajaran secara atomik, pemeriksaan 6 prasyarat penutupan tahun ajaran, pembukaan arsip historis, struktur Marhalah/Kelas, dan rekonsiliasi data legacy vs V2."
+                title="Tahun Ajaran, Semester & Struktur Kelas"
+                description="Kelola tahun ajaran & semester, pemeriksaan prasyarat penutupan tahun ajaran, arsip historis, serta struktur Marhalah/Kelas."
                 actions={
                     <div className="flex flex-wrap items-center gap-2">
                         {activeSection === 'years' && (
@@ -762,17 +697,6 @@ const TahunAjaranPage: React.FC = () => {
                                     <Plus size={15} /> Tambah Kelas & Wali
                                 </button>
                             </>
-                        )}
-                        {activeSection === 'reconciliation' && (
-                            <button
-                                type="button"
-                                disabled={runningReconcile}
-                                onClick={handleRunReconciliation}
-                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors disabled:opacity-50"
-                            >
-                                <RefreshCw size={14} className={runningReconcile ? 'animate-spin' : ''} />
-                                {runningReconcile ? 'Menyelaraskan Data V2...' : 'Jalankan Sinkronisasi Legacy → V2'}
-                            </button>
                         )}
                     </div>
                 }
@@ -828,112 +752,13 @@ const TahunAjaranPage: React.FC = () => {
                     >
                         2. Struktur Marhalah & Kelas ({masterMarhalahs?.length || 0} Marhalah • {masterKelasRelasi?.length || 0} Kelas)
                     </button>
-                    <button
-                        type="button"
-                        onClick={() => setActiveSection('reconciliation')}
-                        className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                            activeSection === 'reconciliation'
-                                ? 'bg-white text-slate-900 shadow-xs'
-                                : 'text-slate-600 hover:text-slate-900'
-                        }`}
-                    >
-                        3. Rekonsiliasi Data Kanonikal V2 vs Legacy
-                    </button>
                 </div>
                 <div className="text-[11px] text-slate-500 px-2">
                     Sesuai Arsitektur 3-Role: <span className="font-semibold text-slate-700">Wali Kelas & Musyrif</span> dikelola sebagai atribut administratif kelas/santri.
                 </div>
             </div>
 
-            {activeSection === 'reconciliation' ? (
-                <div className="space-y-4">
-                    <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
-                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
-                            <div>
-                                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                                    <ShieldCheck size={16} className="text-blue-600" />
-                                    Laporan Rekonsiliasi Data Kanonikal V2 vs Legacy ({selectedAcademicYear?.name || 'Semua Tahun'})
-                                </h3>
-                                <p className="text-xs text-slate-500 mt-0.5">
-                                    Mendeteksi ketidaksinkronan antara tabel legacy (<span className="font-mono">student_classes, halaqah_santri, halaqah.musammi_id</span>) dan tabel kanonikal V2 (<span className="font-mono">student_enrollments, halaqah_student_memberships, halaqah_musammi_assignments, semesters</span>).
-                                </p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => fetchReconciliationReport(selectedAcademicYear?.id)}
-                                disabled={loadingReconciliation}
-                                className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5"
-                            >
-                                <RefreshCw size={13} className={loadingReconciliation ? 'animate-spin' : ''} /> Muat Ulang Audit
-                            </button>
-                        </div>
-
-                        {loadingReconciliation ? (
-                            <div className="py-8 text-center text-xs text-slate-500">Memeriksa konsistensi tabel V2 vs Legacy...</div>
-                        ) : reconciliationReport ? (
-                            <div className="space-y-4">
-                                <div className={`p-4 rounded-xl border flex items-center justify-between ${
-                                    reconciliationReport.is_reconciled
-                                        ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                                        : 'bg-amber-50 border-amber-200 text-amber-900'
-                                }`}>
-                                    <div className="flex items-center gap-3">
-                                        {reconciliationReport.is_reconciled ? (
-                                            <CheckCircle2 size={20} className="text-emerald-600 shrink-0" />
-                                        ) : (
-                                            <AlertTriangle size={20} className="text-amber-600 shrink-0" />
-                                        )}
-                                        <div>
-                                            <div className="text-xs font-bold uppercase tracking-wider">
-                                                {reconciliationReport.is_reconciled
-                                                    ? 'DATA KANONIKAL V2 & LEGACY TERSINKRONISASI PENUH'
-                                                    : `DITEMUKAN ${reconciliationReport.total_discrepancies} DISKREPANSI DATA LEGACY VS V2`}
-                                            </div>
-                                            <p className="text-xs mt-0.5 opacity-90">
-                                                Tabel legacy tetap dipertahankan hingga rekonsiliasi bernilai 0 diskrepansi dan disetujui pemilik produk.
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <StatusBadge
-                                        label={reconciliationReport.is_reconciled ? 'RECONCILED' : 'NEEDS SYNC'}
-                                        tone={reconciliationReport.is_reconciled ? 'success' : 'warning'}
-                                    />
-                                </div>
-
-                                <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                                    <table className="w-full text-left text-xs border-collapse">
-                                        <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider">
-                                            <tr>
-                                                <th className="px-4 py-3">Kode Pemeriksaan</th>
-                                                <th className="px-4 py-3">Deskripsi Pemeriksaan Integritas</th>
-                                                <th className="px-4 py-3 text-right">Jumlah Temuan</th>
-                                                <th className="px-4 py-3 text-right">Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-200">
-                                            {(reconciliationReport.findings || []).map((item) => (
-                                                <tr key={item.code} className="hover:bg-slate-50/70">
-                                                    <td className="px-4 py-3 font-mono font-semibold text-slate-700">{item.code}</td>
-                                                    <td className="px-4 py-3 text-slate-800">{item.label}</td>
-                                                    <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">{item.count}</td>
-                                                    <td className="px-4 py-3 text-right">
-                                                        <StatusBadge
-                                                            label={item.status}
-                                                            tone={item.status === 'OK' ? 'success' : 'warning'}
-                                                        />
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="py-8 text-center text-xs text-slate-400">Belum ada data laporan rekonsiliasi.</div>
-                        )}
-                    </div>
-                </div>
-            ) : activeSection === 'structure' ? (
+            {activeSection === 'structure' ? (
                 <div className="space-y-4">
                     {(masterMarhalahs || []).length === 0 ? (
                         <div className="bg-white border border-slate-200 rounded-xl p-10 text-center">

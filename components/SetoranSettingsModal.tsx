@@ -11,8 +11,6 @@ interface Props {
 
 export default function SetoranSettingsModal({ isOpen, onClose }: Props) {
     const { appSettings, saveAppSetting, saveMultipleAppSettings, globalWaktuHalaqah } = useSupabaseData();
-    const [skemaOptions, setSkemaOptions] = useState('Ziyadah,Murojaah,Sabqi,Manzil,Lainnya');
-    const [waktuMap, setWaktuMap] = useState<Record<string, string>>({});
     
     // Auto Calculation Settings
     const [autoEnable, setAutoEnable] = useState(false);
@@ -34,20 +32,6 @@ export default function SetoranSettingsModal({ isOpen, onClose }: Props) {
 
     useEffect(() => {
         if (isOpen) {
-            const skemaSetting = appSettings.find(s => s.key === 'SETORAN_SKEMA_OPTIONS');
-            if (skemaSetting) setSkemaOptions(skemaSetting.value);
-            
-            const waktuSetting = appSettings.find(s => s.key === 'SETORAN_WAKTU_SKEMA_MAP');
-            if (waktuSetting) {
-                try {
-                    setWaktuMap(JSON.parse(waktuSetting.value));
-                } catch {
-                    setWaktuMap({});
-                }
-            } else {
-                setWaktuMap({});
-            }
-
             const telEnableSetting = appSettings.find(s => s.key === 'SETORAN_TELEGRAM_NOTIF_ENABLE');
             if (telEnableSetting) setTelegramEnable(telEnableSetting.value === 'true');
             const telTemplateSetting = appSettings.find(s => s.key === 'SETORAN_TELEGRAM_NOTIF_TEMPLATE');
@@ -88,8 +72,6 @@ export default function SetoranSettingsModal({ isOpen, onClose }: Props) {
         setIsSaving(true);
         try {
             await saveMultipleAppSettings([
-                { key: 'SETORAN_SKEMA_OPTIONS', value: skemaOptions },
-                { key: 'SETORAN_WAKTU_SKEMA_MAP', value: JSON.stringify(waktuMap) },
                 { key: 'SETORAN_TELEGRAM_NOTIF_ENABLE', value: telegramEnable ? 'true' : 'false' },
                 { key: 'SETORAN_TELEGRAM_NOTIF_TEMPLATE', value: telegramTemplate },
                 { key: 'SETORAN_AUTO_ENABLE', value: autoEnable ? 'true' : 'false' },
@@ -113,36 +95,9 @@ export default function SetoranSettingsModal({ isOpen, onClose }: Props) {
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Pengaturan Input Setoran">
             <div className="space-y-6 max-h-[80vh] overflow-y-auto pr-2">
-                <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">Opsi Skema Setoran</label>
-                    <p className="text-xs text-slate-500 mb-2">Pisahkan dengan koma (,). Contoh: Ziyadah,Murojaah</p>
-                    <input 
-                        type="text" 
-                        value={skemaOptions} 
-                        onChange={e => setSkemaOptions(e.target.value)} 
-                        className="w-full border border-slate-300 rounded-lg p-2.5 text-[13px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                    />
-                </div>
-                
-                <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-3">Tautan Waktu ke Skema Default</label>
-                    <div className="space-y-3 bg-slate-50 p-4 border rounded-xl">
-                        {globalWaktuHalaqah.map(waktu => (
-                            <div key={waktu} className="flex items-center justify-between">
-                                <span className="text-[13px] font-semibold text-slate-700">{waktu}</span>
-                                <select 
-                                    value={waktuMap[waktu] || ''} 
-                                    onChange={e => setWaktuMap({ ...waktuMap, [waktu]: e.target.value })}
-                                    className="border border-slate-300 rounded-lg p-1.5 text-[13px] min-w-[150px] focus:ring-2 focus:ring-blue-500"
-                                >
-                                    <option value="">Pilih Skema</option>
-                                    {skemaOptions.split(',').map(s => s.trim()).filter(s => s).map(s => (
-                                        <option key={s} value={s}>{s}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        ))}
-                    </div>
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-[13px] text-blue-900">
+                    Jenis setoran dan jenis bawaan per waktu sekarang diatur di
+                    <b> Pengaturan &gt; Referensi Data Dasar</b> (termasuk penanda “menambah hafalan”).
                 </div>
 
                 <div className="border-t border-slate-200 pt-6">
