@@ -36,6 +36,10 @@ export interface JuzKhoto {
   kabir: number;
   shoghir: number;
   nilai?: number;
+  /** Nilai juz ditetapkan penguji (bukan hitungan rubrik). */
+  custom?: boolean;
+  /** Saat input: nilai custom 0–100 (kosong = hitung dari rubrik). */
+  nilai_custom?: number | null;
 }
 
 export interface PeriodeUjianBulanan {
@@ -81,7 +85,7 @@ export interface PengaturanRaport {
 }
 
 export const PENGATURAN_RAPORT_BAWAAN: PengaturanRaport = {
-  bobot_semester: 60, bobot_bulanan: 40, bobot_kehadiran: 0,
+  bobot_semester: 50, bobot_bulanan: 30, bobot_kehadiran: 20,
   ketua_lajnah_nama: null, ketua_lajnah_jabatan: 'Ketua Lajnah', ttd_image: null, kota_terbit: null,
 };
 
@@ -127,10 +131,17 @@ export function nilaiJuz(rubrik: Rubrik, kabir: number, shoghir: number): number
   return bulat2(Math.max(rubrik.min_score, v));
 }
 
+/** Nilai satu juz saat input: nilai custom bila diisi, selain itu hitungan rubrik (sama dengan server). */
+export function nilaiJuzInput(rubrik: Rubrik, j: JuzKhoto): number {
+  return j.nilai_custom !== null && j.nilai_custom !== undefined && Number.isFinite(Number(j.nilai_custom))
+    ? bulat2(Number(j.nilai_custom))
+    : nilaiJuz(rubrik, j.kabir, j.shoghir);
+}
+
 /** Nilai ujian semester = rata-rata nilai per juz. */
 export function nilaiSemester(rubrik: Rubrik, juz: JuzKhoto[]): number | null {
   if (!juz.length) return null;
-  const total = juz.reduce((s, j) => s + nilaiJuz(rubrik, j.kabir, j.shoghir), 0);
+  const total = juz.reduce((s, j) => s + nilaiJuzInput(rubrik, j), 0);
   return bulat2(total / juz.length);
 }
 
@@ -176,6 +187,16 @@ export function percobaanTerakhir(list: PercobaanUjian[], santriId: number, exam
     .sort((a, b) => b.attempt_no - a.attempt_no)[0];
 }
 
+/**
+ * Percobaan yang masuk raport: nilai TERTINGGI di antara percobaan sah (sama dengan server
+ * fn_komponen_raport); bila sama tinggi, percobaan yang lebih baru.
+ */
+export function percobaanRaport(list: PercobaanUjian[], santriId: number, examType: 'monthly' | 'semester', periodId: string | null = null) {
+  return list
+    .filter((a) => a.status === 'valid' && a.santri_id === santriId && a.exam_type === examType && (a.period_id ?? null) === periodId)
+    .sort((a, b) => (Number(b.final_score ?? -1) - Number(a.final_score ?? -1)) || (b.attempt_no - a.attempt_no))[0];
+}
+
 export function riwayatPercobaan(list: PercobaanUjian[], santriId: number, examType: 'monthly' | 'semester', periodId: string | null = null) {
   return list
     .filter((a) => a.santri_id === santriId && a.exam_type === examType && (a.period_id ?? null) === periodId)
@@ -190,7 +211,7 @@ export function normalisasiPercobaan(a: any): PercobaanUjian {
     academic_year_id: Number(a.academic_year_id),
     attempt_no: Number(a.attempt_no) || 1,
     final_score: angka(a.final_score),
-    juz_scores: Array.isArray(a.juz_scores) ? a.juz_scores.map((j: any) => ({ juz: Number(j.juz), kabir: Number(j.kabir) || 0, shoghir: Number(j.shoghir) || 0, nilai: angka(j.nilai) ?? undefined })) : [],
+    juz_scores: Array.isArray(a.juz_scores) ? a.juz_scores.map((j: any) => ({ juz: Number(j.juz), kabir: Number(j.kabir) || 0, shoghir: Number(j.shoghir) || 0, nilai: angka(j.nilai) ?? undefined, custom: j.custom === true || j.custom === 'true' })) : [],
     status: a.status === 'voided' ? 'voided' : 'valid',
   };
 }

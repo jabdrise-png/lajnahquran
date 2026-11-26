@@ -23,6 +23,8 @@ const useSupabaseDataCode = read('hooks/useSupabaseData.tsx');
 // Fase 3 v2 (28-11-2026): validasi setoran dihapus — setoran langsung sah (accepted), koreksi/batal oleh Admin
 // beralasan. Perilaku diuji nyata di tests/v2/f3-database.test.ts.
 const f3SetoranSql = read('database/migrations/2026_11_28_02_f3_setoran_langsung_sah.sql');
+// Keputusan 26-11-2026: koreksi setoran juga oleh musammi' halaqah itu, alasan opsional; pembatalan tetap Admin + alasan.
+const keputusanSql = read('database/migrations/2026_11_30_04_keputusan_f3_f4.sql');
 const formSetoranCode = read('components/setoran/FormSetoranRingkas.tsx');
 const daftarSetoranCode = read('components/setoran/DaftarSetoran.tsx');
 
@@ -58,9 +60,9 @@ check(
 // 3. Admin menerima (accepted)
 check(
   'FASE6-03',
-  'Tidak ada langkah "terima" Admin; koreksi hanya oleh Admin',
+  'Tidak ada langkah "terima" Admin; koreksi oleh Admin atau musammi\' halaqah itu',
   f3SetoranSql.includes('Validasi setoran sudah dihapus') &&
-    f3SetoranSql.includes('Koreksi setoran yang sudah tersimpan dilakukan oleh Admin.') &&
+    keputusanSql.includes("Koreksi setoran hanya oleh Admin atau musammi'' halaqah tersebut.") &&
     !setoranPageCode.includes("'submitted'") && !sesiPageCode.includes("'submitted'"),
   'rpc_review_recitation_entry hanya untuk pembatalan; tombol Terima/Kembalikan dihapus.'
 );
@@ -68,11 +70,12 @@ check(
 // 4. Admin mengembalikan beserta alasan (returned, reason min 5 karakter)
 check(
   'FASE6-04',
-  'Koreksi setoran wajib alasan (min 5 karakter)',
-  f3SetoranSql.includes('Alasan koreksi/pembatalan wajib diisi dengan jelas (minimal 5 karakter).') &&
-    formSetoranCode.includes('AlasanDialog') &&
+  'Pembatalan setoran wajib alasan (min 5 karakter); koreksi alasan opsional',
+  keputusanSql.includes('Alasan pembatalan wajib diisi dengan jelas (minimal 5 karakter).') &&
+    keputusanSql.includes("'Koreksi setoran')") &&
+    !formSetoranCode.includes('AlasanDialog') &&
     daftarSetoranCode.includes('AlasanDialog'),
-  'Server dan layar mewajibkan alasan untuk koreksi maupun pembatalan.'
+  'Pembatalan (Admin) wajib alasan di server & layar; koreksi tercatat dengan alasan bawaan "Koreksi setoran".'
 );
 
 // 5. Musammi memperbaiki dan submit ulang (submitted, revision_no bertambah)

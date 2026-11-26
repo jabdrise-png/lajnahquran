@@ -196,7 +196,7 @@ test('periode bulanan berisi nilai tidak bisa dihapus', async () => {
 });
 
 // ================================================================ migrasi data lama
-test('migrasi ujian lama ke exam_attempts (bisa diulang), bobot tanpa silabus, akses tabel lama dicabut', async () => {
+test('migrasi ujian lama ke exam_attempts (bisa diulang), bobot awal 50/30/20, akses tabel lama dicabut', async () => {
   const legacy = `
     insert into public.app_settings(organization_id, key, value) values
       ('${ID.org}', 'PCT_UJIAN_BULANAN', '40'), ('${ID.org}', 'PCT_UJIAN_SEMESTER', '50'), ('${ID.org}', 'PCT_SILABUS', '10'), ('${ID.org}', 'PCT_KEHADIRAN', '0'),
@@ -212,7 +212,7 @@ test('migrasi ujian lama ke exam_attempts (bisa diulang), bobot tanpa silabus, a
   const ldb = await buildTestDb({ beforeMigrations: legacy });
   const q = async (sql: string, p: any[] = []) => (await ldb.query<any>(sql, p)).rows;
   const set = (await q(`select bobot_semester::float s, bobot_bulanan::float b, bobot_kehadiran::float k from public.raport_settings where organization_id = $1`, [ID.org]))[0];
-  assert.deepEqual([set.s, set.b, set.k], [60, 40, 0], 'bobot Silabus dipindah ke ujian semester');
+  assert.deepEqual([set.s, set.b, set.k], [50, 30, 20], 'bobot awal 50/30/20 untuk semua lembaga (PCT_* lama & Silabus tidak dipakai)');
   const rub = (await q(`select r.* from public.fn_rubrik_aktif($1) r`, [ID.org]))[0];
   assert.deepEqual([Number(rub.deduction_major), Number(rub.deduction_minor), Number(rub.min_score)], [4, 1, 60]);
   const per = await q(`select ke, label, legacy_key from public.monthly_exam_periods order by ke`);
@@ -264,4 +264,41 @@ test('rubrik: hanya Admin; isi divalidasi server; rubrik yang sudah dipakai tida
   assert.equal(Number(await one(db, `select count(*) from public.exam_attempts where organization_id = $1 and rubric_version_id = $2`, [ID.org, lama])), dipakai,
     'percobaan lama tetap menunjuk rubrik saat itu');
   assert.equal(Number(await one(db, `select public.fn_nilai_juz(public.fn_rubrik_aktif($1), 1, 2)`, [ID.org])), 90);
+});
+
+test('raport memakai nilai TERTINGGI: remedial yang lebih rendah tidak menurunkan nilai (semester & tiap ujian bulanan)', async () => {
+  await as(db, ID.admin, async () => {
+    await ujian({ santri: ID.santri2, type: 'semester', juz: [{ juz: 30, kabir: 0, shoghir: 0 }] });
+    await ujian({ santri: ID.santri2, type: 'semester', mode: 'remedial', juz: [{ juz: 30, kabir: 2, shoghir: 0 }] });
+    await ujian({ santri: ID.santri2, type: 'bulanan', period: p2, nilai: 90, materi: '30' });
+    await ujian({ santri: ID.santri2, type: 'bulanan', period: p2, nilai: 70, materi: '30', mode: 'remedial' });
+  });
+  const k = await komponen(ID.santri2);
+  const sem = await rows<any>(`select attempt_no, final_score::float from public.exam_attempts
+    where santri_id = $1 and exam_type = 'semester' and status = 'valid' order by attempt_no`, [ID.santri2]);
+  const tertinggi = Math.max(...sem.map((x) => x.final_score));
+  assert.ok(sem.length >= 2 && sem[sem.length - 1].final_score < tertinggi, 'percobaan terakhir lebih rendah');
+  assert.equal(Number(k.semester.nilai), tertinggi);
+  assert.notEqual(k.semester.attempt_no, sem[sem.length - 1].attempt_no);
+  const ke2 = k.bulanan.daftar.find((d: any) => d.ke === 2);
+  assert.equal(Number(ke2.nilai), 90);
+  assert.equal(ke2.attempt_no, 1);
+});
+
+test('nilai custom per juz (fitur lama dipertahankan): divalidasi server, ditandai custom, rata-rata memakai nilai custom', async () => {
+  const sid = ID.santri2;
+  await as(db, ID.admin, async () => {
+    await expectError(ujian({ santri: sid, type: 'semester', mode: 'remedial', juz: [{ juz: 30, kabir: 0, shoghir: 0, nilai_custom: 101 }] }), /custom juz 30 harus 0–100/);
+    await expectError(ujian({ santri: sid, type: 'semester', mode: 'remedial', juz: [{ juz: 30, kabir: 0, shoghir: 0, nilai_custom: 'abc' }] }), /harus angka/);
+  });
+  const r = await as(db, ID.musammi, () => ujian({ santri: sid, type: 'semester', mode: 'remedial',
+    juz: [{ juz: 29, kabir: 50, shoghir: 0 }, { juz: 30, kabir: 50, shoghir: 0, nilai_custom: 99.5 }] }));
+  const j30 = r.juz_scores.find((j: any) => j.juz === 30);
+  const j29 = r.juz_scores.find((j: any) => j.juz === 29);
+  assert.equal(j30.custom, true);
+  assert.equal(Number(j30.nilai), 99.5);
+  assert.equal(j29.custom, false);
+  const minimum = Number(await one(db, `select (public.fn_rubrik_aktif($1)).min_score`, [ID.org]));
+  assert.equal(Number(j29.nilai), minimum, 'juz tanpa custom tetap dari rubrik (batas minimum)');
+  assert.equal(Number(r.final_score), Math.round(((99.5 + minimum) / 2) * 100) / 100);
 });

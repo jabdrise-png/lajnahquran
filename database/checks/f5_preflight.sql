@@ -37,9 +37,9 @@ cross join lateral (
   from (select count(*) n from public.app_settings a where a.organization_id = o.id and a.key ~ '^UB_PERIODS_'
           and btrim(coalesce(a.value, '')) not like '[%') z
   union all
-  select 'Bobot raport lama (PCT_UJIAN_SEMESTER / BULANAN / SILABUS / KEHADIRAN)',
+  select 'Bobot raport lama PCT_* (tidak dipakai; semua lembaga mulai 50/30/20)',
          coalesce((select string_agg(a.key || '=' || coalesce(a.value, ''), ', ' order by a.key) from public.app_settings a
-                   where a.organization_id = o.id and a.key like 'PCT\_%'), 'tidak ada (pakai 60/40/0)'), 'INFO'
+                   where a.organization_id = o.id and a.key like 'PCT\_%'), 'tidak ada'), 'INFO'
   union all
   select 'Percobaan ujian dari aplikasi lama (exam_attempts)',
          (select count(*)::text from public.exam_attempts a where a.organization_id = o.id), 'INFO'

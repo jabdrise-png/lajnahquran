@@ -44,7 +44,7 @@ Saat ini hanya ada **tiga peran login**. Struktur hak akses harus siap menambah 
 | --- | --- | --- | --- |
 | Superadmin | Ya | Mengelola sistem, lembaga, paket, pendaftaran lembaga | Masuk ke data lembaga hanya lewat sesi support beralasan yang tercatat di log audit |
 | Admin Lembaga | Ya | Data master, akun musammi', periode, target, ujian, raport; memindah santri; koreksi & validasi semua data; laporan mudir; dipakai juga oleh **petugas absensi keliling** di tablet | Hanya lembaganya sendiri |
-| Musammi' (termasuk santri senior) | Ya | Mengabsen santri halaqahnya, mencatat setoran santri binaan, mengisi form evaluasi periode, melihat performa halaqahnya | Hanya halaqah yang ditugaskan; koreksi setelah dikirim lewat Admin |
+| Musammi' (termasuk santri senior) | Ya | Mengabsen santri halaqahnya, mencatat & mengoreksi setoran santri binaan, mengisi form evaluasi periode, menguji santri halaqahnya, melihat performa halaqahnya | Hanya halaqah yang ditugaskan; koreksi setelah form periode dikirim lewat Admin |
 | Mudir | Tidak | Menerima laporan WA/PDF yang dibuat Admin | – |
 | Wali Kelas | Nanti | Melihat data kelasnya saja | Kelas lain |
 | Wali Santri | Nanti | Saat ini hanya menerima pesan Telegram | – |
@@ -53,7 +53,7 @@ Saat ini hanya ada **tiga peran login**. Struktur hak akses harus siap menambah 
 Aturan:
 
 - Admin membuat akun musammi'. Satu orang boleh punya lebih dari satu peran.
-- Validasi dan koreksi hanya oleh Admin; tidak ada peran kepala tahfidz terpisah.
+- Koreksi absensi tanggal lampau, pembatalan setoran, dan koreksi setelah form periode/raport dikirim hanya oleh Admin; tidak ada peran kepala tahfidz terpisah. Koreksi setoran boleh oleh musammi' halaqah itu (keputusan 26-11-2026).
 - Setoran **langsung sah** setelah dicatat musammi'.
 - Login: email + sandi atau Google. Lupa sandi wajib ada.
 - Tidak ada akun yang bisa men-suspend dirinya sendiri; Admin tidak bisa mengubah akun Superadmin.
@@ -124,7 +124,7 @@ Setiap jenis punya penanda `menambah_hafalan` dan `dihitung_murojaah`. Jenis baw
 
 1. Pilih santri (hanya Hadir/Terlambat jika absensi sesi sudah ada).
 2. Pilih jenis setoran.
-3. Pilih rentang surat:ayat; titik awal otomatis dari setoran terakhir sesuai **arah hafalan** santri (belakang→depan atau depan→belakang).
+3. Pilih rentang surat:ayat; titik awal otomatis dari setoran terakhir sesuai **arah hafalan** santri: maju/depan→belakang (bawaan), mundur/belakang→depan, atau **dua arah** (pilih sisi depan/belakang; ziyadah menambah sisi terdekat).
 4. Jumlah halaman otomatis dari **Mushaf Madinah 15 baris, 604 halaman** (desimal, contoh 0,5).
 5. Isi khoto kabir & khoto shoghir → predikat otomatis.
 6. Simpan. Target < 15 detik per santri.
@@ -166,7 +166,7 @@ Admin memilih mode per halaqah; perubahan berlaku mulai periode berikutnya.
 | Posisi hafalan terakhir | Otomatis dari ziyadah terakhir | Dipilih manual ("sampai surat … ayat …") |
 | Total hafalan (juz/halaman) | Dari posisi hafalan + peta mushaf | Sama |
 | Kelancaran | Otomatis dari predikat setoran (aturan lembaga) | Dipilih manual |
-| Kehadiran | Dari absensi sesi | Dari absensi sesi (atau manual) |
+| Kehadiran | Dari absensi sesi | Dari absensi sesi (tidak bisa diisi manual) |
 | Telegram per setoran | Ada | Tidak |
 
 ### 6.2 Form evaluasi periode
@@ -206,14 +206,14 @@ Penguji memakai sistem halaqah (musammi' sendiri atau halaqah khusus ujian). Tek
 
 | | Ujian Bulanan | Ujian Semester |
 | --- | --- | --- |
-| Input | Nilai akhir 0–100 + materi juz | Khoto kabir & shoghir **per juz** |
+| Input | Nilai akhir 0–100 + materi juz | Khoto kabir & shoghir **per juz** (boleh nilai custom per juz) |
 | Hitung | Predikat dari skala lembaga | Otomatis: nilai awal per juz − khoto, dengan batas minimum (parameter lembaga) |
-| Lulus & remedial | Diatur lembaga | Sama; remedial = percobaan baru, nilai lama tidak ditimpa |
+| Lulus & remedial | Diatur lembaga | Sama; remedial = percobaan baru, nilai lama tidak ditimpa; raport memakai **nilai tertinggi** |
 
 Raport:
 
 - Hanya **per semester**.
-- Komponen: ujian semester, rata-rata ujian bulanan, kehadiran; bobot diatur lembaga, total 100%.
+- Komponen: ujian semester, rata-rata ujian bulanan, kehadiran; bobot diatur lembaga (bawaan 50/30/20), total 100%.
 - Tata letak mengikuti raport yang sudah ada.
 - **Tidak bisa terbit** jika komponen kurang; tampilkan daftar kekurangan.
 - Tanda tangan: Ketua Lajnah digital; wali santri fisik di raport cetak.
@@ -260,10 +260,12 @@ Ekspor: Excel untuk semua tabel utama; PDF untuk raport dan laporan mudir.
 
 ## 12. Pertanyaan Terbuka
 
+Dijawab pemilik 26-11-2026:
+
 - [ ] Penjelasan lengkap tentang periode (asumsi: satu daftar periode per lembaga).
-- [ ] Akun Admin Lembaga dibuat Superadmin atau otomatis saat mendaftar?
-- [ ] Aturan kelancaran periode di Mode Harian: % setoran lanjut, predikat terbanyak, atau rata-rata?
-- [ ] Angka tabel batas khoto untuk lembaga pertama.
-- [ ] Bagian aplikasi sekarang yang disukai / tidak disukai.
-- [ ] Tiga fitur wajib versi pertama, fitur yang boleh menyusul, yang dihapus, target tanggal, lembaga uji coba.
-- [ ] Asisten AI (Gemini) dan Website Editor: dipertahankan atau disembunyikan?
+- [x] Akun Admin Lembaga: **keduanya** — lembaga bisa mendaftar sendiri (menunggu persetujuan Superadmin) dan Superadmin bisa membuatkan.
+- [x] Kelancaran periode Mode Harian: **rata-rata** predikat setoran, dibulatkan ke predikat terdekat.
+- [x] Tabel batas khoto lembaga pertama: **tabel bawaan** (Mumtaz kabir 0 & shoghir ≤ 1; Jayyid Jiddan ≤ 1 & ≤ 3; Jayyid ≤ 1 & ≤ 4; Maqbul ≤ 2 & ≤ 5; selebihnya Rasib).
+- [ ] Bagian aplikasi sekarang yang disukai / tidak disukai — *menyusul*.
+- [x] Tiga fitur wajib versi pertama: **absensi, setoran harian, rekap periode**. Fitur lain dikerjakan semua sesuai rencana (tidak ada yang dihapus). Target tanggal & lembaga uji coba — *menyusul*.
+- [x] Asisten AI (Gemini) dan Website Editor: **dipertahankan**.

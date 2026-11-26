@@ -66,7 +66,8 @@ begin
              'shoghir', coalesce(public.f5_angka(r.khoto_shogir->>j.juz::text), 0),
              'nilai', case when lower(coalesce(r.is_custom_nilai->>j.juz::text, 'false')) = 'true'
                            then public.f5_angka(r.custom_nilai->>j.juz::text)
-                           else public.fn_nilai_juz(v_rubric, public.f5_angka(r.khoto_kabir->>j.juz::text), public.f5_angka(r.khoto_shogir->>j.juz::text)) end)
+                           else public.fn_nilai_juz(v_rubric, public.f5_angka(r.khoto_kabir->>j.juz::text), public.f5_angka(r.khoto_shogir->>j.juz::text)) end,
+             'custom', lower(coalesce(r.is_custom_nilai->>j.juz::text, 'false')) = 'true')
            order by j.juz), '[]'::jsonb)
     into v_juz
     from (
@@ -168,6 +169,17 @@ $$;
 revoke all on function public.f5_legacy_reconciliation() from public, anon, authenticated;
 
 do $$ begin perform public.f5_migrate_legacy_exams(); end $$;
+
+-- Tanda "custom" per juz untuk data hasil migrasi (juga memperbaiki data yang dipindah oleh versi awal
+-- file ini, yang belum menyimpan tanda tersebut). Nilai tidak berubah; aman diulang.
+update public.exam_attempts a
+set juz_scores = (
+  select coalesce(jsonb_agg(e || jsonb_build_object('custom',
+           lower(coalesce(a.detail_json->'is_custom_nilai'->>(e->>'juz'), 'false')) = 'true') order by (e->>'juz')::int), '[]'::jsonb)
+  from jsonb_array_elements(a.juz_scores) e)
+where a.source = 'migrasi' and a.exam_type = 'semester'
+  and jsonb_typeof(a.juz_scores) = 'array' and jsonb_array_length(a.juz_scores) > 0
+  and exists (select 1 from jsonb_array_elements(a.juz_scores) e where not (e ? 'custom'));
 
 -- Aplikasi tidak lagi memakai tabel ujian lama
 revoke select, insert, update, delete on public.ujian_bulanan from anon, authenticated;

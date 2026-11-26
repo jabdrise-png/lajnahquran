@@ -1523,7 +1523,7 @@ const useSupabaseDataInternal = () => {
     /** Simpan nilai ujian. mode: 'baru' | 'remedial' | 'koreksi' (Admin + alasan). */
     const simpanUjian = useCallback(async (args: {
         santriId: number; jenis: 'bulanan' | 'semester'; periodId?: string | null; materiJuz?: string | null;
-        juz?: { juz: number; kabir: number; shoghir: number }[] | null; nilai?: number | null;
+        juz?: { juz: number; kabir: number; shoghir: number; nilai_custom?: number | null }[] | null; nilai?: number | null;
         mode?: 'baru' | 'remedial' | 'koreksi'; alasan?: string | null; catatan?: string | null;
     }, opts: { refresh?: boolean } = {}) => {
         if (!selectedAcademicYear?.id) throw new Error('Pilih tahun ajaran dulu.');

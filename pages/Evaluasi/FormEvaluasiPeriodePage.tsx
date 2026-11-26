@@ -7,6 +7,7 @@
  * Isian bebas & evaluasi kegiatan (buatan Admin) diisi di kedua mode.
  * Semua simpan lewat rpc_simpan_form_periode (aturan dijaga server).
  */
+import { arahSantri } from '../../lib/arahHafalan';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Lock, RefreshCw, RotateCcw, Save, Send, Unlock } from 'lucide-react';
@@ -28,7 +29,7 @@ import {
 type RekapBaris = PeriodRecap & {
   nama: string;
   kode?: string | null;
-  arah_hafalan: 'maju' | 'mundur';
+  arah_hafalan: 'maju' | 'mundur' | 'dua_arah';
   sebelumnya?: { nama_periode: string; posisi_maju_surah: number | null; posisi_maju_ayah: number | null;
     posisi_mundur_surah: number | null; posisi_mundur_ayah: number | null; total_juz: number | null } | null;
 };
@@ -38,26 +39,39 @@ interface Draf {
   murojaah: string;
   surah: string;
   ayah: string;
+  /** Santri dua arah: posisi belakang (surah/ayah = posisi depan). */
+  surah2: string;
+  ayah2: string;
   totalJuz: string;
   kelancaran: string;
-  kehadiran: string;
   bebas: Record<string, any>;
   catatan: string;
 }
 
 const teks = (v: unknown) => (v === null || v === undefined ? '' : String(v));
 const angkaAtauNull = (v: string) => (v.trim() === '' ? null : Number(v.replace(',', '.')));
+type Pos = [number | null, number | null];
+/** Posisi [depan, belakang] dari draf: sisi arah santri dari isian; dua arah: keduanya dari isian. */
+function posisiDraf(r: RekapBaris, d: Draf): [Pos, Pos] {
+  const isi: Pos = [angkaAtauNull(d.surah), angkaAtauNull(d.ayah)];
+  if (r.arah_hafalan === 'dua_arah') return [isi, [angkaAtauNull(d.surah2), angkaAtauNull(d.ayah2)]];
+  return r.arah_hafalan === 'maju'
+    ? [isi, [r.posisi_mundur_surah, r.posisi_mundur_ayah]]
+    : [[r.posisi_maju_surah, r.posisi_maju_ayah], isi];
+}
 
 function drafDari(r: RekapBaris): Draf {
-  const maju = r.arah_hafalan === 'maju';
+  const maju = r.arah_hafalan !== 'mundur';
+  const dua = r.arah_hafalan === 'dua_arah';
   return {
     ziyadah: teks(r.ziyadah_pages),
     murojaah: teks(r.murojaah_pages),
     surah: teks(maju ? r.posisi_maju_surah : r.posisi_mundur_surah),
     ayah: teks(maju ? r.posisi_maju_ayah : r.posisi_mundur_ayah),
+    surah2: dua ? teks(r.posisi_mundur_surah) : '',
+    ayah2: dua ? teks(r.posisi_mundur_ayah) : '',
     totalJuz: teks(r.total_juz),
     kelancaran: r.kelancaran || '',
-    kehadiran: r.overrides?.kehadiran ? teks(r.kehadiran_persen) : '',
     bebas: { ...(r.free_answers || {}) },
     catatan: r.notes || '',
   };
@@ -168,7 +182,7 @@ const FormEvaluasiPeriodePage: React.FC = () => {
     try {
       const res: any = await bukaFormPeriode(periodId, halaqahId);
       const rows: RekapBaris[] = (res?.recaps || []).map((r: any) => ({
-        ...normalisasiRekap(r), nama: r.nama, kode: r.kode, arah_hafalan: r.arah_hafalan === 'maju' ? 'maju' : 'mundur',
+        ...normalisasiRekap(r), nama: r.nama, kode: r.kode, arah_hafalan: arahSantri(r.arah_hafalan),
         sebelumnya: r.sebelumnya ? { ...r.sebelumnya, total_juz: r.sebelumnya.total_juz === null ? null : Number(r.sebelumnya.total_juz) } : null,
       }));
       setData({ form: res?.form, rows });
@@ -207,21 +221,18 @@ const FormEvaluasiPeriodePage: React.FC = () => {
     const row: Record<string, any> = { santri_id: r.santri_id, free_answers: d.bebas, notes: d.catatan };
     if (reset.has(r.santri_id)) row.reset_overrides = true;
     if (sistemBisaDiisi(r) && r.sumber !== 'migrasi') {
-      const surah = angkaAtauNull(d.surah);
-      const ayah = angkaAtauNull(d.ayah);
-      const maju = r.arah_hafalan === 'maju';
+      const [pm, pu] = posisiDraf(r, d);
       row.ziyadah_pages = angkaAtauNull(d.ziyadah);
       row.murojaah_pages = angkaAtauNull(d.murojaah);
-      row.posisi_maju_surah = maju ? surah : r.posisi_maju_surah;
-      row.posisi_maju_ayah = maju ? ayah : r.posisi_maju_ayah;
-      row.posisi_mundur_surah = maju ? r.posisi_mundur_surah : surah;
-      row.posisi_mundur_ayah = maju ? r.posisi_mundur_ayah : ayah;
+      row.posisi_maju_surah = pm[0];
+      row.posisi_maju_ayah = pm[1];
+      row.posisi_mundur_surah = pu[0];
+      row.posisi_mundur_ayah = pu[1];
       if (!row.posisi_maju_surah && !row.posisi_mundur_surah && d.totalJuz.trim() !== '' && angkaAtauNull(d.totalJuz) !== r.total_juz) {
         row.total_juz = angkaAtauNull(d.totalJuz);
       }
       row.kelancaran = d.kelancaran || null;
-      if (r.sumber === 'rekap') row.kehadiran_persen = angkaAtauNull(d.kehadiran);
-      else if (d.kehadiran.trim() !== '') row.kehadiran_persen = angkaAtauNull(d.kehadiran);
+      // Kehadiran selalu dari absensi: tidak dikirim
     }
     return row;
   };
@@ -235,8 +246,8 @@ const FormEvaluasiPeriodePage: React.FC = () => {
         const d = draf[r.santri_id];
         return rekapBelumLengkap({
           sumber: r.sumber, ziyadah_pages: angkaAtauNull(d.ziyadah), murojaah_pages: angkaAtauNull(d.murojaah),
-          kelancaran: d.kelancaran || null, posisi_maju_surah: r.arah_hafalan === 'maju' ? angkaAtauNull(d.surah) : r.posisi_maju_surah,
-          posisi_mundur_surah: r.arah_hafalan === 'mundur' ? angkaAtauNull(d.surah) : r.posisi_mundur_surah,
+          kelancaran: d.kelancaran || null, posisi_maju_surah: posisiDraf(r, d)[0][0],
+          posisi_mundur_surah: posisiDraf(r, d)[1][0],
           total_pages: angkaAtauNull(d.totalJuz),
         });
       });
@@ -350,7 +361,7 @@ const FormEvaluasiPeriodePage: React.FC = () => {
           <p className="text-xs text-slate-500">
             {mode === 'harian'
               ? `${label.ziyadah}, ${label.murojaah}, ${label.posisi}, ${label.kelancaran}, dan ${label.kehadiran} dihitung otomatis dari setoran & absensi harian. Bila keliru, perbaiki setorannya${isAdmin ? ' atau gunakan Koreksi (wajib alasan)' : ''}.`
-              : `Isi ${label.ziyadah.toLowerCase()}, ${label.murojaah.toLowerCase()}, ${label.posisi.toLowerCase()} (sampai surat … ayat …), dan ${label.kelancaran.toLowerCase()}. ${label.kehadiran} otomatis dari absensi; isi manual bila perlu.`}
+              : `Isi ${label.ziyadah.toLowerCase()}, ${label.murojaah.toLowerCase()}, ${label.posisi.toLowerCase()} (sampai surat … ayat …), dan ${label.kelancaran.toLowerCase()}. ${label.kehadiran} selalu dihitung dari absensi.`}
           </p>
           {terkirim && !isAdmin && (
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 flex gap-2">
@@ -365,11 +376,11 @@ const FormEvaluasiPeriodePage: React.FC = () => {
               const d = draf[r.santri_id];
               if (!d) return null;
               const edit = sistemBisaDiisi(r) && r.sumber !== 'migrasi';
-              const maju = r.arah_hafalan === 'maju';
+              const maju = r.arah_hafalan !== 'mundur';
+              const dua = r.arah_hafalan === 'dua_arah';
               const sNo = angkaAtauNull(d.surah);
-              const aNo = angkaAtauNull(d.ayah);
-              const posMaju: [number | null, number | null] = maju ? [sNo, aNo] : [r.posisi_maju_surah, r.posisi_maju_ayah];
-              const posMundur: [number | null, number | null] = maju ? [r.posisi_mundur_surah, r.posisi_mundur_ayah] : [sNo, aNo];
+              const sNo2 = angkaAtauNull(d.surah2);
+              const [posMaju, posMundur] = posisiDraf(r, d);
               const total = edit && (posMaju[0] || posMundur[0]) ? totalDari(posMaju, posMundur) : null;
               const dikoreksi = Object.keys(r.overrides || {}).filter((k) => r.overrides[k]);
               const sebelum = r.sebelumnya;
@@ -379,7 +390,7 @@ const FormEvaluasiPeriodePage: React.FC = () => {
                     <span className="text-xs text-slate-400 w-6">{idx + 1}.</span>
                     <span className="font-semibold text-slate-800">{r.nama}</span>
                     {r.kode && <span className="text-xs text-slate-400">{r.kode}</span>}
-                    <span className="text-[11px] text-slate-500 px-2 py-0.5 rounded-full bg-slate-100">{maju ? 'Maju' : 'Mundur'}</span>
+                    <span className="text-[11px] text-slate-500 px-2 py-0.5 rounded-full bg-slate-100">{dua ? 'Dua arah' : maju ? 'Maju' : 'Mundur'}</span>
                     {r.sumber === 'migrasi' && <span className="text-[11px] text-slate-500 px-2 py-0.5 rounded-full bg-slate-100">data lama</span>}
                     {dikoreksi.length > 0 && <span className="text-[11px] text-amber-700 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200">dikoreksi Admin: {dikoreksi.join(', ')}</span>}
                     {kotor.has(r.santri_id) && <span className="text-[11px] text-blue-700">• belum disimpan</span>}
@@ -408,7 +419,7 @@ const FormEvaluasiPeriodePage: React.FC = () => {
                       {edit ? <input type="number" min={0} step="any" className={`${inputCls} mt-0.5`} value={d.murojaah} onChange={(e) => ubah(r.santri_id, { murojaah: e.target.value })} />
                         : <div className="mt-0.5 text-sm font-semibold text-slate-800">{r.murojaah_pages ?? '-'} <span className="text-xs font-normal text-slate-400">hal</span></div>}
                     </label>
-                    <div className="col-span-2 text-[11px] font-semibold text-slate-500">{label.posisi} {edit && <span className="font-normal">({maju ? 'Al-Fatihah →' : 'An-Nas →'} sampai)</span>}
+                    <div className="col-span-2 text-[11px] font-semibold text-slate-500">{label.posisi} {edit && <span className="font-normal">({dua ? 'depan: Al-Fatihah →' : maju ? 'Al-Fatihah →' : 'An-Nas →'} sampai)</span>}
                       {edit ? (
                         <div className="mt-0.5 flex gap-1">
                           <select className={inputCls} value={d.surah} onChange={(e) => ubah(r.santri_id, { surah: e.target.value, ayah: e.target.value ? String(SURAHS_DATA[Number(e.target.value) - 1]?.totalAyah || 1) : '' })}>
@@ -418,7 +429,21 @@ const FormEvaluasiPeriodePage: React.FC = () => {
                           <input type="number" min={1} max={sNo ? SURAHS_DATA[sNo - 1]?.totalAyah : undefined} className={`${inputCls} w-20`} placeholder="ayat"
                             value={d.ayah} disabled={!d.surah} onChange={(e) => ubah(r.santri_id, { ayah: e.target.value })} />
                         </div>
-                      ) : <div className="mt-0.5 text-sm text-slate-800">{teksPosisi(r) || '-'}</div>}
+                      ) : null}
+                      {edit && dua ? (
+                        <div className="mt-1">
+                          <span className="font-normal">(belakang: An-Nas → sampai)</span>
+                          <div className="mt-0.5 flex gap-1">
+                            <select className={inputCls} value={d.surah2} onChange={(e) => ubah(r.santri_id, { surah2: e.target.value, ayah2: e.target.value ? String(SURAHS_DATA[Number(e.target.value) - 1]?.totalAyah || 1) : '' })}>
+                              <option value="">— surat —</option>
+                              {[...SURAHS_DATA].reverse().map((s) => <option key={s.id} value={s.id}>{s.id}. {s.name}</option>)}
+                            </select>
+                            <input type="number" min={1} max={sNo2 ? SURAHS_DATA[sNo2 - 1]?.totalAyah : undefined} className={`${inputCls} w-20`} placeholder="ayat"
+                              value={d.ayah2} disabled={!d.surah2} onChange={(e) => ubah(r.santri_id, { ayah2: e.target.value })} />
+                          </div>
+                        </div>
+                      ) : null}
+                      {!edit && <div className="mt-0.5 text-sm text-slate-800">{teksPosisi(r) || '-'}</div>}
                       {edit && sebelum && (sebelum.posisi_maju_surah || sebelum.posisi_mundur_surah) && (
                         <div className="text-[10px] font-normal text-slate-400 mt-0.5">Sebelumnya ({sebelum.nama_periode}): {teksPosisi(sebelum as any)}</div>
                       )}
@@ -438,18 +463,13 @@ const FormEvaluasiPeriodePage: React.FC = () => {
                         </select>
                       ) : <div className="mt-0.5 text-sm font-semibold text-slate-800">{r.kelancaran || '-'}</div>}
                     </label>
-                    <label className="text-[11px] font-semibold text-slate-500">{label.kehadiran}
-                      {edit ? (
-                        <input type="number" min={0} max={100} step="any" className={`${inputCls} mt-0.5`}
-                          placeholder={r.kehadiran_persen !== null && !r.overrides?.kehadiran ? `${r.kehadiran_persen}% (otomatis)` : 'otomatis'}
-                          value={d.kehadiran} onChange={(e) => ubah(r.santri_id, { kehadiran: e.target.value })} />
-                      ) : (
-                        <div className="mt-0.5 text-sm font-semibold text-slate-800">
-                          {r.kehadiran_persen !== null ? `${r.kehadiran_persen}%` : '-'}
-                          {r.kehadiran_total ? <span className="text-xs font-normal text-slate-400"> ({r.hadir_count}/{r.kehadiran_total})</span> : null}
-                        </div>
-                      )}
-                    </label>
+                    <div className="text-[11px] font-semibold text-slate-500" title="Dihitung otomatis dari absensi">{label.kehadiran}
+                      <div className="mt-0.5 text-sm font-semibold text-slate-800">
+                        {r.kehadiran_persen !== null ? `${r.kehadiran_persen}%` : '-'}
+                        {r.kehadiran_total ? <span className="text-xs font-normal text-slate-400"> ({r.hadir_count}/{r.kehadiran_total})</span> : null}
+                      </div>
+                      <div className="text-[10px] font-normal text-slate-400">dari absensi</div>
+                    </div>
                   </div>
 
                   {/* Isian bebas */}

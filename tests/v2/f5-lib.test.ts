@@ -14,7 +14,7 @@ import type { PGlite } from '@electric-sql/pglite';
 import { buildTestDb, ID } from './helpers/db';
 import {
   RUBRIK_BAWAAN, nilaiJuz, nilaiSemester, predikatNilai, parseDaftarJuz, ringkasDaftarJuz, cekBobot,
-  halaqahPenguji, percobaanTerakhir, normalisasiPercobaan, normalisasiRubrik, type Rubrik,
+  halaqahPenguji, percobaanTerakhir, percobaanRaport, nilaiJuzInput, normalisasiPercobaan, normalisasiRubrik, type Rubrik,
 } from '../../lib/ujian';
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..', '..');
@@ -82,7 +82,7 @@ test('percobaan terakhir yang sah dipakai (remedial menggantikan, yang dibatalka
   assert.equal(percobaanTerakhir(list, 7, 'semester')?.final_score, 80);
   assert.equal(percobaanTerakhir(list, 7, 'monthly', 'p1')?.final_score, 70);
   assert.equal(percobaanTerakhir(list, 7, 'monthly', 'p2'), undefined);
-  assert.deepEqual(list[0].juz_scores[0], { juz: 30, kabir: 1, shoghir: 0, nilai: 95 });
+  assert.deepEqual(list[0].juz_scores[0], { juz: 30, kabir: 1, shoghir: 0, nilai: 95, custom: false });
 });
 
 // ---------------------------------------------------------------- pemeriksaan kode
@@ -127,4 +127,21 @@ test('layar Fase 5 terpasang', () => {
   const perm = read('lib/permissions.ts');
   assert.match(perm, /path: '\/app\/exams-monthly',[\s\S]*?roles: \['admin', 'musammi', 'superadmin'\]/, 'musammi penguji bisa membuka ujian bulanan');
   assert.match(read('components/Sidebar.tsx'), /canonicalRole === 'musammi'[\s\S]*?Ujian Bulanan/);
+});
+
+test('percobaanRaport = nilai tertinggi yang sah (sama dengan server); bila sama, yang terbaru', () => {
+  const a = (no: number, status: string, nilai: number | null) =>
+    normalisasiPercobaan({ id: `b${no}`, santri_id: 8, exam_type: 'semester', academic_year_id: 1, semester_name: 'Ganjil',
+      period_id: null, attempt_no: no, final_score: nilai, status, juz_scores: [] });
+  assert.equal(percobaanRaport([a(1, 'valid', 85), a(2, 'valid', 70), a(3, 'voided', 99)], 8, 'semester')?.attempt_no, 1);
+  assert.equal(percobaanRaport([a(1, 'valid', 80), a(2, 'valid', 80)], 8, 'semester')?.attempt_no, 2);
+  assert.equal(percobaanRaport([a(1, 'valid', null), a(2, 'valid', 60)], 8, 'semester')?.attempt_no, 2);
+  assert.equal(percobaanRaport([], 8, 'semester'), undefined);
+});
+
+test('nilai custom per juz: layar = server (custom dipakai apa adanya, kosong = hitungan rubrik)', () => {
+  const r = normalisasiRubrik({ initial_score: 100, deduction_major: 5, deduction_minor: 1.25, min_score: 50, passing_score: 70, predicates: [] });
+  assert.equal(nilaiSemester(r, [{ juz: 29, kabir: 2, shoghir: 0 }, { juz: 30, kabir: 9, shoghir: 9, nilai_custom: 97 }]), 93.5);
+  assert.equal(nilaiSemester(r, [{ juz: 30, kabir: 1, shoghir: 0, nilai_custom: null }]), 95);
+  assert.equal(nilaiJuzInput(r, { juz: 1, kabir: 0, shoghir: 0, nilai_custom: 0 }), 0, 'custom 0 tetap dipakai');
 });

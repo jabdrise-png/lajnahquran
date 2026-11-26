@@ -119,18 +119,23 @@ test('arah mundur (An-Nas -> An-Naba\') disimpan sebagai rentang naik; ayat di l
   await as(db, ID.musammi, () => expectError(submit(ID.santri2, TODAY, 'Ashar', 'murojaah', 1, 1, 1, 8), /melebihi jumlah ayat/));
 });
 
-test('koreksi: hanya Admin dengan alasan; Musammi\' tidak bisa; pembatalan final', async () => {
+// Keputusan 26-11-2026: musammi' halaqah itu boleh mengoreksi setoran (alasan opsional); pembatalan tetap Admin.
+test('koreksi: musammi\' halaqah itu & Admin (alasan opsional); musammi\' lain tidak bisa; pembatalan hanya Admin & final', async () => {
   const r = await as(db, ID.musammi, () => submit(ID.santri1, TODAY, 'Ashar', 'murojaah', 67, 1, 67, 10));
-  await as(db, ID.musammi, () =>
-    expectError(submit(ID.santri1, TODAY, 'Ashar', 'murojaah', 67, 1, 67, 15, 0, 0, { existing: r.id, reason: 'Salah ayat akhir' }), /oleh Admin/)
+  const m = await as(db, ID.musammi, () => submit(ID.santri1, TODAY, 'Ashar', 'murojaah', 67, 1, 67, 15, 0, 0, { existing: r.id }));
+  assert.equal(m.revision_no, 2, 'musammi\' mengoreksi tanpa alasan');
+  assert.equal(await one(db, `select reason from public.recitation_revisions where entry_id = $1 and revision_no = 2`, [r.id]), 'Koreksi setoran');
+  await as(db, MUSAMMI2, () =>
+    expectError(submit(ID.santri1, TODAY, 'Ashar', 'murojaah', 67, 1, 67, 12, 0, 0, { existing: r.id }), /Akses ditolak/)
   );
+  await as(db, MUSAMMI2, () => db.query(`update public.recitation_entries set ayah_end = 3, review_reason = 'coba ubah' where id = $1`, [r.id]).catch(() => null));
+  assert.equal(await one(db, `select ayah_end from public.recitation_entries where id = $1`, [r.id]), 15, 'tulis langsung musammi\' lain tidak mengubah apa pun');
   await as(db, ID.admin, async () => {
-    await expectError(submit(ID.santri1, TODAY, 'Ashar', 'murojaah', 67, 1, 67, 15, 0, 0, { existing: r.id, reason: 'tes' }), /Alasan koreksi/);
-    const c = await submit(ID.santri1, TODAY, 'Ashar', 'murojaah', 67, 1, 67, 15, 0, 0, { existing: r.id, reason: 'Salah ayat akhir' });
-    assert.equal(c.revision_no, 2);
+    const c = await submit(ID.santri1, TODAY, 'Ashar', 'murojaah', 67, 1, 67, 20, 0, 0, { existing: r.id, reason: 'Salah ayat akhir' });
+    assert.equal(c.revision_no, 3);
   });
   const rev = await one(db, `select string_agg(action, ',' order by revision_no) from public.recitation_revisions where entry_id = $1`, [r.id]);
-  assert.equal(rev, 'create,correct');
+  assert.equal(rev, 'create,correct,correct');
   await as(db, ID.musammi, () => expectError(db.query(`select public.rpc_review_recitation_entry($1::uuid, 'voided', 'Salah santri')`, [r.id]), /hanya Admin/));
   await as(db, ID.admin, () => db.query(`select public.rpc_review_recitation_entry($1::uuid, 'voided', 'Salah santri')`, [r.id]));
   await as(db, ID.admin, () =>
@@ -248,8 +253,10 @@ test('jadwal bentrok: musammi\' atau santri di dua halaqah pada waktu yang sama'
   await as(db, ID.musammi, () => expectError(db.query(`select * from public.rpc_jadwal_bentrok($1)`, [ID.org]), /hanya Admin/));
 });
 
-test('arah hafalan per santri: bawaan mundur, hanya maju/mundur', async () => {
-  assert.equal(await one(db, `select arah_hafalan from public.santri where id = $1`, [ID.santri1]), 'mundur');
+test('arah hafalan per santri: santri lama tetap, santri baru bawaan maju; maju/mundur/dua_arah', async () => {
+  assert.equal(await one(db, `select arah_hafalan from public.santri where id = $1`, [ID.santri1]), 'mundur', 'santri yang sudah ada tidak diubah');
+  assert.equal(await one(db, `select column_default from information_schema.columns where table_schema = 'public' and table_name = 'santri' and column_name = 'arah_hafalan'`), `'maju'::text`);
+  await db.query(`update public.santri set arah_hafalan = 'dua_arah' where id = $1`, [ID.santri1]);
   await db.query(`update public.santri set arah_hafalan = 'maju' where id = $1`, [ID.santri1]);
   await expectError(db.query(`update public.santri set arah_hafalan = 'acak' where id = $1`, [ID.santri1]), /santri_arah_hafalan_check/);
 });

@@ -232,20 +232,18 @@ test('Mode Rekap: mode baru berlaku periode berikutnya; isian manual, total dari
   const r = await rekap(pNext, ID.santri1);
   const t = hitungTotalHafalan(null, { surah: 67, ayah: 30 });
   assert.deepEqual([Number(r.total_pages), Number(r.total_juz)], [t.halaman, t.juz], 'total hafalan juga terhitung di Mode Rekap');
-  // Kehadiran manual
-  await as(db, ID.musammi, () => simpan(pNext, [{ santri_id: ID.santri1, kehadiran_persen: 90 }]));
-  assert.equal(Number((await rekap(pNext, ID.santri1)).kehadiran_persen), 90);
-  assert.equal((await rekap(pNext, ID.santri1)).overrides.kehadiran, true);
-  // Kehadiran dikosongkan = kembali otomatis dari absensi; nilai otomatis tidak terhapus
+  // Keputusan 26-11-2026: kehadiran SELALU dari absensi, juga di Mode Rekap (tidak bisa diisi manual)
   await as(db, ID.admin, () => db.query(`select public.rpc_record_attendance($1::jsonb, null)`, [JSON.stringify([
     { peran: 'Santri', person_id: ID.santri2, halaqah_id: ID.halaqah, date: add(today, 5), waktu: 'Shubuh', status: 'hadir' },
     { peran: 'Santri', person_id: ID.santri1, halaqah_id: ID.halaqah, date: add(today, 5), waktu: 'Shubuh', status: 'alpa' }])]));
   assert.equal(Number((await rekap(pNext, ID.santri2)).kehadiran_persen), 100, 'kehadiran Mode Rekap otomatis dari absensi');
-  await as(db, ID.musammi, () => simpan(pNext, [{ santri_id: ID.santri2, kehadiran_persen: null }]));
-  assert.equal(Number((await rekap(pNext, ID.santri2)).kehadiran_persen), 100);
-  await as(db, ID.musammi, () => simpan(pNext, [{ santri_id: ID.santri1, kehadiran_persen: null }]));
+  assert.equal(Number((await rekap(pNext, ID.santri1)).kehadiran_persen), 0);
+  await as(db, ID.musammi, () => expectError(simpan(pNext, [{ santri_id: ID.santri1, kehadiran_persen: 90 }]), /tidak bisa diisi manual/));
+  await as(db, ID.admin, () => expectError(simpan(pNext, [{ santri_id: ID.santri1, kehadiran_persen: 90 }], { reason: 'Koreksi kehadiran' }), /tidak bisa diisi manual/));
+  // Nilai sama / kosong dari layar tidak dianggap isian manual
+  await as(db, ID.musammi, () => simpan(pNext, [{ santri_id: ID.santri2, kehadiran_persen: 100 }, { santri_id: ID.santri1, kehadiran_persen: null }]));
   const s1 = await rekap(pNext, ID.santri1);
-  assert.deepEqual([Number(s1.kehadiran_persen), s1.overrides.kehadiran ?? null], [0, null], 'override kehadiran dicabut');
+  assert.deepEqual([Number(s1.kehadiran_persen), s1.overrides.kehadiran ?? null], [0, null]);
   const k = await as(db, ID.musammi, () => simpan(pNext, [], { kirim: true }));
   assert.equal(k.status, 'submitted');
   await db.exec(`update public.halaqah set recording_mode = 'harian' where id = ${ID.halaqah}`);
@@ -390,4 +388,34 @@ test('migrasi data evaluasi lama ke Rekap Periode (bisa diulang) dan akses tabel
   await ldb.query(`update public.evaluation_periods set start_date = '2026-09-01', end_date = '2026-09-10' where id = $1`, [p2id]);
   assert.equal((await ldb.query<any>(`select needs_review from public.evaluation_periods where id = $1`, [p2id])).rows[0].needs_review, false);
   await ldb.exec('reset role');
+});
+
+// Keputusan 26-11-2026: santri dua arah — ziyadah menambah sisi terdekat; total = gabungan kedua sisi
+test('santri dua arah: tiap ziyadah menambah sisi terdekat (depan/belakang); rumus sisi layar = server', async () => {
+  const { sisiSetoran } = await import('../../lib/arahHafalan');
+  for (const [s1, s2, ms, us] of [[114, 114, null, null], [1, 1, null, null], [6, 6, 5, 78], [77, 77, 5, 78], [40, 41, 5, 78], [57, 57, 1, 114]] as [number, number, number | null, number | null][]) {
+    assert.equal(sisiSetoran(s1, s2, ms, us), await one(db, `select public.fn_sisi_setoran($1, $2, $3, $4)`, [s1, s2, ms, us]), `${s1}-${s2} ms=${ms} us=${us}`);
+  }
+  const ddb = await buildTestDb();
+  const q = async (sql: string, p: any[] = []) => (await ddb.query<any>(sql, p)).rows;
+  const per = (await q(`insert into public.evaluation_periods(organization_id, academic_year_id, name, start_date, end_date)
+                       values ($1, $2, 'September', '2026-09-01', '2026-09-30') returning id`, [ID.org, ID.academicYear]))[0].id;
+  await ddb.exec(`update public.halaqah set recording_mode = 'harian' where id = ${ID.halaqah};
+                  update public.santri set arah_hafalan = 'dua_arah' where id = ${ID.santri2};`);
+  const setor = (date: string, s1: number, a1: number, s2: number, a2: number) => ddb.query(
+    `select public.rpc_submit_recitation_entry(p_santri_id => $1, p_halaqah_id => $2, p_recitation_date => $3::date, p_session_slot => 'Shubuh',
+       p_kind => 'ziyadah', p_surah_start_no => $4, p_ayah_start => $5, p_surah_end_no => $6, p_ayah_end => $7,
+       p_calculated_pages => 0, p_minor_mistakes => 0, p_major_mistakes => 0, p_predicate => null)`,
+    [ID.santri2, ID.halaqah, date, s1, a1, s2, a2]);
+  await as(ddb, ID.admin, async () => {
+    await setor('2026-09-02', 114, 1, 114, 6);   // belakang
+    await setor('2026-09-03', 1, 1, 1, 7);       // depan
+    await setor('2026-09-04', 2, 1, 2, 5);       // depan
+    await setor('2026-09-05', 113, 1, 113, 5);   // belakang
+    await ddb.query(`select public.rpc_buka_form_periode($1::uuid, $2)`, [per, ID.halaqah]);
+  });
+  const r = (await q(`select * from public.period_recaps where period_id = $1 and santri_id = $2`, [per, ID.santri2]))[0];
+  assert.deepEqual([r.posisi_maju_surah, r.posisi_maju_ayah, r.posisi_mundur_surah, r.posisi_mundur_ayah], [2, 5, 113, 5]);
+  const t = hitungTotalHafalan({ surah: 2, ayah: 5 }, { surah: 113, ayah: 5 });
+  assert.deepEqual([Number(r.total_pages), Number(r.total_juz)], [t.halaman, t.juz], 'total = gabungan hafalan depan & belakang');
 });

@@ -22,7 +22,7 @@ Baca file ini **sebelum** mengubah kode. Isinya: apa yang sudah diubah, aturan y
 6. **Pesan error ke pengguna dalam bahasa Indonesia yang ramah.** Gunakan `tampilkanError(err, 'Gagal …')` dari `lib/pesanError.ts`. `NotificationStore` juga otomatis menerjemahkan pesan error teknis.
 7. **Alasan (reason) divalidasi di server**, bukan hanya di layar. Untuk validasi di layar pakai `cekAlasan()` (aturannya sama dengan fungsi database `fn_alasan_valid`).
 8. Jangan menambah fitur di luar `docs/RENCANA_V2.md` selama F1–F3 (pembekuan fitur).
-9. **Jangan menghidupkan lagi Kunci Sesi atau Validasi Setoran** (Fase 3). Setoran langsung sah; halaman & predikat dihitung server — jangan mengirim angka/predikat dari layar sebagai kebenaran.
+9. **Jangan menghidupkan lagi Kunci Sesi atau Validasi Setoran** (Fase 3). Koreksi setoran: Admin & musammi' halaqah itu (alasan opsional); pembatalan hanya Admin + alasan. Setoran langsung sah; halaman & predikat dihitung server — jangan mengirim angka/predikat dari layar sebagai kebenaran.
 10. **Capaian per periode hanya dari Rekap Periode** (`period_recaps`, Fase 4). Jangan membaca/menulis `student_progress`, `student_evaluation`, `halaqah_evaluations`, `halaqah_evaluation_questions`, `evaluation_settings`, atau JSON `EVALUATION_PERIODS`. Menulis rekap hanya lewat `rpc_simpan_form_periode`.
 11. **Nilai ujian hanya di `exam_attempts`, ditulis lewat `rpc_simpan_ujian`** (Fase 5); raport hanya lewat `rpc_publish_report_card` (komponen & nilai dihitung server). Jangan membaca/menulis `ujian_bulanan`, `ujian_semester`, `silabus_scores`, atau pengaturan `PCT_*`, `UB_PERIODS_*`, `NILAI_AWAL_JUZ`, `PENGURANG_KHOTO_*`, `GLOBAL_PREDIKAT_NILAI`; jangan menghitung nilai raport di layar sebagai kebenaran.
 
@@ -237,17 +237,17 @@ Hook (`hooks/useSupabaseData.tsx`): tambah `fluencyRules`, `simpanSetoran(args, 
 | `exam_attempts` | **satu sumber nilai ujian**. `exam_type` `monthly`/`semester`, `period_id` (ujian bulanan ke-n), `halaqah_id`, `attempt_no` (remedial = percobaan baru), `is_remedial`, `materi_juz`, `juz_scores` (`[{juz, kabir, shoghir, nilai}]`), `final_score`, `predikat`, `passed`, `rubric_version_id`, `status` `valid`/`voided` (koreksi Admin membatalkan, tidak menghapus), `source` `aplikasi`/`migrasi`. Hanya bisa dibaca dari aplikasi; tulis lewat RPC |
 | `monthly_exam_periods` | ujian bulanan ke-1…24 per tahun ajaran & semester (`label`, `legacy_key`). Admin kelola (RLS); tidak bisa dihapus bila sudah ada nilai |
 | `rubric_versions` | rubrik aktif (`fn_rubrik_aktif`): `initial_score`, `deduction_major` (kabir), `deduction_minor` (shoghir), `min_score`, `passing_score` (KKM), `predicates` `[{label, minScore}]`. Simpan lewat `rpc_save_rubric_version` (versi baru) |
-| `raport_settings` | per lembaga: `bobot_semester` (> 0), `bobot_bulanan`, `bobot_kehadiran` (total 100), `ketua_lajnah_nama`, `ketua_lajnah_jabatan`, `ttd_image` (data URL ≤ 400.000 karakter), `kota_terbit` |
+| `raport_settings` | per lembaga: `bobot_semester` (> 0), `bobot_bulanan`, `bobot_kehadiran` (total 100; awal 50/30/20), `ketua_lajnah_nama`, `ketua_lajnah_jabatan`, `ttd_image` (data URL ≤ 400.000 karakter), `kota_terbit` |
 | `exam_assignments` | penguji tambahan: musammi' → halaqah, `exam_type` `semua`/`bulanan`/`semester`, per tahun ajaran & semester |
 | `raport_catatan` | catatan raport per santri per semester (tulis lewat `rpc_simpan_catatan_raport`) |
 | `report_cards` | raport terbit (versi, `snapshot_json` format `f5`, `snapshot_hash`). Tulis langsung dicabut |
 
 ### 8.2 Aturan (dijaga database)
 
-- Nilai juz = `fn_nilai_juz(rubrik, kabir, shoghir)` = max(min, nilai awal − kabir × pengurang kabir − shoghir × pengurang shoghir); nilai semester = rata-rata juz; predikat `fn_predikat_nilai`. Rumus layar `lib/ujian.ts` (`nilaiJuz`, `nilaiSemester`, `predikatNilai`) diuji sama dengan server.
+- Nilai juz = nilai custom penguji (`nilai_custom` 0–100, ditandai `custom: true`) bila diisi, selain itu `fn_nilai_juz(rubrik, kabir, shoghir)` = max(min, nilai awal − kabir × pengurang kabir − shoghir × pengurang shoghir); nilai semester = rata-rata juz; predikat `fn_predikat_nilai`. Rumus layar `lib/ujian.ts` (`nilaiJuz`, `nilaiSemester`, `predikatNilai`, `percobaanRaport`) diuji sama dengan server.
 - Penguji (`fn_bisa_menguji`): Admin; musammi' yang boleh mencatat halaqah santri saat ini; atau musammi' yang ditugaskan di `exam_assignments` sesuai jenis ujian.
 - Simpan nilai baru ditolak bila sudah ada nilai → mode `remedial`. Mode `koreksi` hanya Admin + alasan (`fn_alasan_valid`). Musammi' tidak bisa mengubah nilai bila raport santri sudah terbit.
-- Komponen raport `fn_komponen_raport`: ujian semester (percobaan terakhir yang sah), rata-rata ujian bulanan (percobaan terakhir per ujian bulanan), kehadiran (`attendance_records` dalam tanggal semester, `fn_tanggal_semester`). `kekurangan` (menghalangi terbit) vs `peringatan`.
+- Komponen raport `fn_komponen_raport`: ujian semester (**nilai tertinggi** dari percobaan sah; sama tinggi → terbaru), rata-rata ujian bulanan (nilai tertinggi per ujian bulanan), kehadiran (`attendance_records` dalam tanggal semester, `fn_tanggal_semester`). `kekurangan` (menghalangi terbit) vs `peringatan`.
 - `rpc_publish_report_card` hanya Admin; menolak bila ada kekurangan; idempoten bila hash sama; amandemen wajib alasan; snapshot menyimpan identitas santri, komponen, info hafalan (whitelist), tanda tangan (nama, jabatan, kota, sha256 gambar).
 
 ### 8.3 RPC & hook
@@ -271,7 +271,7 @@ Hook memuat `examAttempts`, `periodeUjianBulanan`, `rubrikAktif`, `pengaturanRap
 
 ### 8.5 Migrasi Fase 5 (urutan)
 
-`2026_11_30_01_f5_ujian_struktur` → `_02_f5_rpc_ujian_raport` → `_03_f5_migrasi_ujian_lama` (`f5_migrate_legacy_exams()`, `f5_legacy_reconciliation()`, bisa diulang). Pemeriksaan awal: `database/checks/f5_preflight.sql`. Panduan: `docs/FASE_5_UJI.md`.
+`2026_11_30_01_f5_ujian_struktur` → `_02_f5_rpc_ujian_raport` → `_03_f5_migrasi_ujian_lama` (`f5_migrate_legacy_exams()`, `f5_legacy_reconciliation()`, bisa diulang) → `_04_keputusan_f3_f4` (keputusan pemilik 26-11-2026: `santri.arah_hafalan` bawaan `maju` + `dua_arah` dengan `fn_sisi_setoran` = `sisiSetoran()` di `lib/arahHafalan.ts`; kehadiran rekap selalu dari absensi — `rpc_simpan_form_periode` menolak isian kehadiran; koreksi setoran oleh musammi' via `rpc_submit_recitation_entry` + `fn_validate_recitation_state_machine`). Pemeriksaan awal: `database/checks/f5_preflight.sql`. Panduan: `docs/FASE_5_UJI.md`.
 
 ---
 

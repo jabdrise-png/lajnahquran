@@ -79,14 +79,14 @@ Login sebagai Admin, lalu sebagai Musammi'. Pakai tanggal hari ini.
 
 - [ ] Tabel Kelancaran: ubah batas Mumtaz, kotak "Coba" langsung menampilkan predikat baru; setoran baru memakai aturan baru.
 
-## 5. Keputusan yang perlu Anda konfirmasi
+## 5. Keputusan (dikonfirmasi 26-11-2026)
 
-| Hal | Yang dipakai sekarang | Cara mengubah |
+| Hal | Keputusan | Cara mengubah |
 | --- | --- | --- |
 | Tabel kelancaran bawaan | Mumtaz kabir ≤ 0 & shoghir ≤ 1; Jayyid Jiddan ≤ 1 & ≤ 3; Jayyid ≤ 1 & ≤ 4; Maqbul ≤ 2 & ≤ 5; selebihnya Rasib (diulang) | Pengaturan > Tabel Kelancaran (per lembaga) |
-| Arah hafalan bawaan | `mundur` (Juz 30 dulu) untuk semua santri | Data Santri > Edit |
+| Arah hafalan bawaan | **`maju`** untuk santri baru (santri lama tidak diubah); pilihan **`dua_arah`** untuk santri yang menghafal dari depan & belakang (migrasi `2026_11_30_04`) | Data Santri > Edit |
 | Aturan ubah absensi | Hari ini: bebas (Admin / musammi' yang bertugas / badal). Tanggal lampau: hanya Admin + alasan | Ubah fungsi `fn_assert_can_correct` lewat migrasi baru |
-| Koreksi setoran | Hanya Admin + alasan; Musammi' tidak bisa mengubah setoran yang sudah tersimpan | Ubah `rpc_submit_recitation_entry` lewat migrasi baru |
+| Koreksi setoran | Admin **dan musammi' halaqah itu** (pada tanggal setoran), alasan opsional; tercatat di riwayat revisi. Pembatalan hanya Admin + alasan (migrasi `2026_11_30_04`) | Ubah `rpc_submit_recitation_entry` & `fn_validate_recitation_state_machine` lewat migrasi baru |
 
 ## 6. Test otomatis
 

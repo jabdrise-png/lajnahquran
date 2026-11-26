@@ -17,7 +17,7 @@ import { tampilkanError, pesanErrorRamah } from '../../lib/pesanError';
 import { exportToExcel, parseSpreadsheet } from '../../lib/utils';
 import { sendCustomTelegramMessage } from '../../lib/telegram';
 import {
-  halaqahPenguji, percobaanTerakhir, predikatNilai, riwayatPercobaan, tampilNilai, type PercobaanUjian,
+  halaqahPenguji, percobaanRaport, percobaanTerakhir, predikatNilai, riwayatPercobaan, tampilNilai, type PercobaanUjian,
 } from '../../lib/ujian';
 
 type Mode = 'baru' | 'remedial' | 'koreksi';
@@ -78,11 +78,14 @@ const UjianBulananPage: React.FC = () => {
 
   const [draf, setDraf] = useState<Record<number, Draf>>({});
   useEffect(() => { setDraf({}); }, [periodId]);
-  const terakhir = (sid: number) => percobaanTerakhir(examAttempts, sid, 'monthly', periodId || null);
+  // Nilai yang masuk raport = percobaan dengan nilai tertinggi (sama dengan server)
+  const nilaiRaport = (sid: number) => percobaanRaport(examAttempts, sid, 'monthly', periodId || null);
+  const jumlahSah = (sid: number) => riwayatPercobaan(examAttempts, sid, 'monthly', periodId || null).filter((a) => a.status === 'valid').length;
   const ubah = (sid: number, patch: Partial<Draf>) =>
-    setDraf((d) => ({ ...d, [sid]: { nilai: d[sid]?.nilai ?? '', materi: d[sid]?.materi ?? (terakhir(sid)?.materi_juz || ''), mode: d[sid]?.mode ?? 'baru', ...patch } }));
+    setDraf((d) => ({ ...d, [sid]: { nilai: d[sid]?.nilai ?? '', materi: d[sid]?.materi ?? (nilaiRaport(sid)?.materi_juz || ''), mode: d[sid]?.mode ?? 'baru', ...patch } }));
   const mulai = (sid: number, mode: Mode) => {
-    const t = terakhir(sid);
+    // Koreksi mengganti percobaan TERAKHIR (sama dengan server)
+    const t = mode === 'koreksi' ? percobaanTerakhir(examAttempts, sid, 'monthly', periodId || null) : nilaiRaport(sid);
     setDraf((d) => ({ ...d, [sid]: { nilai: mode === 'koreksi' ? String(t?.final_score ?? '') : '', materi: t?.materi_juz || '', mode } }));
   };
 
@@ -139,7 +142,7 @@ const UjianBulananPage: React.FC = () => {
 
   // ---------- Ekspor / impor ----------
   const ekspor = () => exportToExcel(baris.map(({ s, h }, i) => {
-    const t = terakhir(s.id);
+    const t = nilaiRaport(s.id);
     return { No: i + 1, ID: s.id, NIS: s.kode || '', Nama: s.nama, Kelas: s.kelas, Halaqah: h.nama, 'Materi (Juz)': t?.materi_juz || '',
       Nilai: t?.final_score ?? '', Predikat: t?.predikat || '', Percobaan: t?.attempt_no ?? '' };
   }), `Ujian_Bulanan_${(periode?.label || 'periode').replace(/\s+/g, '_')}`);
@@ -154,7 +157,7 @@ const UjianBulananPage: React.FC = () => {
         const id = Number(key('id')) || baris.find(({ s }) => s.kode && String(s.kode) === String(key('nis') ?? ''))?.s.id;
         const nilai = key('nilai');
         if (!id || nilai === undefined || nilai === '' || !baris.some(({ s }) => s.id === id)) continue;
-        const t = terakhir(id);
+        const t = nilaiRaport(id);
         next[id] = { nilai: String(nilai), materi: String(key('materi (juz)') ?? key('materi') ?? t?.materi_juz ?? ''), mode: t ? 'remedial' : 'baru' };
         n++;
       }
@@ -170,14 +173,14 @@ const UjianBulananPage: React.FC = () => {
   const [kirimBuka, setKirimBuka] = useState(false);
   const [templateDraf, setTemplateDraf] = useState(template);
   const [mengirim, setMengirim] = useState(false);
-  const siapKirim = baris.filter(({ s }) => s.telegram_chat_id && terakhir(s.id));
+  const siapKirim = baris.filter(({ s }) => s.telegram_chat_id && nilaiRaport(s.id));
   const kirim = async () => {
     setMengirim(true);
     let ok = 0;
     try {
       if (templateDraf !== template) await saveAppSetting(templateKey, templateDraf);
       for (const { s } of siapKirim) {
-        const t = terakhir(s.id)!;
+        const t = nilaiRaport(s.id)!;
         const pesan = templateDraf.replace(/{{nama}}/g, s.nama).replace(/{{kelas}}/g, s.kelas || '-').replace(/{{periode}}/g, periode?.label || '-')
           .replace(/{{materi}}/g, t.materi_juz || '-').replace(/{{nilai}}/g, tampilNilai(t.final_score)).replace(/{{predikat}}/g, t.predikat || '-');
         if (await sendCustomTelegramMessage('', s.telegram_chat_id, pesan, s.id)) ok++;
@@ -244,7 +247,7 @@ const UjianBulananPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {baris.map(({ s, h }) => {
-                const t = terakhir(s.id);
+                const t = nilaiRaport(s.id);
                 const d = draf[s.id];
                 const edit = !t || Boolean(d && d.mode !== 'baru');
                 const nilaiPrev = d && d.nilai !== '' ? Number(d.nilai.replace(',', '.')) : null;
@@ -254,7 +257,7 @@ const UjianBulananPage: React.FC = () => {
                   <tr key={s.id} className={d ? 'bg-blue-50/30' : ''}>
                     <td className="px-3 py-2">
                       <div className="font-semibold text-slate-800">{s.nama}</div>
-                      <div className="text-[11px] text-slate-400">{h.nama} · {s.kelas || '-'}{t ? ` · percobaan ${t.attempt_no}${t.is_remedial ? ' (remedial)' : ''}` : ''}</div>
+                      <div className="text-[11px] text-slate-400">{h.nama} · {s.kelas || '-'}{t ? ` · percobaan ${t.attempt_no}${t.is_remedial ? ' (remedial)' : ''}${jumlahSah(s.id) > 1 ? ` · tertinggi dari ${jumlahSah(s.id)} percobaan` : ''}` : ''}</div>
                     </td>
                     <td className="px-3 py-2">
                       {edit ? <input className={inputCls} value={d?.materi ?? t?.materi_juz ?? ''} placeholder="mis. 30" onChange={(e) => ubah(s.id, { materi: e.target.value })} />

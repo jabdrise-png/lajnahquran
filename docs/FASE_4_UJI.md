@@ -72,13 +72,13 @@ Mode awal halaqah: **Harian** bila ada setoran harian 60 hari terakhir, selain i
 - [ ] Pivot, Statistik, Dashboard (tren hafalan, pengingat "halaqah belum mengirim rekap") dan Buku Nilai/Raport (total hafalan, nilai silabus) tampil dari Rekap Periode.
 - [ ] Pengaturan Evaluasi: membuat periode yang **tumpang tindih ditolak**.
 
-## 5. Keputusan yang perlu Anda konfirmasi
+## 5. Keputusan (dikonfirmasi 26-11-2026)
 
-| Hal | Yang dipakai sekarang |
+| Hal | Keputusan |
 | --- | --- |
 | Kelancaran periode Mode Harian (Pertanyaan Terbuka di spesifikasi) | rata-rata peringkat predikat setoran dalam periode, dibulatkan ke predikat terdekat |
-| Kehadiran | persen status "dihitung hadir" dari absensi sesi; Mode Rekap boleh diisi manual (kosongkan = otomatis) |
-| Posisi hafalan | dari ziyadah terakhir (bukan Rasib) sesuai arah hafalan santri; bila tidak ada ziyadah baru, posisi periode sebelumnya |
+| Kehadiran | persen status "dihitung hadir" dari absensi sesi — **selalu dari absensi, juga di Mode Rekap** (tidak bisa diisi manual; migrasi `2026_11_30_04`) |
+| Posisi hafalan | dari ziyadah terakhir (bukan Rasib) sesuai arah hafalan santri; bila tidak ada ziyadah baru, posisi periode sebelumnya. Santri **dua arah**: tiap ziyadah menambah sisi terdekat (depan/belakang) |
 | Santri pindah halaqah | rekap milik halaqah tempat santri di akhir periode; setoran halaqah lama ikut dijumlah |
 | Setoran mundur ke periode terkirim | hanya Admin |
 | Mode awal hasil migrasi | Harian bila ada setoran 60 hari terakhir, selain itu Rekap |

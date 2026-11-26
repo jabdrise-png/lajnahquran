@@ -66,8 +66,8 @@ export interface Santri extends Person {
     telegram_chat_id?: string;
     tanggal_lahir?: string | null;
     asal?: string | null;
-    /** Fase 3: arah hafalan santri — 'mundur' (An-Nas → Al-Baqarah) atau 'maju'. */
-    arah_hafalan?: 'maju' | 'mundur' | string;
+    /** Arah hafalan santri — 'maju' (bawaan), 'mundur' (An-Nas → Al-Baqarah), atau 'dua_arah'. */
+    arah_hafalan?: 'maju' | 'mundur' | 'dua_arah' | string;
     musyrif_nama?: string;
     student_class_id?: number; // Added to track current class assignment
     enrollment_status?: 'active' | 'promoted' | 'transferred' | 'graduated' | 'withdrawn' | 'inactive' | 'unenrolled' | string;

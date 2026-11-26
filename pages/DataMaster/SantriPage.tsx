@@ -1,3 +1,4 @@
+import { arahSantri } from '../../lib/arahHafalan';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MarhalahLabel, KelasLabel } from '../../components/Labels';
@@ -50,7 +51,7 @@ const SantriPage: React.FC = () => {
         nama: '', kode: '', marhalah: '', 
         kelas: '',
         nama_wali: '', no_hp_wali: '', status: 'active', telegram_chat_id: '',
-        tanggal_lahir: '', asal: '', arah_hafalan: 'mundur'
+        tanggal_lahir: '', asal: '', arah_hafalan: 'maju'
     });
 
     // Filters
@@ -243,7 +244,7 @@ const SantriPage: React.FC = () => {
                 telegram_chat_id: person.telegram_chat_id || '',
                 tanggal_lahir: (person as any).tanggal_lahir || '',
                 asal: (person as any).asal || '',
-                arah_hafalan: person.arah_hafalan === 'maju' ? 'maju' : 'mundur'
+                arah_hafalan: arahSantri(person.arah_hafalan)
             });
         } else {
             const initialMarhalah = masterMarhalahs?.length > 0 ? masterMarhalahs[0].nama : (globalMarhalahs?.[0] || 'Mutawassithah');
@@ -265,7 +266,7 @@ const SantriPage: React.FC = () => {
                 telegram_chat_id: '',
                 tanggal_lahir: '',
                 asal: '',
-                arah_hafalan: 'mundur'
+                arah_hafalan: 'maju'
             });
         }
         setIsModalOpen(true);
@@ -316,7 +317,7 @@ const SantriPage: React.FC = () => {
                 status: formData.status,
                 tanggal_lahir: formData.tanggal_lahir || null,
                 asal: formData.asal.trim() || null,
-                arah_hafalan: formData.arah_hafalan === 'maju' ? 'maju' : 'mundur'
+                arah_hafalan: arahSantri(formData.arah_hafalan)
             };
 
             let santriId = editingPerson?.id;
@@ -940,10 +941,11 @@ const SantriPage: React.FC = () => {
                         </div>
                         <div>
                             <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Arah Hafalan</label>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                 {([
-                                    { v: 'mundur', t: 'Mundur', d: 'Dari An-Nas ke Al-Baqarah (juz 30 dulu)' },
                                     { v: 'maju', t: 'Maju', d: 'Dari Al-Fatihah ke An-Nas' },
+                                    { v: 'mundur', t: 'Mundur', d: 'Dari An-Nas ke Al-Baqarah (juz 30 dulu)' },
+                                    { v: 'dua_arah', t: 'Dua arah', d: 'Hafalan dari depan dan dari belakang' },
                                 ] as const).map(o => (
                                     <button key={o.v} type="button" onClick={() => setFormData({...formData, arah_hafalan: o.v})}
                                         className={`text-left border rounded-xl px-3 py-2 transition-all ${formData.arah_hafalan === o.v ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500/10' : 'border-slate-200 bg-slate-50 hover:bg-slate-100'}`}>
@@ -952,7 +954,7 @@ const SantriPage: React.FC = () => {
                                     </button>
                                 ))}
                             </div>
-                            <p className="text-[11px] text-slate-400 mt-1">Dipakai untuk menebak ayat awal setoran berikutnya.</p>
+                            <p className="text-[11px] text-slate-400 mt-1">Dipakai untuk menebak ayat awal setoran berikutnya dan menghitung posisi hafalan. Dua arah: setiap ziyadah otomatis menambah sisi (depan/belakang) yang paling dekat.</p>
                         </div>
                         <div className="grid grid-cols-2 gap-5">
                             <div>

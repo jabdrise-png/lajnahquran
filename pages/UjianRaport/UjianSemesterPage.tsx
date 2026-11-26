@@ -2,7 +2,7 @@
  * Fase 5 · Ujian Semester & Remedial (spesifikasi 8).
  *  - Input khoto kabir & shoghir PER JUZ; nilai juz & nilai akhir dihitung otomatis dari rubrik
  *    lembaga (nilai awal − khoto, tidak di bawah nilai minimum) — server menghitung ulang.
- *  - Remedial = percobaan baru; nilai lama tetap tercatat. Raport memakai percobaan terakhir.
+ *  - Remedial = percobaan baru; nilai lama tetap tercatat. Raport memakai nilai tertinggi.
  *  - Koreksi salah input = Admin + alasan. Catatan raport per santri.
  */
 import React, { useMemo, useRef, useState } from 'react';
@@ -16,7 +16,7 @@ import { NotificationStore } from '../../lib/NotificationStore';
 import { tampilkanError, pesanErrorRamah } from '../../lib/pesanError';
 import { exportToExcel, parseSpreadsheet } from '../../lib/utils';
 import {
-  halaqahPenguji, nilaiJuz, nilaiSemester, parseDaftarJuz, percobaanTerakhir, predikatNilai, riwayatPercobaan,
+  halaqahPenguji, nilaiJuzInput, nilaiSemester, percobaanTerakhir, parseDaftarJuz, percobaanRaport, predikatNilai, riwayatPercobaan,
   ringkasDaftarJuz, tampilNilai, type JuzKhoto,
 } from '../../lib/ujian';
 
@@ -52,23 +52,32 @@ const UjianSemesterPage: React.FC = () => {
         .forEach((s) => { if (!q || s.nama.toLowerCase().includes(q)) out.push({ s, h }); }));
     return out;
   }, [halaqah, boleh, filterHalaqah, cari]);
-  const terakhir = (sid: number) => percobaanTerakhir(examAttempts, sid, 'semester', null);
+  // Nilai yang masuk raport = percobaan dengan nilai tertinggi (sama dengan server)
+  const nilaiRaport = (sid: number) => percobaanRaport(examAttempts, sid, 'semester', null);
+  const jumlahSah = (sid: number) => riwayatPercobaan(examAttempts, sid, 'semester', null).filter((a) => a.status === 'valid').length;
   const catatanDari = (sid: number) => catatanRaport.find((c: any) => Number(c.santri_id) === sid && c.semester === semester)?.catatan || '';
-  const tampil = tab === 'remedial' ? baris.filter(({ s }) => { const t = terakhir(s.id); return t && t.passed === false; }) : baris;
+  const tampil = tab === 'remedial' ? baris.filter(({ s }) => { const t = nilaiRaport(s.id); return t && t.passed === false; }) : baris;
 
   // ---------- Modal input nilai ----------
   const [dialogAlasan, mintaAlasan] = useMintaAlasan();
-  const [form, setForm] = useState<{ s: any; mode: Mode; materi: string; juz: Record<number, { kabir: string; shoghir: string }>; catatan: string } | null>(null);
+  type IsianJuz = { kabir: string; shoghir: string; custom: string };
+  const [form, setForm] = useState<{ s: any; mode: Mode; materi: string; juz: Record<number, IsianJuz>; catatan: string } | null>(null);
   const [menyimpan, setMenyimpan] = useState(false);
   const buka = (s: any, mode: Mode) => {
-    const t = terakhir(s.id);
-    const juz: Record<number, { kabir: string; shoghir: string }> = {};
+    // Koreksi mengganti percobaan TERAKHIR (sama dengan server); remedial memakai materi nilai raport
+    const t = mode === 'koreksi' ? percobaanTerakhir(examAttempts, s.id, 'semester', null) : nilaiRaport(s.id);
+    const juz: Record<number, IsianJuz> = {};
     const sumber = mode === 'koreksi' || mode === 'remedial' ? t?.juz_scores || [] : [];
-    sumber.forEach((j) => { juz[j.juz] = { kabir: mode === 'koreksi' ? String(j.kabir) : '', shoghir: mode === 'koreksi' ? String(j.shoghir) : '' }; });
+    sumber.forEach((j) => {
+      juz[j.juz] = mode === 'koreksi'
+        ? { kabir: String(j.kabir), shoghir: String(j.shoghir), custom: j.custom && j.nilai !== undefined ? String(j.nilai) : '' }
+        : { kabir: '', shoghir: '', custom: '' };
+    });
     setForm({ s, mode, materi: t?.materi_juz || ringkasDaftarJuz(sumber.map((j) => j.juz)), juz, catatan: catatanDari(s.id) });
   };
   const daftarJuz = form ? parseDaftarJuz(form.materi) : [];
-  const juzIsi: JuzKhoto[] = form ? daftarJuz.map((j) => ({ juz: j, kabir: Number(form.juz[j]?.kabir || 0), shoghir: Number(form.juz[j]?.shoghir || 0) })) : [];
+  const juzIsi: JuzKhoto[] = form ? daftarJuz.map((j) => ({ juz: j, kabir: Number(form.juz[j]?.kabir || 0), shoghir: Number(form.juz[j]?.shoghir || 0),
+    nilai_custom: (form.juz[j]?.custom ?? '').trim() === '' ? null : Number(form.juz[j].custom.replace(',', '.')) })) : [];
   const preview = nilaiSemester(rubrikAktif, juzIsi);
 
   const simpan = async () => {
@@ -76,6 +85,9 @@ const UjianSemesterPage: React.FC = () => {
     if (daftarJuz.length === 0) { NotificationStore.addNotification('Isi materi juz dulu (mis. 1-5 atau 30).', 'error'); return; }
     if (juzIsi.some((j) => !Number.isInteger(j.kabir) || !Number.isInteger(j.shoghir) || j.kabir < 0 || j.shoghir < 0)) {
       NotificationStore.addNotification('Jumlah khoto harus bilangan bulat ≥ 0.', 'error'); return;
+    }
+    if (juzIsi.some((j) => j.nilai_custom !== null && j.nilai_custom !== undefined && !(Number.isFinite(j.nilai_custom) && j.nilai_custom >= 0 && j.nilai_custom <= 100))) {
+      NotificationStore.addNotification('Nilai custom harus 0–100.', 'error'); return;
     }
     let alasan: string | null = null;
     if (form.mode === 'koreksi') {
@@ -113,10 +125,10 @@ const UjianSemesterPage: React.FC = () => {
 
   // ---------- Ekspor / impor ----------
   const ekspor = () => exportToExcel(baris.flatMap(({ s, h }) => {
-    const t = terakhir(s.id);
+    const t = nilaiRaport(s.id);
     const dasar = { ID: s.id, NIS: s.kode || '', Nama: s.nama, Kelas: s.kelas, Halaqah: h.nama };
-    if (!t || !t.juz_scores.length) return [{ ...dasar, Juz: '', Kabir: '', Shoghir: '', 'Nilai Juz': '', 'Nilai Akhir': '', Predikat: '' }];
-    return t.juz_scores.map((j) => ({ ...dasar, Juz: j.juz, Kabir: j.kabir, Shoghir: j.shoghir, 'Nilai Juz': j.nilai ?? '', 'Nilai Akhir': t.final_score ?? '', Predikat: t.predikat || '' }));
+    if (!t || !t.juz_scores.length) return [{ ...dasar, Juz: '', Kabir: '', Shoghir: '', 'Nilai Custom': '', 'Nilai Juz': '', 'Nilai Akhir': '', Predikat: '' }];
+    return t.juz_scores.map((j) => ({ ...dasar, Juz: j.juz, Kabir: j.kabir, Shoghir: j.shoghir, 'Nilai Custom': j.custom ? j.nilai ?? '' : '', 'Nilai Juz': j.nilai ?? '', 'Nilai Akhir': t.final_score ?? '', Predikat: t.predikat || '' }));
   }), `Ujian_Semester_${semester}_${selectedAcademicYear?.name || ''}`.replace(/[\s/]+/g, '_'));
   const fileRef = useRef<HTMLInputElement>(null);
   const impor = async (file: File) => {
@@ -129,14 +141,16 @@ const UjianSemesterPage: React.FC = () => {
         const juz = Number(key('juz'));
         if (!id || !(juz >= 1 && juz <= 30) || !baris.some(({ s }) => s.id === id)) continue;
         const list = per.get(id) || [];
-        list.push({ juz, kabir: Number(key('kabir')) || 0, shoghir: Number(key('shoghir')) || 0 });
+        const cust = key('nilai custom');
+        list.push({ juz, kabir: Number(key('kabir')) || 0, shoghir: Number(key('shoghir')) || 0,
+          nilai_custom: cust === undefined || cust === null || String(cust).trim() === '' ? null : Number(cust) });
         per.set(id, list);
       }
-      if (!per.size) { NotificationStore.addNotification('Tidak ada baris yang cocok (kolom ID, Juz, Kabir, Shoghir).', 'error'); return; }
+      if (!per.size) { NotificationStore.addNotification('Tidak ada baris yang cocok (kolom ID, Juz, Kabir, Shoghir, Nilai Custom opsional).', 'error'); return; }
       if (!window.confirm(`Simpan nilai semester untuk ${per.size} santri dari file? Santri yang sudah punya nilai disimpan sebagai remedial.`)) return;
       let ok = 0; const gagal: string[] = [];
       for (const [sid, juz] of per) {
-        try { await simpanUjian({ santriId: sid, jenis: 'semester', juz, mode: terakhir(sid) ? 'remedial' : 'baru' }, { refresh: false }); ok++; }
+        try { await simpanUjian({ santriId: sid, jenis: 'semester', juz, mode: nilaiRaport(sid) ? 'remedial' : 'baru' }, { refresh: false }); ok++; }
         catch (e) { gagal.push(pesanErrorRamah(e)); }
       }
       await fetchData();
@@ -179,7 +193,7 @@ const UjianSemesterPage: React.FC = () => {
       </div>
       <div className="flex gap-6 border-b border-slate-200">
         {tabBtn('nilai', 'Nilai')}
-        {tabBtn('remedial', `Perlu remedial (${baris.filter(({ s }) => terakhir(s.id)?.passed === false).length})`)}
+        {tabBtn('remedial', `Perlu remedial (${baris.filter(({ s }) => nilaiRaport(s.id)?.passed === false).length})`)}
         {tabBtn('catatan', 'Catatan raport')}
       </div>
 
@@ -193,11 +207,11 @@ const UjianSemesterPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {tampil.map(({ s, h }) => {
-                const t = terakhir(s.id);
+                const t = nilaiRaport(s.id);
                 return (
                   <tr key={s.id}>
                     <td className="px-3 py-2"><div className="font-semibold text-slate-800">{s.nama}</div>
-                      <div className="text-[11px] text-slate-400">{h.nama} · {s.kelas || '-'}{t ? ` · percobaan ${t.attempt_no}${t.is_remedial ? ' (remedial)' : ''}` : ''}{t?.source === 'migrasi' ? ' · data lama' : ''}</div></td>
+                      <div className="text-[11px] text-slate-400">{h.nama} · {s.kelas || '-'}{t ? ` · percobaan ${t.attempt_no}${t.is_remedial ? ' (remedial)' : ''}${jumlahSah(s.id) > 1 ? ` · tertinggi dari ${jumlahSah(s.id)} percobaan` : ''}` : ''}{t?.source === 'migrasi' ? ' · data lama' : ''}</div></td>
                     <td className="px-3 py-2 text-slate-600">{t?.materi_juz || '-'}</td>
                     <td className="px-3 py-2 text-right font-semibold tabular-nums">{tampilNilai(t?.final_score)}</td>
                     <td className="px-3 py-2">{t ? <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${t.passed === false ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}>{t.predikat}{t.passed === false ? ' · perlu remedial' : ''}</span> : <span className="text-slate-300">-</span>}</td>
@@ -239,7 +253,7 @@ const UjianSemesterPage: React.FC = () => {
             {daftarJuz.length > 0 && (
               <div className="rounded-lg border border-slate-200 overflow-hidden">
                 <table className="min-w-full text-sm">
-                  <thead className="bg-slate-50 text-[11px] uppercase text-slate-500"><tr><th className="px-3 py-1.5 text-left">Juz</th><th className="px-3 py-1.5 text-left">Kabir</th><th className="px-3 py-1.5 text-left">Shoghir</th><th className="px-3 py-1.5 text-right">Nilai</th></tr></thead>
+                  <thead className="bg-slate-50 text-[11px] uppercase text-slate-500"><tr><th className="px-3 py-1.5 text-left">Juz</th><th className="px-3 py-1.5 text-left">Kabir</th><th className="px-3 py-1.5 text-left">Shoghir</th><th className="px-3 py-1.5 text-left" title="Kosongkan untuk memakai hitungan rubrik">Nilai custom</th><th className="px-3 py-1.5 text-right">Nilai</th></tr></thead>
                   <tbody className="divide-y divide-slate-100">
                     {daftarJuz.map((j) => (
                       <tr key={j}>
@@ -247,9 +261,12 @@ const UjianSemesterPage: React.FC = () => {
                         {(['kabir', 'shoghir'] as const).map((k) => (
                           <td key={k} className="px-3 py-1.5"><input type="number" min={0} step={1} inputMode="numeric" className={`${inputCls.replace('w-full', 'w-20')}`}
                             value={form.juz[j]?.[k] ?? ''} placeholder="0"
-                            onChange={(e) => setForm({ ...form, juz: { ...form.juz, [j]: { kabir: form.juz[j]?.kabir ?? '', shoghir: form.juz[j]?.shoghir ?? '', [k]: e.target.value } } })} /></td>
+                            onChange={(e) => setForm({ ...form, juz: { ...form.juz, [j]: { kabir: form.juz[j]?.kabir ?? '', shoghir: form.juz[j]?.shoghir ?? '', custom: form.juz[j]?.custom ?? '', [k]: e.target.value } } })} /></td>
                         ))}
-                        <td className="px-3 py-1.5 text-right tabular-nums">{tampilNilai(nilaiJuz(rubrikAktif, Number(form.juz[j]?.kabir || 0), Number(form.juz[j]?.shoghir || 0)))}</td>
+                        <td className="px-3 py-1.5"><input type="number" min={0} max={100} step="any" inputMode="decimal" className={`${inputCls.replace('w-full', 'w-24')}`}
+                          value={form.juz[j]?.custom ?? ''} placeholder="otomatis"
+                          onChange={(e) => setForm({ ...form, juz: { ...form.juz, [j]: { kabir: form.juz[j]?.kabir ?? '', shoghir: form.juz[j]?.shoghir ?? '', custom: e.target.value } } })} /></td>
+                        <td className="px-3 py-1.5 text-right tabular-nums">{tampilNilai(nilaiJuzInput(rubrikAktif, juzIsi.find((x) => x.juz === j) || { juz: j, kabir: 0, shoghir: 0 }))}{(form.juz[j]?.custom ?? '').trim() !== '' && <span className="ml-1 text-[10px] text-amber-700">custom</span>}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -277,7 +294,7 @@ const UjianSemesterPage: React.FC = () => {
             <div key={a.id} className={`rounded-lg border p-2.5 ${a.status === 'voided' ? 'bg-slate-50 text-slate-400' : 'border-slate-200'}`}>
               <div className="flex justify-between"><b className={a.status === 'voided' ? 'line-through' : ''}>Percobaan {a.attempt_no}{a.is_remedial ? ' · remedial' : ''}</b><span>{tampilNilai(a.final_score)} · {a.predikat}</span></div>
               <div className="text-xs">{a.created_at ? new Date(a.created_at).toLocaleString('id-ID') : ''} · juz {a.materi_juz || '-'}{a.source === 'migrasi' ? ' · data lama' : ''}</div>
-              {a.juz_scores.length > 0 && <div className="text-xs text-slate-500">{a.juz_scores.map((j) => `J${j.juz}: ${j.kabir}/${j.shoghir} → ${tampilNilai(j.nilai)}`).join(' · ')}</div>}
+              {a.juz_scores.length > 0 && <div className="text-xs text-slate-500">{a.juz_scores.map((j) => `J${j.juz}: ${j.kabir}/${j.shoghir} → ${tampilNilai(j.nilai)}${j.custom ? " (custom)" : ""}`).join(' · ')}</div>}
               {a.status === 'voided' && <div className="text-xs">Dibatalkan: {a.void_reason}</div>}
             </div>
           ))}

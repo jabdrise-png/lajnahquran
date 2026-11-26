@@ -3,10 +3,25 @@
  *  - 'mundur' : belakang -> depan (mulai An-Nas, Juz 30). Di dalam satu surat ayat tetap naik;
  *               setelah surat selesai, lanjut ke surat SEBELUMNYA (An-Nas -> Al-Falaq -> Al-Ikhlas ...).
  *  - 'maju'   : depan -> belakang (mulai Al-Fatihah); setelah surat selesai lanjut ke surat berikutnya.
+ *  - 'dua_arah': santri menghafal dari depan DAN dari belakang. Tiap ziyadah menambah sisi yang paling
+ *               dekat (sisiSetoran = fn_sisi_setoran di database); di form setoran penguji memilih sisi.
  */
 import { SURAHS_DATA } from './quranPageMap';
 
 export type ArahHafalan = 'maju' | 'mundur';
+export type ArahSantri = ArahHafalan | 'dua_arah';
+
+/** Arah tersimpan di data santri (bawaan 'maju'). */
+export const arahSantri = (v?: string | null): ArahSantri => (v === 'mundur' || v === 'dua_arah' ? v : 'maju');
+
+/**
+ * Sisi yang ditambah ziyadah santri dua arah: depan (maju) bila awal setoran lebih dekat ke ujung hafalan
+ * depan daripada akhir setoran ke ujung hafalan belakang; selain itu belakang (mundur).
+ * Sama dengan public.fn_sisi_setoran. ms/us = surat posisi depan/belakang (null = belum ada).
+ */
+export function sisiSetoran(s1: number, s2: number, ms: number | null, us: number | null): ArahHafalan {
+  return Math.abs(s1 - (ms ?? 1)) <= Math.abs((us ?? 114) - s2) ? 'maju' : 'mundur';
+}
 
 export interface Posisi {
   surah: number;
@@ -56,4 +71,4 @@ export function saranAkhir(awal: Posisi, jumlahAyat = 5): Posisi {
 }
 
 export const labelArah = (arah?: string | null) =>
-  arah === 'maju' ? 'Maju (Al-Fatihah → An-Nas)' : 'Mundur (Juz 30 → Juz 1)';
+  arah === 'dua_arah' ? 'Dua arah (depan & belakang)' : arah === 'mundur' ? 'Mundur (Juz 30 → Juz 1)' : 'Maju (Al-Fatihah → An-Nas)';

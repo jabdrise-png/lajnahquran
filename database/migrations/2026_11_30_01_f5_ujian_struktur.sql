@@ -5,7 +5,7 @@
 -- Tujuan:
 --   1. raport_settings: bobot raport 3 komponen (ujian semester, rata-rata ujian bulanan,
 --      kehadiran; total 100%), identitas & tanda tangan digital Ketua Lajnah.
---      Nilai awal diambil dari app_settings PCT_* (bobot Silabus dipindah ke ujian semester).
+--      Nilai awal untuk semua lembaga: semester 50, bulanan 30, kehadiran 20 (bisa diubah Admin).
 --   2. Rubrik penilaian aktif per lembaga (rubric_versions) dipastikan ada; nilai awal dari
 --      app_settings NILAI_AWAL_JUZ, PENGURANG_KHOTO_*, MIN_NILAI_JUZ, GLOBAL_PREDIKAT_NILAI.
 --   3. monthly_exam_periods: daftar ujian bulanan per semester (pengganti JSON
@@ -48,9 +48,9 @@ $$;
 -- ---------------------------------------------------------------------
 create table if not exists public.raport_settings (
   organization_id uuid primary key references public.organizations(id) on delete cascade,
-  bobot_semester numeric(5,2) not null default 60,
-  bobot_bulanan numeric(5,2) not null default 40,
-  bobot_kehadiran numeric(5,2) not null default 0,
+  bobot_semester numeric(5,2) not null default 50,
+  bobot_bulanan numeric(5,2) not null default 30,
+  bobot_kehadiran numeric(5,2) not null default 20,
   ketua_lajnah_nama text,
   ketua_lajnah_jabatan text not null default 'Ketua Lajnah',
   ttd_image text,
@@ -89,34 +89,15 @@ drop trigger if exists trg_touch_raport_settings on public.raport_settings;
 create trigger trg_touch_raport_settings before insert or update on public.raport_settings
   for each row execute function public.fn_touch_raport_settings();
 
--- Nilai awal dari app_settings (bobot Silabus Hafalan dipindah ke ujian semester)
-do $$
-declare
-  o record;
-  v_s numeric; v_b numeric; v_k numeric; v_sil numeric; v_tot numeric;
-begin
-  for o in select id from public.organizations loop
-    continue when exists (select 1 from public.raport_settings where organization_id = o.id);
-    select public.f5_angka(value) into v_s from public.app_settings where organization_id = o.id and key = 'PCT_UJIAN_SEMESTER';
-    select public.f5_angka(value) into v_b from public.app_settings where organization_id = o.id and key = 'PCT_UJIAN_BULANAN';
-    select public.f5_angka(value) into v_k from public.app_settings where organization_id = o.id and key = 'PCT_KEHADIRAN';
-    select public.f5_angka(value) into v_sil from public.app_settings where organization_id = o.id and key = 'PCT_SILABUS';
-    -- Bawaan aplikasi lama: semester 50, bulanan 40, silabus 10, kehadiran 0
-    v_s := greatest(coalesce(v_s, 50), 0) + greatest(coalesce(v_sil, 10), 0);
-    v_b := greatest(coalesce(v_b, 40), 0);
-    v_k := greatest(coalesce(v_k, 0), 0);
-    v_tot := v_s + v_b + v_k;
-    if v_s <= 0 or v_tot <= 0 then
-      v_s := 60; v_b := 40; v_k := 0;
-    elsif v_tot <> 100 then
-      v_b := round(v_b * 100 / v_tot, 2);
-      v_k := round(v_k * 100 / v_tot, 2);
-      v_s := 100 - v_b - v_k;
-    end if;
-    insert into public.raport_settings (organization_id, bobot_semester, bobot_bulanan, bobot_kehadiran)
-    values (o.id, v_s, v_b, v_k);
-  end loop;
-end $$;
+-- Nilai awal untuk semua lembaga: ujian semester 50, ujian bulanan 30, kehadiran 20.
+-- (Bobot lama PCT_* dan Silabus Hafalan tidak dipakai lagi; Admin mengatur ulang di Pengaturan Nilai.)
+-- Kolom yang dibuat versi awal migrasi ini dengan default lama disesuaikan.
+alter table public.raport_settings alter column bobot_semester set default 50;
+alter table public.raport_settings alter column bobot_bulanan set default 30;
+alter table public.raport_settings alter column bobot_kehadiran set default 20;
+insert into public.raport_settings (organization_id)
+select o.id from public.organizations o
+on conflict (organization_id) do nothing;
 
 create or replace function public.fn_seed_raport_settings()
 returns trigger

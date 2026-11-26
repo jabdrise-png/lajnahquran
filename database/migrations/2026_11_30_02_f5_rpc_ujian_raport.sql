@@ -7,14 +7,15 @@
 --      penguji yang ditugaskan untuk halaqah itu pada semester itu (exam_assignments).
 --   2. rpc_simpan_ujian: satu pintu simpan nilai ujian.
 --        bulanan  : nilai akhir 0–100 + materi juz, per ujian bulanan ke-n
---        semester : khoto kabir & shoghir PER JUZ; nilai dihitung server dari rubrik aktif
+--        semester : khoto kabir & shoghir PER JUZ; nilai dihitung server dari rubrik aktif,
+--                   atau nilai custom per juz (0–100) yang ditetapkan penguji
 --                   (nilai awal − khoto, tidak di bawah nilai minimum)
 --        mode     : 'baru' (belum ada nilai), 'remedial' (percobaan baru, nilai lama tetap),
 --                   'koreksi' (Admin + alasan: percobaan terakhir dibatalkan, diganti)
 --      Predikat dari skala rubrik; lulus = nilai ≥ KKM rubrik.
 --   3. rpc_batal_ujian (Admin + alasan), rpc_simpan_catatan_raport.
---   4. fn_komponen_raport: 3 komponen raport (ujian semester = percobaan terakhir,
---      rata-rata ujian bulanan, kehadiran semester) + bobot + daftar kekurangan.
+--   4. fn_komponen_raport: 3 komponen raport (ujian semester = nilai tertinggi dari semua
+--      percobaan sah, rata-rata nilai tertinggi tiap ujian bulanan, kehadiran semester) + bobot + daftar kekurangan.
 --   5. rpc_publish_report_card (versi baru): nilai & snapshot dihitung server; DITOLAK bila
 --      ada komponen kurang; amandemen wajib alasan (fn_alasan_valid) — dijaga server.
 --      Tulis langsung ke report_cards dari aplikasi dicabut.
@@ -151,6 +152,7 @@ security definer
 set search_path = public
 as $$
 declare
+  v_custom numeric;
   v_org uuid;
   v_type text;
   v_sem text := public.f5_semester(p_semester);
@@ -250,7 +252,16 @@ begin
         raise exception 'Jumlah khoto juz % harus bilangan bulat ≥ 0.', v_no using errcode = '22023';
       end if;
       v_seen := v_seen || v_no;
-      v_juz := v_juz || jsonb_build_object('juz', v_no, 'kabir', v_k, 'shoghir', v_s, 'nilai', public.fn_nilai_juz(v_rubric, v_k, v_s));
+      -- Nilai custom (opsional, fitur aplikasi lama): penguji menetapkan nilai juz sendiri 0–100
+      v_custom := public.f5_angka(nullif(btrim(coalesce(v_item->>'nilai_custom', '')), ''));
+      if nullif(btrim(coalesce(v_item->>'nilai_custom', '')), '') is not null and v_custom is null then
+        raise exception 'Nilai custom juz % harus angka 0–100.', v_no using errcode = '22023';
+      end if;
+      if v_custom is not null and (v_custom < 0 or v_custom > 100) then
+        raise exception 'Nilai custom juz % harus 0–100.', v_no using errcode = '22023';
+      end if;
+      v_juz := v_juz || jsonb_build_object('juz', v_no, 'kabir', v_k, 'shoghir', v_s,
+        'nilai', coalesce(round(v_custom, 2), public.fn_nilai_juz(v_rubric, v_k, v_s)), 'custom', v_custom is not null);
     end loop;
     select coalesce(jsonb_agg(e order by (e->>'juz')::int), '[]'::jsonb) into v_juz from jsonb_array_elements(v_juz) e;
     select round(avg((e->>'nilai')::numeric), 2) into v_score from jsonb_array_elements(v_juz) e;
@@ -385,21 +396,21 @@ declare
   v_bs numeric; v_bb numeric; v_bk numeric;
 begin
   select * into v_set from public.raport_settings where organization_id = p_org;
-  v_bs := coalesce(v_set.bobot_semester, 60);
-  v_bb := coalesce(v_set.bobot_bulanan, 40);
-  v_bk := coalesce(v_set.bobot_kehadiran, 0);
+  v_bs := coalesce(v_set.bobot_semester, 50);
+  v_bb := coalesce(v_set.bobot_bulanan, 30);
+  v_bk := coalesce(v_set.bobot_kehadiran, 20);
   v_rubric := public.fn_rubrik_aktif(p_org);
 
-  -- Ujian semester: percobaan terakhir yang sah (remedial menggantikan nilai di raport, nilai lama tetap tercatat)
+  -- Ujian semester: percobaan sah dengan nilai TERTINGGI (bila sama, yang terbaru); semua percobaan tetap tercatat
   select * into v_semester from public.exam_attempts
   where organization_id = p_org and academic_year_id = p_year and semester_name = v_sem and exam_type = 'semester'
     and santri_id = p_santri and status = 'valid'
-  order by attempt_no desc limit 1;
+  order by final_score desc nulls last, attempt_no desc limit 1;
   if v_semester.id is null then
     v_kurang := v_kurang || 'Nilai ujian semester belum ada'::text;
   end if;
 
-  -- Ujian bulanan: nilai percobaan terakhir per ujian bulanan pada semester ini
+  -- Ujian bulanan: nilai TERTINGGI per ujian bulanan pada semester ini
   select count(*) into v_n_periode from public.monthly_exam_periods
   where organization_id = p_org and academic_year_id = p_year and semester = v_sem;
   select coalesce(jsonb_agg(jsonb_build_object('period_id', p.id, 'ke', p.ke, 'label', p.label, 'nilai', a.final_score,
@@ -410,7 +421,7 @@ begin
   left join lateral (
     select x.* from public.exam_attempts x
     where x.organization_id = p_org and x.period_id = p.id and x.santri_id = p_santri and x.status = 'valid'
-    order by x.attempt_no desc limit 1
+    order by x.final_score desc nulls last, x.attempt_no desc limit 1
   ) a on true
   where p.organization_id = p_org and p.academic_year_id = p_year and p.semester = v_sem;
   if v_bb > 0 then

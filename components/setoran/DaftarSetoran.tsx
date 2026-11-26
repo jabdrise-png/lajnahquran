@@ -64,11 +64,10 @@ const DaftarSetoran: React.FC<Props> = ({ rows, isAdmin, halaqahOptions, santriL
             </span>
             <div className="flex items-center gap-1">
               <button type="button" title="Riwayat revisi" onClick={() => bukaRiwayat(r)} className="p-1.5 text-slate-400 hover:text-slate-700"><History size={15} /></button>
+              {/* Koreksi: Admin & musammi' halaqah itu (server memeriksa); pembatalan hanya Admin */}
+              <button type="button" title="Koreksi" onClick={() => setKoreksi(r)} className="p-1.5 text-slate-400 hover:text-blue-600"><Pencil size={15} /></button>
               {isAdmin && (
-                <>
-                  <button type="button" title="Koreksi" onClick={() => setKoreksi(r)} className="p-1.5 text-slate-400 hover:text-blue-600"><Pencil size={15} /></button>
-                  <button type="button" title="Batalkan" onClick={() => setBatal(r)} className="p-1.5 text-slate-400 hover:text-red-600"><XCircle size={15} /></button>
-                </>
+                <button type="button" title="Batalkan" onClick={() => setBatal(r)} className="p-1.5 text-slate-400 hover:text-red-600"><XCircle size={15} /></button>
               )}
             </div>
           </li>

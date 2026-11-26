@@ -16,14 +16,13 @@ import type { Halaqah } from '../../types';
 import { useSupabaseData } from '../../hooks/useSupabaseData';
 import { calculateHalamanSetoran, SURAHS_DATA } from '../../lib/quranPageMap';
 import { hitungPredikat } from '../../lib/kelancaran';
-import { titikAwalBerikutnya, saranAkhir, labelArah, type ArahHafalan } from '../../lib/arahHafalan';
+import { titikAwalBerikutnya, saranAkhir, labelArah, arahSantri, sisiSetoran, type ArahHafalan } from '../../lib/arahHafalan';
 import { rosterPadaTanggal, hariIni } from '../../lib/sesiHalaqah';
 import { bolehSetor, findStatus, type SetoranRow } from '../../lib/v2Adapter';
 import { tampilkanError } from '../../lib/pesanError';
 import { NotificationStore } from '../../lib/NotificationStore';
 import { sendCustomTelegramMessage } from '../../lib/telegram';
 import { buatPesanSetoran } from '../../lib/notifSetoran';
-import AlasanDialog from '../ui/AlasanDialog';
 
 interface Props {
   halaqahOptions: Halaqah[];
@@ -92,19 +91,32 @@ const FormSetoranRingkas: React.FC<Props> = ({ halaqahOptions, initialHalaqahId,
   const [saving, setSaving] = useState(false);
   // Kunci idempotensi per percobaan simpan: kirim ulang setelah jaringan putus tidak membuat setoran ganda.
   const idemKey = useRef<string | null>(null);
-  const [askReason, setAskReason] = useState(false);
 
   const santri = allSantri.find((s) => Number(s.id) === santriId) || roster.find((s) => Number(s.id) === santriId);
-  const arah: ArahHafalan = ((santri as any)?.arah_hafalan === 'maju' ? 'maju' : 'mundur');
+  const arahData = arahSantri((santri as any)?.arah_hafalan);
+  // Santri dua arah: penguji memilih sisi setoran (depan/belakang); bawaan = sisi ziyadah terakhir
+  const [sisi, setSisi] = useState<ArahHafalan>('maju');
+  const sisiPilihan = useRef<ArahHafalan | null>(null);
+  const santriTerakhir = useRef<number | null>(null);
+  const [sisiKunci, setSisiKunci] = useState(0);
+  const arah: ArahHafalan = arahData === 'dua_arah' ? sisi : arahData;
+  const sisiEntri = (r: any): ArahHafalan => sisiSetoran(r.surah_start_no, r.surah_end_no, null, null);
   const kindRef = kinds.find((k) => k.code === kind) || recitationKinds.find((k) => k.code === kind);
 
   // Titik awal otomatis
   useEffect(() => {
     idemKey.current = null;
     if (isEdit || !santriId) return;
-    const riwayat = setoranHarian
+    const semua = setoranHarian
       .filter((r) => r.santri_id === santriId && (kindRef?.adds_memorization ? recitationKinds.find((k) => k.code === r.kind)?.adds_memorization : r.kind === kind))
       .sort((a, b) => (b.tanggal + b.created_at).localeCompare(a.tanggal + a.created_at));
+    if (santriTerakhir.current !== santriId) { sisiPilihan.current = null; santriTerakhir.current = santriId; }
+    let arahPakai = arah;
+    if (arahData === 'dua_arah') {
+      arahPakai = sisiPilihan.current ?? (semua[0]?.surah_start_no ? sisiEntri(semua[0]) : 'maju');
+      if (sisi !== arahPakai) setSisi(arahPakai);
+    }
+    const riwayat = arahData === 'dua_arah' ? semua.filter((r) => r.surah_start_no && sisiEntri(r) === arahPakai) : semua;
     const last = riwayat[0];
     if (last?.is_repeat && last.surah_start_no && last.surah_end_no) {
       // Rasib: ulang rentang yang sama
@@ -113,12 +125,12 @@ const FormSetoranRingkas: React.FC<Props> = ({ halaqahOptions, initialHalaqahId,
     }
     const awal = titikAwalBerikutnya(
       last ? { surah_start_no: last.surah_start_no, ayah_start: Number(last.ayat_mulai) || 1, surah_end_no: last.surah_end_no, ayah_end: Number(last.ayat_selesai) || 1 } : null,
-      arah
+      arahPakai
     );
     const akhir = saranAkhir(awal, 5);
     setS1(awal.surah); setA1(awal.ayah); setS2(akhir.surah); setA2(akhir.ayah);
     setKabir(0); setShoghir(0); setCatatan('');
-  }, [santriId, kind]); // eslint-disable-line
+  }, [santriId, kind, sisiKunci]); // eslint-disable-line
 
   const halaman = useMemo(() => calculateHalamanSetoran(s1, a1, s2, a2)?.halaman ?? 0, [s1, a1, s2, a2]);
   const pred = hitungPredikat(fluencyRules, kabir, shoghir);
@@ -176,7 +188,6 @@ const FormSetoranRingkas: React.FC<Props> = ({ halaqahOptions, initialHalaqahId,
         `${santri?.nama}: ${result?.predicate || pred.predicate}${result?.is_repeat ? ' — diulang' : ''} · ${result?.calculated_pages ?? halaman} hal.`,
         'success'
       );
-      setAskReason(false);
       idemKey.current = null;
       if (isEdit) {
         onDone?.();
@@ -265,7 +276,14 @@ const FormSetoranRingkas: React.FC<Props> = ({ halaqahOptions, initialHalaqahId,
           <div>
             <div className="flex items-center justify-between text-xs font-semibold text-slate-600 mb-1.5">
               <span>Rentang hafalan</span>
-              <span className="font-normal text-slate-400">{labelArah(arah)}</span>
+              {arahData === 'dua_arah' && !isEdit ? (
+                <span className="inline-flex rounded-lg border border-slate-300 overflow-hidden" role="group" aria-label="Sisi hafalan">
+                  {([['maju', 'Depan'], ['mundur', 'Belakang']] as const).map(([v, t]) => (
+                    <button key={v} type="button" onClick={() => { sisiPilihan.current = v; setSisi(v); setSisiKunci((k) => k + 1); }}
+                      className={`px-2.5 py-0.5 text-[11px] font-semibold ${arah === v ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}>{t}</button>
+                  ))}
+                </span>
+              ) : <span className="font-normal text-slate-400">{labelArah(arahData === 'dua_arah' ? 'dua_arah' : arah)}</span>}
             </div>
             <div className="grid grid-cols-[1fr_5rem] gap-2 items-center">
               <select value={s1} onChange={(e) => { const v = Number(e.target.value); setS1(v); setA1(1); if (v > s2 || arah === 'mundur') { setS2(v); setA2(Math.min(maxA(v), 5)); } }}
@@ -307,7 +325,7 @@ const FormSetoranRingkas: React.FC<Props> = ({ halaqahOptions, initialHalaqahId,
           <button
             type="button"
             disabled={saving || !santriBolehSetor || !slot}
-            onClick={() => (isEdit ? setAskReason(true) : simpan())}
+            onClick={() => simpan()}
             className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-base font-bold disabled:opacity-40"
           >
             <Save size={18} /> {saving ? 'Menyimpan…' : isEdit ? 'Simpan koreksi' : 'Simpan setoran'}
@@ -315,15 +333,6 @@ const FormSetoranRingkas: React.FC<Props> = ({ halaqahOptions, initialHalaqahId,
         </>
       )}
 
-      <AlasanDialog
-        isOpen={askReason}
-        title="Koreksi setoran"
-        description="Koreksi setoran yang sudah tersimpan dicatat di riwayat revisi dan log audit."
-        confirmLabel="Simpan koreksi"
-        busy={saving}
-        onCancel={() => setAskReason(false)}
-        onConfirm={(alasan) => simpan(alasan)}
-      />
     </div>
   );
 };
