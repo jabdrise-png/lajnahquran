@@ -163,6 +163,18 @@ const Users: React.FC = () => {
         fetchData();
     }, []);
 
+    // BUG-04/05: siapa boleh mengubah grant baris ini?
+    // - Tidak ada yang boleh mengubah akses akun sendiri.
+    // - Superadmin boleh mengelola semua akun lain.
+    // - Admin Lembaga hanya mengelola Musammi' (bukan Admin lain, bukan Superadmin).
+    const canManageGrant = (user: UserProfile): boolean => {
+        if (!currentUser || user.id === currentUser.id) return false;
+        const callerIsSuper = currentUser.role === 'super_admin' || currentUser.role === 'superadmin';
+        if (callerIsSuper) return true;
+        const targetRole = String(user.role || '').toLowerCase();
+        return !['super_admin', 'superadmin', 'admin', 'admin_mahad'].includes(targetRole);
+    };
+
     const handleApproveUser = (id: string, name: string) => {
         setConfirmApproveTarget({ id, name });
     };
@@ -441,9 +453,13 @@ const Users: React.FC = () => {
                 const { error: profileError } = await profileUpdateQuery;
                 if (profileError) throw profileError;
 
-                // 2. Perubahan otorisasi (role/grant) wajib melalui fungsi server rpc_manage_access_grant
+                // 2. Perubahan otorisasi (role/grant) wajib melalui fungsi server rpc_manage_access_grant.
+                //    Akun sendiri hanya boleh mengubah nama (BUG-05); Admin hanya mengelola Musammi' (BUG-04).
+                const isEditingSelf = currentUserId === currentUser?.id;
+                const targetIsMusammi = ['musammi', 'pengajar'].includes(String(userToEdit.role || '').toLowerCase());
+                const mayChangeGrant = !isEditingSelf && (isSuperCaller || targetIsMusammi);
                 const targetOrgId = isSuperCaller ? userToEdit.organization_id : currentUser?.organization_id;
-                if (targetOrgId || targetRole === 'superadmin') {
+                if (mayChangeGrant && (targetOrgId || targetRole === 'superadmin')) {
                     const { error: rpcErr } = await (supabase as any).rpc('rpc_manage_access_grant', {
                         p_grant_id: null,
                         p_target_user_id: currentUserId,
@@ -630,7 +646,7 @@ const Users: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2">
-                                                {(user.role === 'pending' || user.grant_status === 'invited' || user.grant_status === 'suspended' || user.grant_status === 'revoked') && (
+                                                {canManageGrant(user) && (user.role === 'pending' || user.grant_status === 'invited' || user.grant_status === 'suspended' || user.grant_status === 'revoked') && (
                                                     <button 
                                                         onClick={() => handleApproveUser(user.id, user.full_name)}
                                                         className="bg-green-600 text-white hover:bg-green-700 transition-colors p-1.5 rounded-md text-xs font-bold flex items-center mr-2 shadow-sm"
@@ -640,15 +656,17 @@ const Users: React.FC = () => {
                                                     </button>
                                                 )}
                                                 
-                                                <button 
-                                                    onClick={() => openEditModal(user)}
-                                                    className="text-slate-400 hover:text-secondary transition-colors p-1 rounded-full hover:bg-slate-100"
-                                                    title="Edit User"
-                                                >
-                                                    <Edit size={18} />
-                                                </button>
+                                                {(canManageGrant(user) || user.id === currentUser?.id) && (
+                                                    <button 
+                                                        onClick={() => openEditModal(user)}
+                                                        className="text-slate-400 hover:text-secondary transition-colors p-1 rounded-full hover:bg-slate-100"
+                                                        title={user.id === currentUser?.id ? 'Edit Nama Saya' : 'Edit User'}
+                                                    >
+                                                        <Edit size={18} />
+                                                    </button>
+                                                )}
                                                 
-                                                {user.role !== 'super_admin' && user.grant_status !== 'revoked' && (
+                                                {canManageGrant(user) && user.role !== 'super_admin' && user.role !== 'superadmin' && user.grant_status !== 'revoked' && (
                                                     <button 
                                                         onClick={() => handleDeleteUser(user)}
                                                         className="text-slate-400 hover:text-error transition-colors p-1 rounded-full hover:bg-red-50"
@@ -820,12 +838,7 @@ const Users: React.FC = () => {
                             className="block w-full border-slate-300 rounded-md focus:ring-secondary focus:border-secondary sm:text-sm"
                             value={formData.role}
                             onChange={e => setFormData({...formData, role: e.target.value})}
-                            disabled={
-                                currentUser?.role !== 'super_admin' &&
-                                currentUser?.role !== 'superadmin' &&
-                                modalMode === 'edit' &&
-                                currentUserId === currentUser?.id
-                            }
+                            disabled={modalMode === 'edit' && currentUserId === currentUser?.id}
                         >
                             {(currentUser?.role === 'super_admin' ||
                               currentUser?.role === 'superadmin' ||

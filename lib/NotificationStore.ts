@@ -1,3 +1,5 @@
+import { ramahkanTeks } from './ramahkanError';
+
 export interface AppNotification {
     id: string;
     message: string;
@@ -15,7 +17,8 @@ class NotificationStoreImpl {
     addNotification(message: string, type: 'success' | 'error' | 'info' = 'info') {
         const notification: AppNotification = {
             id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
-            message,
+            // BUG-16: pesan error teknis diterjemahkan menjadi kalimat ramah
+            message: type === 'error' ? ramahkanTeks(message) : message,
             type,
             timestamp: new Date(),
             read: false

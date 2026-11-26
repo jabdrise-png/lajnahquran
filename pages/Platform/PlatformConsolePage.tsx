@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { cekAlasan } from '../../lib/pesanError';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import {
@@ -241,6 +242,11 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
   const resolvedInitialTab: PlatformSection = activeTab || activeSection || 'dashboard';
   const [tab, setTab] = useState<PlatformSection>(resolvedInitialTab);
   const [selectedTenantId, setSelectedTenantId] = useState<string | null>(params.tenantId || null);
+  const [myUserId, setMyUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setMyUserId(data?.session?.user?.id || null));
+  }, []);
 
   // URL-synced filters (Tenants)
   const [searchTenant, setSearchTenant] = useUrlFilterParam('q', '');
@@ -516,27 +522,38 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
   const fetchPlatformData = useCallback(async () => {
     setLoading(true);
     try {
-      const [
-        { data: orgs },
-        { data: profiles },
-        { data: santriRows },
-        { data: musammiRows },
-        { data: halaqahRows },
-        { data: ayRows },
-      ] = await Promise.all([
+      // BUG-03: angka santri/musammi'/halaqah diambil dari RPC agregat superadmin
+      // (rpc_platform_tenant_stats) karena RLS tabel tenant memblokir superadmin
+      // di luar Support Access. Bila RPC belum dimigrasikan, kembali ke cara lama.
+      const [{ data: orgs }, { data: profiles }, statsRes] = await Promise.all([
         supabase.from('organizations').select('*').order('created_at', { ascending: false }),
         supabase.from('profiles').select('*'),
-        supabase.from('santri').select('id, organization_id'),
-        supabase.from('musammi').select('id, organization_id'),
-        supabase.from('halaqah').select('id, organization_id'),
-        supabase.from('academic_years').select('id, organization_id, name, is_active'),
+        (supabase as any).rpc('rpc_platform_tenant_stats'),
       ]);
 
+      const statsMap = new Map<string, any>();
+      let santriList: any[] = [];
+      let musammiList: any[] = [];
+      let halaqahList: any[] = [];
+      let ayList: any[] = [];
+
+      if (!statsRes?.error && Array.isArray(statsRes?.data)) {
+        statsRes.data.forEach((row: any) => statsMap.set(row.organization_id, row));
+      } else {
+        const [{ data: santriRows }, { data: musammiRows }, { data: halaqahRows }, { data: ayRows }] =
+          await Promise.all([
+            supabase.from('santri').select('id, organization_id'),
+            supabase.from('musammi').select('id, organization_id'),
+            supabase.from('halaqah').select('id, organization_id'),
+            supabase.from('academic_years').select('id, organization_id, name, is_active'),
+          ]);
+        santriList = santriRows || [];
+        musammiList = musammiRows || [];
+        halaqahList = halaqahRows || [];
+        ayList = ayRows || [];
+      }
+
       const profileList = profiles || [];
-      const santriList = santriRows || [];
-      const musammiList = musammiRows || [];
-      const halaqahList = halaqahRows || [];
-      const ayList = ayRows || [];
 
       // Coba muat access_grants, user_profiles, dan tenant_invitations jika skema V2 sudah aktif
       let grantsList: any[] = [];
@@ -597,15 +614,25 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 ['musammi', 'pengajar'].includes((p.role || '').toLowerCase())
               ).length;
 
-        const orgMusammiMasterCount = musammiList.filter(
-          (m: any) => m.organization_id === o.id
-        ).length;
+        const stats = statsMap.get(o.id);
+        const orgMusammiMasterCount = stats
+          ? Number(stats.musammi_total || 0)
+          : musammiList.filter((m: any) => m.organization_id === o.id).length;
         const musammiCount = Math.max(musammiProfileCount, orgMusammiMasterCount);
 
-        const santriCount = santriList.filter((s: any) => s.organization_id === o.id).length;
-        const halaqahCount = halaqahList.filter((h: any) => h.organization_id === o.id).length;
-        const orgAys = ayList.filter((ay: any) => ay.organization_id === o.id);
-        const activeAy = orgAys.find((ay: any) => ay.is_active);
+        const santriCount = stats
+          ? Number(stats.santri_active || 0)
+          : santriList.filter((s: any) => s.organization_id === o.id).length;
+        const halaqahCount = stats
+          ? Number(stats.halaqah_active || 0)
+          : halaqahList.filter((h: any) => h.organization_id === o.id).length;
+        const orgAys = stats ? [] : ayList.filter((ay: any) => ay.organization_id === o.id);
+        const activeAy: { name?: string } | undefined = stats
+          ? stats.active_academic_year_id
+            ? { name: stats.active_academic_year_name }
+            : undefined
+          : orgAys.find((ay: any) => ay.is_active);
+        const academicYearCount = stats ? Number(stats.academic_year_count || 0) : orgAys.length;
 
         const autoSlug =
           o.slug ||
@@ -626,7 +653,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
           musammiCount,
           santriCount,
           halaqahCount,
-          academicYearCount: orgAys.length,
+          academicYearCount,
           activeAcademicYearName: activeAy?.name,
           setupState: {
             hasActiveAcademicYear: Boolean(activeAy),
@@ -931,7 +958,11 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
             category: 'Serverless API',
             status: body.status === 'healthy' ? 'healthy' : 'degraded',
             latencyMs: apiMs,
-            detail: `Probe HTTP ${res.status} OK (${apiMs} ms) — Uptime: ${body.uptimeSeconds || 0}s, DB: ${body.services?.database?.status || 'unknown'}.`,
+            detail: `Probe HTTP ${res.status} OK (${apiMs} ms) — DB: ${
+              body.database?.status || body.services?.database?.status || 'tidak diketahui'
+            }${body.database?.latencyMs ? ` (${body.database.latencyMs} ms)` : ''}${
+              body.database?.error ? ` — ${body.database.error}` : ''
+            }.`,
             checkedAt: new Date().toISOString(),
           });
         } else {
@@ -1572,7 +1603,15 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
     }
   };
 
+  // BUG-05: akun sendiri tidak boleh di-suspend / di-revoke dari konsol.
+  const isOwnAccount = (account: PlatformAccountItem) =>
+    Boolean(myUserId) && account.userId === myUserId;
+
   const handleToggleAccountStatus = (account: PlatformAccountItem) => {
+    if (isOwnAccount(account)) {
+      NotificationStore.addNotification('Anda tidak dapat menangguhkan akses akun sendiri.', 'error');
+      return;
+    }
     const isRestoring = account.status === 'suspended' || account.status === 'revoked';
     const nextStatus = isRestoring ? 'active' : 'suspended';
     setConfirmAction({
@@ -1647,6 +1686,10 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
   };
 
   const handleRevokeAccountAccess = (account: PlatformAccountItem) => {
+    if (isOwnAccount(account)) {
+      NotificationStore.addNotification('Anda tidak dapat mencabut akses akun sendiri.', 'error');
+      return;
+    }
     const isInvited = account.status === 'invited';
     setConfirmAction({
       isOpen: true,
@@ -1735,9 +1778,11 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
       return;
     }
 
-    const minChars = Math.max(5, platformConfig.minSupportReasonChars || 10);
-    if (supportForm.reason.trim().length < minChars) {
-      const msg = `Alasan operasional wajib diisi minimal ${minChars} karakter sesuai kebijakan keamanan platform.`;
+    // BUG-08: aturan yang sama ditegakkan server (fn_validate_support_session_reason)
+    const minChars = Math.max(10, platformConfig.minSupportReasonChars || 10);
+    const alasanError = cekAlasan(supportForm.reason, minChars, 2);
+    if (alasanError) {
+      const msg = `${alasanError} Jelaskan keperluan support, contoh: "Bantu admin cek absensi".`;
       setSupportError(msg);
       NotificationStore.addNotification(msg, 'error');
       return;
@@ -2632,6 +2677,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                 <div className="inline-flex items-center gap-2">
                                   <button
                                     type="button"
+                                    hidden={isOwnAccount(acc)}
                                     onClick={() => handleToggleAccountStatus(acc)}
                                     className="px-3 py-1 rounded-[8px] border border-[#E1E7EF] hover:bg-[#F3F6FB] text-xs font-semibold text-[#344054]"
                                   >
@@ -2642,7 +2688,8 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                   {acc.status !== 'revoked' && (
                                     <button
                                       type="button"
-                                      onClick={() => handleRevokeAccountAccess(acc)}
+                                      hidden={isOwnAccount(acc)}
+                                    onClick={() => handleRevokeAccountAccess(acc)}
                                       className="px-3 py-1 rounded-[8px] border border-[#FECACA] hover:bg-[#FEF2F2] text-xs font-semibold text-[#B91C1C]"
                                     >
                                       Revoke
@@ -3635,7 +3682,8 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => handleToggleAccountStatus(acc)}
+                                  hidden={isOwnAccount(acc)}
+                                    onClick={() => handleToggleAccountStatus(acc)}
                                   className={`px-3 py-1.5 rounded-[8px] border text-xs font-semibold transition-colors ${
                                     isSuspendedOrRevoked
                                       ? 'border-[#BBF7D0] bg-[#ECFDF3] text-[#15803D] hover:bg-emerald-100'
@@ -3647,6 +3695,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                 {acc.status !== 'revoked' && (
                                   <button
                                     type="button"
+                                    hidden={isOwnAccount(acc)}
                                     onClick={() => handleRevokeAccountAccess(acc)}
                                     className="px-3 py-1.5 rounded-[8px] border border-[#FECACA] bg-[#FEF2F2] hover:bg-red-100 text-[#B91C1C] text-xs font-semibold transition-colors"
                                   >
@@ -3713,7 +3762,8 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleToggleAccountStatus(acc)}
+                            hidden={isOwnAccount(acc)}
+                                    onClick={() => handleToggleAccountStatus(acc)}
                             className={`px-3 py-1.5 rounded-[8px] border text-xs font-semibold ${
                               isSuspendedOrRevoked
                                 ? 'border-[#BBF7D0] bg-[#ECFDF3] text-[#15803D]'
@@ -3725,7 +3775,8 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                           {acc.status !== 'revoked' && (
                             <button
                               type="button"
-                              onClick={() => handleRevokeAccountAccess(acc)}
+                              hidden={isOwnAccount(acc)}
+                                    onClick={() => handleRevokeAccountAccess(acc)}
                               className="px-3 py-1.5 rounded-[8px] border border-[#FECACA] bg-[#FEF2F2] text-[#B91C1C] text-xs font-semibold"
                             >
                               {acc.status === 'invited' ? 'Batalkan Undangan' : 'Revoke'}

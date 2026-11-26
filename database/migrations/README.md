@@ -26,7 +26,10 @@ contoh: 2026_12_01_01_fix_recitation_revisions_action_check.sql
 
 | File | Fase | Dijalankan |
 | --- | --- | --- |
-| (belum ada) | | |
+| `2026_11_26_01_fix_recitation_revisions_action_check.sql` | F1 (BUG-01/02) | belum |
+| `2026_11_26_02_platform_tenant_stats_rpc.sql` | F1 (BUG-03) | belum |
+| `2026_11_26_03_guard_access_grants.sql` | F1 (BUG-04/05) | belum |
+| `2026_11_26_04_reason_validation.sql` | F1 (BUG-07/08) | belum |
 
 ## Titik awal
 

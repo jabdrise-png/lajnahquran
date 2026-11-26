@@ -167,8 +167,13 @@ export const TenantLayout: React.FC<ShellCommonProps> = ({
   }
 
   // Superadmin wajib membuka Support Access Session (Break-Glass) sebelum masuk ke rute akademik tenant (/app/*)
+  // BUG-29: rute bawaan (/app, /app/dashboard) diarahkan ke Dashboard Platform, bukan ke
+  // Support Access. Support Access hanya ditawarkan bila superadmin membuka halaman tenant tertentu.
   if ((isSuperAdmin || canonicalRole === 'superadmin') && !supportSession) {
-    return <Navigate to="/platform/support-sessions" replace />;
+    const isDefaultTenantRoute = ['/app', '/app/', '/app/dashboard'].includes(location.pathname);
+    return (
+      <Navigate to={isDefaultTenantRoute ? '/platform/dashboard' : '/platform/support-sessions'} replace />
+    );
   }
 
   const matchedRoute = resolveRouteByPath(location.pathname);

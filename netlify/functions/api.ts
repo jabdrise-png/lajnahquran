@@ -82,6 +82,9 @@ export const handler: Handler = async (event: HandlerEvent, _context: HandlerCon
           } else {
             dbStatus = "healthy";
           }
+        } else {
+          dbStatus = "not_configured";
+          dbError = "SUPABASE_URL / kunci Supabase belum diatur di environment Netlify.";
         }
       } catch (err: any) {
         dbStatus = "unreachable";

@@ -9,6 +9,7 @@ import { AttendanceStatus } from '../../types';
 import { supabase } from '../../lib/supabaseClient';
 import { NotificationStore } from '../../lib/NotificationStore';
 import { StatusBadge, ConfirmDialog } from '../../components/ui/SaaSPrimitives';
+import { cekAlasan } from '../../lib/pesanError';
 
 const RekapNilaiPage: React.FC = () => {
     const { 
@@ -546,8 +547,10 @@ const RekapNilaiPage: React.FC = () => {
         const existingSnap = publishedSnapshotsBySantri[item.santri.id];
         const nextVersion = existingSnap ? (Number(existingSnap.version_no) || 1) + 1 : 1;
 
-        if (existingSnap && (!amendmentReason || amendmentReason.trim().length < 5)) {
-            throw new Error('Alasan revisi (amendment) wajib diisi minimal 5 karakter.');
+        if (existingSnap) {
+            // BUG-07: aturan yang sama ditegakkan server (fn_validate_report_card_reason)
+            const alasanError = cekAlasan(amendmentReason, 5);
+            if (alasanError) throw new Error(`Alasan revisi raport: ${alasanError}`);
         }
 
         const { error: rpcErr } = await (supabase as any).rpc('rpc_publish_report_card', {
