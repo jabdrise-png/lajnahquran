@@ -6,6 +6,12 @@ import { useAcademicYear } from '../lib/AcademicYearContext';
 
 import { SupportSessionStore, resolveTenantContext } from '../lib/permissions';
 import { DEFAULT_FLUENCY_RULES, type FluencyRule } from '../lib/kelancaran';
+import {
+    normalisasiRekap, normalisasiField, periodeKeLegacy, periodeTahunAjaran,
+    rekapKeStudentProgress, rekapKeStudentEvaluation, fieldKeEvaluationSettings,
+    fieldKePertanyaanHalaqah, formKeHalaqahEvaluation,
+    type EvaluationPeriod, type PeriodFormField, type PeriodRecap, type PeriodForm,
+} from '../lib/rekapAdapter';
 import { NotificationStore } from '../lib/NotificationStore';
 import {
     recitationToSetoranRow, setoranInputToRpcArgs, attendanceToLegacy, attendanceInputToRpcRecords, isUuid,
@@ -48,6 +54,12 @@ const useSupabaseDataInternal = () => {
     const [halaqahTypes, setHalaqahTypes] = useState<HalaqahTypeRef[]>([]);
     // Fase 3: Tabel Kelancaran lembaga
     const [fluencyRules, setFluencyRules] = useState<FluencyRule[]>(DEFAULT_FLUENCY_RULES);
+    // Fase 4: Rekap Periode (satu sumber capaian per santri per periode)
+    const [evaluationPeriods, setEvaluationPeriods] = useState<EvaluationPeriod[]>([]);
+    const [periodFormFields, setPeriodFormFields] = useState<PeriodFormField[]>([]);
+    const [periodRecaps, setPeriodRecaps] = useState<PeriodRecap[]>([]);
+    const [periodForms, setPeriodForms] = useState<PeriodForm[]>([]);
+    const [silabusScores, setSilabusScores] = useState<any[]>([]);
     
     const [activeSemesterDates, setActiveSemesterDates] = useState<{ startDate: string | null; endDate: string | null }>({ startDate: null, endDate: null });
     const [studentEnrollments, setStudentEnrollments] = useState<any[]>([]);
@@ -198,9 +210,9 @@ const useSupabaseDataInternal = () => {
             // Batch 2: Configuration & Targets
             const [
                 { data: targetsData },
-                { data: settingsData },
+                { data: periodsData },
                 { data: appSettingsData },
-                { data: halaqahEvalQData },
+                { data: fieldsData },
                 { data: kindsData },
                 { data: statusesData },
                 { data: slotsData },
@@ -208,9 +220,9 @@ const useSupabaseDataInternal = () => {
                 { data: fluencyData }
             ] = await Promise.all([
                 executeTableQuery('class_targets', (supabase as any).from('class_targets').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(1000), []),
-                executeTableQuery('evaluation_settings', (supabase as any).from('evaluation_settings').select('*').eq('organization_id', orgId).limit(1000).order('score', { ascending: false }), []),
+                executeTableQuery('evaluation_periods', (supabase as any).from('evaluation_periods').select('*').eq('organization_id', orgId).order('start_date', { ascending: true }).limit(1000), [], { optionalTransitionTable: true }),
                 executeTableQuery('app_settings', (supabase as any).from('app_settings').select('*').eq('organization_id', orgId).limit(500), []),
-                executeTableQuery('halaqah_evaluation_questions', (supabase as any).from('halaqah_evaluation_questions').select('*').eq('organization_id', orgId).limit(500).order('id', { ascending: true }), []),
+                executeTableQuery('period_form_fields', (supabase as any).from('period_form_fields').select('*').eq('organization_id', orgId).order('sort_order', { ascending: true }).limit(1000), [], { optionalTransitionTable: true }),
                 executeTableQuery('recitation_kinds', (supabase as any).from('recitation_kinds').select('*').eq('organization_id', orgId).order('sort_order', { ascending: true }), []),
                 executeTableQuery('attendance_statuses', (supabase as any).from('attendance_statuses').select('*').eq('organization_id', orgId).order('sort_order', { ascending: true }), []),
                 executeTableQuery('session_slots', (supabase as any).from('session_slots').select('*').eq('organization_id', orgId).order('sort_order', { ascending: true }), []),
@@ -226,20 +238,45 @@ const useSupabaseDataInternal = () => {
             setHalaqahTypes((halaqahTypesData as any[]) || []);
             setFluencyRules((fluencyData as any[])?.length ? (fluencyData as any[]) : DEFAULT_FLUENCY_RULES);
 
-            // Batch 3: Progress, Evaluations & Exams
+            // Batch 3: Rekap Periode (Fase 4) & Ujian
+            const allPeriods: EvaluationPeriod[] = ((periodsData as any[]) || []).map((p: any) => ({ ...p, academic_year_id: p.academic_year_id === null ? null : Number(p.academic_year_id) }));
+            const yearPeriodIds = periodeTahunAjaran(allPeriods, selectedAcademicYear.id).map(p => p.id);
+            // period_recaps bisa > 1000 baris: ambil bertahap (batas baris per permintaan Supabase)
+            const fetchRecaps = async (): Promise<{ data: any[] }> => {
+                if (yearPeriodIds.length === 0) return { data: [] };
+                const all: any[] = [];
+                for (let from = 0; from < 100000; from += 1000) {
+                    const { data, error } = await executeTableQuery('period_recaps',
+                        (supabase as any).from('period_recaps').select('*').eq('organization_id', orgId).in('period_id', yearPeriodIds)
+                            .order('id', { ascending: true }).range(from, from + 999), [] as any[], { optionalTransitionTable: true });
+                    all.push(...((data as any[]) || []));
+                    if (error || !data || (data as any[]).length < 1000) break;
+                }
+                return { data: all };
+            };
             const [
-                { data: progressData },
-                { data: evaluationData },
-                { data: halaqahEvalData },
+                { data: recapsData },
+                { data: formsData },
+                { data: silabusData },
                 { data: ujianBulananData },
                 { data: ujianSemesterData }
             ] = await Promise.all([
-                executeTableQuery('student_progress', (supabase as any).from('student_progress').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(10000), []),
-                executeTableQuery('student_evaluation', (supabase as any).from('student_evaluation').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(10000), []),
-                executeTableQuery('halaqah_evaluations', (supabase as any).from('halaqah_evaluations').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(10000), []),
+                fetchRecaps(),
+                yearPeriodIds.length
+                    ? executeTableQuery('period_forms', (supabase as any).from('period_forms').select('*').eq('organization_id', orgId).in('period_id', yearPeriodIds).limit(5000), [], { optionalTransitionTable: true })
+                    : Promise.resolve({ data: [] as any[], error: null }),
+                executeTableQuery('silabus_scores', (supabase as any).from('silabus_scores').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(10000), [], { optionalTransitionTable: true }),
                 executeTableQuery('ujian_bulanan', (supabase as any).from('ujian_bulanan').select('*').eq('organization_id', orgId).limit(10000), []),
                 executeTableQuery('ujian_semester', (supabase as any).from('ujian_semester').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(10000), [])
             ]);
+            const fieldsList: PeriodFormField[] = ((fieldsData as any[]) || []).map(normalisasiField);
+            const recapsList: PeriodRecap[] = ((recapsData as any[]) || []).map(normalisasiRekap);
+            const formsList: PeriodForm[] = ((formsData as any[]) || []).map((f: any) => ({ ...f, halaqah_id: Number(f.halaqah_id), activity_answers: f.activity_answers || {} }));
+            setEvaluationPeriods(allPeriods);
+            setPeriodFormFields(fieldsList);
+            setPeriodRecaps(recapsList);
+            setPeriodForms(formsList);
+            setSilabusScores((silabusData as any[]) || []);
 
             // Fetch active semester dates from canonical V2 `semesters` table first, fallback to `app_settings`
             const currSemName = selectedAcademicYear.active_semester || 'Ganjil';
@@ -436,10 +473,11 @@ const useSupabaseDataInternal = () => {
             setWaliKelas(waliKelasList);
             setMusyrifs((musyrifsData as unknown as any[]) || []);
             setClassTargets(targetsList);
-            setStudentEvaluations((evaluationData as unknown as StudentEvaluation[]) || []);
-            setEvaluationSettings((settingsData as unknown as EvaluationSetting[]) || []);
-            setHalaqahEvalQuestions((halaqahEvalQData as unknown as any[]) || []);
-            setHalaqahEvaluations((halaqahEvalData as unknown as any[]) || []);
+            // Fase 4: bentuk lama diturunkan dari Rekap Periode (lib/rekapAdapter.ts)
+            setStudentEvaluations(rekapKeStudentEvaluation(recapsList, fieldsList) as unknown as StudentEvaluation[]);
+            setEvaluationSettings(fieldKeEvaluationSettings(fieldsList) as unknown as EvaluationSetting[]);
+            setHalaqahEvalQuestions(fieldKePertanyaanHalaqah(fieldsList));
+            setHalaqahEvaluations(formKeHalaqahEvaluation(formsList));
             setAppSettings((appSettingsData as unknown as any[]) || []);
             setUjianBulanan(ujianBulananData || []);
             setUjianSemester(ujianSemesterData || []);
@@ -548,6 +586,8 @@ const useSupabaseDataInternal = () => {
                     waktu: h.waktu as Waktu[],
                     no_urut: h.no_urut || 999,
                     is_active: h.is_active !== false,
+                    is_archived: Boolean(h.is_archived),
+                    recording_mode: h.recording_mode === 'rekap' ? 'rekap' : 'harian',
                     created_at: h.created_at,
                     updated_at: h.updated_at,
                 };
@@ -587,14 +627,7 @@ const useSupabaseDataInternal = () => {
                 .filter((a): a is AttendanceRecord => a !== null);
             setAttendance(attendanceWithNames);
 
-            const progressList: StudentProgress[] = (progressData || []).map(p => ({
-                id: p.id,
-                santri_id: p.santri_id,
-                month_key: p.month_key,
-                progress_type: p.progress_type as ProgressType,
-                value: p.value
-            }));
-            setStudentProgress(progressList);
+            setStudentProgress(rekapKeStudentProgress(recapsList, fieldsList) as unknown as StudentProgress[]);
 
         } catch (err: any) {
             setError(err.message || String(err));
@@ -1072,37 +1105,108 @@ const useSupabaseDataInternal = () => {
         await fetchData();
     }, [fetchData, setoranHarian]);
 
-    // Student Progress Mutations
-    const addStudentProgressBatch = useCallback(async (progressRecords: Omit<StudentProgress, 'id'>[], skipFetch = false) => {
-        const orgId = await getOrgId();
-        const recordsWithOrg = progressRecords.map(p => {
-            const { id, created_at, ...rest } = p as any;
-            return { ...rest, organization_id: orgId, academic_year_id: selectedAcademicYear?.id };
-        });
-        const { error } = await supabase.from('student_progress').upsert(recordsWithOrg, { onConflict: 'santri_id, academic_year_id, month_key, progress_type' });
+    // Fase 4: student_progress tidak dipakai lagi. Capaian per periode = period_recaps (lewat RPC di bawah).
+    const rpcRekap = async (fn: string, args: Record<string, any>) => {
+        const { data, error } = await (supabase as any).rpc(fn, args);
         if (error) throw error;
-        if (!skipFetch) {
-            await fetchData();
-        }
-    }, [fetchData, selectedAcademicYear, getOrgId]);
+        return data;
+    };
 
-    const deleteStudentProgress = useCallback(async (id: number) => {
+    /** Nilai Silabus Hafalan per semester (raport). */
+    const simpanNilaiSilabus = useCallback(async (rows: { santri_id: number; score: number | null }[], semester: string) => {
         const orgId = await getOrgId();
-        const { error } = await supabase.from('student_progress').delete().eq('organization_id', orgId).eq('id', id);
+        if (!selectedAcademicYear?.id) throw new Error('Pilih tahun ajaran dulu.');
+        const isi = rows.filter(r => r.score !== null && r.score !== undefined && !Number.isNaN(Number(r.score)));
+        const kosong = rows.filter(r => r.score === null || r.score === undefined || Number.isNaN(Number(r.score)));
+        if (isi.length > 0) {
+            const { error } = await (supabase as any).from('silabus_scores').upsert(isi.map(r => ({
+                organization_id: orgId, santri_id: r.santri_id, academic_year_id: selectedAcademicYear.id, semester,
+                score: Math.max(0, Math.min(100, Number(r.score))), updated_at: new Date().toISOString(),
+            })), { onConflict: 'organization_id,santri_id,academic_year_id,semester' });
+            if (error) throw error;
+        }
+        if (kosong.length > 0) {
+            const { error } = await (supabase as any).from('silabus_scores').delete().eq('organization_id', orgId)
+                .eq('academic_year_id', selectedAcademicYear.id).eq('semester', semester).in('santri_id', kosong.map(r => r.santri_id));
+            if (error) throw error;
+        }
+        await fetchData();
+    }, [fetchData, getOrgId, selectedAcademicYear]);
+
+    // ---- Fase 4: Rekap Periode ----
+    const bukaFormPeriode = useCallback((periodId: string, halaqahId: number) =>
+        rpcRekap('rpc_buka_form_periode', { p_period: periodId, p_halaqah: halaqahId }), []);
+
+    const simpanFormPeriode = useCallback(async (args: { periodId: string; halaqahId: number; rows: any[]; activity?: Record<string, any> | null; kirim?: boolean; reason?: string | null }) => {
+        const res = await rpcRekap('rpc_simpan_form_periode', {
+            p_period: args.periodId, p_halaqah: args.halaqahId, p_rows: args.rows,
+            p_activity: args.activity ?? null, p_kirim: Boolean(args.kirim), p_reason: args.reason?.trim() || null,
+        });
+        await fetchData();
+        return res;
+    }, [fetchData]);
+
+    const bukaKembaliFormPeriode = useCallback(async (formId: string, reason: string) => {
+        const res = await rpcRekap('rpc_buka_kembali_form_periode', { p_form: formId, p_reason: reason.trim() });
+        await fetchData();
+        return res;
+    }, [fetchData]);
+
+    const hitungRekapHarian = useCallback(async (periodId: string, halaqahId?: number | null) => {
+        const res = await rpcRekap('rpc_hitung_rekap_harian', { p_period: periodId, p_halaqah: halaqahId ?? null });
+        await fetchData();
+        return res;
+    }, [fetchData]);
+
+    const statusPeriode = useCallback(async (periodId: string) =>
+        ((await rpcRekap('rpc_status_periode', { p_period: periodId })) || []) as any[], []);
+
+    const simpanPeriode = useCallback(async (p: { id?: string; name: string; start_date: string; end_date: string; academic_year_id?: number | null }) => {
+        const orgId = await getOrgId();
+        const row = { name: p.name.trim(), start_date: p.start_date, end_date: p.end_date, academic_year_id: p.academic_year_id ?? null };
+        const { error } = p.id
+            ? await (supabase as any).from('evaluation_periods').update(row).eq('organization_id', orgId).eq('id', p.id)
+            : await (supabase as any).from('evaluation_periods').insert({ ...row, organization_id: orgId });
         if (error) throw error;
         await fetchData();
     }, [fetchData, getOrgId]);
 
-    const deleteStudentProgressByMonth = useCallback(async (month: string, type: ProgressType) => {
+    const hapusPeriode = useCallback(async (periodId: string, reason?: string | null) => {
+        await rpcRekap('rpc_hapus_periode', { p_period: periodId, p_reason: reason?.trim() || null });
+        await fetchData();
+    }, [fetchData]);
+
+    const setModeHalaqah = useCallback(async (halaqahId: number, mode: 'harian' | 'rekap') => {
+        const res = await rpcRekap('rpc_set_mode_halaqah', { p_halaqah: halaqahId, p_mode: mode });
+        await fetchData();
+        return res;
+    }, [fetchData]);
+
+    /** Isian form periode (isian sistem: hanya nama; isian bebas & pertanyaan kegiatan: lengkap). */
+    const simpanIsianForm = useCallback(async (f: Partial<PeriodFormField> & { scope: 'santri' | 'kegiatan' }) => {
         const orgId = await getOrgId();
-        let query = supabase.from('student_progress').delete().eq('organization_id', orgId).eq('month_key', month).eq('progress_type', type);
-        if (selectedAcademicYear?.id) {
-            query = query.eq('academic_year_id', selectedAcademicYear.id);
+        const row: Record<string, any> = {
+            label: (f.label || '').trim(), description: f.description ?? null,
+            sort_order: f.sort_order ?? 100, is_active: f.is_active ?? true,
+        };
+        if (!f.system_key) {
+            row.field_type = f.field_type || 'text';
+            row.options = f.options || [];
+            row.scope = f.scope;
         }
-        const { error } = await query;
+        const { error } = f.id
+            ? await (supabase as any).from('period_form_fields').update(row).eq('organization_id', orgId).eq('id', f.id)
+            : await (supabase as any).from('period_form_fields').insert({ ...row, organization_id: orgId });
         if (error) throw error;
         await fetchData();
-    }, [fetchData, getOrgId, selectedAcademicYear]);
+    }, [fetchData, getOrgId]);
+
+    const hapusIsianForm = useCallback(async (id: string) => {
+        const orgId = await getOrgId();
+        const { error } = await (supabase as any).from('period_form_fields').delete().eq('organization_id', orgId).eq('id', id);
+        if (error) throw error;
+        await fetchData();
+    }, [fetchData, getOrgId]);
 
     // Class Target Mutation
     const saveClassTargetBatch = useCallback(async (targets: Omit<ClassTarget, 'id'>[]) => {
@@ -1386,170 +1490,6 @@ const useSupabaseDataInternal = () => {
     const saveClassTarget = useCallback(async (targetData: Omit<ClassTarget, 'id'>) => {
         await saveClassTargetBatch([targetData]);
     }, [saveClassTargetBatch]);
-
-    // --- EVALUATION MUTATIONS ---
-    const updateEvaluation = useCallback(async (evalData: Partial<StudentEvaluation> & { santri_id: number, month_key: string }) => {
-        const orgId = await getOrgId();
-        const { id, created_at, ...rest } = evalData as any;
-        const { error } = await supabase.from('student_evaluation').upsert(
-            { ...rest, organization_id: orgId, academic_year_id: selectedAcademicYear?.id },
-            { onConflict: 'santri_id, academic_year_id, month_key' }
-        );
-        if (error) throw error;
-        // Don't refetch all, update local state optimistically or silently
-        await fetchData();
-    }, [fetchData, selectedAcademicYear]);
-
-    const updateEvaluationBatch = useCallback(async (evalDataArray: (Partial<StudentEvaluation> & { santri_id: number, month_key: string })[], skipFetch = false) => {
-        const orgId = await getOrgId();
-        const recordsWithOrg = evalDataArray.map(e => {
-            const { id, created_at, ...rest } = e as any;
-            
-    
-
-    return { ...rest, organization_id: orgId, academic_year_id: selectedAcademicYear?.id };
-        });
-        const { error } = await supabase.from('student_evaluation').upsert(
-            recordsWithOrg,
-            { onConflict: 'santri_id, academic_year_id, month_key' }
-        );
-        if (error) throw error;
-        if (!skipFetch) {
-            await fetchData();
-        }
-    }, [fetchData, selectedAcademicYear]);
-
-    const deleteEvaluationPeriod = useCallback(async (month: string, marhalah?: string) => {
-        const orgId = await getOrgId();
-        const { error: e1 } = await supabase.from('student_progress').delete().eq('organization_id', orgId).eq('month_key', month);
-        if (e1) console.error("Error deleting progress:", e1);
-        const { error: e2 } = await supabase.from('student_evaluation').delete().eq('organization_id', orgId).eq('month_key', month);
-        if (e2) console.error("Error deleting evaluation:", e2);
-        const { error: e3 } = await (supabase as any).from('halaqah_evaluations').delete().eq('organization_id', orgId).eq('month_key', month);
-        if (e3) console.error("Error deleting halaqah evaluation:", e3);
-
-        let key = 'EVALUATION_PERIODS';
-
-        const periodSettings = appSettings.find(s => s.key === key)?.value;
-        if (periodSettings) {
-            let updatedValue = '';
-            if (periodSettings.startsWith('[')) {
-                try {
-                    const parsed = JSON.parse(periodSettings);
-                    const updated = parsed.filter((p: any) => p.id !== month);
-                    updatedValue = JSON.stringify(updated);
-                } catch(e) {}
-            } else {
-                const periodsList = periodSettings.split(',').filter(p => p.trim() !== '');
-                const updatedPeriods = periodsList.filter(p => p !== month);
-                updatedValue = updatedPeriods.join(',');
-            }
-            if (updatedValue) {
-                const { error: e4 } = await (supabase as any).from('app_settings').upsert({
-                    organization_id: orgId,
-                    key: key,
-                    value: updatedValue
-                }, { onConflict: 'organization_id,key' });
-                if (e4) console.error("Error updating settings:", e4);
-            }
-        }
-        await fetchData();
-    }, [fetchData, appSettings]);
-
-    const saveEvaluationSetting = useCallback(async (setting: Omit<EvaluationSetting, 'id'> & { id?: number }) => {
-        const orgId = await getOrgId();
-        if (setting.id) {
-            const { error } = await supabase.from('evaluation_settings').update({
-                label: setting.label,
-                score: setting.score
-            }).eq('organization_id', orgId).eq('id', setting.id);
-            if (error) throw error;
-        } else {
-            const { color, ...settingWithoutColor } = setting;
-            const { error } = await supabase.from('evaluation_settings').insert({ ...settingWithoutColor, organization_id: orgId });
-            if (error) throw error;
-        }
-        await fetchData();
-    }, [fetchData, getOrgId]);
-
-        const updateEvaluationSettingsBatch = useCallback(async (toDelete: number[], toUpdate: any[], toInsert: any[]) => {
-        const orgId = await getOrgId();
-        if (toDelete.length > 0) {
-            await supabase.from('evaluation_settings').delete().eq('organization_id', orgId).in('id', toDelete);
-        }
-        await Promise.all(toUpdate.map(async (setting) => {
-            const { error } = await supabase.from('evaluation_settings').update({
-                label: setting.label,
-                score: setting.score
-            }).eq('organization_id', orgId).eq('id', setting.id);
-            if (error) throw error;
-        }));
-        if (toInsert.length > 0) {
-            const inserts = toInsert.map(s => {
-                const { color, ...rest } = s;
-                return { ...rest, organization_id: orgId };
-            });
-            const { error } = await supabase.from('evaluation_settings').insert(inserts);
-            if (error) throw error;
-        }
-        await fetchData();
-    }, [fetchData, getOrgId]);
-
-    const deleteEvaluationSetting = useCallback(async (id: number) => {
-        const orgId = await getOrgId();
-        const { error } = await supabase.from('evaluation_settings').delete().eq('organization_id', orgId).eq('id', id);
-        if (error) throw error;
-        await fetchData();
-    }, [fetchData, getOrgId]);
-
-    const deleteEvaluationCategory = useCallback(async (category: string) => {
-        const orgId = await getOrgId();
-        const { error } = await supabase.from('evaluation_settings').delete().eq('organization_id', orgId).eq('category', category);
-        if (error) throw error;
-        await fetchData();
-    }, [fetchData, getOrgId]);
-
-    const updateEvaluationCategory = useCallback(async (oldCategory: string, newCategory: string) => {
-        const orgId = await getOrgId();
-        const { error: error1 } = await supabase.from('evaluation_settings').update({ category: newCategory }).eq('organization_id', orgId).eq('category', oldCategory);
-        if (error1) throw error1;
-        const { error: error2 } = await supabase.from('student_progress').update({ progress_type: newCategory }).eq('organization_id', orgId).eq('progress_type', oldCategory);
-        if (error2) throw error2;
-        await fetchData();
-    }, [fetchData, getOrgId]);
-
-    const saveHalaqahEvalQuestion = async (q: Partial<any>) => {
-        const orgId = await getOrgId();
-        if (q.id) {
-            const { error } = await (supabase as any).from('halaqah_evaluation_questions').update(q).eq('organization_id', orgId).eq('id', q.id);
-            if (error) throw error;
-        } else {
-            const { error } = await (supabase as any).from('halaqah_evaluation_questions').insert({ ...q, organization_id: orgId });
-            if (error) throw error;
-        }
-        await fetchData();
-    };
-
-    const deleteHalaqahEvalQuestion = async (id: number) => {
-        const orgId = await getOrgId();
-        const { error } = await (supabase as any).from('halaqah_evaluation_questions').delete().eq('organization_id', orgId).eq('id', id);
-        if (error) throw error;
-        await fetchData();
-    };
-
-    const saveHalaqahEvaluation = async (evalData: Partial<any>, skipFetch = false) => {
-        const orgId = await getOrgId();
-        const { id, created_at, ...rest } = evalData as any;
-        const { error } = await (supabase as any).from('halaqah_evaluations').upsert({
-            ...rest,
-            organization_id: orgId,
-            academic_year_id: selectedAcademicYear?.id
-        }, { onConflict: 'halaqah_id,month_key' });
-        if (error) throw error;
-        if (!skipFetch) {
-            await fetchData();
-        }
-    };
 
     const saveAppSetting = async (key: string, value: string) => {
         const orgId = await getOrgId();
@@ -1961,6 +1901,12 @@ const useSupabaseDataInternal = () => {
         }
     };
 
+    /** Periode tahun ajaran terpilih dalam bentuk lama (MasterEvaluationPeriod, id = UUID periode). */
+    const periodeEvaluasi = useMemo(
+        () => periodeTahunAjaran(evaluationPeriods, selectedAcademicYear?.id).map(periodeKeLegacy),
+        [evaluationPeriods, selectedAcademicYear]
+    );
+
     return {
         santri, allSantri, musammi, waliKelas, musyrifs, halaqah, attendance, studentProgress, classTargets, 
         studentEvaluations, evaluationSettings, halaqahEvalQuestions, halaqahEvaluations, appSettings,
@@ -1973,9 +1919,11 @@ const useSupabaseDataInternal = () => {
         addHalaqah, updateHalaqah, deleteHalaqah, deleteHalaqahBatch, restoreHalaqah, keluarkanSantri, mutasiSantri, 
         addSantriToHalaqah, assignHalaqahMusammi, addAttendanceRecords, updateAttendanceRecord, deleteAttendanceRecord, deleteAttendanceBatch,
         addSetoranHarianRecord, updateSetoranHarianRecord, deleteSetoranHarianRecord,
-        addStudentProgressBatch, deleteStudentProgress, deleteStudentProgressByMonth, saveClassTarget, saveClassTargetBatch,
-        updateEvaluation, updateEvaluationBatch, saveEvaluationSetting, updateEvaluationSettingsBatch, deleteEvaluationSetting, deleteEvaluationCategory, updateEvaluationCategory, deleteEvaluationPeriod,
-        saveHalaqahEvalQuestion, deleteHalaqahEvalQuestion, saveHalaqahEvaluation, saveAppSetting,
+        saveClassTarget, saveClassTargetBatch, saveAppSetting,
+        // Fase 4: Rekap Periode
+        evaluationPeriods, periodeEvaluasi, periodFormFields, periodRecaps, periodForms, silabusScores,
+        bukaFormPeriode, simpanFormPeriode, bukaKembaliFormPeriode, hitungRekapHarian, statusPeriode,
+        simpanPeriode, hapusPeriode, setModeHalaqah, simpanIsianForm, hapusIsianForm, simpanNilaiSilabus,
         saveMultipleAppSettings,
         saveUjianBulanan, deleteUjianBulanan, saveUjianSemester,
         addMasterKelas, deleteMasterKelas,

@@ -4,7 +4,7 @@ Sistem Manajemen Tahfidz Al-Qur'an Multi-Tenant berbasis cloud yang dirancang un
 
 > **Pengembangan v2 sedang berjalan.** Acuan utama untuk semua perubahan:
 >
-> - [`docs/CATATAN_UNTUK_AI.md`](docs/CATATAN_UNTUK_AI.md) — **baca dulu**: perubahan Fase 0–3 dan aturan wajib untuk asisten AI
+> - [`docs/CATATAN_UNTUK_AI.md`](docs/CATATAN_UNTUK_AI.md) — **baca dulu**: perubahan Fase 0–4 dan aturan wajib untuk asisten AI
 > - [`docs/SPESIFIKASI_V2.md`](docs/SPESIFIKASI_V2.md) — kebutuhan produk (menggantikan deskripsi lama bila bertentangan)
 > - [`docs/RENCANA_V2.md`](docs/RENCANA_V2.md) — 9 fase pengerjaan dan checklist tiap fase
 > - [`docs/audit/BUG_REPORT_2026-11.md`](docs/audit/BUG_REPORT_2026-11.md) — daftar bug hasil uji November 2026

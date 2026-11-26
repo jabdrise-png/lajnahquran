@@ -179,6 +179,8 @@ export interface Halaqah {
   no_urut: number;
   is_active?: boolean;
   is_archived?: boolean;
+  /** Fase 4: mode pencatatan — harian (dari setoran) atau rekap (diisi akhir periode) */
+  recording_mode?: 'harian' | 'rekap';
   created_at?: string;
   updated_at?: string;
 }
@@ -374,77 +376,3 @@ export interface MasterKelasRelasi {
     musyrif_name?: string;
 }
 
-export interface AutoSyncZiyadahConfig {
-    enabled: boolean;
-    selected_schemes: string[];
-    min_nilai: string;
-}
-
-export interface AutoSyncMurojaahConfig {
-    enabled: boolean;
-    selected_schemes: string[];
-}
-
-export type AutoSyncHafalanMethod = 
-    | 'history_and_juz' 
-    | 'standard_boundary' 
-    | 'only_front' 
-    | 'only_back';
-
-export interface AutoSyncHafalanConfig {
-    enabled: boolean;
-    method: AutoSyncHafalanMethod;
-}
-
-export interface AutoSyncKelancaranThresholds {
-    lancar: number;
-    sedang: number;
-}
-
-export interface AutoSyncConversionRule {
-    option_label: string;
-    min_score: number;
-}
-
-export interface AutoSyncKelancaranConfig {
-    enabled: boolean;
-    target_category_id: string;
-    thresholds?: AutoSyncKelancaranThresholds;
-    rules?: AutoSyncConversionRule[];
-    fallback_option?: string;
-}
-
-export interface AutoSyncSetoranConfig {
-    enabled: boolean;
-    ziyadah: AutoSyncZiyadahConfig;
-    murojaah: AutoSyncMurojaahConfig;
-    hafalan: AutoSyncHafalanConfig;
-    kelancaran: AutoSyncKelancaranConfig;
-}
-
-export const DEFAULT_AUTO_SYNC_SETORAN_CONFIG: AutoSyncSetoranConfig = {
-    enabled: false,
-    ziyadah: {
-        enabled: true,
-        selected_schemes: ['Ziyadah'],
-        min_nilai: 'Jayyid'
-    },
-    murojaah: {
-        enabled: true,
-        selected_schemes: ['Murojaah', 'Sabqi', 'Manzil']
-    },
-    hafalan: {
-        enabled: true,
-        method: 'history_and_juz'
-    },
-    kelancaran: {
-        enabled: true,
-        target_category_id: 'Hafalan',
-        thresholds: {
-            lancar: 2.5,
-            sedang: 1.6
-        },
-        rules: [],
-        fallback_option: undefined
-    }
-};

@@ -60,7 +60,11 @@ PANDUAN FITUR OPERASIONAL RESMI:
    - Setoran langsung sah tanpa validasi Admin. Halaman dihitung server berbasis Mushaf Standar Madinah 15 Baris; predikat dihitung otomatis dari jumlah khoto kabir/shoghir sesuai Tabel Kelancaran lembaga. Predikat Rasib berarti setoran diulang dan tidak menambah hafalan.
    - Santri dengan status kehadiran yang tidak "boleh setor" (mis. Sakit/Izin) tidak bisa dicatat setorannya.
    - Koreksi atau pembatalan setoran hanya oleh Admin dengan alasan; histori revisi tersimpan append-only.
-3. Ujian, Buku Nilai & Raport Immutable (/app/exams, /app/gradebook, /app/report-cards):
+3. Rekap Periode (/app/evaluations, /app/evaluations-master):
+   - Setiap santri punya satu angka resmi per periode (Rekap Periode). Halaqah Mode Harian: ziyadah, murojaah, posisi & total hafalan, kelancaran, dan kehadiran dihitung otomatis dari setoran & absensi (koreksi hanya Admin dengan alasan). Halaqah Mode Rekap: musammi' mengisi sekali di akhir periode.
+   - Form Evaluasi Periode: Simpan Draft lalu Kirim; setelah dikirim terkunci untuk musammi'. Admin memantau status pengisian semua halaqah dan bisa membuka kembali dengan alasan.
+   - Periode evaluasi tidak boleh tumpang tindih; mode pencatatan halaqah diubah Admin dan berlaku mulai periode berikutnya.
+4. Ujian, Buku Nilai & Raport Immutable (/app/exams, /app/gradebook, /app/report-cards):
    - Mendukung ujian beserta attempt remedial dan rekap nilai.
    - Raport yang telah diterbitkan (Published) bersifat immutable dan memiliki kode verifikasi SHA-256 yang dapat dicek pada halaman /verify. Koreksi raport yang sudah terbit hanya dapat dilakukan melalui mekanisme Amendment (versi baru).
 

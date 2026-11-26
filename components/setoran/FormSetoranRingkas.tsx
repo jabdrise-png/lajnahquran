@@ -136,6 +136,8 @@ const FormSetoranRingkas: React.FC<Props> = ({ halaqahOptions, initialHalaqahId,
   const kirimTelegram = async (result: any) => {
     try {
       if (appSettings.find((s) => s.key === 'SETORAN_TELEGRAM_NOTIF_ENABLE')?.value !== 'true') return;
+      // Fase 4: halaqah Mode Rekap tidak mengirim pesan per setoran (spesifikasi 6.1)
+      if (halaqah?.recording_mode === 'rekap') return;
       const chatId = (santri as any)?.telegram_chat_id;
       if (!chatId) return;
       const template = appSettings.find((s) => s.key === 'SETORAN_TELEGRAM_NOTIF_TEMPLATE')?.value;
@@ -208,6 +210,12 @@ const FormSetoranRingkas: React.FC<Props> = ({ halaqahOptions, initialHalaqahId,
             {slotOptions.map((w) => <option key={w} value={w}>{sessionSlots.find((s) => s.code === w)?.name || w}</option>)}
           </select>
         </div>
+      )}
+
+      {halaqah?.recording_mode === 'rekap' && !isEdit && (
+        <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          Halaqah ini memakai <b>Mode Rekap</b>: capaian periode diisi di Form Evaluasi Periode. Setoran harian tetap boleh dicatat, tetapi tidak dijumlah ke rekap dan tidak dikirim ke wali.
+        </p>
       )}
 
       {/* 1. Santri */}

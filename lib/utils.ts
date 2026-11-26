@@ -41,60 +41,21 @@ export const generateMonthsFromDateRange = (startDateStr: string | null, endDate
     }
 };
 
-export const getEvaluationPeriods = (appSettings: any[], marhalah?: string): MasterEvaluationPeriod[] => {
-    let key = 'EVALUATION_PERIODS';
-    const periodSettings = appSettings?.find(s => s.key === key)?.value;
-    if (!periodSettings) return [];
-    
-    try {
-        if (periodSettings.startsWith('[')) {
-            // New JSON array format
-            return JSON.parse(periodSettings);
-        }
-    } catch (e) {
-        console.error("Failed to parse EVALUATION_PERIODS JSON", e);
-    }
-
-    // Old comma-separated format
-    const periodsList = periodSettings.split(',').filter((p: string) => p.trim() !== '');
-    return periodsList.map((p: string) => ({
-        id: p,
-        name: p,
-        startDate: '',
-        endDate: ''
-    }));
-};
-
-export const formatPeriodName = (yyyyMMdd: string, appSettings: any[], marhalah?: string) => {
-    try {
-        if (appSettings) {
-            const masterPeriods = getEvaluationPeriods(appSettings);
-            const period = masterPeriods.find(p => p.id === yyyyMMdd);
-            if (period && period.name) return period.name;
-            if (period && period.startDate) {
-                const d = new Date(period.startDate);
-                if (!isNaN(d.getTime())) {
-                    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-                    return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
-                }
-            } else if (period && !period.name && period.id.startsWith('period_')) {
-                return 'Periode ' + period.id.replace('period_', '');
-            }
-        }
-        if (yyyyMMdd.startsWith('period_')) return 'Periode ' + yyyyMMdd.replace('period_', '');
-
-        const parts = yyyyMMdd.split('-');
-        if (parts.length === 3) {
-            const [year, month, day] = parts;
-            return `${parseInt(day, 10)}/${parseInt(month, 10)}/${year}`;
-        } else if (parts.length === 2) {
-            const [year, month] = parts;
-            const mIndex = parseInt(month, 10) - 1;
+/**
+ * Nama periode untuk tampilan. Fase 4: periode dari tabel evaluation_periods
+ * (hook useSupabaseData → periodeEvaluasi); id = UUID periode.
+ */
+export const formatPeriodName = (periodId: string, periods: MasterEvaluationPeriod[] = []) => {
+    const period = periods.find(p => p.id === periodId);
+    if (period?.name) return period.name;
+    if (period?.startDate) {
+        const d = new Date(period.startDate);
+        if (!isNaN(d.getTime())) {
             const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-            if (mIndex >= 0 && mIndex < 12) return `${months[mIndex]} ${year}`;
+            return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
         }
-        return yyyyMMdd;
-    } catch (e) { return yyyyMMdd; }
+    }
+    return periodId;
 };
 
 // Generic export to Excel

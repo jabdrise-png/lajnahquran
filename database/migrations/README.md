@@ -42,6 +42,9 @@ contoh: 2026_12_01_01_fix_recitation_revisions_action_check.sql
 | `2026_11_28_01_f3_mushaf_kelancaran_arah.sql` | F3 (mushaf, Tabel Kelancaran, arah hafalan) | belum |
 | `2026_11_28_02_f3_setoran_langsung_sah.sql` | F3 (setoran langsung sah, BUG-12/13) | belum |
 | `2026_11_28_03_f3_absensi_tanpa_kunci.sql` | F3 (absensi tanpa kunci, badal, koreksi) | belum |
+| `2026_11_29_01_f4_periode_dan_rekap.sql` | F4 (periode, mode halaqah, form & Rekap Periode, total hafalan) | belum |
+| `2026_11_29_02_f4_hitung_rekap.sql` | F4 (hitung rekap harian, form evaluasi, pemantauan) | belum |
+| `2026_11_29_03_f4_migrasi_evaluasi_lama.sql` | F4 (pindah data evaluasi lama, nilai Silabus Hafalan → `silabus_scores`, cabut akses tabel lama) | belum |
 
 ## Pemeriksaan sebelum migrasi
 

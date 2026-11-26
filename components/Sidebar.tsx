@@ -131,7 +131,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       icon: <TrendingUp size={18} />,
       children: [
         { id: 'setoran_harian', label: 'Setoran & Murojaah', page: 'SetoranHarian' },
-        { id: 'perkembangan_input', label: 'Input Evaluasi Periodik', page: 'Input Evaluasi' },
+        { id: 'perkembangan_input', label: 'Form Evaluasi Periode', page: 'Input Evaluasi' },
         { id: 'perkembangan_master_data', label: 'Progres & Evaluasi', page: 'Master Data Perkembangan' },
         ...(canonicalRole !== 'musammi'
           ? [{ id: 'pengaturan_evaluasi', label: 'Target & Periode Evaluasi', page: 'Pengaturan Evaluasi' as Page }]

@@ -1,0 +1,50 @@
+FASE 4 — Rekap Periode
+
+File yang DIHAPUS (hapus juga di repo Anda):
+lib/syncEngine.ts
+pages/Chat.tsx
+pages/PerkembanganInputPage.tsx
+pages/PerkembanganMasterDataPage.tsx
+pages/WaliKelasReport.tsx
+pages/WaliSantriReport.tsx
+
+Urutan migrasi: 2026_11_29_01 -> 2026_11_29_02 -> 2026_11_29_03 (lihat docs/FASE_4_UJI.md)
+
+Semua perubahan relatif ke origin/main:
+M	App.tsx
+M	README.md
+M	api/chat.ts
+M	components/Sidebar.tsx
+A	components/evaluasi/IsianFormPanel.tsx
+A	components/evaluasi/ModePencatatanPanel.tsx
+A	components/evaluasi/PeriodeEvaluasiPanel.tsx
+M	components/setoran/FormSetoranRingkas.tsx
+A	database/checks/f4_preflight.sql
+A	database/migrations/2026_11_29_01_f4_periode_dan_rekap.sql
+A	database/migrations/2026_11_29_02_f4_hitung_rekap.sql
+A	database/migrations/2026_11_29_03_f4_migrasi_evaluasi_lama.sql
+M	database/migrations/README.md
+M	docs/CATATAN_UNTUK_AI.md
+A	docs/FASE_4_UJI.md
+M	hooks/useSupabaseData.tsx
+M	lib/permissions.ts
+A	lib/rekapAdapter.ts
+D	lib/syncEngine.ts
+A	lib/totalHafalan.ts
+M	lib/utils.ts
+D	pages/Chat.tsx
+M	pages/Dashboard.tsx
+A	pages/Evaluasi/FormEvaluasiPeriodePage.tsx
+A	pages/Evaluasi/ProgresEvaluasiPage.tsx
+M	pages/HalaqahPerformanceChart.tsx
+M	pages/PengaturanEvaluasiPage.tsx
+D	pages/PerkembanganInputPage.tsx
+D	pages/PerkembanganMasterDataPage.tsx
+M	pages/StatistikPerkembangan.tsx
+M	pages/StudentProgress.tsx
+M	pages/UjianRaport/RekapNilaiPage.tsx
+D	pages/WaliKelasReport.tsx
+D	pages/WaliSantriReport.tsx
+A	tests/v2/f4-database.test.ts
+A	tests/v2/f4-lib.test.ts
+M	types.ts

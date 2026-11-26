@@ -21,8 +21,8 @@ import TahunAjaranPage from './pages/DataMaster/TahunAjaranPage';
 
 // AKADEMIK & OPERASIONAL PAGES
 import SetoranHarianPage from './pages/SetoranHarianPage';
-import PerkembanganInputPage from './pages/PerkembanganInputPage';
-import PerkembanganMasterDataPage from './pages/PerkembanganMasterDataPage';
+import FormEvaluasiPeriodePage from './pages/Evaluasi/FormEvaluasiPeriodePage';
+import ProgresEvaluasiPage from './pages/Evaluasi/ProgresEvaluasiPage';
 import PengaturanEvaluasiPage from './pages/PengaturanEvaluasiPage';
 import SesiHalaqahPage from './pages/Operasional/SesiHalaqahPage';
 import AuditLembagaPage from './pages/Akademik/AuditLembagaPage';
@@ -398,8 +398,8 @@ const App: React.FC = () => {
           element={<AttendanceBook onNavigate={(page: any) => handleSetPage(page)} />}
         />
         <Route path="recitations" element={<SetoranHarianPage />} />
-        <Route path="evaluations" element={<PerkembanganInputPage />} />
-        <Route path="evaluations-master" element={<PerkembanganMasterDataPage />} />
+        <Route path="evaluations" element={<FormEvaluasiPeriodePage />} />
+        <Route path="evaluations-master" element={<ProgresEvaluasiPage />} />
         <Route path="targets" element={<PengaturanEvaluasiPage />} />
 
         {/* Ujian, Buku Nilai, Raport & Laporan */}

@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import ActionDropdown from '../../components/ActionDropdown';
 import RaportDocument from '../../components/RaportDocument';
 import { useSupabaseData } from '../../hooks/useSupabaseData';
-import { exportToExcel, parseSpreadsheet, getActiveSemesterDateRange, getPredikat, getEvaluationPeriods } from '../../lib/utils';
+import { exportToExcel, parseSpreadsheet, getActiveSemesterDateRange, getPredikat } from '../../lib/utils';
 import { AttendanceStatus } from '../../types';
 import { supabase } from '../../lib/supabaseClient';
 import { NotificationStore } from '../../lib/NotificationStore';
@@ -19,7 +19,9 @@ const RekapNilaiPage: React.FC = () => {
         studentProgress, 
         attendance,
         saveUjianSemester,
-        addStudentProgressBatch,
+        silabusScores,
+        simpanNilaiSilabus,
+        periodeEvaluasi,
         selectedAcademicYear,
         appSettings,
         loading, masterKelas, globalMarhalahs, userProfile, waliKelas, classTargets, globalPredikatNilai, masterMarhalahs, masterKelasRelasi, getOrgId 
@@ -54,7 +56,6 @@ const RekapNilaiPage: React.FC = () => {
         };
     }, [appSettings]);
 
-    // We use student_progress table to store 'Silabus Hafalan' value. We use a synthetic month_key for it.
     const selectedSemester = selectedAcademicYear?.active_semester || 'Ganjil';
     const { orgName: userOrgName } = useSupabaseData();
     const orgName = appSettings.find(s => s.key === 'ORG_NAME')?.value || userOrgName || 'TPA / TPQ Al-Hidayah';
@@ -99,7 +100,9 @@ const RekapNilaiPage: React.FC = () => {
             fetchAttendancePercentages();
         }
         return () => { isMounted = false; };
-    }, [semesterDates, getOrgId]);
+    // Bergantung pada tanggalnya (string), bukan objek semesterDates yang dibuat ulang tiap render
+    // (dulu memicu permintaan rpc_get_santri_attendance_percentages tanpa henti).
+    }, [semesterDates.startDate, semesterDates.endDate, getOrgId]);
 
     const fetchReportCards = async () => {
         if (!selectedAcademicYear?.id) return;
@@ -135,11 +138,6 @@ const RekapNilaiPage: React.FC = () => {
         return map;
     }, [reportCardsList]);
 
-    // We use student_progress table to store 'Silabus Hafalan' value. We use a synthetic month_key for it.
-    const silabusMonthKey = useMemo(() => {
-        if (!selectedAcademicYear) return '';
-        return `SEM-${selectedAcademicYear.id}-${selectedSemester}`;
-    }, [selectedAcademicYear, selectedSemester]);
 
     const ubPeriods = useMemo(() => {
         const periodsSettingKey = `UB_PERIODS_${selectedAcademicYear?.id}_${selectedSemester}`;
@@ -178,7 +176,7 @@ const RekapNilaiPage: React.FC = () => {
     const allRekapData = useMemo(() => {
         if (!selectedAcademicYear) return [];
 
-        const masterPeriods = getEvaluationPeriods(appSettings);
+        const masterPeriods = periodeEvaluasi;
         const validPeriodes = ubPeriods.map(p => p.id);
 
         return allFilteredSantri.map(s => {
@@ -233,9 +231,9 @@ const RekapNilaiPage: React.FC = () => {
                     }
                 }
             } else {
-                // Manual entry from 'Silabus Hafalan' progress type
-                const silabusProgress = studentProgress.find(p => p.santri_id === s.id && p.progress_type === 'Silabus Hafalan' && p.month_key === silabusMonthKey);
-                nilaiSilabus = silabusProgress ? parseFloat(silabusProgress.value) : 0;
+                // Nilai Silabus Hafalan manual per semester (Fase 4: tabel silabus_scores)
+                const silabusRow = (silabusScores || []).find((x: any) => Number(x.santri_id) === s.id && x.semester === selectedSemester);
+                nilaiSilabus = silabusRow ? Number(silabusRow.score) || 0 : 0;
             }
 
             // Kehadiran Percentage
@@ -271,7 +269,7 @@ const RekapNilaiPage: React.FC = () => {
             }
 
             // Latest Hafalan Details
-            const monthProgress = studentProgress.filter(p => p.santri_id === s.id && !p.month_key.startsWith('SEM-'));
+            const monthProgress = studentProgress.filter(p => p.santri_id === s.id);
             
             const periodSorter = (a: any, b: any) => {
                 const periodA = masterPeriods.find(mp => mp.id === a.month_key);
@@ -329,7 +327,7 @@ const RekapNilaiPage: React.FC = () => {
                 predikat
             };
         });
-    }, [allFilteredSantri, ujianBulanan, ujianSemester, studentProgress, attendance, attendancePercentages, selectedAcademicYear, selectedSemester, ubPeriods, silabusMonthKey, settings, semesterDates, autoSilabus, classTargets, appSettings]);
+    }, [allFilteredSantri, ujianBulanan, ujianSemester, studentProgress, attendance, attendancePercentages, selectedAcademicYear, selectedSemester, ubPeriods, silabusScores, settings, semesterDates, autoSilabus, classTargets, appSettings]);
 
     const sortedRekapData = useMemo(() => {
         let sortableData = [...allRekapData];
@@ -491,20 +489,14 @@ const RekapNilaiPage: React.FC = () => {
                     const nilai = parseFloat(nilaiSilabusRaw);
 
                     if (!isNaN(sId) && !isNaN(nilai) && santri.some(s => s.id === sId)) {
-                        recordsToSave.push({
-                            organization_id: "WILL_BE_FILLED",
-                            santri_id: sId,
-                            month_key: silabusMonthKey,
-                            progress_type: 'Silabus Hafalan',
-                            value: nilai.toString()
-                        });
+                        recordsToSave.push({ santri_id: sId, score: Math.max(0, Math.min(100, nilai)) });
                         updatedCount++;
                     }
                 }
             }
             
             if (recordsToSave.length > 0) {
-                await addStudentProgressBatch(recordsToSave);
+                await simpanNilaiSilabus(recordsToSave, selectedSemester);
                 NotificationStore.addNotification(`Berhasil mengimpor nilai silabus hafalan untuk ${updatedCount} santri.`, 'success');
             } else {
                 NotificationStore.addNotification('Tidak ada data valid yang ditemukan untuk diimport.', 'error');

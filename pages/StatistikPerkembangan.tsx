@@ -3,7 +3,7 @@ import { HalaqahPerformanceChart } from './HalaqahPerformanceChart';
 import Card from '../components/Card';
 import { useSupabaseData } from '../hooks/useSupabaseData';
 import { Marhalah, ProgressType, StudentEvaluation } from '../types';
-import { getEvaluationPeriods, formatPeriodName } from '../lib/utils';
+import { formatPeriodName } from '../lib/utils';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend, ComposedChart, CartesianGrid, XAxis, YAxis, Line, Bar, AreaChart, Area } from 'recharts';
 import { ArrowLeft, TrendingUp, MoreVertical, Download, EyeOff, Eye, BarChart2, PieChart as PieChartIcon, Filter, Check, ChevronDown, CheckSquare, Square } from 'lucide-react';
 import { format } from 'date-fns';
@@ -90,6 +90,7 @@ const ComposedProgressChart: React.FC<{
     height?: number;
     appSettings?: any[];
 }> = ({ data, dataKey, title, subtitlePrefix, color, baseUnit, targetStart, targetEnd, height = 250, appSettings = [] }) => {
+    const { periodeEvaluasi } = useSupabaseData();
     const [showDailyAverage, setShowDailyAverage] = useState(false);
     const [showLine, setShowLine] = useState(true);
     const [displayMode, setDisplayMode] = useState<'rata_rata' | 'persentase'>('persentase');
@@ -128,7 +129,7 @@ const ComposedProgressChart: React.FC<{
         
         let masterPeriodsList: string[] = [];
         try {
-            const periods = getEvaluationPeriods(appSettings);
+            const periods = periodeEvaluasi;
             masterPeriodsList = periods.sort((a, b) => {
                 const dateA = a.startDate ? new Date(a.startDate).getTime() : 0;
                 const dateB = b.startDate ? new Date(b.startDate).getTime() : 0;
@@ -649,7 +650,7 @@ const StatistikPerkembangan: React.FC<StatistikPerkembanganProps> = ({
     globalSearchName,
     setPage
 }) => {
-    const { santri, studentProgress, studentEvaluations, classTargets, evaluationSettings, halaqah, halaqahEvalQuestions, halaqahEvaluations, appSettings, userProfile, masterKelas, waliKelas, attendance , masterMarhalahs, masterKelasRelasi, selectedAcademicYear } = useSupabaseData();
+    const { santri, studentProgress, studentEvaluations, classTargets, evaluationSettings, halaqah, halaqahEvalQuestions, halaqahEvaluations, appSettings, periodeEvaluasi, userProfile, masterKelas, waliKelas, attendance , masterMarhalahs, masterKelasRelasi, selectedAcademicYear } = useSupabaseData();
     
     // Mapping Global Props
     const filterMarhalah = globalFilterMarhalah as Marhalah | 'all';
@@ -699,7 +700,7 @@ const StatistikPerkembangan: React.FC<StatistikPerkembanganProps> = ({
     }, [studentEvaluations]);
 
     const availableMonths = useMemo(() => {
-        const masterPeriods = getEvaluationPeriods(appSettings);
+        const masterPeriods = periodeEvaluasi;
         if (masterPeriods.length > 0) {
             // Sort ascending for chart chronological order by startDate if possible, else fallback to id
             return masterPeriods
@@ -796,7 +797,7 @@ const StatistikPerkembangan: React.FC<StatistikPerkembanganProps> = ({
 
     // Helper for Line Charts
     const getPeriodDays = (monthId: string) => {
-        const masterPeriods = getEvaluationPeriods(appSettings);
+        const masterPeriods = periodeEvaluasi;
         const period = masterPeriods.find(p => p.id === monthId);
         if (period && period.startDate && period.endDate) {
             const start = new Date(period.startDate);
@@ -948,7 +949,7 @@ const StatistikPerkembangan: React.FC<StatistikPerkembanganProps> = ({
             }
 
             return { 
-                name: formatPeriodName(month, appSettings, filterMarhalah), 
+                name: formatPeriodName(month, periodeEvaluasi), 
                 monthId: month,
                 value: parseFloat(rawAvg.toFixed(2)),
                 rawAvg: parseFloat(rawAvg.toFixed(2)),
@@ -1005,7 +1006,7 @@ const StatistikPerkembangan: React.FC<StatistikPerkembanganProps> = ({
                 : (mTarget > 0 ? Math.min(100, Math.max(0, (mAvg / mTarget) * 100)) : (mAvg > 0 ? 100 : 0));
 
             const row: any = {
-                name: hData?.name || formatPeriodName(month, appSettings, filterMarhalah),
+                name: hData?.name || formatPeriodName(month, periodeEvaluasi),
                 monthId: month,
                 hafalan: parseFloat(hPct.toFixed(1)),
                 hafalan_raw: hAvg,
@@ -1136,7 +1137,7 @@ const StatistikPerkembangan: React.FC<StatistikPerkembanganProps> = ({
         });
 
         return availableMonths.map(month => ({
-            month: formatPeriodName(month, appSettings, filterMarhalah),
+            month: formatPeriodName(month, periodeEvaluasi),
             ...dataByMonth[month]
         }));
     };
@@ -1158,7 +1159,7 @@ const StatistikPerkembangan: React.FC<StatistikPerkembanganProps> = ({
     const calculateHalaqahPieChartData = (questionId: number) => {
         const counts: Record<string, number> = {};
         let total = 0;
-        const masterPeriods = getEvaluationPeriods(appSettings);
+        const masterPeriods = periodeEvaluasi;
 
         halaqah.forEach(h => {
             if (filterMarhalah !== 'all' && h.marhalah !== filterMarhalah) return;

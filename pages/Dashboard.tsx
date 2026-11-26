@@ -47,6 +47,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
     studentProgress,
     studentEvaluations,
     appSettings,
+    periodeEvaluasi,
+    periodForms,
     loading,
     error,
     masterMarhalahs,
@@ -436,8 +438,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
       });
     }
 
+    // 4. Fase 4: form evaluasi periode terakhir yang sudah berakhir tetapi belum dikirim
+    const periodeSelesai = (periodeEvaluasi || []).filter((p: any) => !p.needs_review && p.endDate < todayStr).slice(-1)[0];
+    if (periodeSelesai) {
+      const aktif = (halaqah || []).filter((h: any) => h.is_active !== false && !h.is_archived && (h.santri?.length || 0) > 0);
+      const terkirim = new Set((periodForms || []).filter((f: any) => f.period_id === periodeSelesai.id && f.status === 'submitted').map((f: any) => Number(f.halaqah_id)));
+      const belum = aktif.filter((h: any) => !terkirim.has(Number(h.id)));
+      if (belum.length > 0) {
+        list.push({
+          id: 'period_forms_pending',
+          level: 'hari_ini',
+          levelLabel: 'Periode',
+          title: `${belum.length} halaqah belum mengirim rekap ${periodeSelesai.name}`,
+          subtitle: belum.slice(0, 3).map((h: any) => h.nama).join(', ') + (belum.length > 3 ? ', …' : ''),
+          actionLabel: 'Pantau',
+          onAction: () => navigate(`/app/evaluations-master?period=${periodeSelesai.id}`)
+        });
+      }
+    }
+
     return list;
-  }, [halaqah, attendance, setoranHarian, todayStr, navigate, sessionKpi, santriPerluPerhatian]);
+  }, [halaqah, attendance, setoranHarian, todayStr, navigate, sessionKpi, santriPerluPerhatian, periodeEvaluasi, periodForms]);
 
   // --------------------------------------------------------------------------
   // ROW 3: ANALITIK & PROGRES (KIRI 50% & KANAN 50%) — 100% DATA ASLI
@@ -485,54 +506,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
 
   // Tren Perkembangan Hafalan Santri dari Evaluasi & Progres Produksi
   const hafalanTrendData = useMemo(() => {
-    // 1. Ambil master periode evaluasi yang dikonfigurasi di appSettings
-    const masterPeriodsSetting = appSettings?.find((s) => s.key === 'EVALUATION_PERIODS')?.value;
-    let periods: Array<{ id: string; name: string }> = [];
+    // Fase 4: periode dari evaluation_periods; nilai dari Rekap Periode (period_recaps)
+    const hariIniStr = new Date().toISOString().slice(0, 10);
+    const periods: Array<{ id: string; name: string }> = (periodeEvaluasi || [])
+      .filter((p: any) => !p.needs_review && p.startDate <= hariIniStr)
+      .slice(-6)
+      .map((p: any) => ({ id: p.id, name: p.name }));
 
-    if (masterPeriodsSetting) {
-      try {
-        if (masterPeriodsSetting.startsWith('[')) {
-          const parsed = JSON.parse(masterPeriodsSetting);
-          periods = parsed.map((p: any) => ({
-            id: p.id || p.name,
-            name: p.name || p.id
-          }));
-        }
-      } catch (e) {}
-    }
-
-    // 2. Jika setting periode belum ada, kumpulkan dari catatan studentProgress & studentEvaluations nyata
-    if (periods.length === 0) {
-      const monthKeySet = new Set<string>();
-      (studentProgress || []).forEach((sp) => {
-        if (sp.month_key) monthKeySet.add(sp.month_key);
-      });
-      (studentEvaluations || []).forEach((se) => {
-        if (se.month_key) monthKeySet.add(se.month_key);
-      });
-
-      if (monthKeySet.size > 0) {
-        periods = Array.from(monthKeySet)
-          .sort()
-          .map((m) => ({
-            id: m,
-            name: formatPeriodName(m, appSettings)
-          }));
-      } else {
-        // Fallback label periode canonical P1-P6 jika belum ada rekam data sama sekali
-        periods = [
-          { id: 'P1', name: 'P1' },
-          { id: 'P2', name: 'P2' },
-          { id: 'P3', name: 'P3' },
-          { id: 'P4', name: 'P4' },
-          { id: 'P5', name: 'P5' },
-          { id: 'P6', name: 'P6' }
-        ];
-      }
-    }
-
-    // Ambil maksimal 6 periode terurut
-    const displayPeriods = periods.slice(0, 6);
+    const displayPeriods = periods;
 
     // Hitung rata-rata capaian hafalan/ziyadah/murojaah per santri dari data nyata
     return displayPeriods.map((period) => {
@@ -567,7 +548,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
         value: avg
       };
     });
-  }, [appSettings, studentProgress, studentEvaluations, progressScheme]);
+  }, [periodeEvaluasi, studentProgress, progressScheme]);
 
   // --------------------------------------------------------------------------
   // ROW 4 KANAN: STATISTIK KEHADIRAN PER MARHALAH — 100% DATA ASLI

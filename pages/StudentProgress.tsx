@@ -3,12 +3,13 @@ import { MarhalahLabel, KelasLabel } from '../components/Labels';
 import { useSupabaseData } from '../hooks/useSupabaseData';
 import { ViewMode, SchemeOption, Marhalah, ProgressType, MasterEvaluationPeriod } from '../types';
 import { format } from 'date-fns';
-import { getEvaluationPeriods, formatPeriodName } from '../lib/utils';
+import { formatPeriodName } from '../lib/utils';
 import { TrendingUp, Save, Upload, Download, Eye, EyeOff, MoreVertical, Edit2, Filter } from 'lucide-react';
 import { ResponsiveContainer, ComposedChart, Line, Area, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
 
 // Helper
-const ALL_SCHEMES: ProgressType[] = ['Ziyadah', 'Murojaah', 'Hafalan Depan', 'Hafalan Belakang', 'Total Hafalan'];
+// Fase 4: kolom dari Rekap Periode (Ziyadah = halaman, Murojaah & Total Hafalan = juz)
+const ALL_SCHEMES: ProgressType[] = ['Ziyadah', 'Murojaah', 'Total Hafalan', 'Kelancaran', 'Kehadiran'];
 const SCHEME_COLORS: Record<string, string> = {
     'Hafalan Depan': '#3B82F6',
     'Hafalan Belakang': '#F59E0B',
@@ -35,12 +36,12 @@ const StudentProgress: React.FC<StudentProgressProps> = ({
     globalSearchName, 
     globalViewMode, 
 }) => {
-    const { santri, studentProgress, classTargets, addStudentProgressBatch, loading, appSettings, masterKelas, userProfile, halaqah, waliKelas , masterMarhalahs, masterKelasRelasi} = useSupabaseData();
+    const { santri, studentProgress, classTargets, periodeEvaluasi, loading, appSettings, masterKelas, userProfile, halaqah, waliKelas , masterMarhalahs, masterKelasRelasi} = useSupabaseData();
 
     const viewMode = globalViewMode;
 
     const availableMonths = useMemo(() => {
-        const masterPeriods = getEvaluationPeriods(appSettings);
+        const masterPeriods = periodeEvaluasi;
         const settingMonths = masterPeriods.map(p => p.id);
         
         let filteredProgress = studentProgress;
@@ -66,7 +67,7 @@ const StudentProgress: React.FC<StudentProgressProps> = ({
         
         if (allMonths.length > 0) return allMonths;
         return [format(new Date(), 'yyyy-MM-dd')];
-    }, [appSettings, studentProgress, santri, globalFilterMarhalah]);
+    }, [periodeEvaluasi, studentProgress, santri, globalFilterMarhalah]);
 
     // Format localMatrix[santriId][`${month}|${scheme}`] = value
     const [localMatrix, setLocalMatrix] = useState<Record<number, Record<string, string>>>({});
@@ -156,48 +157,12 @@ const StudentProgress: React.FC<StudentProgressProps> = ({
         });
     };
 
-    const handleBatchSave = async () => {
-        setIsSaving(true);
-        try {
-            const recordsToSave: any[] = [];
-            Object.keys(localMatrix).forEach(sIdStr => {
-                const sId = parseInt(sIdStr);
-                const monthsData = localMatrix[sId];
-                Object.keys(monthsData).forEach(key => {
-                    const val = monthsData[key];
-                    const originalVal = originalMatrix[sId]?.[key];
-                    if (val !== originalVal) {
-                        const [month, scheme] = key.split('|');
-                        recordsToSave.push({
-                            santri_id: sId,
-                            month_key: month,
-                            progress_type: scheme,
-                            value: val
-                        });
-                    }
-                });
-            });
-
-            if (recordsToSave.length > 0) {
-                await addStudentProgressBatch(recordsToSave);
-                alert("Data berhasil disimpan!");
-            } else {
-                alert("Tidak ada perubahan data.");
-            }
-        } catch (e) {
-            console.error("Failed to save progress", e);
-            alert("Gagal menyimpan data.");
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
         const [isChartMenuOpen, setIsChartMenuOpen] = useState(false);
         const [hiddenSchemes, setHiddenSchemes] = useState<string[]>(['Hafalan Depan', 'Hafalan Belakang']);
 
         const chartData = useMemo(() => {
             return availableMonths.map(month => {
-                const entry: any = { name: formatPeriodName(month, appSettings, globalFilterMarhalah) };
+                const entry: any = { name: formatPeriodName(month, periodeEvaluasi) };
                 ALL_SCHEMES.forEach(scheme => {
                     let total = 0;
                     let count = 0;
@@ -206,7 +171,7 @@ const StudentProgress: React.FC<StudentProgressProps> = ({
                         if (valStr) {
                             const val = parseFloat(valStr);
                             if (!isNaN(val)) {
-                                total += (scheme === 'Ziyadah' ? val / 20 : val);
+                                total += (scheme === 'Ziyadah' ? val / 20 : val); // Ziyadah halaman → juz
                                 count++;
                             }
                         }
@@ -247,7 +212,7 @@ const StudentProgress: React.FC<StudentProgressProps> = ({
                                 {ALL_SCHEMES.map(scheme => 
                                     availableMonths.map(month => (
                                         <th key={`${scheme}-${month}`} className="px-3 py-2 text-center text-[10px] font-bold text-slate-600 uppercase tracking-wider bg-blue-50 border-b border-r border-slate-200 whitespace-nowrap min-w-[100px]">
-                                            {formatPeriodName(month, appSettings, globalFilterMarhalah)}
+                                            {formatPeriodName(month, periodeEvaluasi)}
                                         </th>
                                     ))
                                 )}

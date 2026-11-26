@@ -1,9 +1,9 @@
+import { useSupabaseData } from '../hooks/useSupabaseData';
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, ComposedChart } from 'recharts';
 import { MoreVertical, Download, Eye, ChevronDown, CheckSquare, Square } from 'lucide-react';
 import html2canvas from 'html2canvas';
-import { getEvaluationPeriods } from '../lib/utils';
 import { useAcademicYear } from '../lib/AcademicYearContext';
 
 
@@ -53,6 +53,7 @@ const PortalTooltip = ({ active, payload, label }: any) => {
 };
 
 export const HalaqahPerformanceChart = ({ studentProgress, halaqah, halaqahEvaluations = [], filteredSantri, availableMonths, classTargets, evaluationSettings, appSettings, filterMonth, attendance, filterHalaqah = 'all', filterMarhalah = 'all' }: any) => {
+    const { periodeEvaluasi } = useSupabaseData();
     const { selectedAcademicYear } = useAcademicYear();
     const activeSem = selectedAcademicYear?.active_semester || 'Ganjil';
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -123,7 +124,7 @@ export const HalaqahPerformanceChart = ({ studentProgress, halaqah, halaqahEvalu
     };
 
     const chartData = useMemo(() => {
-        const evalPeriods = getEvaluationPeriods(appSettings);
+        const evalPeriods = periodeEvaluasi;
         // Build Murojaah Rules
         let murojaahRules: any = {};
         try {
