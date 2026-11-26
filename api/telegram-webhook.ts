@@ -1,5 +1,14 @@
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
+import {
+  uraiPesanWali,
+  balasanTautan,
+  balasanKodeSalahBentuk,
+  balasanAnak,
+  balasanBerhenti,
+  balasanSambutan,
+  balasanBantuan,
+} from "../lib/telegramPesan";
 
 const getEnv = (key: string) =>
   (typeof process !== "undefined" && process.env ? process.env[key] : undefined) || "";
@@ -220,43 +229,62 @@ export async function processTelegramWebhook(options: {
         };
       }
 
-      if (text.startsWith("/start")) {
-        const parts = text.split(/\s+/);
-        let replyText = "";
+      // Fase 6: hanya chat pribadi wali (grup diabaikan)
+      const chatType = String(update.message?.chat?.type || "private");
+      if (chatType !== "private") {
+        return { status: 200, data: { ok: true, diabaikan: "bukan chat pribadi" } };
+      }
 
-        if (parts.length > 1 && parts[1].trim().length > 0) {
-          // KEBIJAKAN KEAMANAN FASE 3:
-          // Karena Portal Wali Santri ditunda, fitur pengaitan Chat ID publik menggunakan identifier bebas
-          // (/start <id/kode>) DINONAKTIFKAN agar pihak luar tidak dapat menebak ID santri atau membocorkan nama/kelas.
-          try {
-            await supabase.from("audit_logs").insert({
-              organization_id: targetOrgId,
-              actor_role: "system",
-              action: "WEBHOOK_PUBLIC_LINK_BLOCKED",
-              entity_type: "santri",
-              resource_type: "telegram_webhook",
-              reason: "Percobaan penautan Chat ID mandiri via argumen /start ditolak (fitur publik dinonaktifkan)",
-              after_state: {
-                chat_id: rawChatId,
-                update_id: update.update_id,
-              },
-            });
-          } catch {
-            // ignore audit error
-          }
+      const pesan = uraiPesanWali(text);
+      let replyText = "";
+      let lembaga: string | null = null;
+      try {
+        const { data: orgNameRow } = await supabase.from("organizations").select("name").eq("id", targetOrgId).maybeSingle();
+        lembaga = orgNameRow?.name || null;
+      } catch {
+        lembaga = null;
+      }
 
-          replyText =
-            `🔒 *Penautan Otomatis Dinonaktifkan*\n\n` +
-            `Demi keamanan privasi data santri, penautan mandiri melalui kode/tautan publik tidak diaktifkan.\n\n` +
-            `Silakan sampaikan *ID Chat Telegram* Anda berikut kepada Admin Lembaga untuk diverifikasi dan ditautkan secara resmi:\n` +
-            `ID Chat: \`${rawChatId}\``;
-        } else {
-          replyText =
-            `Assalamu'alaikum! Selamat datang di Bot Resmi Lajnah Al-Qur'an.\n\n` +
-            `Untuk menerima notifikasi resmi dari lembaga, silakan berikan *ID Chat Telegram* Anda kepada Admin Lembaga:\n` +
-            `ID Chat Anda: \`${rawChatId}\``;
+      if (pesan.jenis === "kode") {
+        // Penautan otomatis: kode santri ACAK (bukan ID/NIS yang bisa ditebak), dibatasi 5 salah/jam/chat di database
+        const { data: hasil, error: errTaut } = await supabase.rpc("fn_tautkan_telegram", {
+          p_org: targetOrgId,
+          p_chat: rawChatId,
+          p_kode: pesan.kode,
+        });
+        if (errTaut || !hasil) {
+          return { status: 500, data: { error: "Gagal memproses penautan Telegram." } };
         }
+        replyText = balasanTautan({ ...hasil, lembaga: hasil.lembaga || lembaga });
+      } else if (pesan.jenis === "kode_salah_bentuk") {
+        // Bentuk bukan kode santri (mis. ID/NIS): tidak ada pencarian data, tidak membocorkan apa pun
+        try {
+          await supabase.from("audit_logs").insert({
+            organization_id: targetOrgId,
+            actor_role: "system",
+            action: "TELEGRAM_LINK_INVALID_FORMAT",
+            entity_type: "santri",
+            resource_type: "telegram_webhook",
+            reason: "Pesan wali bukan bentuk kode santri; tidak ada penautan",
+            after_state: { chat_id: rawChatId, update_id: update.update_id },
+          });
+        } catch {
+          // abaikan
+        }
+        replyText = balasanKodeSalahBentuk();
+      } else if (pesan.jenis === "anak") {
+        const { data: anak } = await supabase.rpc("fn_telegram_anak", { p_org: targetOrgId, p_chat: rawChatId });
+        replyText = balasanAnak(Array.isArray(anak) ? anak : []);
+      } else if (pesan.jenis === "berhenti") {
+        const { data: n } = await supabase.rpc("fn_telegram_berhenti", { p_org: targetOrgId, p_chat: rawChatId });
+        replyText = balasanBerhenti(Number(n) || 0);
+      } else if (pesan.jenis === "sambutan") {
+        replyText = balasanSambutan(lembaga);
+      } else {
+        replyText = balasanBantuan();
+      }
 
+      {
         // Ambil TELEGRAM_BOT_TOKEN secara eksklusif dari tenant yang terverifikasi (targetOrgId)
         const { data: botSecretRow } = await supabase
           .from("integration_secrets")
@@ -287,7 +315,7 @@ export async function processTelegramWebhook(options: {
           body: JSON.stringify({
             chat_id: rawChatId,
             text: replyText,
-            parse_mode: "Markdown",
+            disable_web_page_preview: true,
           }),
         });
 

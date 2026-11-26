@@ -17,7 +17,7 @@ Variabel ini dibundel ke dalam JavaScript frontend dan dapat dibaca oleh publik 
 
 ### B. Variabel Rahasia Server-Side (DILARANG MENGGUNAKAN `VITE_`)
 Variabel ini HANYA disuplai pada runtime backend (Node.js/Serverless), TIDAK PERNAH dikirim ke peramban:
-- `SUPABASE_SERVICE_ROLE_KEY`: Kunci Service Role Supabase untuk operasi administratif/provisioning.
+- `SUPABASE_SERVICE_ROLE_KEY`: Kunci Service Role Supabase untuk operasi administratif/provisioning. **Wajib sejak Fase 6** untuk pengiriman Telegram otomatis (fungsi terjadwal `telegram-antrian`) dan penautan wali lewat webhook bot.
 - `TELEGRAM_BOT_TOKEN`: Token bot Telegram default sistem.
 - `TELEGRAM_WEBHOOK_SECRET`: Secret token acak untuk memvalidasi header `x-telegram-bot-api-secret-token`.
 - `FONNTE_API_TOKEN`: Token gateway WhatsApp resmi lembaga.

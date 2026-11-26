@@ -1,3 +1,4 @@
+import { tampilKode } from '../../lib/telegramPesan';
 import { arahSantri } from '../../lib/arahHafalan';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -795,7 +796,7 @@ const SantriPage: React.FC = () => {
                                 <th className="px-5 py-3 text-[10px] md:text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100 text-center w-24"><div onClick={() => handleSort('status')} className="flex items-center gap-1.5 justify-center group cursor-pointer hover:text-slate-600 transition-colors"><span>Status Santri</span>{getSortIcon('status')}</div></th>
                                 <th className="px-5 py-3 text-[10px] md:text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100 min-w-[160px]"><div onClick={() => handleSort('nama_wali')} className="flex items-center justify-start gap-1.5 group cursor-pointer hover:text-slate-600 transition-colors"><span>Nama Wali</span>{getSortIcon('nama_wali')}</div></th>
                                 <th className="px-5 py-3 text-[10px] md:text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100 min-w-[140px]"><div onClick={() => handleSort('no_hp_wali')} className="flex items-center justify-start gap-1.5 group cursor-pointer hover:text-slate-600 transition-colors"><span>No HP Wali</span>{getSortIcon('no_hp_wali')}</div></th>
-                                <th className="px-5 py-3 text-[10px] md:text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100 text-center min-w-[140px]"><div onClick={() => handleSort('telegram_chat_id')} className="flex items-center gap-1.5 justify-center group cursor-pointer hover:text-slate-600 transition-colors"><span>ID Chat Telegram</span>{getSortIcon('telegram_chat_id')}</div></th>
+                                <th className="px-5 py-3 text-[10px] md:text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100 text-center min-w-[140px]"><div onClick={() => handleSort('telegram_chat_id')} className="flex items-center gap-1.5 justify-center group cursor-pointer hover:text-slate-600 transition-colors"><span>Telegram Wali</span>{getSortIcon('telegram_chat_id')}</div></th>
                                 <th className="px-5 py-3 text-[10px] md:text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100 text-right w-24">Aksi</th>
                             </tr>
                         </thead>
@@ -851,13 +852,13 @@ const SantriPage: React.FC = () => {
                                         )}
                                     </td>
                                     <td className="px-6 py-4 border-l border-slate-100/80 text-center" onClick={(e) => e.stopPropagation()}>
+                                        {/* Fase 6: status tautan wali + kode santri (kelola di Notifikasi Telegram) */}
                                         {s.telegram_chat_id ? (
-                                            <span className="text-[13px] font-semibold text-slate-700">
-                                                {s.telegram_chat_id}
-                                            </span>
+                                            <span className="text-[12px] font-semibold text-emerald-700">Tertaut</span>
                                         ) : (
-                                            <span className="text-[12px] italic text-slate-400 font-medium">-</span>
+                                            <span className="text-[12px] text-slate-400 font-medium">Belum</span>
                                         )}
+                                        {(s as any).kode_telegram && <div className="text-[11px] font-mono text-slate-400 tracking-wider">{tampilKode((s as any).kode_telegram)}</div>}
                                     </td>
                                     <td className="px-6 py-4 border-l border-slate-100/80 text-right">
                                         <div className="flex justify-end gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
@@ -1010,7 +1011,7 @@ const SantriPage: React.FC = () => {
                         </div>
 
                         <div>
-                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Telegram Chat ID</label>
+                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Telegram Chat ID <span className="normal-case font-medium text-slate-400">(terisi otomatis saat wali mengirim kode ke bot)</span></label>
                             <input type="text" placeholder="Contoh: 123456789" className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-[13px] font-semibold text-slate-800 placeholder:text-slate-400" value={formData.telegram_chat_id} onChange={e => setFormData({...formData, telegram_chat_id: e.target.value})} />
                         </div>
                     </div>

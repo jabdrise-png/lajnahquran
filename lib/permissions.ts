@@ -341,6 +341,33 @@ export const SAAS_ROUTE_MAP: SaaSRouteConfig[] = [
     showInSidebar: true,
   },
 
+  {
+    id: 'tenant_laporan_mudir',
+    path: '/app/reports/mudir',
+    pageKey: 'LaporanMudir',
+    label: 'Laporan Mudir (PDF)',
+    group: 'akademik',
+    parentGroupLabel: 'Laporan & Wali',
+    roles: ['admin', 'superadmin'],
+    breadcrumb: ['Akademik', 'Laporan Mudir'],
+    description: 'PDF rekap lembaga bulanan (per periode) dan semester dari Rekap Periode, untuk mudir.',
+    keywords: ['laporan mudir', 'pdf', 'rekap bulanan', 'rekap semester'],
+    showInSidebar: true,
+  },
+  {
+    id: 'tenant_telegram',
+    path: '/app/telegram',
+    pageKey: 'NotifikasiTelegram',
+    label: 'Notifikasi Telegram',
+    group: 'akademik',
+    parentGroupLabel: 'Laporan & Wali',
+    roles: ['admin', 'superadmin'],
+    breadcrumb: ['Akademik', 'Notifikasi Telegram'],
+    description: 'Kode wali & penautan bot, pesan setoran, kehadiran mingguan, capaian periode, dan antrian pesan.',
+    keywords: ['telegram', 'wali', 'notifikasi', 'kode wali', 'bot'],
+    showInSidebar: true,
+  },
+
   // =========================================================================
   // 5. PERSIAPAN AKADEMIK, DATA MASTER & SISTEM LEMBAGA (ADMIN)
   // =========================================================================

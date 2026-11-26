@@ -10,6 +10,7 @@ import { processTelegramNotification } from "./api/notify/telegram";
 import { processWhatsAppNotification } from "./api/notify/whatsapp";
 import { processTelegramWebhookRegister } from "./api/telegram-webhook/register";
 import telegramWebhookHandler from "./api/telegram-webhook";
+import { processProsesAntrian } from "./api/notify/proses";
 import { processChatRequest } from "./api/chat";
 
 dotenv.config({ path: ".env.local" });
@@ -172,6 +173,16 @@ async function startServer() {
       return res.status(result.status).json(result.data);
     } catch {
       return res.status(500).json({ error: "Gagal memproses pengiriman notifikasi Telegram." });
+    }
+  });
+
+  // Fase 6: kirim antrian pesan Telegram lembaga pemanggil sekarang
+  app.post("/api/notify/proses", async (req, res) => {
+    try {
+      const result = await processProsesAntrian(req.headers.authorization, req.body);
+      return res.status(result.status).json(result.data);
+    } catch {
+      return res.status(500).json({ error: "Gagal memproses antrian pesan." });
     }
   });
 

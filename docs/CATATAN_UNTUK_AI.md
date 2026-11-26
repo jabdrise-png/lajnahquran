@@ -1,4 +1,4 @@
-# Catatan untuk Asisten AI (AI Studio, dll.) — Perubahan Fase 0 s.d. Fase 5
+# Catatan untuk Asisten AI (AI Studio, dll.) — Perubahan Fase 0 s.d. Fase 6
 
 Baca file ini **sebelum** mengubah kode. Isinya: apa yang sudah diubah, aturan yang wajib diikuti, dan hal yang tidak boleh dilakukan. Acuan utama: `docs/SPESIFIKASI_V2.md` (kebutuhan) dan `docs/RENCANA_V2.md` (urutan fase).
 
@@ -25,6 +25,7 @@ Baca file ini **sebelum** mengubah kode. Isinya: apa yang sudah diubah, aturan y
 9. **Jangan menghidupkan lagi Kunci Sesi atau Validasi Setoran** (Fase 3). Koreksi setoran: Admin & musammi' halaqah itu (alasan opsional); pembatalan hanya Admin + alasan. Setoran langsung sah; halaman & predikat dihitung server — jangan mengirim angka/predikat dari layar sebagai kebenaran.
 10. **Capaian per periode hanya dari Rekap Periode** (`period_recaps`, Fase 4). Jangan membaca/menulis `student_progress`, `student_evaluation`, `halaqah_evaluations`, `halaqah_evaluation_questions`, `evaluation_settings`, atau JSON `EVALUATION_PERIODS`. Menulis rekap hanya lewat `rpc_simpan_form_periode`.
 11. **Nilai ujian hanya di `exam_attempts`, ditulis lewat `rpc_simpan_ujian`** (Fase 5); raport hanya lewat `rpc_publish_report_card` (komponen & nilai dihitung server). Jangan membaca/menulis `ujian_bulanan`, `ujian_semester`, `silabus_scores`, atau pengaturan `PCT_*`, `UB_PERIODS_*`, `NILAI_AWAL_JUZ`, `PENGURANG_KHOTO_*`, `GLOBAL_PREDIKAT_NILAI`; jangan menghitung nilai raport di layar sebagai kebenaran.
+12. **Pesan Telegram ke wali hanya lewat antrian server** (`notification_queue`, Fase 6). Jangan mengirim pesan setoran/kehadiran/progres dari layar, jangan membaca token bot di browser, jangan menulis `notification_queue` atau `santri.kode_telegram` langsung. Pesan dibuat fungsi database (pemicu/RPC) dan dikirim `api/notify/antrian.ts`. WhatsApp Fonnte tidak dipakai di tampilan.
 
 ---
 
@@ -170,7 +171,7 @@ Dihapus: `rpc_lock_halaqah_session` (2 versi), `rpc_save_attendance_batch`, stat
 | Tabel Kelancaran | bagian di `components/ReferensiLembagaPanel.tsx` |
 | Arah hafalan | form di `pages/DataMaster/SantriPage.tsx` |
 
-Helper layar: `lib/sesiHalaqah.ts` (`hariIni`, `halaqahSaya`, `opsiWaktu` (BUG-11), `halaqahPadaWaktu`, `rosterPadaTanggal`, `statusHadir`, `hitungPerubahan`), `lib/notifSetoran.ts` (pesan Telegram wali, placeholder `{ulang}`).
+Helper layar: `lib/sesiHalaqah.ts` (`hariIni`, `halaqahSaya`, `opsiWaktu` (BUG-11), `halaqahPadaWaktu`, `rosterPadaTanggal`, `statusHadir`, `hitungPerubahan`), pesan Telegram wali sejak Fase 6 dibuat server (bagian 9).
 
 Hook (`hooks/useSupabaseData.tsx`): tambah `fluencyRules`, `simpanSetoran(args, {refresh})`; `deleteSetoranHarianRecord(id, alasan)` wajib alasan; `addAttendanceRecords/updateAttendanceRecord/deleteAttendanceRecord/deleteAttendanceBatch(..., reason)` — **kirim alasan bila tanggalnya sudah lewat**, server menolak tanpa alasan.
 
@@ -275,26 +276,65 @@ Hook memuat `examAttempts`, `periodeUjianBulanan`, `rubrikAktif`, `pengaturanRap
 
 ---
 
-## 9. Test otomatis
+## 9. Fase 6 — Telegram & laporan otomatis
+
+### 9.1 Data
+
+| Tabel / kolom | Isi |
+| --- | --- |
+| `santri.kode_telegram`, `telegram_linked_at` | kode acak 8 karakter (abjad tanpa I O 0 1), dibuat trigger `trg_kode_telegram`; tidak bisa diubah langsung (hanya `rpc_buat_ulang_kode_telegram`). `telegram_chat_id` boleh sama untuk beberapa santri (satu wali beberapa anak) |
+| `telegram_settings` | per lembaga: `setoran_aktif/_template`, `mingguan_aktif/_hari (0=Ahad)/_jam/_template/_terakhir`, `periode_aktif/_template`. Admin baca/ubah lewat RLS |
+| `notification_queue` | antrian: `jenis` (setoran, kehadiran_mingguan, progres_periode, uji), `pesan` (sudah jadi), `dedup_key` unik per lembaga, `status` antri/proses/terkirim/gagal/batal, `attempts`, `next_attempt_at`, `last_error`. Admin hanya membaca |
+| `telegram_link_attempts` | percobaan penautan (batas 5 kode salah/jam/chat); hanya server |
+
+### 9.2 Alur
+
+- Template: `fn_render_template(tpl, vars)` = `renderTemplate()` di `lib/telegramPesan.ts` (diuji sama). `{var}` tak dikenal dibiarkan, null → "-".
+- Setoran: trigger `trg_antrian_setoran` (insert `recitation_entries`, status accepted, halaqah bukan Mode Rekap, `setoran_aktif`) → `fn_antrikan` (hanya bila santri tertaut & token bot aktif). Variabel lama `{skema} {jumlah_halaman} {khoto_kabir} {khoto_shoghir} {nilai} {keterangan}` tetap didukung.
+- Capaian periode: trigger `trg_antrian_progres_periode` saat `period_forms.status` menjadi `submitted` (`periode_aktif`), atau `rpc_kirim_progres_periode(period, halaqah, ulang)`.
+- Kehadiran mingguan: `rpc_proses_jadwal_telegram(now)` (service role, tiap menit) mengantrikan pada hari/jam lembaga (`organizations.timezone`, bawaan Asia/Jakarta) sekali per hari; `rpc_kirim_kehadiran_mingguan(selesai)` untuk Admin.
+- Pengiriman: `fn_antrian_ambil(batas, org)` (kunci `for update skip locked`) → kirim → `fn_antrian_selesai(id, ok, error, permanen)` (coba ulang 1–2–4–8 menit, maks. 5).
+- Penautan (webhook): `fn_tautkan_telegram(org, chat, kode)`, `fn_telegram_anak`, `fn_telegram_berhenti` — hanya service role.
+- RPC Admin: `rpc_status_telegram`, `rpc_buat_ulang_kode_telegram`, `rpc_putus_telegram`, `rpc_uji_telegram`, `rpc_antrian_ulangi`, `rpc_antrian_batal`.
+
+### 9.3 Server (Netlify)
+
+- `api/telegram-webhook.ts` (rute `/api/telegram-webhook`, diverifikasi secret per lembaga): `uraiPesanWali()` → kode / `/anak` / `/berhenti` / sambutan; balasan teks biasa dari `lib/telegramPesan.ts`. ID/NIS santri tidak pernah menautkan.
+- `api/notify/antrian.ts` `prosesAntrian()` dipakai `netlify/functions/telegram-antrian.ts` (terjadwal tiap menit, `netlify.toml`) dan `POST /api/notify/proses` (`api/notify/proses.ts`, dipicu layar lewat `kirimAntrianSekarang()` di `lib/antrianPesan.ts`).
+- Wajib env Netlify: `SUPABASE_SERVICE_ROLE_KEY`. `/api/health` → `telegramOtomatis: siap | belum_diatur`.
+
+### 9.4 Layar
+
+- `pages/Pengaturan/NotifikasiTelegramPage.tsx` (`/app/telegram`): status bot, sambungkan webhook, template + pratinjau, kode wali (undangan, kode baru, putuskan, uji, ekspor), antrian.
+- `pages/Laporan/LaporanMudirPage.tsx` (`/app/reports/mudir`): hitungan `lib/laporanMudir.ts`, PDF `lib/laporanMudirPdf.ts` (jsPDF).
+- Dihapus: `components/SetoranSettingsModal.tsx`, `lib/notifSetoran.ts`, `lib/whatsapp.ts`, `lib/notifications.ts`; kartu WhatsApp (Fonnte) di Pengaturan; kirim massal Fonnte di Analisis per Kelas.
+
+### 9.5 Migrasi Fase 6 (urutan)
+
+`2026_12_01_01_f6_telegram_struktur` → `_02_f6_telegram_fungsi`. Panduan: `docs/FASE_6_UJI.md`.
+
+---
+
+## 10. Test otomatis
 
 - `npm run test` = `npm run test:v2` + suite lama (`scripts/verify-fase*.ts`).
 - `tests/v2/` memakai PGlite (PostgreSQL di memori). `tests/v2/helpers/db.ts` membangun database dari skema repo + **semua** migrasi; `seed.sql` (data uji: 1 lembaga, superadmin, admin, musammi', halaqah, 2 santri), `seed_legacy.sql` (contoh data tabel lama).
 - Helper: `as(db, userId, fn)` menjalankan kueri sebagai pengguna tertentu (RLS aktif); `expectError()`.
-- Test penting yang menjaga aturan di atas: `f2-kode-dan-peran.test.ts` (tidak ada query tabel lama / kunci app_settings lama), `migrasi-umum.test.ts` (aturan migrasi + aman diulang), `f3-database.test.ts` (aturan 6.1), `f3-lib.test.ts` (predikat layar = database, arah hafalan, dan larangan kunci sesi/validasi di kode), `f4-database.test.ts` (aturan 7.2), `f4-lib.test.ts` (adaptor Rekap Periode dan larangan tabel evaluasi lama di kode), `f5-database.test.ts` (aturan 8.2), `f5-lib.test.ts` (rumus layar = server dan larangan tabel/pengaturan ujian lama di kode).
+- Test penting yang menjaga aturan di atas: `f2-kode-dan-peran.test.ts` (tidak ada query tabel lama / kunci app_settings lama), `migrasi-umum.test.ts` (aturan migrasi + aman diulang), `f3-database.test.ts` (aturan 6.1), `f3-lib.test.ts` (predikat layar = database, arah hafalan, dan larangan kunci sesi/validasi di kode), `f4-database.test.ts` (aturan 7.2), `f4-lib.test.ts` (adaptor Rekap Periode dan larangan tabel evaluasi lama di kode), `f5-database.test.ts` (aturan 8.2), `f5-lib.test.ts` (rumus layar = server dan larangan tabel/pengaturan ujian lama di kode), `f6-database.test.ts` (aturan 9.2), `f6-server.test.ts` (webhook & pemroses antrian), `f6-lib.test.ts` (laporan mudir & layar).
 - Bila mengubah perilaku yang diuji, perbarui test-nya dan jelaskan alasannya. Jangan menghapus test agar lulus.
 
 ---
 
-## 10. Yang masih dikerjakan fase berikutnya (jangan dianggap selesai)
+## 11. Yang masih dikerjakan fase berikutnya (jangan dianggap selesai)
 
 - Halaman analitik lama (Pivot, Statistik, Detail Santri, Raport) masih memakai bentuk lama lewat `lib/rekapAdapter.ts`; bila ditulis ulang, bacalah `periodRecaps` langsung.
-- **F6–F8:** Telegram & laporan otomatis, PWA, bisnis. Lihat `docs/RENCANA_V2.md`.
+- **F7–F8:** HP, performa & PWA; bisnis, kerapian & uji coba lembaga. Lihat `docs/RENCANA_V2.md`.
 - Pengaturan lama "Automasi Perhitungan Nilai" (`SETORAN_AUTO_*` di `app_settings`) tidak dipakai untuk setoran baru; masih dibaca beberapa laporan lama untuk rata-rata nilai. Jangan dipakai di fitur baru.
 
-## 11. Cara meminta pekerjaan ke AI (contoh)
+## 12. Cara meminta pekerjaan ke AI (contoh)
 
 ```text
 Baca docs/CATATAN_UNTUK_AI.md dan docs/SPESIFIKASI_V2.md bagian 4.
-Kerjakan F6 butir 1. Perubahan database lewat file migrasi baru.
+Kerjakan F7 butir 1. Perubahan database lewat file migrasi baru.
 Tambahkan test di tests/v2/. Jalankan npm run test sampai lulus.
 ```

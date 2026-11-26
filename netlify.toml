@@ -5,6 +5,10 @@
 [functions]
   directory = "netlify/functions"
 
+# Fase 6: kirim antrian pesan Telegram & jadwal kehadiran mingguan, tiap menit
+[functions."telegram-antrian"]
+  schedule = "* * * * *"
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/api/:splat"

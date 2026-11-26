@@ -8,7 +8,7 @@ import { useSupabaseData } from '../hooks/useSupabaseData';
 import PeriodeEvaluasiPanel from '../components/evaluasi/PeriodeEvaluasiPanel';
 import ModePencatatanPanel from '../components/evaluasi/ModePencatatanPanel';
 import IsianFormPanel from '../components/evaluasi/IsianFormPanel';
-import SetoranSettingsModal from '../components/SetoranSettingsModal';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { NotificationStore } from '../lib/NotificationStore';
 import { StatusBadge } from '../components/ui/SaaSPrimitives';
@@ -28,7 +28,6 @@ export const PengaturanEvaluasiPage: React.FC = () => {
         globalMarhalahs, masterKelas, classTargets, saveClassTargetBatch, masterMarhalahs, masterKelasRelasi,
         selectedAcademicYear, userProfile, getOrgId
     } = useSupabaseData();
-    const [isSetoranSettingsOpen, setIsSetoranSettingsOpen] = useState(false);
 
     // =========================================================================
     // SECTION 2: KELOLA TARGET SETORAN & TARGET PLANS BERVERSI (V2)
@@ -558,13 +557,12 @@ export const PengaturanEvaluasiPage: React.FC = () => {
                         <b> Pengaturan &gt; Referensi Data Dasar</b>. Di Mode Harian, rekap periode dijumlah otomatis dari setoran —
                         tidak perlu lagi "Tarik Data" atau sinkronisasi.
                     </p>
-                    <button type="button" onClick={() => setIsSetoranSettingsOpen(true)}
+                    <Link to="/app/telegram"
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700">
-                        Notifikasi Telegram setoran ke wali
-                    </button>
+                        Notifikasi Telegram ke wali (setoran, kehadiran mingguan, capaian periode) →
+                    </Link>
                 </div>
             </section>
-            <SetoranSettingsModal isOpen={isSetoranSettingsOpen} onClose={() => setIsSetoranSettingsOpen(false)} />
         </div>
     );
 };

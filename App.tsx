@@ -35,6 +35,8 @@ import UjianBulananPage from './pages/UjianRaport/UjianBulananPage';
 import UjianSemesterPage from './pages/UjianRaport/UjianSemesterPage';
 import RekapNilaiPage from './pages/UjianRaport/RekapNilaiPage';
 import PengaturanNilaiPage from './pages/UjianRaport/PengaturanNilaiPage';
+import NotifikasiTelegramPage from './pages/Pengaturan/NotifikasiTelegramPage';
+import LaporanMudirPage from './pages/Laporan/LaporanMudirPage';
 
 // LAPORAN & SISTEM PAGES
 import LaporanRekapPage from './pages/Laporan/LaporanRekapPage';
@@ -410,6 +412,8 @@ const App: React.FC = () => {
         <Route path="gradebook" element={<RekapNilaiPage />} />
         <Route path="report-cards" element={<RekapNilaiPage />} />
         <Route path="settings/rubrics" element={<PengaturanNilaiPage />} />
+        <Route path="telegram" element={<NotifikasiTelegramPage />} />
+        <Route path="reports/mudir" element={<LaporanMudirPage />} />
         <Route
           path="reports"
           element={<LaporanRekapPage onNavigate={(page: string) => handleSetPage(page as Page)} />}

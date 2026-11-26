@@ -349,6 +349,8 @@ export type Page =
   | 'UjianSemester'
   | 'RekapNilai'
   | 'PengaturanNilai'
+  | 'NotifikasiTelegram'
+  | 'LaporanMudir'
   | 'Wali Santri' 
   | 'Pusat Informasi' 
   | 'Laporan' // Parent (Optional use)

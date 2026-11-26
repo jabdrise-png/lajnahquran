@@ -11,7 +11,7 @@ import type { PGlite } from '@electric-sql/pglite';
 import { buildTestDb, as, ID } from './helpers/db';
 import { hitungPredikat, DEFAULT_FLUENCY_RULES, type FluencyRule } from '../../lib/kelancaran';
 import { titikAwalPertama, titikAwalBerikutnya, saranAkhir } from '../../lib/arahHafalan';
-import { buatPesanSetoran, TEMPLATE_BAWAAN } from '../../lib/notifSetoran';
+import { renderTemplate } from '../../lib/telegramPesan';
 import { opsiWaktu, halaqahSaya, halaqahPadaWaktu, rosterPadaTanggal, statusHadir, hitungPerubahan, hariIni } from '../../lib/sesiHalaqah';
 import { DEFAULT_STATUSES } from '../../lib/v2Adapter';
 
@@ -91,17 +91,14 @@ test('saran akhir rentang tidak melewati jumlah ayat surat', () => {
 });
 
 // ---------------------------------------------------------------- pesan wali
-test('pesan Telegram wali: template bawaan & placeholder', () => {
-  const data = {
-    nama_santri: 'Ahmad', halaqah: 'Halaqah 1', tanggal: '2026-11-26', waktu: 'Shubuh', skema: 'Ziyadah',
-    surat: 'An-Naba', ayat: '1-10', jumlah_halaman: 0.5, khoto_kabir: 3, khoto_shoghir: 1, nilai: 'Rasib', ulang: true, keterangan: '',
-  };
-  const pesan = buatPesanSetoran(null, data);
-  assert.ok(pesan.startsWith('Ananda Ahmad (Halaqah 1)'));
-  assert.match(pesan, /Predikat: Rasib \(diulang\)/);
-  assert.match(pesan, /Catatan: -/);
-  assert.equal(buatPesanSetoran('{nama_santri}{ulang} {tidak_dikenal}', { ...data, ulang: false }), 'Ahmad {tidak_dikenal}');
-  assert.ok(TEMPLATE_BAWAAN.includes('{nilai}'));
+// Fase 6: pesan setoran dibuat SERVER (trigger → notification_queue, diuji di f6-database.test.ts);
+// layar tidak lagi menyusun/mengirim pesan setoran sendiri.
+test('pesan Telegram wali setoran: dibuat server lewat antrian, bukan dari layar', () => {
+  const form = readFileSync(join(fileURLToPath(new URL('.', import.meta.url)), '..', '..', 'components/setoran/FormSetoranRingkas.tsx'), 'utf8');
+  assert.doesNotMatch(form, /sendCustomTelegramMessage|buatPesanSetoran|SETORAN_TELEGRAM_NOTIF/);
+  assert.match(form, /kirimAntrianSekarang\(\)/);
+  // Template lama dengan {ulang} kosong tetap rapi
+  assert.equal(renderTemplate('{nama_santri}{ulang} {tidak_dikenal}', { nama_santri: 'Ahmad', ulang: '' }), 'Ahmad {tidak_dikenal}');
 });
 
 // ---------------------------------------------------------------- absensi per waktu

@@ -3,7 +3,7 @@ import type { Page } from '../types';
 import {
   Home, CheckSquare, BookOpen, X, Megaphone,
   Book, TrendingUp, ShieldCheck, ChevronDown, Database, LogOut, Check, Settings, Layout, Building2, FileCheck2,
-  Users, CreditCard, KeyRound, Activity, Globe, PanelLeftClose, PanelLeftOpen
+  Users, CreditCard, KeyRound, Activity, Globe, PanelLeftClose, PanelLeftOpen, Send
 } from 'lucide-react';
 import { useAcademicYear } from '../lib/AcademicYearContext';
 import { hasUnreadUpdates } from '../lib/appUpdates';
@@ -164,6 +164,15 @@ const Sidebar: React.FC<SidebarProps> = ({
           { id: 'ujian_semester', label: 'Ujian Semester', page: 'UjianSemester' },
           { id: 'rekap_nilai', label: 'Buku Nilai & Raport', page: 'RekapNilai' },
           { id: 'pengaturan_nilai', label: 'Pengaturan Nilai', page: 'PengaturanNilai' },
+        ]
+      },
+      {
+        id: 'laporan_wali_group',
+        label: 'Laporan & Wali',
+        icon: <Send size={18} />,
+        children: [
+          { id: 'notifikasi_telegram', label: 'Notifikasi Telegram', page: 'NotifikasiTelegram' },
+          { id: 'laporan_mudir', label: 'Laporan Mudir (PDF)', page: 'LaporanMudir' },
         ]
       },
       { id: 'g_sistem', label: 'STRUKTUR & SISTEM', isGroup: true },

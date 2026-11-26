@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSupabaseData } from '../hooks/useSupabaseData';
 import { supabase } from '../lib/supabaseClient';
 import { NotificationStore } from '../lib/NotificationStore';
@@ -458,7 +458,7 @@ const SettingsPage: React.FC = () => {
                                 : 'text-slate-600 hover:bg-slate-100'
                         }`}
                     >
-                        Integrasi Server-Side (Telegram & WA)
+                        Integrasi Telegram
                     </button>
                 </div>
             </div>
@@ -795,48 +795,10 @@ const SettingsPage: React.FC = () => {
                             </div>
                         </div>
 
-                        <hr className="border-slate-100" />
-
-                        {/* WhatsApp Settings */}
-                        <div className="space-y-4">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                                <div>
-                                    <h3 className="font-bold text-slate-800 text-sm">WhatsApp (Fonnte)</h3>
-                                    <p className="text-xs text-slate-500">Pengaturan API Fonnte untuk WhatsApp (Token disimpan terenkripsi/terisolasi di server).</p>
-                                </div>
-                                {secretMetaMap.FONNTE_API_TOKEN && (
-                                    <div className="flex items-center gap-2">
-                                        <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                                            secretMetaMap.FONNTE_API_TOKEN.status === 'active'
-                                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                                : 'bg-rose-50 text-rose-700 border border-rose-200'
-                                        }`}>
-                                            {secretMetaMap.FONNTE_API_TOKEN.status === 'active' ? 'Token Aktif' : 'Token Dinonaktifkan'}
-                                            {' • '}Rotasi #{secretMetaMap.FONNTE_API_TOKEN.rotation_count}
-                                        </span>
-                                        <button
-                                            type="button"
-                                            disabled={isSaving}
-                                            onClick={() => handleToggleSecretStatus('FONNTE_API_TOKEN', secretMetaMap.FONNTE_API_TOKEN.status)}
-                                            className="px-2.5 py-1 text-xs font-bold rounded border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"
-                                        >
-                                            {secretMetaMap.FONNTE_API_TOKEN.status === 'active' ? 'Nonaktifkan Token' : 'Aktifkan Token'}
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="grid gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1.5">API Token (Masukkan token baru untuk rotasi)</label>
-                                    <input type="text" value={fonnteApiToken} onChange={e => setFonnteApiToken(e.target.value)} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-sm font-medium" placeholder="Token API Fonnte..." />
-                                </div>
-                                <label className="flex items-center gap-3 cursor-pointer mt-1">
-                                    <input type="checkbox" checked={enableWa} onChange={e => setEnableWa(e.target.checked)} className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer" />
-                                    <div>
-                                        <span className="text-sm font-bold text-slate-800">Aktifkan Notifikasi WhatsApp</span>
-                                    </div>
-                                </label>
-                            </div>
+                        {/* Fase 6: integrasi WA Fonnte dinonaktifkan dari tampilan; notifikasi wali lewat Telegram */}
+                        <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-slate-700">
+                            Setelah token disimpan, buka <Link to="/app/telegram" className="font-semibold text-blue-700">Notifikasi Telegram</Link> untuk
+                            menyambungkan bot, membagikan kode wali, dan mengatur pesan setoran, kehadiran mingguan, serta capaian periode.
                         </div>
                     </div>
                 </div>

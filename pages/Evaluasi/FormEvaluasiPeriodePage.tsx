@@ -7,6 +7,7 @@
  * Isian bebas & evaluasi kegiatan (buatan Admin) diisi di kedua mode.
  * Semua simpan lewat rpc_simpan_form_periode (aturan dijaga server).
  */
+import { kirimAntrianSekarang } from '../../lib/antrianPesan';
 import { arahSantri } from '../../lib/arahHafalan';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -272,6 +273,8 @@ const FormEvaluasiPeriodePage: React.FC = () => {
         res?.status === 'submitted' && kirim ? 'Form periode terkirim.' : 'Perubahan tersimpan.', 'success'
       );
       setKonfirmKirim(false);
+      // Fase 6: form terkirim → pesan capaian ke wali diantrikan database; picu kirim sekarang
+      if (res?.status === 'submitted' && kirim) kirimAntrianSekarang();
       await muat();
     } catch (e) {
       tampilkanError(e, 'Gagal menyimpan form periode');

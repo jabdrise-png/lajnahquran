@@ -5,7 +5,6 @@ import Modal from '../../components/Modal';
 import { useSupabaseData } from '../../hooks/useSupabaseData';
 import { StackedBarChart, StudentStackedBarChart } from '../../components/Chart';
 import { exportToExcel } from '../../lib/utils';
-import { sendFonnteMessage } from '../../lib/whatsapp';
 import { NotificationStore } from '../../lib/NotificationStore';
 import { ALL_ATTENDANCE_STATUS } from '../../constants';
 import { Marhalah, AttendanceStatus } from '../../types';
@@ -270,60 +269,6 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
             'info'
         );
         window.open(targetUrl, '_blank');
-    };
-
-    const handleSendMassWA = async () => {
-        const reports = Object.entries(generatedReports);
-        if (reports.length === 0) {
-            NotificationStore.addNotification("Belum ada laporan yang disiapkan di preview.", "error");
-            return;
-        }
-        
-        const token = appSettings.find(s => s.key === 'FONNTE_API_TOKEN')?.value;
-        if (!token) {
-            NotificationStore.addNotification("Token Fonnte belum disetting di menu Pengaturan.", "error");
-            return;
-        }
-
-        setIsMassSending(true);
-        setMassSendProgress({ current: 0, total: reports.length });
-
-        let successCount = 0;
-        let failedCount = 0;
-
-        for (let i = 0; i < reports.length; i++) {
-            const [key, data] = reports[i];
-            const report = data as { image: string, caption: string, phone?: string };
-            setMassSendProgress({ current: i + 1, total: reports.length });
-
-            if (!report.phone) {
-                NotificationStore.addNotification(`Kelas ${key}: No HP wali kelas tidak ditemukan. Dilewati.`, 'error');
-                failedCount++;
-                continue;
-            }
-
-            try {
-                const p = report.phone.replace(/\D/g, '').replace(/^0/, '62');
-                await sendFonnteMessage(token, p, report.caption, report.image);
-                successCount++;
-            } catch (e: any) {
-                console.error(`Gagal mengirim laporan ${key} via Fonnte:`, e);
-                failedCount++;
-            }
-
-            if (i < reports.length - 1) {
-                await new Promise(res => setTimeout(res, 2500));
-            }
-        }
-
-        setIsMassSending(false);
-        setMassSendProgress(null);
-
-        if (successCount > 0) {
-            NotificationStore.addNotification(`Selesai! ${successCount} laporan kelas berhasil dikirim via Fonnte.${failedCount > 0 ? ` (${failedCount} gagal/dilewati)` : ''}`, 'success');
-        } else {
-            NotificationStore.addNotification("Semua pengiriman via Fonnte gagal dilakukan.", "error");
-        }
     };
 
     const handleCopyImage = async (url: string, key: string) => {
@@ -620,23 +565,8 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
                     >
                         Tutup
                     </button>
-                    <button 
-                        onClick={handleSendMassWA} 
-                        disabled={isMassSending || Object.keys(generatedReports).length === 0}
-                        className="w-full sm:w-auto bg-[#25D366] hover:bg-[#20bd5a] active:scale-[0.98] disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md flex items-center justify-center gap-2 transition-all"
-                        title="Kirim seluruh laporan yang ada di preview ini via Fonnte"
-                    >
-                        {isMassSending ? (
-                            <Loader2 size={16} className="animate-spin" />
-                        ) : (
-                            <Send size={15} />
-                        )}
-                        <span>
-                            {isMassSending 
-                                ? (massSendProgress ? `Mengirim ${massSendProgress.current}/${massSendProgress.total} via Fonnte...` : 'Mengirim via Fonnte...') 
-                                : `Kirim Semua via Fonnte (${Object.keys(generatedReports).length} Kelas)`}
-                        </span>
-                    </button>
+                    {/* Fase 6: kirim massal via WhatsApp Fonnte dinonaktifkan; kirim manual per kelas dengan tombol "Kirim WA" */}
+                    <span className="text-xs text-slate-500">Kirim per kelas dengan tombol <b>Kirim WA</b> (membuka WhatsApp di perangkat Anda).</span>
                 </div>
             </Modal>
         </div>

@@ -29,6 +29,8 @@ import { processIntegrationSecrets } from "../../api/integrations";
 import { processTelegramNotification } from "../../api/notify/telegram";
 import { processWhatsAppNotification } from "../../api/notify/whatsapp";
 import { processTelegramWebhookRegister } from "../../api/telegram-webhook/register";
+import { processTelegramWebhook } from "../../api/telegram-webhook";
+import { processProsesAntrian } from "../../api/notify/proses";
 import { processChatRequest } from "../../api/chat";
 import { createClient } from "@supabase/supabase-js";
 
@@ -99,6 +101,8 @@ export const handler: Handler = async (event: HandlerEvent, _context: HandlerCon
           runtime: "netlify-functions",
           timestamp: new Date().toISOString(),
           database: { status: dbStatus, latencyMs: dbLatencyMs, error: dbError },
+          // Fase 6: pengiriman Telegram otomatis butuh service role (tanpa menampilkan nilainya)
+          telegramOtomatis: process.env.SUPABASE_SERVICE_ROLE_KEY ? "siap" : "belum_diatur",
           version: "2.1.0-production",
         }),
       };
@@ -121,6 +125,24 @@ export const handler: Handler = async (event: HandlerEvent, _context: HandlerCon
         ...body,
         organizationId: orgId || body?.organizationId,
       });
+      return { statusCode: result.status, headers: CORS_HEADERS, body: JSON.stringify(result.data) };
+    }
+
+    // Fase 6: webhook bot Telegram (dipanggil server Telegram; diverifikasi secret token per lembaga)
+    if (subPath === "/telegram-webhook") {
+      const result = await processTelegramWebhook({
+        method: event.httpMethod,
+        headers: Object.fromEntries(Object.entries(event.headers || {}).map(([k, v]) => [k.toLowerCase(), v])),
+        query: (event.queryStringParameters || {}) as Record<string, any>,
+        body: event.body || "{}",
+      });
+      // Telegram mengulang kiriman bila status bukan 2xx; galat validasi tetap dibalas apa adanya
+      return { statusCode: result.status, headers: CORS_HEADERS, body: JSON.stringify(result.data) };
+    }
+
+    // Fase 6: kirim antrian pesan Telegram lembaga pemanggil sekarang
+    if (subPath === "/notify/proses") {
+      const result = await processProsesAntrian(authHeader, body);
       return { statusCode: result.status, headers: CORS_HEADERS, body: JSON.stringify(result.data) };
     }
 

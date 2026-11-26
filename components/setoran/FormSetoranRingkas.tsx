@@ -21,8 +21,7 @@ import { rosterPadaTanggal, hariIni } from '../../lib/sesiHalaqah';
 import { bolehSetor, findStatus, type SetoranRow } from '../../lib/v2Adapter';
 import { tampilkanError } from '../../lib/pesanError';
 import { NotificationStore } from '../../lib/NotificationStore';
-import { sendCustomTelegramMessage } from '../../lib/telegram';
-import { buatPesanSetoran } from '../../lib/notifSetoran';
+import { kirimAntrianSekarang } from '../../lib/antrianPesan';
 
 interface Props {
   halaqahOptions: Halaqah[];
@@ -145,25 +144,7 @@ const FormSetoranRingkas: React.FC<Props> = ({ halaqahOptions, initialHalaqahId,
     setSantriId(next ? Number(next.id) : null);
   };
 
-  const kirimTelegram = async (result: any) => {
-    try {
-      if (appSettings.find((s) => s.key === 'SETORAN_TELEGRAM_NOTIF_ENABLE')?.value !== 'true') return;
-      // Fase 4: halaqah Mode Rekap tidak mengirim pesan per setoran (spesifikasi 6.1)
-      if (halaqah?.recording_mode === 'rekap') return;
-      const chatId = (santri as any)?.telegram_chat_id;
-      if (!chatId) return;
-      const template = appSettings.find((s) => s.key === 'SETORAN_TELEGRAM_NOTIF_TEMPLATE')?.value;
-      const n1 = SURAHS_DATA[s1 - 1]?.name, n2 = SURAHS_DATA[s2 - 1]?.name;
-      await sendCustomTelegramMessage('', chatId, buatPesanSetoran(template, {
-        nama_santri: santri?.nama || '', halaqah: halaqah?.nama || '', tanggal: date, waktu: slot,
-        skema: kindRef?.name || kind, surat: s1 === s2 ? n1 : `${n1} - ${n2}`, ayat: s1 === s2 ? `${a1}-${a2}` : `${a1} - ${a2}`,
-        jumlah_halaman: result?.calculated_pages ?? halaman, khoto_kabir: kabir, khoto_shoghir: shoghir,
-        nilai: result?.predicate || pred.predicate, ulang: Boolean(result?.is_repeat ?? pred.isRepeat), keterangan: catatan,
-      }), santri?.id);
-    } catch (e) {
-      console.warn('Notifikasi Telegram gagal', e);
-    }
-  };
+
 
   const simpan = async (reason?: string) => {
     if (!halaqah || !santriId || !slot) {
@@ -193,7 +174,8 @@ const FormSetoranRingkas: React.FC<Props> = ({ halaqahOptions, initialHalaqahId,
         onDone?.();
         return;
       }
-      kirimTelegram(result);
+      // Fase 6: pesan wali dibuat server (notification_queue); picu kirim sekarang (cadangan: tiap menit)
+      kirimAntrianSekarang();
       nextSantri();
     } catch (e) {
       tampilkanError(e, 'Gagal menyimpan setoran');

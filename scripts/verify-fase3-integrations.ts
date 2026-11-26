@@ -545,13 +545,14 @@ async function runFase3Verification() {
     santri1001AfterAttempt?.telegram_chat_id === "777001" && // tidak berubah menjadi 999888777!
     webhookUsedUrl.includes(rawTgTokenV2) && // menggunakan token Tenant A
     !String(webhookReplyBody?.text || "").includes("Zaid bin Tsabit") && // tidak membocorkan nama santri!
-    String(webhookReplyBody?.text || "").includes("Penautan Otomatis Dinonaktifkan") &&
-    state.audit_logs.some((a) => a.action === "WEBHOOK_PUBLIC_LINK_BLOCKED" && a.organization_id === ORG_A) &&
+    // Fase 6: penautan hanya dengan kode santri ACAK; ID/NIS (bisa ditebak) ditolak tanpa mencari data
+    String(webhookReplyBody?.text || "").includes("Kode tidak dikenali") &&
+    state.audit_logs.some((a) => a.action === "TELEGRAM_LINK_INVALID_FORMAT" && a.organization_id === ORG_A) &&
     sqlHardening.includes("Penautan Chat ID Telegram secara publik tanpa verifikasi Admin dinonaktifkan");
 
   recordTest(
     "INT-07",
-    "Fitur pengaitan Chat ID publik (/start <identifier>) dinonaktifkan, tidak mengubah data santri, dan tidak membocorkan nama/kelas santri",
+    "Penautan Telegram dengan ID/NIS santri (/start <identifier>) ditolak, tidak mengubah data santri, dan tidak membocorkan nama/kelas santri (F6: hanya kode acak)",
     publicLinkBlockedProperly,
     `Status=${webhookPublicLinkAttempt.status}, chat_id santri tetap=${santri1001AfterAttempt?.telegram_chat_id}, audit tercatat=true`
   );

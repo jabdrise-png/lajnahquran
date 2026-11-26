@@ -1,0 +1,22 @@
+FASE 6 — TELEGRAM & LAPORAN OTOMATIS (cabang: fase-6-telegram-laporan, dari main ad2b827)
+
+Cara pasang kode:
+- Salin isi ZIP ini ke root repo (timpa semua), lalu hapus berkas yang tercantum di
+  "File yang dihapus" di bawah, commit, push.
+
+File yang dihapus (tidak dipakai lagi):
+  fase5.patch
+  components/SetoranSettingsModal.tsx
+  lib/notifSetoran.ts
+  lib/whatsapp.ts
+  lib/notifications.ts
+
+Urutan:
+1. Netlify > Environment variables: pastikan SUPABASE_SERVICE_ROLE_KEY dan SUPABASE_URL ada.
+2. Cadangan database.
+3. Supabase SQL Editor, satu file per kali:
+   2026_12_01_01_f6_telegram_struktur.sql -> 2026_12_01_02_f6_telegram_fungsi.sql
+4. Deploy. Cek https://<situs>/api/health -> "telegramOtomatis": "siap".
+5. Pengaturan Lembaga > Integrasi Telegram: token bot + username bot, simpan.
+6. Laporan & Wali > Notifikasi Telegram: Sambungkan bot, periksa template & jadwal, Simpan.
+7. Uji manual: docs/FASE_6_UJI.md bagian 4.

@@ -49,6 +49,8 @@ contoh: 2026_12_01_01_fix_recitation_revisions_action_check.sql
 | `2026_11_30_02_f5_rpc_ujian_raport.sql` | F5 (simpan ujian, komponen raport, terbit raport dijaga server) | belum |
 | `2026_11_30_03_f5_migrasi_ujian_lama.sql` | F5 (pindah nilai ujian lama ke exam_attempts, cabut akses tabel lama) | belum |
 | `2026_11_30_04_keputusan_f3_f4.sql` | Keputusan 26-11-2026: arah bawaan maju + dua arah, kehadiran rekap selalu dari absensi, koreksi setoran oleh musammi' | belum |
+| `2026_12_01_01_f6_telegram_struktur.sql` | F6 (kode Telegram santri, telegram_settings + template, notification_queue, render template) | belum |
+| `2026_12_01_02_f6_telegram_fungsi.sql` | F6 (penautan wali, antrian + retry, pesan setoran / progres periode / kehadiran mingguan terjadwal, RPC Admin) | belum |
 
 ## Pemeriksaan sebelum migrasi
 
