@@ -310,7 +310,7 @@ test('migrasi Fase 2 tercatat dan file aman diulang', () => {
 
 // ================================================================ pemeriksaan awal
 test('f2_preflight.sql: database setelah Fase 1 (sebelum Fase 2) lolos semua pemeriksaan', async () => {
-  const pre = await buildTestDb({ legacySeed: true, migrationFilter: (f) => !f.includes('_f2_') });
+  const pre = await buildTestDb({ legacySeed: true, migrationFilter: (f) => f < '2026_11_27_02' });
   const r = await pre.query<any>(fs.readFileSync('database/checks/f2_preflight.sql', 'utf8'));
   const periksa = r.rows.filter((x) => String(x.hasil).startsWith('PERIKSA'));
   assert.deepEqual(periksa, []);

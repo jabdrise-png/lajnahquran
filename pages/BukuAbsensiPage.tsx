@@ -73,26 +73,7 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
         }
       ], correctionTarget.reason.trim());
 
-      if (userProfile?.organization_id) {
-        await (supabase as any).from('audit_logs').insert({
-          organization_id: userProfile.organization_id,
-          actor_user_id: userProfile.id,
-          action: 'ADMIN_ATTENDANCE_BOOK_CORRECTION',
-          entity_type: 'attendance_records',
-          entity_id: `${correctionTarget.student.peran}_${correctionTarget.student.id}_${correctionTarget.dateStr}_${correctionTarget.session}`,
-          reason: correctionTarget.reason.trim(),
-          diff_json: {
-            person_id: correctionTarget.student.id,
-            person_name: correctionTarget.student.nama,
-            peran: correctionTarget.student.peran,
-            halaqah_id: correctionTarget.student.halaqahId,
-            date: correctionTarget.dateStr,
-            slot: correctionTarget.session,
-            before_status: correctionTarget.currentStatus || 'Belum diisi',
-            after_status: correctionTarget.newStatus
-          }
-        });
-      }
+      // Audit Log dicatat server (rpc_record_attendance → correct_attendance), tidak perlu insert dari browser.
 
       NotificationStore.addNotification(
         `Koreksi kehadiran ${correctionTarget.student.nama} (${correctionTarget.dateStr} - ${correctionTarget.session}) berhasil disimpan & dicatat di Audit Log.`,

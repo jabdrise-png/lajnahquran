@@ -28,7 +28,8 @@ before(async () => {
 test('BUG-01 tereproduksi: tanpa migrasi 01, setoran Musammi\' gagal karena constraint', async () => {
   const lama = await buildTestDb({
     beforeMigrations: DRIFT_CONSTRAINT,
-    migrationFilter: (f) => !f.includes('fix_recitation_revisions_action_check'),
+    // Kondisi saat Fase 1: hanya migrasi sebelum Fase 2, tanpa perbaikan 01
+    migrationFilter: (f) => f < '2026_11_27_02' && !f.includes('fix_recitation_revisions_action_check'),
   });
   await as(lama, ID.musammi, () =>
     expectError(lama.query(SUBMIT, [ID.santri1, 'lama-1']), /recitation_revisions_action_check/)
@@ -39,30 +40,22 @@ test('BUG-01 tereproduksi: tanpa migrasi 01, setoran Musammi\' gagal karena cons
 test('no.1-2: Musammi\' bisa menyimpan setoran setelah migrasi', async () => {
   const res = await as(db, ID.musammi, () => one<any>(db, SUBMIT, [ID.santri1, 'uji-1']));
   assert.equal(res.success, true);
-  assert.equal(res.status, 'submitted');
+  // Sejak Fase 3 setoran langsung sah
+  assert.equal(res.status, 'accepted');
   const aksi = await one(db, `select string_agg(action, ',') from public.recitation_revisions where entry_id = $1`, [res.id]);
-  assert.match(String(aksi), /create_submission/);
+  assert.match(String(aksi), /create/);
 });
 
-test('no.3: Admin bisa Accept, Return (alasan), dan Void (alasan)', async () => {
-  const ids: string[] = [];
-  for (const k of ['a', 'b', 'c']) {
-    const r = await as(db, ID.musammi, () => one<any>(db, SUBMIT, [ID.santri2, `review-${k}`]));
-    ids.push(r.id);
-  }
+test('no.3 (diperbarui Fase 3): validasi dihapus; Admin membatalkan dengan alasan, Accept/Return ditolak', async () => {
+  const r = await as(db, ID.musammi, () => one<any>(db, SUBMIT, [ID.santri2, 'review-a']));
   await as(db, ID.admin, async () => {
-    await db.query(`select public.rpc_review_recitation_entry($1::uuid, 'accepted', null)`, [ids[0]]);
-    await db.query(`select public.rpc_review_recitation_entry($1::uuid, 'returned', 'Ayat terakhir kurang lancar')`, [ids[1]]);
-    await db.query(`select public.rpc_review_recitation_entry($1::uuid, 'voided', 'Salah pilih santri')`, [ids[2]]);
+    await expectError(db.query(`select public.rpc_review_recitation_entry($1::uuid, 'accepted', null)`, [r.id]), /Validasi setoran sudah dihapus/);
+    await expectError(db.query(`select public.rpc_review_recitation_entry($1::uuid, 'returned', 'Ayat kurang lancar')`, [r.id]), /Validasi setoran sudah dihapus/);
+    await expectError(db.query(`select public.rpc_review_recitation_entry($1::uuid, 'voided', 'tes')`, [r.id]), /Alasan/);
+    await db.query(`select public.rpc_review_recitation_entry($1::uuid, 'voided', 'Salah pilih santri')`, [r.id]);
   });
-  const statuses = await db.query<{ status: string }>(
-    `select status from public.recitation_entries where id = any($1::uuid[]) order by array_position($1::uuid[], id)`,
-    [ids]
-  );
-  assert.deepEqual(statuses.rows.map((r) => r.status), ['accepted', 'returned', 'voided']);
-  const aksi = await one(db, `select string_agg(distinct action, ',' order by action) from public.recitation_revisions where entry_id = any($1::uuid[])`, [ids]);
-  assert.match(String(aksi), /accept/);
-  assert.match(String(aksi), /return/);
+  assert.equal(await one(db, `select status from public.recitation_entries where id = $1`, [r.id]), 'voided');
+  const aksi = await one(db, `select string_agg(distinct action, ',') from public.recitation_revisions where entry_id = $1`, [r.id]);
   assert.match(String(aksi), /void/);
 });
 

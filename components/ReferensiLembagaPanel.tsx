@@ -4,6 +4,7 @@
  *   - Waktu halaqah (session_slots) + jenis setoran bawaan per waktu
  *   - Status kehadiran (attendance_statuses) + penanda "dihitung hadir" / "boleh setor"
  *   - Jenis halaqah (halaqah_types)
+ *   - Fase 3: Tabel Kelancaran (fluency_rules) — predikat otomatis dari khoto kabir/shoghir
  * Hanya Admin yang bisa mengubah (dijaga RLS). Data yang sudah dipakai tidak bisa
  * dihapus, hanya dinonaktifkan (dijaga trigger database).
  */
@@ -13,8 +14,9 @@ import { supabase } from '../lib/supabaseClient';
 import { useSupabaseData } from '../hooks/useSupabaseData';
 import { NotificationStore } from '../lib/NotificationStore';
 import { slug } from '../lib/v2Adapter';
+import { hitungPredikat } from '../lib/kelancaran';
 
-type TableName = 'recitation_kinds' | 'session_slots' | 'attendance_statuses' | 'halaqah_types';
+type TableName = 'recitation_kinds' | 'session_slots' | 'attendance_statuses' | 'halaqah_types' | 'fluency_rules';
 
 const inputCls =
   'w-full text-sm border border-slate-200 rounded-md px-2 py-1.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500';
@@ -40,13 +42,18 @@ const Section: React.FC<{ title: string; hint: string; children: React.ReactNode
 );
 
 const ReferensiLembagaPanel: React.FC = () => {
-  const { recitationKinds, sessionSlots, attendanceStatuses, halaqahTypes, getOrgId, fetchData, userProfile } = useSupabaseData();
+  const { recitationKinds, sessionSlots, attendanceStatuses, halaqahTypes, fluencyRules, getOrgId, fetchData, userProfile } = useSupabaseData();
   const isAdmin = ['admin', 'superadmin', 'super_admin'].includes(String(userProfile?.role || '').toLowerCase());
   const [busy, setBusy] = useState(false);
   const [newKind, setNewKind] = useState({ name: '', adds: false, murojaah: true });
   const [newSlot, setNewSlot] = useState({ name: '', kind: 'murojaah' });
   const [newStatus, setNewStatus] = useState({ name: '', present: false, recite: false });
   const [newType, setNewType] = useState('');
+  const [newRule, setNewRule] = useState({ predicate: '', major: '0', minor: '0' });
+  const [uji, setUji] = useState({ kabir: 0, shoghir: 0 });
+  // Baris fluency_rules yang belum tersimpan di database (fallback bawaan) tidak punya id.
+  const aturanTersimpan = fluencyRules.some((r) => r.id);
+  const numOrNull = (v: string) => (v.trim() === '' ? null : Math.max(0, Math.floor(Number(v)) || 0));
 
   const run = async (fn: () => Promise<any>, ok: string) => {
     setBusy(true);
@@ -205,6 +212,89 @@ const ReferensiLembagaPanel: React.FC = () => {
               }}><Plus size={16} /></button>
           </div>
         )}
+      </Section>
+
+      {/* Tabel Kelancaran (Fase 3) */}
+      <Section
+        title="Tabel Kelancaran"
+        hint="Predikat dipilih otomatis: baris pertama (urut nomor) yang batas khoto kabir & shoghirnya terpenuhi. Selebihnya masuk baris “Ulang” (Rasib): setoran diulang dan tidak menambah hafalan. Predikat setoran lama tidak berubah saat tabel diubah."
+      >
+        {!aturanTersimpan && (
+          <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+            Tabel kelancaran lembaga belum tersimpan di database (migrasi 2026_11_28_01 belum dijalankan). Yang tampil adalah nilai bawaan.
+          </p>
+        )}
+        <div className="grid grid-cols-[48px_1fr_72px_72px_auto] gap-2 text-[10px] font-semibold uppercase text-slate-400 px-0.5">
+          <span>Urut</span><span>Predikat</span><span>Maks kabir</span><span>Maks shoghir</span><span />
+        </div>
+        {[...fluencyRules].sort((a, b) => a.sort_order - b.sort_order).map((r) => {
+          const edit = isAdmin && !busy && Boolean(r.id);
+          return (
+            <div key={r.id || r.predicate} className="grid grid-cols-[48px_1fr_72px_72px_auto] gap-2 items-center py-1 border-b border-slate-100 last:border-0">
+              <input type="number" min={1} className={inputCls} defaultValue={r.sort_order} disabled={!edit}
+                onBlur={(e) => Number(e.target.value) !== r.sort_order && Number(e.target.value) > 0 && update('fluency_rules', r.id, { sort_order: Math.floor(Number(e.target.value)) })} />
+              <input className={inputCls} defaultValue={r.predicate} disabled={!edit}
+                onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== r.predicate && update('fluency_rules', r.id, { predicate: e.target.value.trim() })} />
+              {r.is_repeat ? (
+                <span className="col-span-2 text-[11px] text-slate-500 italic">Selebihnya → diulang</span>
+              ) : (
+                <>
+                  <input type="number" min={0} className={inputCls} defaultValue={r.max_major ?? ''} disabled={!edit}
+                    onBlur={(e) => numOrNull(e.target.value) !== null && numOrNull(e.target.value) !== r.max_major && update('fluency_rules', r.id, { max_major: numOrNull(e.target.value) })} />
+                  <input type="number" min={0} className={inputCls} defaultValue={r.max_minor ?? ''} disabled={!edit}
+                    onBlur={(e) => numOrNull(e.target.value) !== null && numOrNull(e.target.value) !== r.max_minor && update('fluency_rules', r.id, { max_minor: numOrNull(e.target.value) })} />
+                </>
+              )}
+              <div className="flex items-center gap-2">
+                <Toggle label="Aktif" checked={r.is_active} disabled={!edit}
+                  onChange={(v) => update('fluency_rules', r.id, { is_active: v })} />
+                {edit && !r.is_repeat && (
+                  <button type="button" title="Hapus" className="text-slate-400 hover:text-red-500"
+                    onClick={() => remove('fluency_rules', r.id, r.predicate)}><Trash2 size={14} /></button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        {isAdmin && aturanTersimpan && (
+          <div className="grid grid-cols-[48px_1fr_72px_72px_auto] gap-2 items-center pt-2">
+            <span className="text-[11px] text-slate-400 text-center">baru</span>
+            <input className={inputCls} placeholder="Predikat baru" value={newRule.predicate}
+              onChange={(e) => setNewRule({ ...newRule, predicate: e.target.value })} />
+            <input type="number" min={0} className={inputCls} value={newRule.major} onChange={(e) => setNewRule({ ...newRule, major: e.target.value })} />
+            <input type="number" min={0} className={inputCls} value={newRule.minor} onChange={(e) => setNewRule({ ...newRule, minor: e.target.value })} />
+            <button type="button" disabled={!newRule.predicate.trim() || busy}
+              className="bg-slate-800 hover:bg-slate-900 text-white h-8 w-8 flex items-center justify-center rounded-md disabled:opacity-50"
+              onClick={async () => {
+                const nonUlang = fluencyRules.filter((r) => !r.is_repeat);
+                await insert('fluency_rules', {
+                  predicate: newRule.predicate.trim(),
+                  max_major: numOrNull(newRule.major) ?? 0,
+                  max_minor: numOrNull(newRule.minor) ?? 0,
+                  sort_order: nextSort(nonUlang),
+                  is_repeat: false,
+                }, `Predikat "${newRule.predicate.trim()}" ditambahkan.`);
+                setNewRule({ predicate: '', major: '0', minor: '0' });
+              }}><Plus size={16} /></button>
+          </div>
+        )}
+        <div className="flex flex-wrap items-center gap-2 pt-2 text-xs text-slate-600 border-t border-slate-100">
+          <span className="font-semibold">Coba:</span>
+          <label className="flex items-center gap-1">kabir
+            <input type="number" min={0} className={`${inputCls} w-16`} value={uji.kabir} onChange={(e) => setUji({ ...uji, kabir: Number(e.target.value) || 0 })} />
+          </label>
+          <label className="flex items-center gap-1">shoghir
+            <input type="number" min={0} className={`${inputCls} w-16`} value={uji.shoghir} onChange={(e) => setUji({ ...uji, shoghir: Number(e.target.value) || 0 })} />
+          </label>
+          {(() => {
+            const h = hitungPredikat(fluencyRules, uji.kabir, uji.shoghir);
+            return (
+              <span className={`px-2 py-0.5 rounded-full font-semibold ${h.isRepeat ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                {h.predicate}{h.isRepeat ? ' · diulang' : ''}
+              </span>
+            );
+          })()}
+        </div>
       </Section>
 
       {/* Jenis halaqah */}

@@ -5,6 +5,7 @@ import { Marhalah, Peran, AttendanceStatus } from '../types';
 import { useAcademicYear } from '../lib/AcademicYearContext';
 
 import { SupportSessionStore, resolveTenantContext } from '../lib/permissions';
+import { DEFAULT_FLUENCY_RULES, type FluencyRule } from '../lib/kelancaran';
 import { NotificationStore } from '../lib/NotificationStore';
 import {
     recitationToSetoranRow, setoranInputToRpcArgs, attendanceToLegacy, attendanceInputToRpcRecords, isUuid,
@@ -45,6 +46,8 @@ const useSupabaseDataInternal = () => {
     const [attendanceStatuses, setAttendanceStatuses] = useState<AttendanceStatusRef[]>(DEFAULT_STATUSES);
     const [sessionSlots, setSessionSlots] = useState<SessionSlotRef[]>([]);
     const [halaqahTypes, setHalaqahTypes] = useState<HalaqahTypeRef[]>([]);
+    // Fase 3: Tabel Kelancaran lembaga
+    const [fluencyRules, setFluencyRules] = useState<FluencyRule[]>(DEFAULT_FLUENCY_RULES);
     
     const [activeSemesterDates, setActiveSemesterDates] = useState<{ startDate: string | null; endDate: string | null }>({ startDate: null, endDate: null });
     const [studentEnrollments, setStudentEnrollments] = useState<any[]>([]);
@@ -201,7 +204,8 @@ const useSupabaseDataInternal = () => {
                 { data: kindsData },
                 { data: statusesData },
                 { data: slotsData },
-                { data: halaqahTypesData }
+                { data: halaqahTypesData },
+                { data: fluencyData }
             ] = await Promise.all([
                 executeTableQuery('class_targets', (supabase as any).from('class_targets').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(1000), []),
                 executeTableQuery('evaluation_settings', (supabase as any).from('evaluation_settings').select('*').eq('organization_id', orgId).limit(1000).order('score', { ascending: false }), []),
@@ -210,7 +214,8 @@ const useSupabaseDataInternal = () => {
                 executeTableQuery('recitation_kinds', (supabase as any).from('recitation_kinds').select('*').eq('organization_id', orgId).order('sort_order', { ascending: true }), []),
                 executeTableQuery('attendance_statuses', (supabase as any).from('attendance_statuses').select('*').eq('organization_id', orgId).order('sort_order', { ascending: true }), []),
                 executeTableQuery('session_slots', (supabase as any).from('session_slots').select('*').eq('organization_id', orgId).order('sort_order', { ascending: true }), []),
-                executeTableQuery('halaqah_types', (supabase as any).from('halaqah_types').select('*').eq('organization_id', orgId).order('sort_order', { ascending: true }), [])
+                executeTableQuery('halaqah_types', (supabase as any).from('halaqah_types').select('*').eq('organization_id', orgId).order('sort_order', { ascending: true }), []),
+                executeTableQuery('fluency_rules', (supabase as any).from('fluency_rules').select('*').eq('organization_id', orgId).order('sort_order', { ascending: true }), [], { optionalTransitionTable: true })
             ]);
 
             const kindsList: RecitationKind[] = (kindsData as any[])?.length ? (kindsData as any[]) : DEFAULT_KINDS;
@@ -219,6 +224,7 @@ const useSupabaseDataInternal = () => {
             setAttendanceStatuses(statusesList);
             setSessionSlots((slotsData as any[]) || []);
             setHalaqahTypes((halaqahTypesData as any[]) || []);
+            setFluencyRules((fluencyData as any[])?.length ? (fluencyData as any[]) : DEFAULT_FLUENCY_RULES);
 
             // Batch 3: Progress, Evaluations & Exams
             const [
@@ -968,7 +974,7 @@ const useSupabaseDataInternal = () => {
                     r.halaqahId === a.halaqahId && r.date === a.date && r.waktu === a.waktu && r.personId !== a.personId))
                 .map((a: any) => ({ kind: 'musammi', id: a.id }));
             if (toRemove.length > 0) {
-                await rpcOrThrow('rpc_delete_attendance_entries', { p_items: toRemove, p_reason: reason || 'Pergantian musammi pada sesi' });
+                await rpcOrThrow('rpc_delete_attendance_entries', { p_items: toRemove, p_reason: reason || null });
             }
         }
 
@@ -987,7 +993,7 @@ const useSupabaseDataInternal = () => {
         if (!existing) throw new Error('Catatan absensi tidak ditemukan. Muat ulang halaman.');
         if (updates.date && updates.date !== existing.date || updates.waktu && updates.waktu !== existing.waktu) {
             // Pindah tanggal/waktu = hapus catatan lama + catat di sesi baru
-            await rpcOrThrow('rpc_delete_attendance_entries', { p_items: [{ kind: existing.kind, id: existing.id }], p_reason: reason || 'Pindah tanggal/waktu absensi' });
+            await rpcOrThrow('rpc_delete_attendance_entries', { p_items: [{ kind: existing.kind, id: existing.id }], p_reason: reason || null });
             await rpcOrThrow('rpc_record_attendance', {
                 p_records: attendanceInputToRpcRecords([{ ...existing, ...updates, status: updates.status || existing.status }]),
                 p_reason: reason || null,
@@ -1033,14 +1039,21 @@ const useSupabaseDataInternal = () => {
         return result;
     }, [fetchData]);
 
-    const updateSetoranHarianRecord = useCallback(async (id: string | number, updates: Partial<any>) => {
+    /** Fase 3: simpan setoran dari argumen RPC lengkap (dipakai FormSetoranRingkas). */
+    const simpanSetoran = useCallback(async (args: Record<string, any>, opts: { refresh?: boolean } = {}) => {
+        const result = await rpcOrThrow('rpc_submit_recitation_entry', args);
+        if (opts.refresh !== false) await fetchData();
+        return result;
+    }, [fetchData]);
+
+    const updateSetoranHarianRecord = useCallback(async (id: string | number, updates: Partial<any>, reason?: string) => {
         const existing: any = setoranHarian.find((r: any) => String(r.id) === String(id) || String(r.legacy_setoran_id) === String(id));
         if (!existing) throw new Error('Catatan setoran tidak ditemukan. Muat ulang halaman.');
         const merged = { ...existing, ...updates };
         // Isian surat/ayat baru menggantikan nomor surat lama
         if (updates.surat_mulai || updates.surat) { delete merged.surah_start_no; }
         if (updates.surat_selesai || updates.surat) { delete merged.surah_end_no; }
-        const args = setoranInputToRpcArgs(merged, { existingEntryId: existing.v2_id || (isUuid(existing.id) ? existing.id : null) });
+        const args = setoranInputToRpcArgs(merged, { existingEntryId: existing.v2_id || (isUuid(existing.id) ? existing.id : null), reason: reason || updates.alasan || null });
         const result = await rpcOrThrow('rpc_submit_recitation_entry', args);
         await fetchData();
         return result;
@@ -1054,7 +1067,7 @@ const useSupabaseDataInternal = () => {
         await rpcOrThrow('rpc_review_recitation_entry', {
             p_entry_id: entryId,
             p_new_status: 'voided',
-            p_reason: (reason && reason.trim()) || 'Dihapus melalui halaman Setoran Harian',
+            p_reason: (reason || '').trim(),
         });
         await fetchData();
     }, [fetchData, setoranHarian]);
@@ -1954,7 +1967,7 @@ const useSupabaseDataInternal = () => {
         ujianBulanan, ujianSemester, masterKelas, masterMarhalahs, masterKelasRelasi,
         studentEnrollments, halaqahMemberships, musammiAssignments, queryErrors,
         userProfile, setoranHarian, orgName, orgLogo, updateOrganization,
-        recitationKinds, attendanceStatuses, sessionSlots, halaqahTypes,
+        recitationKinds, attendanceStatuses, sessionSlots, halaqahTypes, fluencyRules, simpanSetoran,
         globalMarhalahs, globalWaktuHalaqah, globalJenisHalaqah, globalAttendanceStatus, globalPredikatNilai,
         loading: loading || ayLoading, error, fetchData, 
         addHalaqah, updateHalaqah, deleteHalaqah, deleteHalaqahBatch, restoreHalaqah, keluarkanSantri, mutasiSantri, 

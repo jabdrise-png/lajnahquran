@@ -323,7 +323,8 @@ export const SantriDetailProgressView: React.FC<SantriDetailProgressViewProps> =
         return availableSkemas.map(skema => {
             const matches = periodSetoran.filter(sh => (sh.skema || '').toLowerCase().trim() === skema.toLowerCase().trim());
             const frekuensi = matches.length;
-            const totalHalaman = matches.reduce((sum, item) => sum + (Number(item.jumlah_halaman) || 0), 0);
+            // Fase 3: setoran Rasib (diulang) tidak dihitung sebagai halaman yang dicapai
+            const totalHalaman = matches.reduce((sum, item) => sum + ((item as any).is_repeat ? 0 : (Number(item.jumlah_halaman) || 0)), 0);
             const totalNilaiNumber = matches.reduce((sum, item) => {
                 let n = Number(item.nilai);
                 if (isNaN(n) && item.nilai) {

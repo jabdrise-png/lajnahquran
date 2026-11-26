@@ -50,7 +50,7 @@ const SantriPage: React.FC = () => {
         nama: '', kode: '', marhalah: '', 
         kelas: '',
         nama_wali: '', no_hp_wali: '', status: 'active', telegram_chat_id: '',
-        tanggal_lahir: '', asal: ''
+        tanggal_lahir: '', asal: '', arah_hafalan: 'mundur'
     });
 
     // Filters
@@ -242,7 +242,8 @@ const SantriPage: React.FC = () => {
                 status: person.status || 'active',
                 telegram_chat_id: person.telegram_chat_id || '',
                 tanggal_lahir: (person as any).tanggal_lahir || '',
-                asal: (person as any).asal || ''
+                asal: (person as any).asal || '',
+                arah_hafalan: person.arah_hafalan === 'maju' ? 'maju' : 'mundur'
             });
         } else {
             const initialMarhalah = masterMarhalahs?.length > 0 ? masterMarhalahs[0].nama : (globalMarhalahs?.[0] || 'Mutawassithah');
@@ -263,7 +264,8 @@ const SantriPage: React.FC = () => {
                 status: 'active',
                 telegram_chat_id: '',
                 tanggal_lahir: '',
-                asal: ''
+                asal: '',
+                arah_hafalan: 'mundur'
             });
         }
         setIsModalOpen(true);
@@ -313,7 +315,8 @@ const SantriPage: React.FC = () => {
                 telegram_chat_id: formData.telegram_chat_id || null,
                 status: formData.status,
                 tanggal_lahir: formData.tanggal_lahir || null,
-                asal: formData.asal.trim() || null
+                asal: formData.asal.trim() || null,
+                arah_hafalan: formData.arah_hafalan === 'maju' ? 'maju' : 'mundur'
             };
 
             let santriId = editingPerson?.id;
@@ -934,6 +937,22 @@ const SantriPage: React.FC = () => {
                                 <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Asal</label>
                                 <input type="text" placeholder="Kota/kabupaten asal" className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white text-[13px] font-semibold text-slate-800 placeholder:text-slate-400" value={formData.asal} onChange={e => setFormData({...formData, asal: e.target.value})} />
                             </div>
+                        </div>
+                        <div>
+                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Arah Hafalan</label>
+                            <div className="grid grid-cols-2 gap-2">
+                                {([
+                                    { v: 'mundur', t: 'Mundur', d: 'Dari An-Nas ke Al-Baqarah (juz 30 dulu)' },
+                                    { v: 'maju', t: 'Maju', d: 'Dari Al-Fatihah ke An-Nas' },
+                                ] as const).map(o => (
+                                    <button key={o.v} type="button" onClick={() => setFormData({...formData, arah_hafalan: o.v})}
+                                        className={`text-left border rounded-xl px-3 py-2 transition-all ${formData.arah_hafalan === o.v ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500/10' : 'border-slate-200 bg-slate-50 hover:bg-slate-100'}`}>
+                                        <span className="block text-[13px] font-bold text-slate-800">{o.t}</span>
+                                        <span className="block text-[11px] text-slate-500">{o.d}</span>
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-[11px] text-slate-400 mt-1">Dipakai untuk menebak ayat awal setoran berikutnya.</p>
                         </div>
                         <div className="grid grid-cols-2 gap-5">
                             <div>

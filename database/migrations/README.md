@@ -39,6 +39,9 @@ contoh: 2026_12_01_01_fix_recitation_revisions_action_check.sql
 | `2026_11_27_07_f2_rpc_hanya_v2.sql` | F2 (fungsi hanya V2) | belum |
 | `2026_11_27_08_f2_hapus_kolom_kembar.sql` | F2 (kolom kembar) | belum |
 | `2026_11_27_09_f2_cabut_akses_tabel_lama.sql` | F2 (cabut akses tabel lama) | belum |
+| `2026_11_28_01_f3_mushaf_kelancaran_arah.sql` | F3 (mushaf, Tabel Kelancaran, arah hafalan) | belum |
+| `2026_11_28_02_f3_setoran_langsung_sah.sql` | F3 (setoran langsung sah, BUG-12/13) | belum |
+| `2026_11_28_03_f3_absensi_tanpa_kunci.sql` | F3 (absensi tanpa kunci, badal, koreksi) | belum |
 
 ## Pemeriksaan sebelum migrasi
 

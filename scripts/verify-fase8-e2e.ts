@@ -78,28 +78,43 @@ step(8, 'E2E-08', 'Admin Menugaskan Musammi ke Halaqah via rpc_assign_halaqah_mu
          hardeningSql.includes('assignment_type');
 });
 
-// Step 9: Musammi Membuka Sesi Halaqah
-step(9, 'E2E-09', 'Musammi Membuka Sesi Halaqah dengan Roster Snapshot via rpc_open_halaqah_session', () => {
-  return hardeningSql.includes('CREATE OR REPLACE FUNCTION public.rpc_open_halaqah_session') &&
-         sesiHalaqahPage.includes('rpc_open_halaqah_session');
+// Fase 3 v2 (28-11-2026): tanpa kunci sesi & tanpa validasi setoran. Langkah 9–12 mengikuti alur baru;
+// perilakunya diuji nyata di tests/v2/f3-database.test.ts.
+const f3AbsensiSql = fs.readFileSync(path.resolve(process.cwd(), 'database/migrations/2026_11_28_03_f3_absensi_tanpa_kunci.sql'), 'utf-8');
+const f3SetoranSql = fs.readFileSync(path.resolve(process.cwd(), 'database/migrations/2026_11_28_02_f3_setoran_langsung_sah.sql'), 'utf-8');
+const useSupabaseDataCode = fs.readFileSync(path.resolve(process.cwd(), 'hooks/useSupabaseData.tsx'), 'utf-8');
+const absensiPage = fs.readFileSync(path.resolve(process.cwd(), 'pages/Operasional/AbsensiPage.tsx'), 'utf-8');
+const daftarSetoran = fs.readFileSync(path.resolve(process.cwd(), 'components/setoran/DaftarSetoran.tsx'), 'utf-8');
+
+// Step 9: Musammi membuka layar Absensi/Sesi (roster per tanggal, sesi belum dibuat)
+step(9, 'E2E-09', 'Musammi Membuka Absensi Halaqah (roster per tanggal, sesi dibuat saat absensi pertama)', () => {
+  return f3AbsensiSql.includes('create or replace function public.rpc_open_halaqah_session') &&
+         f3AbsensiSql.includes("'belum_dibuka'") &&
+         absensiPage.includes('AbsensiHalaqahCard') &&
+         sesiHalaqahPage.includes('rosterPadaTanggal(');
 });
 
 // Step 10: Mengisi Absensi
-step(10, 'E2E-10', 'Musammi Menyimpan Presensi Batch Santri via rpc_save_attendance_batch', () => {
-  return hardeningSql.includes('CREATE OR REPLACE FUNCTION public.rpc_save_attendance_batch') &&
-         sesiHalaqahPage.includes('rpc_save_attendance_batch');
+step(10, 'E2E-10', 'Musammi Menyimpan Absensi Musammi & Santri via rpc_record_attendance', () => {
+  return f3AbsensiSql.includes('create or replace function public.rpc_record_attendance') &&
+         useSupabaseDataCode.includes("rpcOrThrow('rpc_record_attendance'") &&
+         sesiHalaqahPage.includes('addAttendanceRecords');
 });
 
 // Step 11: Mencatat Setoran
-step(11, 'E2E-11', 'Musammi Mencatat Setoran Al-Qur\'an via rpc_submit_recitation_entry (status: submitted)', () => {
-  return hardeningSql.includes('CREATE OR REPLACE FUNCTION public.rpc_submit_recitation_entry') &&
-         sesiHalaqahPage.includes('rpc_submit_recitation_entry');
+step(11, 'E2E-11', 'Musammi Mencatat Setoran via rpc_submit_recitation_entry (langsung sah, predikat otomatis)', () => {
+  return f3SetoranSql.includes('create or replace function public.rpc_submit_recitation_entry') &&
+         f3SetoranSql.includes('public.fn_predikat_kelancaran(') &&
+         useSupabaseDataCode.includes("rpcOrThrow('rpc_submit_recitation_entry'") &&
+         sesiHalaqahPage.includes('FormSetoranRingkas');
 });
 
-// Step 12: Admin Review Setoran
-step(12, 'E2E-12', 'Admin Meninjau & Menerima Setoran via rpc_review_recitation_entry (status: accepted)', () => {
-  return hardeningSql.includes('CREATE OR REPLACE FUNCTION public.rpc_review_recitation_entry') &&
-         setoranHarianPage.includes('rpc_review_recitation_entry');
+// Step 12: Admin mengoreksi / membatalkan setoran beralasan
+step(12, 'E2E-12', 'Admin Mengoreksi atau Membatalkan Setoran Beralasan (rpc_review_recitation_entry: voided)', () => {
+  return f3SetoranSql.includes('create or replace function public.rpc_review_recitation_entry') &&
+         f3SetoranSql.includes('Validasi setoran sudah dihapus') &&
+         daftarSetoran.includes('deleteSetoranHarianRecord') &&
+         setoranHarianPage.includes('DaftarSetoran');
 });
 
 // Step 13: Admin Menginput Ujian

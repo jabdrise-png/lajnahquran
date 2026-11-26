@@ -124,129 +124,22 @@ export default function SetoranSettingsModal({ isOpen, onClose }: Props) {
                                     className="w-full border border-slate-300 rounded-lg p-2 text-sm h-32"
                                 />
                                 <p className="text-[11px] text-slate-500 mt-1">
-                                    Variabel tersedia: {'{nama_santri}'}, {'{halaqah}'}, {'{tanggal}'}, {'{waktu}'}, {'{surat}'}, {'{ayat}'}, {'{skema}'}, {'{nilai}'}, {'{khoto_kabir}'}, {'{khoto_shoghir}'}, {'{jumlah_halaman}'}, {'{keterangan}'}
+                                    Variabel tersedia: {'{nama_santri}'}, {'{halaqah}'}, {'{tanggal}'}, {'{waktu}'}, {'{surat}'}, {'{ayat}'}, {'{skema}'}, {'{nilai}'}, {'{khoto_kabir}'}, {'{khoto_shoghir}'}, {'{jumlah_halaman}'}, {'{keterangan}'}, {'{ulang}'} (berisi “(diulang)” untuk Rasib)
                                 </p>
                             </div>
                         </div>
                     )}
                 </div>
 
+                {/* Fase 3: predikat setoran dihitung server dari Tabel Kelancaran (fluency_rules).
+                    Pengaturan "Automasi Perhitungan Nilai" lama tidak dipakai lagi untuk setoran baru;
+                    nilainya tetap disimpan apa adanya agar laporan lama tidak berubah. */}
                 <div className="border-t border-slate-200 pt-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <label className="block text-sm font-bold text-slate-700">Automasi Perhitungan Nilai</label>
-                        <div className="flex items-center">
-                            <input 
-                                type="checkbox" 
-                                id="autoEnable"
-                                checked={autoEnable}
-                                onChange={e => setAutoEnable(e.target.checked)}
-                                className="mr-2 h-4 w-4 text-blue-600 rounded"
-                            />
-                            <label htmlFor="autoEnable" className="text-sm text-slate-600 font-medium">Aktifkan Automasi</label>
-                        </div>
-                    </div>
-
-                    {autoEnable && (
-                        <div className="space-y-4 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
-                            <div className="grid grid-cols-3 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1">Nilai Awal (Base)</label>
-                                    <input 
-                                        type="number" 
-                                        value={autoBase}
-                                        onChange={e => setAutoBase(Number(e.target.value))}
-                                        className="w-full border border-slate-300 rounded-lg p-2 text-sm"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1">Minus Khoto Kabir</label>
-                                    <input 
-                                        type="number" 
-                                        value={autoKabir}
-                                        onChange={e => setAutoKabir(Number(e.target.value))}
-                                        className="w-full border border-slate-300 rounded-lg p-2 text-sm"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1">Minus Khoto Shoghir</label>
-                                    <input 
-                                        type="number" 
-                                        value={autoShoghir}
-                                        onChange={e => setAutoShoghir(Number(e.target.value))}
-                                        className="w-full border border-slate-300 rounded-lg p-2 text-sm"
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-bold text-slate-700 mb-2">Rentang Nilai & Predikat (Opsi Nilai)</label>
-                                <div className="space-y-2">
-                                    {nilaiRanges.map((range, idx) => (
-                                        <div key={idx} className="flex items-center gap-2">
-                                            <input 
-                                                type="text" 
-                                                value={range.label}
-                                                onChange={e => {
-                                                    const newRanges = [...nilaiRanges];
-                                                    newRanges[idx].label = e.target.value;
-                                                    setNilaiRanges(newRanges);
-                                                }}
-                                                placeholder="Predikat (Mumtaz)"
-                                                className="flex-1 border border-slate-300 rounded-lg p-2 text-sm"
-                                            />
-                                            <span className="text-sm font-medium text-slate-500">Min:</span>
-                                            <input 
-                                                type="number" 
-                                                value={range.min}
-                                                onChange={e => {
-                                                    const newRanges = [...nilaiRanges];
-                                                    newRanges[idx].min = Number(e.target.value);
-                                                    setNilaiRanges(newRanges);
-                                                }}
-                                                className="w-24 border border-slate-300 rounded-lg p-2 text-sm"
-                                            />
-                                            <button 
-                                                onClick={() => {
-                                                    const newRanges = nilaiRanges.filter((_, i) => i !== idx);
-                                                    setNilaiRanges(newRanges);
-                                                }}
-                                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
-                                            >
-                                                <Trash size={16} />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                                <button 
-                                    onClick={() => setNilaiRanges([...nilaiRanges, { label: 'Baru', min: 0 }])}
-                                    className="mt-2 text-blue-600 text-xs font-bold flex items-center gap-1 hover:underline"
-                                >
-                                    <Plus size={14} /> Tambah Predikat
-                                </button>
-                                <p className="text-[11px] text-slate-500 mt-2">Nilai ini juga akan menjadi Opsi Nilai Setoran manual Anda.</p>
-                            </div>
-                        </div>
-                    )}
-                    
-                    {!autoEnable && (
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-1">Opsi Nilai Setoran Manual</label>
-                            <p className="text-xs text-slate-500 mb-2">Bila automasi mati, gunakan opsi ini. Pisahkan dengan koma.</p>
-                            <input 
-                                type="text" 
-                                value={nilaiRanges.map(r => r.label).join(',')}
-                                onChange={e => {
-                                    const parts = e.target.value.split(',');
-                                    const mapped = parts.map((p, i) => ({
-                                        label: p.trim(),
-                                        min: nilaiRanges[i]?.min || 0
-                                    }));
-                                    setNilaiRanges(mapped);
-                                }}
-                                className="w-full border border-slate-300 rounded-lg p-2.5 text-[13px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                        </div>
-                    )}
+                    <label className="block text-sm font-bold text-slate-700 mb-1">Predikat Setoran</label>
+                    <p className="text-[13px] text-slate-600">
+                        Predikat sekarang dihitung otomatis dari jumlah khoto kabir & shoghir sesuai
+                        <b> Pengaturan &gt; Referensi Data Dasar &gt; Tabel Kelancaran</b>. Predikat Rasib berarti setoran diulang dan tidak menambah hafalan.
+                    </p>
                 </div>
 
                 <div className="flex justify-end pt-4">

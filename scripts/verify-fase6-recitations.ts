@@ -20,6 +20,11 @@ const migrationSql = read('database/supabase_saas_v2_migration.sql');
 const sesiPageCode = read('pages/Operasional/SesiHalaqahPage.tsx');
 const setoranPageCode = read('pages/SetoranHarianPage.tsx');
 const useSupabaseDataCode = read('hooks/useSupabaseData.tsx');
+// Fase 3 v2 (28-11-2026): validasi setoran dihapus — setoran langsung sah (accepted), koreksi/batal oleh Admin
+// beralasan. Perilaku diuji nyata di tests/v2/f3-database.test.ts.
+const f3SetoranSql = read('database/migrations/2026_11_28_02_f3_setoran_langsung_sah.sql');
+const formSetoranCode = read('components/setoran/FormSetoranRingkas.tsx');
+const daftarSetoranCode = read('components/setoran/DaftarSetoran.tsx');
 
 const results: CheckResult[] = [];
 
@@ -30,51 +35,44 @@ function check(id: string, title: string, condition: boolean, details: string) {
 // 1. Musammi membuat draft (status = 'draft')
 check(
   'FASE6-01',
-  'Musammi membuat draft (status = \'draft\')',
-  hardeningSql.includes('p_status text DEFAULT \'submitted\'') &&
-    hardeningSql.includes('v_clean_status NOT IN (\'draft\', \'submitted\')') &&
-    hardeningSql.includes('\'create_draft\'') &&
-    sesiPageCode.includes('recitationForm.submissionMode') &&
-    sesiPageCode.includes('p_status: recitationForm.submissionMode') &&
-    migrationSql.includes('v_clean_status NOT IN (\'draft\', \'submitted\')'),
-  'Draft status is supported in rpc_submit_recitation_entry, recorded in revision logs, and selectable in SesiHalaqahPage UI.'
+  'Setoran baru langsung sah (accepted), tanpa draft',
+  f3SetoranSql.includes("check (status in ('accepted', 'voided'))") &&
+    f3SetoranSql.includes('Setoran baru langsung sah (status accepted).') &&
+    formSetoranCode.includes('p_status: null'),
+  'Fase 3: status draft/submitted/returned dihapus; setoran tersimpan langsung sah.'
 );
 
 // 2. Musammi submit setoran (status = 'submitted')
 check(
   'FASE6-02',
-  'Musammi submit setoran (status = \'submitted\')',
-  hardeningSql.includes('submit_recitation_\' || v_clean_status') &&
-    hardeningSql.includes('p_surah_start_no < 1 OR p_surah_start_no > 114') &&
-    hardeningSql.includes('Urutan surat/ayat selesai tidak boleh lebih kecil dari surat/ayat mulai') &&
-    sesiPageCode.includes('rpc_submit_recitation_entry') &&
-    setoranPageCode.includes('rpc_submit_recitation_entry') &&
-    migrationSql.includes('rpc_submit_recitation_entry'),
-  'Recitation submission strictly validates Qur\'an ranges and bounds before persisting as submitted.'
+  'Setoran divalidasi rentang surat/ayat dan dihitung server',
+  f3SetoranSql.includes('Surat selesai tidak boleh mendahului surat mulai.') &&
+    f3SetoranSql.includes('melebihi jumlah ayat surat') &&
+    f3SetoranSql.includes('v_pages := public.fn_hitung_halaman(') &&
+    f3SetoranSql.includes('public.fn_predikat_kelancaran(') &&
+    useSupabaseDataCode.includes("rpcOrThrow('rpc_submit_recitation_entry'") &&
+    formSetoranCode.includes('simpanSetoran('),
+  'Server memeriksa batas surat/ayat, menghitung halaman (mushaf) dan predikat (Tabel Kelancaran).'
 );
 
 // 3. Admin menerima (accepted)
 check(
   'FASE6-03',
-  'Admin menerima (accepted)',
-  hardeningSql.includes('v_clean_status = \'accepted\'') &&
-    hardeningSql.includes('public.is_admin_of_org(v_entry.organization_id)') &&
-    sesiPageCode.includes('rpc_review_recitation_entry') &&
-    setoranPageCode.includes('rpc_review_recitation_entry') &&
-    migrationSql.includes('public.is_admin_of_org(v_entry.organization_id)'),
-  'rpc_review_recitation_entry enforces Admin authorization and transitions status to accepted.'
+  'Tidak ada langkah "terima" Admin; koreksi hanya oleh Admin',
+  f3SetoranSql.includes('Validasi setoran sudah dihapus') &&
+    f3SetoranSql.includes('Koreksi setoran yang sudah tersimpan dilakukan oleh Admin.') &&
+    !setoranPageCode.includes("'submitted'") && !sesiPageCode.includes("'submitted'"),
+  'rpc_review_recitation_entry hanya untuk pembatalan; tombol Terima/Kembalikan dihapus.'
 );
 
 // 4. Admin mengembalikan beserta alasan (returned, reason min 5 karakter)
 check(
   'FASE6-04',
-  'Admin mengembalikan beserta alasan (returned, reason min 5 karakter)',
-  hardeningSql.includes('v_clean_status IN (\'returned\', \'voided\') AND COALESCE(LENGTH(TRIM(p_reason)), 0) < 5') &&
-    hardeningSql.includes('Alasan pengembalian setoran wajib minimal 5 karakter') &&
-    sesiPageCode.includes('reviewReason.trim().length < 5') &&
-    setoranPageCode.includes('reason.trim().length < 5') &&
-    migrationSql.includes('Alasan pengembalian setoran wajib minimal 5 karakter'),
-  'Both database triggers/RPC and frontend UI enforce minimum 5 characters reason for return.'
+  'Koreksi setoran wajib alasan (min 5 karakter)',
+  f3SetoranSql.includes('Alasan koreksi/pembatalan wajib diisi dengan jelas (minimal 5 karakter).') &&
+    formSetoranCode.includes('AlasanDialog') &&
+    daftarSetoranCode.includes('AlasanDialog'),
+  'Server dan layar mewajibkan alasan untuk koreksi maupun pembatalan.'
 );
 
 // 5. Musammi memperbaiki dan submit ulang (submitted, revision_no bertambah)
@@ -107,13 +105,12 @@ check(
 check(
   'FASE6-07',
   'Revision history lengkap (recitation_revisions mencatat snapshot lengkap)',
-  hardeningSql.includes('INSERT INTO public.recitation_revisions') &&
-    hardeningSql.includes('before_snapshot, after_snapshot') &&
-    hardeningSql.includes('trg_prevent_recitation_revision_tampering') &&
+  hardeningSql.includes('trg_prevent_recitation_revision_tampering') &&
     hardeningSql.includes('recitation_revisions) bersifat immutable append-only') &&
-    sesiPageCode.includes('from(\'recitation_revisions\')') &&
-    migrationSql.includes('trg_prevent_recitation_revision_tampering'),
-  'recitation_revisions stores before/after snapshots and is protected by tamper-prevention trigger.'
+    f3SetoranSql.includes('insert into public.recitation_revisions') &&
+    f3SetoranSql.includes('before_snapshot, after_snapshot') &&
+    daftarSetoranCode.includes("from('recitation_revisions')"),
+  'Setiap simpan/koreksi/batal menulis snapshot sebelum-sesudah; riwayat tampil di daftar setoran.'
 );
 
 // 8. submitted tidak dapat dimodifikasi langsung oleh Musammi tanpa proses return
@@ -130,23 +127,23 @@ check(
 check(
   'FASE6-09',
   'Retry submit tidak menduplikasi (idempotency_key)',
-  hardeningSql.includes('idempotency_key = p_idempotency_key') &&
-    hardeningSql.includes('is_duplicate_prevented\', true') &&
-    hardeningSql.includes('idx_recitation_entries_idempotency') &&
-    sesiPageCode.includes('p_idempotency_key: idempotencyKey') &&
-    setoranPageCode.includes('p_idempotency_key: formData.id ? null : idKey') &&
-    migrationSql.includes('is_duplicate_prevented\', true'),
-  'Idempotency key prevents duplicate recitation inserts on retry requests.'
+  hardeningSql.includes('idx_recitation_entries_idempotency') &&
+    f3SetoranSql.includes('idempotency_key = p_idempotency_key') &&
+    f3SetoranSql.includes("'is_duplicate_prevented', true") &&
+    formSetoranCode.includes('idemKey.current ||='),
+  'Kunci idempotensi dipakai ulang saat mengirim ulang; server mengembalikan setoran yang sudah ada.'
 );
 
 // 10. Kegagalan RPC tidak menghasilkan fallback direct update client yang melewati validasi
 check(
   'FASE6-10',
   'Kegagalan RPC tidak menghasilkan fallback direct update client yang melewati validasi',
-  sesiPageCode.includes('if (rpcError) {\n        throw new Error(rpcError.message);\n      }') &&
-    setoranPageCode.includes('if (submitErr) {\n                // Kegagalan RPC tidak menghasilkan fallback direct update client yang melewati validasi (AC-10)\n                throw new Error(submitErr.message);\n            }') &&
-    setoranPageCode.includes('if (rpcErr) {\n                    throw new Error(rpcErr.message);\n                }'),
-  'Client UI catches RPC errors and halts rather than performing unvalidated direct table writes.'
+  useSupabaseDataCode.includes('if (error) throw error;') &&
+    !formSetoranCode.includes("from('recitation_entries')") &&
+    !daftarSetoranCode.includes("from('recitation_entries')") &&
+    !setoranPageCode.includes("from('recitation_entries')") &&
+    !sesiPageCode.includes("from('recitation_entries')"),
+  'Semua tulis setoran lewat RPC (rpcOrThrow); error ditampilkan, tidak ada tulis langsung ke tabel.'
 );
 
 // 11. Ledger dan laporan menunjukkan jumlah transaksi yang sama (sinkronisasi atomik)

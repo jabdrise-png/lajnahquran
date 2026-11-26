@@ -1,0 +1,45 @@
+File yang DIHAPUS (hapus juga di repo Anda):
+pages/Attendance.tsx
+
+Semua file perubahan Fase 3 (+ catatan AI yang belum ada di GitHub) relatif ke origin/main:
+M	App.tsx
+M	README.md
+M	api/chat.ts
+M	components/ReferensiLembagaPanel.tsx
+M	components/SantriDetailProgressView.tsx
+M	components/SetoranSettingsModal.tsx
+M	components/Sidebar.tsx
+A	components/absensi/AbsensiHalaqahCard.tsx
+A	components/setoran/DaftarSetoran.tsx
+A	components/setoran/FormSetoranRingkas.tsx
+A	components/ui/AlasanDialog.tsx
+A	database/migrations/2026_11_28_01_f3_mushaf_kelancaran_arah.sql
+A	database/migrations/2026_11_28_02_f3_setoran_langsung_sah.sql
+A	database/migrations/2026_11_28_03_f3_absensi_tanpa_kunci.sql
+M	database/migrations/README.md
+A	docs/CATATAN_UNTUK_AI.md
+A	docs/FASE_3_UJI.md
+M	hooks/useSupabaseData.tsx
+A	lib/arahHafalan.ts
+A	lib/kelancaran.ts
+A	lib/notifSetoran.ts
+M	lib/permissions.ts
+A	lib/sesiHalaqah.ts
+M	lib/v2Adapter.ts
+D	pages/Attendance.tsx
+M	pages/BukuAbsensiPage.tsx
+M	pages/Dashboard.tsx
+M	pages/DataMaster/SantriPage.tsx
+M	pages/Laporan/RingkasanGlobalPage.tsx
+M	pages/Laporan/TrenHistorisPage.tsx
+A	pages/Operasional/AbsensiPage.tsx
+M	pages/Operasional/SesiHalaqahPage.tsx
+M	pages/SetoranHarianPage.tsx
+M	scripts/verify-fase5-sessions.ts
+M	scripts/verify-fase6-recitations.ts
+M	scripts/verify-fase8-e2e.ts
+M	tests/v2/f1-database.test.ts
+M	tests/v2/f2-database.test.ts
+A	tests/v2/f3-database.test.ts
+A	tests/v2/f3-lib.test.ts
+M	types.ts

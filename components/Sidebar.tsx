@@ -120,7 +120,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       label: 'Absensi & Rekap',
       icon: <CheckSquare size={18} />,
       children: [
-        { id: 'absensi', label: 'Input Absensi Harian', page: 'Absensi' },
+        { id: 'absensi', label: 'Absensi', page: 'Absensi' },
         { id: 'buku_absensi', label: 'Buku Absensi', page: 'Buku Absensi' },
         { id: 'laporan_absensi', label: 'Analitik & Laporan', page: 'LaporanRekap' },
       ]
@@ -130,7 +130,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       label: 'Setoran & Evaluasi',
       icon: <TrendingUp size={18} />,
       children: [
-        { id: 'setoran_harian', label: 'Setoran Harian', page: 'SetoranHarian' },
+        { id: 'setoran_harian', label: 'Setoran & Murojaah', page: 'SetoranHarian' },
         { id: 'perkembangan_input', label: 'Input Evaluasi Periodik', page: 'Input Evaluasi' },
         { id: 'perkembangan_master_data', label: 'Progres & Evaluasi', page: 'Master Data Perkembangan' },
         ...(canonicalRole !== 'musammi'

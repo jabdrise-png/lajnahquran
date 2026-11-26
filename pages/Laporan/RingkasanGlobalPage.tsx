@@ -16,6 +16,8 @@ import html2canvas from 'html2canvas';
 
 import { motion } from 'motion/react';
 import { getStatusColor } from '../../components/Chart';
+import { useMintaAlasan } from '../../components/ui/AlasanDialog';
+import { hariIni } from '../../lib/sesiHalaqah';
 
 interface RingkasanGlobalPageProps {
     showAdvancedFilters?: boolean;
@@ -301,9 +303,21 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
     }, [selectedStudentDetail, filteredData]);
 
     const handleEdit = (record: AttendanceRecord) => { setEditingRecord(record); setIsEditModalOpen(true); };
+    // Fase 3: mengubah/menghapus absensi tanggal yang sudah lewat = koreksi Admin beralasan
+    const [dialogAlasan, mintaAlasan] = useMintaAlasan();
+    const alasanJikaLewat = async (tanggal: (string | undefined)[], title: string): Promise<string | null | undefined> => {
+        const today = hariIni();
+        if (!tanggal.some(t => t && t < today)) return undefined;
+        return mintaAlasan({ title, description: 'Absensi tanggal yang sudah lewat hanya bisa dikoreksi Admin dengan alasan. Alasan tercatat di Audit Log.' });
+    };
     const handleDelete = async (id: number) => {
-        await deleteAttendanceRecord(id);
-        NotificationStore.addNotification('Data absensi berhasil dihapus.', 'success');
+        try {
+            const rec: any = attendance.find((a: any) => String(a.id) === String(id));
+            const alasan = await alasanJikaLewat([rec?.date], 'Hapus catatan absensi');
+            if (alasan === null) return;
+            await deleteAttendanceRecord(id, alasan || undefined);
+            NotificationStore.addNotification('Data absensi berhasil dihapus.', 'success');
+        } catch (e: any) { NotificationStore.addNotification(e.message, 'error'); }
     };
     
     const sendWA = (phone: string, text: string) => {
@@ -406,9 +420,12 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
 
     const handleUpdate = async () => {
         if(!editingRecord) return;
+        const asal: any = attendance.find((a: any) => String(a.id) === String(editingRecord.id));
+        const alasan = await alasanJikaLewat([asal?.date, editingRecord.date], 'Koreksi absensi');
+        if (alasan === null) return;
         setIsSubmitting(true);
         try {
-            await updateAttendanceRecord(editingRecord.id, { status: editingRecord.status, date: editingRecord.date, waktu: editingRecord.waktu });
+            await updateAttendanceRecord(editingRecord.id, { status: editingRecord.status, date: editingRecord.date, waktu: editingRecord.waktu }, alasan || undefined);
             setIsEditModalOpen(false);
             NotificationStore.addNotification("Data absensi berhasil diperbarui.", "success");
         } catch(e:any) { NotificationStore.addNotification(e.message, "error"); }
@@ -417,6 +434,8 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
 
     const handleAddManualSubmit = async () => {
         if (!selectedStudentDetail) return;
+        const alasan = await alasanJikaLewat([newManualRecord.date], 'Tambah absensi tanggal lampau');
+        if (alasan === null) return;
         setIsSubmitting(true);
         try {
             const targetDateStr = newManualRecord.date;
@@ -441,7 +460,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                 peran: selectedStudentDetail.peran,
                 status: newManualRecord.status,
                 halaqahId: targetHalaqah?.id || 0
-            }]);
+            }], alasan || undefined);
 
             setIsAddModalOpen(false);
             NotificationStore.addNotification("Absensi berhasil ditambahkan!", "success");
@@ -571,6 +590,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 font-sans">
+            {dialogAlasan}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <Card id="chart-trend" className="lg:col-span-2 !rounded-2xl !p-6 border-slate-200 bg-white relative">
                      <div className="flex justify-between items-start mb-6">

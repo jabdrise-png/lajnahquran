@@ -9,6 +9,9 @@ import { exportToExcel } from '../../lib/utils';
 import { ALL_ATTENDANCE_STATUS } from '../../constants';
 import { Trash, Download, Filter, MoreVertical, Eye } from 'lucide-react';
 import html2canvas from 'html2canvas';
+import { NotificationStore } from '../../lib/NotificationStore';
+import { useMintaAlasan } from '../../components/ui/AlasanDialog';
+import { hariIni } from '../../lib/sesiHalaqah';
 
 interface TrenHistorisPageProps {
     showAdvancedFilters?: boolean;
@@ -23,6 +26,7 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
 }) => {
     const { attendance, deleteAttendanceBatch, loading, error, globalMarhalahs, globalWaktuHalaqah, globalAttendanceStatus, userProfile, waliKelas , masterMarhalahs, masterKelasRelasi} = useSupabaseData();
     const canDeleteSession = (userProfile?.role || '').toLowerCase() !== 'musammi';
+    const [dialogAlasan, mintaAlasan] = useMintaAlasan();
     
     // UI States
     const [localShowFilters, setLocalShowFilters] = useState(false);
@@ -189,10 +193,22 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
         if (recordsInSession.length === 0) return;
 
         const idsToDelete = recordsInSession.map(r => r.id);
-        await deleteAttendanceBatch(date, waktu, {
-            peran: selectedPeran !== 'all' ? selectedPeran : undefined,
-            ids: idsToDelete
-        });
+        // Fase 3: menghapus absensi tanggal lampau = koreksi Admin beralasan
+        let alasan: string | undefined;
+        if (date < hariIni()) {
+            const a = await mintaAlasan({ title: `Hapus absensi ${date} · ${waktu}`, description: `${idsToDelete.length} catatan akan dihapus. Absensi tanggal yang sudah lewat hanya bisa dikoreksi Admin dengan alasan.`, danger: true, confirmLabel: 'Hapus' });
+            if (a === null) return;
+            alasan = a;
+        }
+        try {
+            await deleteAttendanceBatch(date, waktu, {
+                peran: selectedPeran !== 'all' ? selectedPeran : undefined,
+                ids: idsToDelete
+            }, alasan);
+            NotificationStore.addNotification('Absensi sesi dihapus.', 'success');
+        } catch (err: any) {
+            NotificationStore.addNotification(err?.message || 'Gagal menghapus absensi.', 'error');
+        }
     };
 
     const handleDownloadChart = async () => {
@@ -213,6 +229,7 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500 font-sans">
+            {dialogAlasan}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col min-h-[500px]">
                 {/* Filters */}
                 {showAdvancedFilters && (

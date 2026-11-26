@@ -159,29 +159,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
     };
   }, [halaqah, attendance, todayStr]);
 
-  // 3. Setoran Menunggu Review
-  const pendingRecitationsKpi = useMemo(() => {
-    const pendingItems = (setoranHarian || []).filter(
-      (s: any) => s.status === 'submitted' || s.status === 'pending' || !s.status
-    );
-
-    let oldestDays = 0;
-    if (pendingItems.length > 0) {
-      const oldestDateStr = pendingItems.reduce((minDate: string, item: any) => {
-        const itemDate = item.tanggal || item.created_at?.slice(0, 10) || todayStr;
-        return itemDate < minDate ? itemDate : minDate;
-      }, todayStr);
-
-      const diffMs = new Date().getTime() - new Date(oldestDateStr).getTime();
-      oldestDays = Math.max(1, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
-    }
-
-    return {
-      count: pendingItems.length,
-      oldestDays: pendingItems.length > 0 ? oldestDays : 0
-    };
-  }, [setoranHarian, todayStr]);
-
   // 4. Halaman Disetor Pekan Ini
   const recitationsVolumeKpi = useMemo(() => {
     const now = new Date();
@@ -444,32 +421,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
       });
     }
 
-    // 3. Setoran santri menunggu review
-    const pendingRecitations = (setoranHarian || []).filter(
-      (s: any) => s.status === 'submitted' || s.status === 'pending' || !s.status
-    );
-    if (pendingRecitations.length > 0) {
+    // 3. Fase 3: setoran Rasib (diulang) 7 hari terakhir — validasi setoran sudah dihapus
+    const sepekanLalu = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+    const ulangPekanIni = (setoranHarian || []).filter((s: any) => s.is_repeat && s.tanggal >= sepekanLalu);
+    if (ulangPekanIni.length > 0) {
       list.push({
-        id: 'pending_recitations',
+        id: 'repeat_recitations',
         level: 'hari_ini',
-        levelLabel: 'Hari ini',
-        title: `${pendingRecitations.length} setoran menunggu review`,
-        subtitle: 'Validasi bacaan dan kelayakan halaman santri',
-        actionLabel: 'Review',
-        onAction: () => navigate('/app/recitations?status=submitted')
+        levelLabel: 'Pekan ini',
+        title: `${ulangPekanIni.length} setoran perlu diulang (Rasib)`,
+        subtitle: 'Setoran Rasib tidak menambah hafalan; jadwalkan ulang',
+        actionLabel: 'Lihat',
+        onAction: () => navigate('/app/recitations')
       });
     }
-
-    // 4. Pengarsipan atau Kunci Sesi
-    list.push({
-      id: 'lock_sessions',
-      level: 'rutin',
-      levelLabel: 'Rutin',
-      title: 'Kunci sesi & arsip rekap',
-      subtitle: 'Sinkronisasi riwayat absensi dan evaluasi santri',
-      actionLabel: 'Kelola sesi',
-      onAction: () => navigate('/app/sessions')
-    });
 
     return list;
   }, [halaqah, attendance, setoranHarian, todayStr, navigate, sessionKpi, santriPerluPerhatian]);

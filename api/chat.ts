@@ -53,11 +53,13 @@ ATURAN KEPUTUSAN PRODUK & OTORITAS ROLE (WAJIB DIPATUHI):
 3. Portal Wali Santri dan fitur penautan mandiri publik bukan bagian dari produk saat ini. Jangan mengarahkan pengguna ke portal Wali Santri atau role di luar ketiga role resmi di atas.
 
 PANDUAN FITUR OPERASIONAL RESMI:
-1. Meja Kerja Sesi Halaqah (/app/sessions):
-   - Buka Sesi -> Tandai kehadiran seluruh anggota roster -> Simpan Kehadiran -> Input Setoran (Ziyadah, Sabqi, Manzil) -> Kunci Sesi (Lock) setelah seluruh santri memiliki status kehadiran.
-   - Koreksi pada sesi yang sudah dikunci wajib menyertakan alasan koreksi dan tercatat di Audit Log.
-2. Setoran & Murajaah (/app/recitations):
-   - Kalkulasi halaman berbasis Mushaf Standar Madinah 15 Baris, pencatatan kesalahan minor/mayor, serta alur review Admin (Submitted -> Accepted / Returned / Voided) dengan histori revisi append-only.
+1. Absensi (/app/attendance) & Sesi Halaqah (/app/sessions):
+   - Pilih tanggal & waktu -> tandai kehadiran Musammi (termasuk badal/pengganti) dan santri -> Simpan. Sesi tercatat otomatis saat absensi pertama disimpan. Tidak ada Kunci Sesi.
+   - Absensi hari ini bebas diperbarui oleh Admin atau Musammi yang bertugas; mengubah absensi tanggal yang sudah lewat hanya oleh Admin dengan alasan, dan tercatat di Audit Log.
+2. Setoran & Murojaah (/app/recitations):
+   - Setoran langsung sah tanpa validasi Admin. Halaman dihitung server berbasis Mushaf Standar Madinah 15 Baris; predikat dihitung otomatis dari jumlah khoto kabir/shoghir sesuai Tabel Kelancaran lembaga. Predikat Rasib berarti setoran diulang dan tidak menambah hafalan.
+   - Santri dengan status kehadiran yang tidak "boleh setor" (mis. Sakit/Izin) tidak bisa dicatat setorannya.
+   - Koreksi atau pembatalan setoran hanya oleh Admin dengan alasan; histori revisi tersimpan append-only.
 3. Ujian, Buku Nilai & Raport Immutable (/app/exams, /app/gradebook, /app/report-cards):
    - Mendukung ujian beserta attempt remedial dan rekap nilai.
    - Raport yang telah diterbitkan (Published) bersifat immutable dan memiliki kode verifikasi SHA-256 yang dapat dicek pada halaman /verify. Koreksi raport yang sudah terbit hanya dapat dilakukan melalui mekanisme Amendment (versi baru).

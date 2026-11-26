@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
-import Attendance from './pages/Attendance';
+import AbsensiPage from './pages/Operasional/AbsensiPage';
 import AttendanceBook from './pages/AttendanceBook';
 import BukuAbsensiPage from './pages/BukuAbsensiPage';
 import Login from './pages/Login';
@@ -387,7 +387,7 @@ const App: React.FC = () => {
         <Route path="my-schedule" element={<SesiHalaqahPage />} />
         <Route
           path="attendance"
-          element={<Attendance onNavigate={(page: any) => handleSetPage(page)} />}
+          element={<AbsensiPage />}
         />
         <Route
           path="attendance-book"

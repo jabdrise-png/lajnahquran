@@ -140,8 +140,11 @@ export interface SetoranRow {
   waktu: string;
   kind: string;
   skema: string;
+  /** Fase 3: true bila jenis menambah hafalan DAN setoran tidak Rasib (ulang) */
   adds_memorization: boolean;
   counts_as_murojaah: boolean;
+  /** Fase 3: Rasib = ulang; tidak menambah hafalan */
+  is_repeat: boolean;
   surah_start_no: number | null;
   surah_end_no: number | null;
   surat_mulai: string;
@@ -185,8 +188,9 @@ export function recitationToSetoranRow(e: any, kinds: RecitationKind[]): Setoran
     waktu: e.session_slot,
     kind: e.kind,
     skema: kind?.name ?? e.kind,
-    adds_memorization: kind ? kind.adds_memorization : e.kind === 'ziyadah',
+    adds_memorization: (kind ? kind.adds_memorization : e.kind === 'ziyadah') && !e.is_repeat,
     counts_as_murojaah: kind ? kind.counts_as_murojaah : e.kind !== 'ziyadah',
+    is_repeat: Boolean(e.is_repeat),
     surah_start_no: s1,
     surah_end_no: s2,
     surat_mulai: n1,
@@ -212,7 +216,7 @@ export function recitationToSetoranRow(e: any, kinds: RecitationKind[]): Setoran
 /** Argumen rpc_submit_recitation_entry dari isian form bentuk lama. */
 export function setoranInputToRpcArgs(
   input: any,
-  opts: { existingEntryId?: string | null; idempotencyKey?: string | null; sessionId?: string | null } = {}
+  opts: { existingEntryId?: string | null; idempotencyKey?: string | null; sessionId?: string | null; reason?: string | null } = {}
 ) {
   const s1 = surahNo(input.surah_start_no ?? input.surat_mulai ?? firstSurahOf(input.surat));
   const s2 = surahNo(input.surah_end_no ?? (input.surat_selesai || null) ?? secondSurahOf(input.surat)) ?? s1;
@@ -236,10 +240,11 @@ export function setoranInputToRpcArgs(
     p_major_mistakes: Number(input.kesalahan_kabir ?? input.major_mistakes ?? 0) || 0,
     p_predicate: input.nilai || input.predicate || null,
     p_notes: input.keterangan || input.catatan || input.notes || null,
-    p_status: input.status === 'draft' ? 'draft' : 'submitted',
+    p_status: null, // Fase 3: setoran langsung sah (server)
     p_idempotency_key: opts.idempotencyKey ?? null,
     p_existing_entry_id: opts.existingEntryId ?? null,
     p_session_id: opts.sessionId ?? null,
+    p_reason: opts.reason ?? null,
   };
 }
 
@@ -274,6 +279,8 @@ export function attendanceToLegacy(r: any, kind: AttendanceKind, statuses: Atten
     halaqahId: r.halaqah_id === null || r.halaqah_id === undefined ? null : Number(r.halaqah_id),
     isBadal: Boolean(r.is_badal),
     badalMusammiId: r.badal_musammi_id ?? null,
+    markedByName: (r.marked_by_name as string | null) ?? null,
+    updatedAt: (r.updated_at as string | null) ?? null,
   };
 }
 

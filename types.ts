@@ -66,6 +66,8 @@ export interface Santri extends Person {
     telegram_chat_id?: string;
     tanggal_lahir?: string | null;
     asal?: string | null;
+    /** Fase 3: arah hafalan santri — 'mundur' (An-Nas → Al-Baqarah) atau 'maju'. */
+    arah_hafalan?: 'maju' | 'mundur' | string;
     musyrif_nama?: string;
     student_class_id?: number; // Added to track current class assignment
     enrollment_status?: 'active' | 'promoted' | 'transferred' | 'graduated' | 'withdrawn' | 'inactive' | 'unenrolled' | string;
@@ -191,6 +193,9 @@ export interface AttendanceRecord {
   sessionId?: string;
   isBadal?: boolean;
   badalMusammiId?: number | null;
+  /** Fase 3: nama pengubah terakhir & waktu perubahan */
+  markedByName?: string | null;
+  updatedAt?: string | null;
   date: string;
   waktu: Waktu;
   personId: number;
