@@ -1,679 +1,214 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Save, AlertCircle, Plus, Trash2 } from 'lucide-react';
+/**
+ * Fase 5 · Pengaturan Nilai (Admin).
+ *  1. Rubrik penilaian: nilai awal per juz, pengurang khoto kabir/shoghir, nilai minimum, KKM, skala predikat.
+ *     Disimpan berversi (rpc_save_rubric_version); nilai ujian lama tetap memakai rubrik saat itu.
+ *  2. Raport: bobot 3 komponen (total 100%), nama/jabatan Ketua Lajnah, kota, tanda tangan digital.
+ *  3. Penguji: musammi' penguji per halaqah untuk semester aktif ("halaqah ujian").
+ */
+import React, { useEffect, useMemo, useState } from 'react';
+import { Plus, Save, Trash2, Upload } from 'lucide-react';
 import { useSupabaseData } from '../../hooks/useSupabaseData';
 import { supabase } from '../../lib/supabaseClient';
-import { PageShell, PageHeader, StatCard, StatusBadge } from '../../components/ui/SaaSPrimitives';
 import { NotificationStore } from '../../lib/NotificationStore';
+import { tampilkanError } from '../../lib/pesanError';
+import { PageHeader, LoadingState } from '../../components/ui/SaaSPrimitives';
+import { cekBobot, nilaiJuz, predikatNilai, type Rubrik } from '../../lib/ujian';
+
+const inputCls = 'w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500';
+const Kartu: React.FC<{ judul: string; ket: string; children: React.ReactNode; aksi?: React.ReactNode }> = ({ judul, ket, children, aksi }) => (
+  <section className="rounded-xl border border-slate-200 bg-white">
+    <div className="flex flex-wrap items-start justify-between gap-3 px-5 py-4 border-b border-slate-100">
+      <div><h2 className="text-base font-bold text-slate-900">{judul}</h2><p className="text-xs text-slate-500 mt-0.5">{ket}</p></div>
+      {aksi}
+    </div>
+    <div className="p-5 space-y-4">{children}</div>
+  </section>
+);
 
 const PengaturanNilaiPage: React.FC = () => {
-    const {
-        appSettings,
-        saveMultipleAppSettings,
-        saveAppSetting,
-        loading,
-        globalPredikatNilai,
-        selectedAcademicYear,
-        getOrgId,
-        userProfile,
-    } = useSupabaseData();
+  const {
+    loading, rubrikAktif, pengaturanRaport, pengujiUjian, halaqah, musammi, selectedAcademicYear, getOrgId, fetchData,
+    simpanPengaturanRaport, tambahPenguji, hapusPenguji,
+  } = useSupabaseData();
+  const semester: string = selectedAcademicYear?.active_semester || 'Ganjil';
 
-    const [isSaving, setIsSaving] = useState(false);
-    const [newPredikatLabel, setNewPredikatLabel] = useState('');
-    const [newPredikatMinScore, setNewPredikatMinScore] = useState('');
+  // ---------- Rubrik ----------
+  const [rubrik, setRubrik] = useState<Rubrik>(rubrikAktif);
+  const [catatanVersi, setCatatanVersi] = useState('');
+  const [predBaru, setPredBaru] = useState({ label: '', min: '' });
+  const [sim, setSim] = useState({ kabir: 1, shoghir: 2 });
+  const [simpanRubrikBusy, setSimpanRubrikBusy] = useState(false);
+  useEffect(() => { setRubrik(rubrikAktif); }, [rubrikAktif]);
 
-    // Ujian Semester Settings
-    const [nilaiAwalJuz, setNilaiAwalJuz] = useState('100');
-    const [pengurangShogir, setPengurangShogir] = useState('1.25');
-    const [pengurangKabir, setPengurangKabir] = useState('5');
-    const [minNilaiJuz, setMinNilaiJuz] = useState('50');
+  const simpanRubrik = async () => {
+    if (rubrik.min_score > rubrik.initial_score) { NotificationStore.addNotification('Nilai minimum tidak boleh melebihi nilai awal.', 'error'); return; }
+    if (!rubrik.predicates.length) { NotificationStore.addNotification('Skala predikat minimal satu.', 'error'); return; }
+    setSimpanRubrikBusy(true);
+    try {
+      const orgId = await getOrgId();
+      const { error } = await (supabase as any).rpc('rpc_save_rubric_version', {
+        p_org_id: orgId, p_academic_year_id: selectedAcademicYear?.id || null, p_semester: semester,
+        p_name: catatanVersi.trim() ? `Rubrik — ${catatanVersi.trim()}` : `Rubrik Penilaian (${selectedAcademicYear?.name || ''})`,
+        p_initial_score: rubrik.initial_score, p_deduction_minor: rubrik.deduction_minor, p_deduction_major: rubrik.deduction_major,
+        p_min_score: rubrik.min_score, p_passing_score: rubrik.passing_score,
+        p_predicates: [...rubrik.predicates].sort((a, b) => b.minScore - a.minScore),
+        p_reason: catatanVersi.trim() || 'Pembaruan rubrik penilaian',
+      });
+      if (error) throw error;
+      setCatatanVersi('');
+      await fetchData();
+      NotificationStore.addNotification('Rubrik penilaian disimpan. Nilai ujian yang sudah ada tidak berubah.', 'success');
+    } catch (e) { tampilkanError(e, 'Gagal menyimpan rubrik'); } finally { setSimpanRubrikBusy(false); }
+  };
 
-    // Raport Formula
-    const [pctBulanan, setPctBulanan] = useState('40');
-    const [pctSemester, setPctSemester] = useState('50');
-    const [pctSilabus, setPctSilabus] = useState('10');
-    const [pctKehadiran, setPctKehadiran] = useState('0');
-    const [autoSilabus, setAutoSilabus] = useState('false');
+  // ---------- Raport ----------
+  const [raport, setRaport] = useState(pengaturanRaport);
+  useEffect(() => { setRaport(pengaturanRaport); }, [pengaturanRaport]);
+  const errBobot = cekBobot(raport);
+  const [simpanRaportBusy, setSimpanRaportBusy] = useState(false);
+  const simpanRaport = async () => {
+    if (errBobot) { NotificationStore.addNotification(errBobot, 'error'); return; }
+    setSimpanRaportBusy(true);
+    try {
+      await simpanPengaturanRaport({
+        bobot_semester: Number(raport.bobot_semester), bobot_bulanan: Number(raport.bobot_bulanan), bobot_kehadiran: Number(raport.bobot_kehadiran),
+        ketua_lajnah_nama: raport.ketua_lajnah_nama, ketua_lajnah_jabatan: raport.ketua_lajnah_jabatan || 'Ketua Lajnah',
+        kota_terbit: raport.kota_terbit, ttd_image: raport.ttd_image,
+      });
+      NotificationStore.addNotification('Pengaturan raport disimpan.', 'success');
+    } catch (e) { tampilkanError(e, 'Gagal menyimpan pengaturan raport'); } finally { setSimpanRaportBusy(false); }
+  };
+  const unggahTtd = (file: File) => {
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type)) { NotificationStore.addNotification('Gunakan gambar PNG/JPG/WebP (PNG latar transparan disarankan).', 'error'); return; }
+    if (file.size > 280 * 1024) { NotificationStore.addNotification('Ukuran gambar maksimal 280 KB.', 'error'); return; }
+    const r = new FileReader();
+    r.onload = () => setRaport((x) => ({ ...x, ttd_image: String(r.result) }));
+    r.readAsDataURL(file);
+  };
 
-    // Versi Rubrik (rubric_versions V2)
-    const [rubricVersions, setRubricVersions] = useState<any[]>([]);
-    const [rubricNote, setRubricNote] = useState('');
+  // ---------- Penguji ----------
+  const [penguji, setPenguji] = useState({ halaqah: '', musammi: '', jenis: 'semua' as 'semua' | 'bulanan' | 'semester' });
+  const pengujiSemester = useMemo(() => pengujiUjian.filter((p: any) => p.semester === semester), [pengujiUjian, semester]);
+  const namaHalaqah = (id: number) => halaqah.find((h) => Number(h.id) === Number(id))?.nama || `#${id}`;
+  const namaMusammi = (id: number) => musammi.find((m: any) => Number(m.id) === Number(id))?.nama || `#${id}`;
 
-    // Simulator Rubrik Real-Time (Blueprint Fase 4)
-    const [simShogir, setSimShogir] = useState(2);
-    const [simKabir, setSimKabir] = useState(1);
-    const [simAvgBulanan, setSimAvgBulanan] = useState(88);
-    const [simSilabus, setSimSilabus] = useState(90);
-    const [simKehadiran, setSimKehadiran] = useState(95);
+  if (loading) return <LoadingState label="Memuat pengaturan nilai…" />;
+  const contohNilai = nilaiJuz(rubrik, sim.kabir, sim.shoghir);
 
-    const fetchRubricVersions = async () => {
-        try {
-            const orgId = await getOrgId();
-            if (!orgId) return;
-            const { data } = await (supabase as any)
-                .from('rubric_versions')
-                .select('*')
-                .eq('organization_id', orgId)
-                .order('version_no', { ascending: false })
-                .limit(10);
-            if (data) setRubricVersions(data);
-        } catch {
-            setRubricVersions([]);
-        }
-    };
+  return (
+    <div className="space-y-6 pb-12 max-w-5xl">
+      <PageHeader title="Pengaturan Nilai" description={`Rubrik ujian, bobot raport, tanda tangan Ketua Lajnah, dan penguji · Semester ${semester} ${selectedAcademicYear?.name || ''}`} />
 
-    useEffect(() => {
-        fetchRubricVersions();
-    }, [selectedAcademicYear?.id]);
+      <Kartu judul="Rubrik Penilaian Ujian" ket={`Versi aktif: v${rubrikAktif.version_no ?? '-'} ${rubrikAktif.name ? `· ${rubrikAktif.name}` : ''}. Nilai juz = nilai awal − kabir × pengurang kabir − shoghir × pengurang shoghir (tidak di bawah nilai minimum).`}
+        aksi={<button type="button" disabled={simpanRubrikBusy} onClick={simpanRubrik} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-50"><Save size={15} /> Simpan rubrik</button>}>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {([['initial_score', 'Nilai awal / juz'], ['deduction_major', 'Pengurang kabir'], ['deduction_minor', 'Pengurang shoghir'], ['min_score', 'Nilai minimum / juz'], ['passing_score', 'KKM (lulus)']] as const).map(([k, l]) => (
+            <label key={k} className="text-xs font-semibold text-slate-600">{l}
+              <input type="number" step="any" min={0} max={100} className={`${inputCls} mt-1`} value={rubrik[k]} onChange={(e) => setRubrik({ ...rubrik, [k]: Number(e.target.value) })} />
+            </label>
+          ))}
+        </div>
+        <div>
+          <div className="text-xs font-semibold text-slate-600 mb-1.5">Skala predikat (dipakai ujian bulanan, ujian semester, dan raport)</div>
+          <div className="flex flex-wrap gap-2">
+            {[...rubrik.predicates].sort((a, b) => b.minScore - a.minScore).map((p) => (
+              <span key={p.label} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">
+                {p.label} ≥ {p.minScore}
+                <button type="button" title="Hapus" className="text-slate-400 hover:text-red-600" onClick={() => setRubrik({ ...rubrik, predicates: rubrik.predicates.filter((x) => x.label !== p.label) })}>×</button>
+              </span>
+            ))}
+          </div>
+          <div className="flex gap-2 mt-2 max-w-md">
+            <input className={inputCls} placeholder="Predikat" value={predBaru.label} onChange={(e) => setPredBaru({ ...predBaru, label: e.target.value })} />
+            <input type="number" className={`${inputCls.replace('w-full', 'w-28')}`} placeholder="Min" value={predBaru.min} onChange={(e) => setPredBaru({ ...predBaru, min: e.target.value })} />
+            <button type="button" disabled={!predBaru.label.trim() || predBaru.min === ''} className="px-3 rounded-lg bg-slate-800 text-white disabled:opacity-50"
+              onClick={() => { setRubrik({ ...rubrik, predicates: [...rubrik.predicates.filter((x) => x.label !== predBaru.label.trim()), { label: predBaru.label.trim(), minScore: Number(predBaru.min) }] }); setPredBaru({ label: '', min: '' }); }}><Plus size={14} /></button>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm">
+          <span className="font-semibold text-slate-600">Coba:</span> kabir
+          <input type="number" min={0} className={`${inputCls.replace('w-full', 'w-20')}`} value={sim.kabir} onChange={(e) => setSim({ ...sim, kabir: Number(e.target.value) || 0 })} /> shoghir
+          <input type="number" min={0} className={`${inputCls.replace('w-full', 'w-20')}`} value={sim.shoghir} onChange={(e) => setSim({ ...sim, shoghir: Number(e.target.value) || 0 })} />
+          → nilai juz <b>{contohNilai}</b> ({predikatNilai(rubrik, contohNilai)}{contohNilai < rubrik.passing_score ? ', perlu remedial' : ''})
+        </div>
+        <label className="block text-xs font-semibold text-slate-600 max-w-md">Catatan versi (opsional)
+          <input className={`${inputCls} mt-1`} value={catatanVersi} onChange={(e) => setCatatanVersi(e.target.value)} placeholder="mis. Pengurang shoghir dinaikkan" />
+        </label>
+      </Kartu>
 
-    useEffect(() => {
-        if (!loading) {
-            setNilaiAwalJuz(appSettings.find((s) => s.key === 'NILAI_AWAL_JUZ')?.value || '100');
-            setPengurangShogir(appSettings.find((s) => s.key === 'PENGURANG_KHOTO_SHOGIR')?.value || '1.25');
-            setPengurangKabir(appSettings.find((s) => s.key === 'PENGURANG_KHOTO_KABIR')?.value || '5');
-            setMinNilaiJuz(appSettings.find((s) => s.key === 'MIN_NILAI_JUZ')?.value || '50');
+      <Kartu judul="Raport" ket="Raport per semester terdiri dari 3 komponen dengan bobot total 100%. Raport tidak bisa terbit bila komponen berbobot > 0 masih kosong."
+        aksi={<button type="button" disabled={simpanRaportBusy || Boolean(errBobot)} onClick={simpanRaport} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-50"><Save size={15} /> Simpan raport</button>}>
+        <div className="grid grid-cols-3 gap-3 max-w-xl">
+          {([['bobot_semester', 'Ujian semester (%)'], ['bobot_bulanan', 'Rata-rata ujian bulanan (%)'], ['bobot_kehadiran', 'Kehadiran (%)']] as const).map(([k, l]) => (
+            <label key={k} className="text-xs font-semibold text-slate-600">{l}
+              <input type="number" min={0} max={100} step="any" className={`${inputCls} mt-1`} value={raport[k]} onChange={(e) => setRaport({ ...raport, [k]: Number(e.target.value) })} />
+            </label>
+          ))}
+        </div>
+        <p className={`text-xs ${errBobot ? 'text-rose-700' : 'text-emerald-700'}`}>{errBobot || `Total ${Number(raport.bobot_semester) + Number(raport.bobot_bulanan) + Number(raport.bobot_kehadiran)}% ✓`}</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <label className="text-xs font-semibold text-slate-600">Nama Ketua Lajnah
+            <input className={`${inputCls} mt-1`} value={raport.ketua_lajnah_nama || ''} onChange={(e) => setRaport({ ...raport, ketua_lajnah_nama: e.target.value })} />
+          </label>
+          <label className="text-xs font-semibold text-slate-600">Jabatan
+            <input className={`${inputCls} mt-1`} value={raport.ketua_lajnah_jabatan || ''} onChange={(e) => setRaport({ ...raport, ketua_lajnah_jabatan: e.target.value })} />
+          </label>
+          <label className="text-xs font-semibold text-slate-600">Kota (di atas tanggal raport)
+            <input className={`${inputCls} mt-1`} value={raport.kota_terbit || ''} onChange={(e) => setRaport({ ...raport, kota_terbit: e.target.value })} />
+          </label>
+        </div>
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="h-24 w-56 rounded-lg border border-dashed border-slate-300 bg-slate-50 flex items-center justify-center overflow-hidden">
+            {raport.ttd_image ? <img src={raport.ttd_image} alt="Tanda tangan Ketua Lajnah" className="max-h-full max-w-full object-contain mix-blend-multiply" /> : <span className="text-xs text-slate-400">Belum ada tanda tangan</span>}
+          </div>
+          <div className="space-y-2">
+            <label className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-700 cursor-pointer">
+              <Upload size={15} /> Unggah tanda tangan
+              <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => e.target.files?.[0] && unggahTtd(e.target.files[0])} />
+            </label>
+            {raport.ttd_image && <button type="button" className="block text-xs font-semibold text-rose-600" onClick={() => setRaport({ ...raport, ttd_image: null })}>Hapus tanda tangan</button>}
+            <p className="text-[11px] text-slate-400 max-w-xs">PNG latar transparan, maks. 280 KB. Tanda tangan tersimpan di server lembaga (bukan di perangkat ini) dan hanya tercetak pada raport yang sudah terbit.</p>
+          </div>
+        </div>
+      </Kartu>
 
-            setPctBulanan(appSettings.find((s) => s.key === 'PCT_UJIAN_BULANAN')?.value || '40');
-            setPctSemester(appSettings.find((s) => s.key === 'PCT_UJIAN_SEMESTER')?.value || '50');
-            setPctSilabus(appSettings.find((s) => s.key === 'PCT_SILABUS')?.value || '10');
-            setPctKehadiran(appSettings.find((s) => s.key === 'PCT_KEHADIRAN')?.value || '0');
-            setAutoSilabus(appSettings.find((s) => s.key === 'AUTO_SILABUS_SCORE')?.value || 'false');
-        }
-    }, [appSettings, loading]);
-
-    const handleSavePredikat = async () => {
-        if (!newPredikatLabel || !newPredikatMinScore) return;
-        setIsSaving(true);
-        try {
-            const newList = [...(globalPredikatNilai || [])];
-            newList.push({ label: newPredikatLabel, minScore: Number(newPredikatMinScore) });
-            newList.sort((a, b) => b.minScore - a.minScore);
-            await saveAppSetting('GLOBAL_PREDIKAT_NILAI', JSON.stringify(newList));
-            setNewPredikatLabel('');
-            setNewPredikatMinScore('');
-            NotificationStore.addNotification('Skala predikat nilai berhasil ditambahkan.', 'success');
-        } catch (e: any) {
-            NotificationStore.addNotification(e.message || 'Gagal menambah predikat.', 'error');
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const handleDeletePredikat = async (label: string) => {
-        setIsSaving(true);
-        try {
-            const newList = (globalPredikatNilai || []).filter((p) => p.label !== label);
-            await saveAppSetting('GLOBAL_PREDIKAT_NILAI', JSON.stringify(newList));
-            NotificationStore.addNotification(`Predikat ${label} dihapus.`, 'info');
-        } catch (e: any) {
-            NotificationStore.addNotification(e.message || 'Gagal menghapus predikat.', 'error');
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const handleSave = async () => {
-        const totalPct =
-            Number(pctBulanan) + Number(pctSemester) + Number(pctSilabus) + Number(pctKehadiran);
-        if (totalPct !== 100) {
-            NotificationStore.addNotification(
-                `Total persentase bobot raport wajib 100% (saat ini: ${totalPct}%).`,
-                'error'
-            );
-            return;
-        }
-
-        setIsSaving(true);
-        try {
-            await saveMultipleAppSettings([
-                { key: 'NILAI_AWAL_JUZ', value: String(nilaiAwalJuz) },
-                { key: 'PENGURANG_KHOTO_SHOGIR', value: String(pengurangShogir) },
-                { key: 'PENGURANG_KHOTO_KABIR', value: String(pengurangKabir) },
-                { key: 'MIN_NILAI_JUZ', value: String(minNilaiJuz) },
-                { key: 'PCT_UJIAN_BULANAN', value: String(pctBulanan) },
-                { key: 'PCT_UJIAN_SEMESTER', value: String(pctSemester) },
-                { key: 'PCT_SILABUS', value: String(pctSilabus) },
-                { key: 'PCT_KEHADIRAN', value: String(pctKehadiran) },
-                { key: 'AUTO_SILABUS_SCORE', value: autoSilabus },
-            ]);
-
-            // Simpan snapshot versi rubrik baru ke tabel V2 rubric_versions via canonical RPC + audit_logs
-            try {
-                const orgId = await getOrgId();
-                if (orgId) {
-                    const versionName = rubricNote.trim()
-                        ? `Rubrik — ${rubricNote.trim()}`
-                        : `Rubrik Penilaian (${selectedAcademicYear?.name || 'Global'})`;
-
-                    const { error: rpcErr } = await (supabase as any).rpc('rpc_save_rubric_version', {
-                        p_org_id: orgId,
-                        p_academic_year_id: selectedAcademicYear?.id || null,
-                        p_semester: selectedAcademicYear?.active_semester || 'Ganjil',
-                        p_name: versionName,
-                        p_initial_score: Number(nilaiAwalJuz) || 100,
-                        p_deduction_minor: Number(pengurangShogir) || 1.25,
-                        p_deduction_major: Number(pengurangKabir) || 5,
-                        p_min_score: Number(minNilaiJuz) || 50,
-                        p_passing_score: 70,
-                        p_predicates: globalPredikatNilai || [],
-                        p_reason: rubricNote.trim() || 'Pembaruan Rubrik Penilaian'
-                    });
-
-                    if (rpcErr) {
-                        const nextVersionNo =
-                            rubricVersions.length > 0
-                                ? Math.max(...rubricVersions.map((r) => Number(r.version_no) || 1)) + 1
-                                : 1;
-
-                        await (supabase as any)
-                            .from('rubric_versions')
-                            .update({ is_active: false })
-                            .eq('organization_id', orgId);
-
-                        await (supabase as any).from('rubric_versions').insert({
-                            organization_id: orgId,
-                            academic_year_id: selectedAcademicYear?.id || null,
-                            semester_name: selectedAcademicYear?.active_semester || 'Ganjil',
-                            version_no: nextVersionNo,
-                            name: versionName,
-                            initial_score: Number(nilaiAwalJuz) || 100,
-                            deduction_minor: Number(pengurangShogir) || 1.25,
-                            deduction_major: Number(pengurangKabir) || 5,
-                            min_score: Number(minNilaiJuz) || 50,
-                            passing_score: 70,
-                            predicates: globalPredikatNilai || [],
-                            is_active: true,
-                            created_by: userProfile?.id || null,
-                        });
-                    }
-
-                    await fetchRubricVersions();
-                    setRubricNote('');
-                }
-            } catch {
-                // Abaikan bila tabel rubric_versions belum dimigrasikan
-            }
-
-            NotificationStore.addNotification(
-                'Versi rubrik & formula penilaian berhasil disimpan dan diterbitkan.',
-                'success'
-            );
-        } catch (e: any) {
-            NotificationStore.addNotification('Gagal menyimpan: ' + e.message, 'error');
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const totalPersentase =
-        Number(pctBulanan) + Number(pctSemester) + Number(pctSilabus) + Number(pctKehadiran);
-
-    // Kalkulasi Simulator Rubrik Real-Time
-    const simulationResult = useMemo(() => {
-        const base = Number(nilaiAwalJuz) || 100;
-        const pShogir = Number(pengurangShogir) || 1.25;
-        const pKabir = Number(pengurangKabir) || 5;
-        const minDrop = Number(minNilaiJuz) || 50;
-
-        const simJuzScore = Math.max(
-            minDrop,
-            Number((base - simShogir * pShogir - simKabir * pKabir).toFixed(2))
-        );
-
-        const finalRaportScore = Number(
-            (
-                simAvgBulanan * (Number(pctBulanan) / 100) +
-                simJuzScore * (Number(pctSemester) / 100) +
-                simSilabus * (Number(pctSilabus) / 100) +
-                simKehadiran * (Number(pctKehadiran) / 100)
-            ).toFixed(2)
-        );
-
-        const sortedPredicates = [...(globalPredikatNilai || [])].sort(
-            (a, b) => b.minScore - a.minScore
-        );
-        const matchedPredikat =
-            sortedPredicates.find((p) => finalRaportScore >= p.minScore)?.label || 'Rasib';
-
-        return {
-            simJuzScore,
-            finalRaportScore,
-            matchedPredikat,
-        };
-    }, [
-        nilaiAwalJuz,
-        pengurangShogir,
-        pengurangKabir,
-        minNilaiJuz,
-        pctBulanan,
-        pctSemester,
-        pctSilabus,
-        pctKehadiran,
-        simShogir,
-        simKabir,
-        simAvgBulanan,
-        simSilabus,
-        simKehadiran,
-        globalPredikatNilai,
-    ]);
-
-    if (loading) return <div className="p-6 text-sm text-slate-500">Memuat rubrik penilaian...</div>;
-
-    return (
-        <PageShell>
-            <PageHeader
-                kicker="STANDARISASI MUTU AKADEMIK (FASE 4)"
-                title="Rubrik Penilaian Berversi & Simulator Formula Raport"
-                description="Konfigurasi pengurang kesalahan ujian per juz, bobot komponen raport akhir, skala predikat, serta simulasi perhitungan sebelum diterbitkan sebagai versi rubrik resmi."
-                actions={
-                    <button
-                        type="button"
-                        onClick={handleSave}
-                        disabled={isSaving || totalPersentase !== 100}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors disabled:opacity-50"
-                    >
-                        <Save size={15} />
-                        {isSaving ? 'Menyimpan Versi Rubrik...' : 'Terbitkan Versi Rubrik'}
-                    </button>
-                }
-            />
-
-            {/* Ringkasan Versi & Simulasi */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard
-                    label="Versi Rubrik Aktif"
-                    value={`v${rubricVersions[0]?.version_no || 1}`}
-                    meta={rubricVersions[0]?.name || 'Konfigurasi Standar Lembaga'}
-                    tone="primary"
-                />
-                <StatCard
-                    label="Total Bobot Komponen"
-                    value={`${totalPersentase}%`}
-                    meta={totalPersentase === 100 ? 'Valid (Tepat 100%)' : 'Wajib berjumlah 100%'}
-                    tone={totalPersentase === 100 ? 'success' : 'danger'}
-                />
-                <StatCard
-                    label="Hasil Simulasi Skor Juz"
-                    value={simulationResult.simJuzScore}
-                    meta={`${simShogir} Shogir · ${simKabir} Kabir`}
-                    tone="neutral"
-                />
-                <StatCard
-                    label="Simulasi Nilai Akhir Raport"
-                    value={`${simulationResult.finalRaportScore} (${simulationResult.matchedPredikat})`}
-                    meta="Berdasarkan parameter di bawah"
-                    tone="success"
-                />
+      <Kartu judul={`Penguji Ujian · Semester ${semester}`} ket="Selain musammi' halaqahnya sendiri, Admin dapat menugaskan musammi' lain sebagai penguji untuk seluruh santri satu halaqah (halaqah ujian).">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
+          <label className="text-xs font-semibold text-slate-600">Halaqah
+            <select className={`${inputCls} mt-1`} value={penguji.halaqah} onChange={(e) => setPenguji({ ...penguji, halaqah: e.target.value })}>
+              <option value="">— pilih —</option>
+              {halaqah.filter((h) => !h.is_archived).map((h) => <option key={h.id} value={h.id}>{h.nama}</option>)}
+            </select>
+          </label>
+          <label className="text-xs font-semibold text-slate-600">Musammi' penguji
+            <select className={`${inputCls} mt-1`} value={penguji.musammi} onChange={(e) => setPenguji({ ...penguji, musammi: e.target.value })}>
+              <option value="">— pilih —</option>
+              {musammi.map((m: any) => <option key={m.id} value={m.id}>{m.nama}{m.user_id ? '' : ' (belum punya akun)'}</option>)}
+            </select>
+          </label>
+          <label className="text-xs font-semibold text-slate-600">Ujian
+            <select className={`${inputCls} mt-1`} value={penguji.jenis} onChange={(e) => setPenguji({ ...penguji, jenis: e.target.value as any })}>
+              <option value="semua">Bulanan & semester</option><option value="bulanan">Bulanan saja</option><option value="semester">Semester saja</option>
+            </select>
+          </label>
+          <button type="button" disabled={!penguji.halaqah || !penguji.musammi} className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-50"
+            onClick={async () => {
+              try { await tambahPenguji(Number(penguji.halaqah), Number(penguji.musammi), penguji.jenis); setPenguji({ halaqah: '', musammi: '', jenis: 'semua' }); NotificationStore.addNotification('Penguji ditambahkan.', 'success'); }
+              catch (e) { tampilkanError(e, 'Gagal menambah penguji'); }
+            }}><Plus size={15} /> Tambah</button>
+        </div>
+        <div className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+          {pengujiSemester.length === 0 && <p className="px-3 py-3 text-sm text-slate-400">Belum ada penugasan. Musammi' tetap bisa menguji santri halaqahnya sendiri.</p>}
+          {pengujiSemester.map((p: any) => (
+            <div key={p.id} className="flex items-center gap-2 px-3 py-2 text-sm">
+              <span className="flex-1"><b>{namaMusammi(p.musammi_id)}</b> menguji <b>{namaHalaqah(p.halaqah_id)}</b> <span className="text-slate-400">· {p.exam_type === 'semua' ? 'bulanan & semester' : p.exam_type}</span></span>
+              <button type="button" title="Hapus" className="text-slate-400 hover:text-red-600" onClick={() => hapusPenguji(p.id).catch((e) => tampilkanError(e, 'Gagal menghapus penguji'))}><Trash2 size={14} /></button>
             </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                {/* Kolom Kiri: Komponen Ujian & Bobot Raport */}
-                <div className="lg:col-span-7 space-y-6">
-                    <div className="bg-white p-5 rounded-xl border border-slate-200 space-y-4">
-                        <div className="border-b border-slate-200 pb-3">
-                            <h2 className="text-base font-bold text-slate-900">
-                                1. Parameter Penilaian Ujian Semester (Per Juz)
-                            </h2>
-                            <p className="text-xs text-slate-500 mt-0.5">
-                                Digunakan untuk menghitung skor per juz dari jumlah kesalahan kecil (shogir) dan besar (kabir).
-                            </p>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                                    Nilai Awal / Maksimal Per Juz
-                                </label>
-                                <input
-                                    type="number"
-                                    value={nilaiAwalJuz}
-                                    onChange={(e) => setNilaiAwalJuz(e.target.value)}
-                                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono tabular-nums"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                                    Batas Nilai Minimal (Floor Score)
-                                </label>
-                                <input
-                                    type="number"
-                                    value={minNilaiJuz}
-                                    onChange={(e) => setMinNilaiJuz(e.target.value)}
-                                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono tabular-nums text-red-700"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                                    Pengurangan Khoto Shogir (Salah Kecil)
-                                </label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    value={pengurangShogir}
-                                    onChange={(e) => setPengurangShogir(e.target.value)}
-                                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono tabular-nums"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                                    Pengurangan Khoto Kabir (Salah Besar)
-                                </label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    value={pengurangKabir}
-                                    onChange={(e) => setPengurangKabir(e.target.value)}
-                                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono tabular-nums"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-5 rounded-xl border border-slate-200 space-y-4">
-                        <div className="border-b border-slate-200 pb-3 flex items-center justify-between">
-                            <div>
-                                <h2 className="text-base font-bold text-slate-900">
-                                    2. Bobot Formula Nilai Akhir Raport (%)
-                                </h2>
-                                <p className="text-xs text-slate-500 mt-0.5">
-                                    Total persentase keempat komponen wajib berjumlah tepat 100%.
-                                </p>
-                            </div>
-                            <StatusBadge
-                                label={`TOTAL: ${totalPersentase}%`}
-                                tone={totalPersentase === 100 ? 'success' : 'danger'}
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                                    Bobot Rata-rata Ujian Bulanan (%)
-                                </label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    max="100"
-                                    value={pctBulanan}
-                                    onChange={(e) => setPctBulanan(e.target.value)}
-                                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono tabular-nums"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                                    Bobot Ujian Semester (%)
-                                </label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    max="100"
-                                    value={pctSemester}
-                                    onChange={(e) => setPctSemester(e.target.value)}
-                                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono tabular-nums"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                                    Bobot Ketercapaian Target Silabus (%)
-                                </label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    max="100"
-                                    value={pctSilabus}
-                                    onChange={(e) => setPctSilabus(e.target.value)}
-                                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono tabular-nums"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                                    Bobot Persentase Kehadiran Sesi (%)
-                                </label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    max="100"
-                                    value={pctKehadiran}
-                                    onChange={(e) => setPctKehadiran(e.target.value)}
-                                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono tabular-nums"
-                                />
-                            </div>
-                        </div>
-
-                        <label className="flex items-start gap-3 cursor-pointer p-3.5 border border-slate-200 rounded-lg bg-slate-50/70">
-                            <input
-                                type="checkbox"
-                                checked={autoSilabus === 'true'}
-                                onChange={(e) => setAutoSilabus(e.target.checked ? 'true' : 'false')}
-                                className="mt-0.5 w-4 h-4 text-blue-600 border-slate-300 rounded"
-                            />
-                            <div>
-                                <div className="text-xs font-bold text-slate-800">
-                                    Hitung Otomatis Nilai Silabus dari Capaian vs Target Kelas
-                                </div>
-                                <div className="text-[11px] text-slate-500 mt-0.5">
-                                    Bila diaktifkan, nilai silabus dihitung otomatis dari rasio Total Hafalan santri terhadap Target Hafalan kelas (maksimal 100).
-                                </div>
-                            </div>
-                        </label>
-
-                        <div>
-                            <label className="block text-xs font-semibold text-slate-700 mb-1">
-                                Catatan Perubahan Versi Rubrik (Opsional)
-                            </label>
-                            <input
-                                type="text"
-                                value={rubricNote}
-                                onChange={(e) => setRubricNote(e.target.value)}
-                                placeholder="Contoh: Penyesuaian bobot kehadiran semester genap..."
-                                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs"
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Kolom Kanan: Simulator Rubrik & Skala Predikat */}
-                <div className="lg:col-span-5 space-y-6">
-                    <div className="bg-white p-5 rounded-xl border border-slate-200 space-y-4">
-                        <div className="border-b border-slate-200 pb-3">
-                            <h2 className="text-base font-bold text-slate-900">
-                                Simulator Perhitungan Rubrik
-                            </h2>
-                            <p className="text-xs text-slate-500 mt-0.5">
-                                Uji dampak perubahan rumus terhadap nilai akhir dan predikat santri.
-                            </p>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                                    Simulasi Salah Shogir
-                                </label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    value={simShogir}
-                                    onChange={(e) => setSimShogir(Math.max(0, Number(e.target.value)))}
-                                    className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-mono tabular-nums"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                                    Simulasi Salah Kabir
-                                </label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    value={simKabir}
-                                    onChange={(e) => setSimKabir(Math.max(0, Number(e.target.value)))}
-                                    className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-mono tabular-nums"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                                    Rata-rata Ujian Bulanan
-                                </label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    max="100"
-                                    value={simAvgBulanan}
-                                    onChange={(e) => setSimAvgBulanan(Number(e.target.value))}
-                                    className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-mono tabular-nums"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                                    Skor Silabus / Target
-                                </label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    max="100"
-                                    value={simSilabus}
-                                    onChange={(e) => setSimSilabus(Number(e.target.value))}
-                                    className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-mono tabular-nums"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200 space-y-2 text-xs">
-                            <div className="flex justify-between">
-                                <span className="text-slate-600">Skor Ujian Semester (Simulasi):</span>
-                                <span className="font-mono font-bold text-slate-900 tabular-nums">
-                                    {simulationResult.simJuzScore}
-                                </span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-slate-600">Nilai Akhir Raport:</span>
-                                <span className="font-mono font-bold text-blue-700 tabular-nums">
-                                    {simulationResult.finalRaportScore}
-                                </span>
-                            </div>
-                            <div className="flex justify-between items-center pt-1 border-t border-slate-200">
-                                <span className="text-slate-600">Predikat Kelulusan:</span>
-                                <StatusBadge label={simulationResult.matchedPredikat} tone="success" />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Skala Predikat Nilai */}
-                    <div className="bg-white p-5 rounded-xl border border-slate-200 space-y-4">
-                        <div className="border-b border-slate-200 pb-3">
-                            <h2 className="text-base font-bold text-slate-900">
-                                3. Skala Predikat Nilai
-                            </h2>
-                        </div>
-
-                        <div className="flex gap-2">
-                            <input
-                                type="text"
-                                value={newPredikatLabel}
-                                onChange={(e) => setNewPredikatLabel(e.target.value)}
-                                placeholder="Nama Predikat (mis. Mumtaz)"
-                                className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-xs"
-                            />
-                            <input
-                                type="number"
-                                value={newPredikatMinScore}
-                                onChange={(e) => setNewPredikatMinScore(e.target.value)}
-                                placeholder="Min Skor"
-                                className="w-24 border border-slate-300 rounded-lg px-2.5 py-2 text-xs font-mono tabular-nums"
-                            />
-                            <button
-                                type="button"
-                                onClick={handleSavePredikat}
-                                disabled={!newPredikatLabel || !newPredikatMinScore || isSaving}
-                                className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold disabled:opacity-50"
-                            >
-                                <Plus size={15} />
-                            </button>
-                        </div>
-
-                        <ul className="border border-slate-200 rounded-lg divide-y divide-slate-200 max-h-52 overflow-auto">
-                            {(globalPredikatNilai || []).map((p) => (
-                                <li
-                                    key={p.label}
-                                    className="px-3.5 py-2.5 flex items-center justify-between text-xs hover:bg-slate-50"
-                                >
-                                    <span className="font-semibold text-slate-800">{p.label}</span>
-                                    <div className="flex items-center gap-3">
-                                        <span className="font-mono text-slate-600 tabular-nums">
-                                            ≥ {p.minScore}
-                                        </span>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleDeletePredikat(p.label)}
-                                            className="text-slate-400 hover:text-red-600"
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
-                                    </div>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                </div>
-            </div>
-
-            {/* Riwayat Versi Rubrik (rubric_versions) */}
-            {rubricVersions.length > 0 && (
-                <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                    <div className="px-5 py-3.5 border-b border-slate-200">
-                        <h3 className="text-sm font-bold text-slate-900">
-                            Riwayat Versi Rubrik Penilaian (Immutable Version History)
-                        </h3>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs">
-                            <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
-                                <tr>
-                                    <th className="px-5 py-3">Versi</th>
-                                    <th className="px-5 py-3">Nama / Catatan</th>
-                                    <th className="px-5 py-3">Parameter Pengurang Juz</th>
-                                    <th className="px-5 py-3">Status</th>
-                                    <th className="px-5 py-3 text-right">Diterbitkan Pada</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-200">
-                                {rubricVersions.map((rv) => {
-                                    const w = rv.weights_json || {};
-                                    const initScore = rv.initial_score ?? w.nilai_awal_juz ?? 100;
-                                    const dedMajor = rv.deduction_major ?? w.pengurang_kabir ?? 5;
-                                    const dedMinor = rv.deduction_minor ?? w.pengurang_shogir ?? 1.25;
-                                    const isActive = rv.is_active ?? (rv.status === 'published');
-                                    const pubDate = rv.published_at || rv.created_at;
-                                    return (
-                                        <tr key={rv.id} className="hover:bg-slate-50">
-                                            <td className="px-5 py-3 font-mono font-bold text-slate-900 tabular-nums">
-                                                v{rv.version_no}
-                                            </td>
-                                            <td className="px-5 py-3 font-medium text-slate-800">
-                                                {rv.name}
-                                            </td>
-                                            <td className="px-5 py-3 font-mono text-slate-600 tabular-nums">
-                                                Awal {initScore} | Kabir -{dedMajor} | Shogir -{dedMinor}
-                                            </td>
-                                            <td className="px-5 py-3">
-                                                <StatusBadge
-                                                    label={isActive ? 'ACTIVE' : 'ARCHIVED'}
-                                                    tone={isActive ? 'success' : 'neutral'}
-                                                />
-                                            </td>
-                                            <td className="px-5 py-3 text-right font-mono text-slate-500 tabular-nums">
-                                                {pubDate
-                                                    ? new Date(pubDate).toLocaleString('id-ID')
-                                                    : '-'}
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
-        </PageShell>
-    );
+          ))}
+        </div>
+      </Kartu>
+    </div>
+  );
 };
 
 export default PengaturanNilaiPage;

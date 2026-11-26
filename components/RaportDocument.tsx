@@ -1,57 +1,49 @@
-import React from 'react';
+/**
+ * Fase 5 · Dokumen raport (tata letak mengikuti raport lama).
+ * 3 komponen: ujian semester (per juz), rata-rata ujian bulanan, kehadiran — bobot lembaga (total 100%).
+ * Tanda tangan digital Ketua Lajnah + ruang tanda tangan wali santri. Raport yang sudah terbit
+ * dicetak dari snapshot (kode verifikasi tercetak); yang belum terbit diberi tanda DRAF.
+ */
 import { MarhalahLabel, KelasLabel } from './Labels';
 
-export const calculateJuzScore = (shogir: number = 0, kabir: number = 0, settings: any): number => {
-    const nilaiAwal = Number(settings?.nilaiAwalJuz) || 100;
-    const pengurangShogir = Number(settings?.pengurangShogir) || 1.25;
-    const pengurangKabir = Number(settings?.pengurangKabir) || 5;
-    const minNilai = Number(settings?.minNilaiJuz) || 50;
-    const score = nilaiAwal - (shogir * pengurangShogir) - (kabir * pengurangKabir);
-    return Math.max(minNilai, score);
+export interface DataRaport {
+  santri: { id: number; nama: string; marhalah?: string; kelas?: string; marhalah_id?: string; kelas_id?: string };
+  juz: { juz: number; kabir: number; shoghir: number; nilai?: number | null }[];
+  bulanan: { ke: number; label?: string; nilai: number | null }[];
+  nilaiSemester: number | null;
+  rataBulanan: number | null;
+  kehadiran: number | null;
+  bobot: { semester: number; bulanan: number; kehadiran: number };
+  nilaiAkhir: number | null;
+  predikat: string | null;
+  catatan?: string | null;
+  info?: { target_hafalan?: string; hafalan_depan?: string; hafalan_belakang?: string; total_hafalan?: string };
+  terbit?: { versi: number; kode: string; tanggal: string } | null;
+}
+
+export interface TandaTanganRaport {
+  nama?: string | null;
+  jabatan?: string | null;
+  kota?: string | null;
+  gambar?: string | null;
+}
+
+const angka = (v: number | null | undefined, persen = false) =>
+  v === null || v === undefined || !Number.isFinite(Number(v)) ? '-' : `${String(Math.round(Number(v) * 100) / 100)}${persen ? '%' : ''}`;
+
+const tanggalIndonesia = (iso?: string) => {
+  const d = iso ? new Date(iso) : new Date();
+  return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 };
 
-export const getPredikat = (nilai: number, globalPredikat: { label: string; minScore: number }[]) => {
-    if (!globalPredikat || globalPredikat.length === 0) {
-        if (nilai >= 90) return 'MUMTAZ';
-        if (nilai >= 80) return 'JAYYID JIDDAN';
-        if (nilai >= 70) return 'JAYYID';
-        if (nilai >= 60) return 'MAQBUL';
-        return 'RASIB';
-    }
-    const match = globalPredikat.find(p => nilai >= p.minScore);
-    return match ? match.label.toUpperCase() : globalPredikat[globalPredikat.length - 1].label.toUpperCase();
-};
-
-export const parseJuzList = (materi: string): number[] => {
-    const result = new Set<number>();
-    if (!materi) return [];
-    const parts = materi.split(',').map(p => p.trim());
-    for (const part of parts) {
-        if (part.includes('-')) {
-            const [start, end] = part.split('-').map(Number);
-            if (!isNaN(start) && !isNaN(end)) {
-                const s = Math.min(start, end);
-                const e = Math.max(start, end);
-                for (let i = Math.max(1, s); i <= Math.min(100, e); i++) {
-                    result.add(i);
-                }
-            }
-        } else {
-            const val = Number(part);
-            if (!isNaN(val) && val >= 1 && val <= 100) {
-                result.add(val);
-            }
-        }
-    }
-    return Array.from(result).sort((a, b) => a - b);
-};
-
-const RaportDocument = ({ d, selectedSemester, selectedAcademicYear, orgName, orgLogo, settings, signatureImage }: any) => {
-    const juzList = parseJuzList(d.materiSem);
-
+const RaportDocument = ({ d, semester, tahunAjaran, orgName, ttd, verifyUrl }: {
+    d: DataRaport; semester: string; tahunAjaran: string; orgName: string; ttd: TandaTanganRaport; verifyUrl?: string;
+}) => {
+    const juzList = [...d.juz].sort((a, b) => a.juz - b.juz);
     const half = Math.ceil(juzList.length / 2);
     const leftJuz = juzList.slice(0, half);
     const rightJuz = juzList.slice(half);
+    const draf = !d.terbit;
 
     return (
         <div className="raport-doc">
@@ -138,35 +130,34 @@ const RaportDocument = ({ d, selectedSemester, selectedAcademicYear, orgName, or
                     <tr><td colSpan={8}></td></tr>
 
                     {/* Header */}
-                    <tr><td colSpan={8} className="rpt-border rpt-center rpt-middle rpt-bold">LAPORAN HASIL UJIAN HIFDZUL QUR'AN</td></tr>
-                    <tr><td colSpan={8} className="rpt-border rpt-center rpt-middle rpt-bold">SEMESTER {selectedSemester ? selectedSemester.toUpperCase().replace('GANJIL', 'GASAL') : 'GASAL'} TAHUN AJARAN {selectedAcademicYear?.name || ''}</td></tr>
+                    <tr><td colSpan={8} className="rpt-border rpt-center rpt-middle rpt-bold">LAPORAN HASIL UJIAN HIFDZUL QUR'AN{draf ? ' — DRAF' : ''}</td></tr>
+                    <tr><td colSpan={8} className="rpt-border rpt-center rpt-middle rpt-bold">SEMESTER {(semester || 'Ganjil').toUpperCase().replace('GANJIL', 'GASAL')} TAHUN AJARAN {tahunAjaran || ''}</td></tr>
                     <tr><td colSpan={8} className="rpt-border rpt-center rpt-middle rpt-bold">{orgName ? orgName.toUpperCase() : "LEMBAGA TAHFIDZUL QUR'AN"}</td></tr>
 
                     <tr><td colSpan={8}></td></tr>
 
-                    {/* Student Info */}
+                    {/* Identitas */}
                     <tr>
                         <td className="rpt-border rpt-bold">Nama:</td>
                         <td colSpan={7} className="rpt-border">{d.santri.nama}</td>
                     </tr>
                     <tr>
                         <td className="rpt-border rpt-bold">Kelas:</td>
-                        <td colSpan={7} className="rpt-border"><MarhalahLabel text={d.santri.marhalah} id={d.santri.marhalah_id} /> <KelasLabel text={d.santri.kelas} id={d.santri.kelas_id} /></td>
+                        <td colSpan={7} className="rpt-border"><MarhalahLabel text={d.santri.marhalah as any} id={d.santri.marhalah_id} /> <KelasLabel text={d.santri.kelas as any} id={d.santri.kelas_id} /></td>
                     </tr>
 
                     <tr><td colSpan={8}></td></tr>
 
-                    {/* Ujian Bulanan */}
-                    {d.blns.map((b: any, i: number) => (
-                        <tr key={`bln-${i}`}>
-                            <td colSpan={6} className="rpt-border">Ujian Bulanan Ke-{b.ke}</td>
-                            <td colSpan={2} className="rpt-border rpt-center">{b.nilai !== null ? (Number.isInteger(b.nilai) ? b.nilai : b.nilai.toFixed(2)) : '-'}</td>
+                    {/* Ujian bulanan */}
+                    {d.bulanan.map((b) => (
+                        <tr key={`bln-${b.ke}`}>
+                            <td colSpan={6} className="rpt-border">Ujian Bulanan Ke-{b.ke}{b.label && !/^Ujian Bulanan/i.test(b.label) ? ` (${b.label})` : ''}</td>
+                            <td colSpan={2} className="rpt-border rpt-center">{angka(b.nilai)}</td>
                         </tr>
                     ))}
+                    {d.bulanan.length > 0 && <tr><td colSpan={8}></td></tr>}
 
-                    {d.blns.length > 0 && <tr><td colSpan={8}></td></tr>}
-
-                    {/* Juz Headers */}
+                    {/* Ujian semester per juz */}
                     <tr>
                         <td rowSpan={2} className="rpt-border rpt-center rpt-middle rpt-bold">Juz</td>
                         <td colSpan={2} className="rpt-border rpt-center rpt-middle rpt-bold">Kesalahan</td>
@@ -181,133 +172,109 @@ const RaportDocument = ({ d, selectedSemester, selectedAcademicYear, orgName, or
                         <td className="rpt-border rpt-center rpt-middle rpt-bold">Kabir</td>
                         <td className="rpt-border rpt-center rpt-middle rpt-bold">Shogir</td>
                     </tr>
-
-                    {/* Juz Data */}
-                    {leftJuz.length > 0 ? (
-                        leftJuz.map((juzL: number, index: number) => {
-                            const juzR = rightJuz[index];
-
-                            const sL = d.us?.khoto_shogir?.[juzL] || 0;
-                            const kL = d.us?.khoto_kabir?.[juzL] || 0;
-                            const isCustomL = d.us?.is_custom_nilai?.[juzL];
-                            const customL = d.us?.custom_nilai?.[juzL] || 0;
-                            const scoreL = isCustomL ? customL : calculateJuzScore(sL, kL, settings);
-                            
-                            let sR = 0, kR = 0, scoreR: number | null = null;
-                            if (juzR !== undefined) {
-                                sR = d.us?.khoto_shogir?.[juzR] || 0;
-                                kR = d.us?.khoto_kabir?.[juzR] || 0;
-                                const isCustomR = d.us?.is_custom_nilai?.[juzR];
-                                const customR = d.us?.custom_nilai?.[juzR] || 0;
-                                scoreR = isCustomR ? customR : calculateJuzScore(sR, kR, settings);
-                            }
-
-                            return (
-                                <tr key={`juz-${index}`}>
-                                    <td className="rpt-border rpt-center">Juz {juzL}</td>
-                                    <td className="rpt-border rpt-center">{kL}</td>
-                                    <td className="rpt-border rpt-center">{sL}</td>
-                                    <td className="rpt-border rpt-center">{scoreL.toFixed(0) === scoreL.toString() ? scoreL : scoreL.toFixed(2)}</td>
-
-                                    <td className="rpt-border rpt-center">{juzR !== undefined ? `Juz ${juzR}` : ''}</td>
-                                    <td className="rpt-border rpt-center">{juzR !== undefined ? kR : ''}</td>
-                                    <td className="rpt-border rpt-center">{juzR !== undefined ? sR : ''}</td>
-                                    <td className="rpt-border rpt-center">{scoreR !== null ? (scoreR.toFixed(0) === scoreR.toString() ? scoreR : scoreR.toFixed(2)) : ''}</td>
-                                </tr>
-                            );
-                        })
-                    ) : (
-                        <tr>
-                            <td colSpan={8} className="rpt-border rpt-center" style={{ whiteSpace: 'normal', fontStyle: 'italic', fontSize: '11px' }}>Belum ada materi / nilai semester</td>
-                        </tr>
+                    {leftJuz.length > 0 ? leftJuz.map((l, i) => {
+                        const r = rightJuz[i];
+                        return (
+                            <tr key={`juz-${l.juz}`}>
+                                <td className="rpt-border rpt-center">Juz {l.juz}</td>
+                                <td className="rpt-border rpt-center">{l.kabir}</td>
+                                <td className="rpt-border rpt-center">{l.shoghir}</td>
+                                <td className="rpt-border rpt-center">{angka(l.nilai)}</td>
+                                <td className="rpt-border rpt-center">{r ? `Juz ${r.juz}` : ''}</td>
+                                <td className="rpt-border rpt-center">{r ? r.kabir : ''}</td>
+                                <td className="rpt-border rpt-center">{r ? r.shoghir : ''}</td>
+                                <td className="rpt-border rpt-center">{r ? angka(r.nilai) : ''}</td>
+                            </tr>
+                        );
+                    }) : (
+                        <tr><td colSpan={8} className="rpt-border rpt-center" style={{ whiteSpace: 'normal', fontStyle: 'italic', fontSize: '11px' }}>Belum ada nilai ujian semester</td></tr>
                     )}
-
-                    {/* RATA-RATA NILAI */}
                     <tr>
-                        <td colSpan={6} className="rpt-border rpt-bold">RATA-RATA NILAI</td>
-                        <td colSpan={2} className="rpt-border rpt-center rpt-bold">{d.valSem !== null ? (Number.isInteger(d.valSem) ? d.valSem : d.valSem.toFixed(2)) : '-'}</td>
+                        <td colSpan={6} className="rpt-border rpt-bold">RATA-RATA NILAI UJIAN SEMESTER</td>
+                        <td colSpan={2} className="rpt-border rpt-center rpt-bold">{angka(d.nilaiSemester)}</td>
                     </tr>
 
                     <tr><td colSpan={8}></td></tr>
 
-                    {/* Rekapitulasi Akhir */}
+                    {/* Rekapitulasi: 3 komponen raport + hafalan */}
                     <tr>
-                        <td colSpan={2} className="rpt-border">Nilai Pencapaian Hafalan</td>
-                        <td colSpan={2} className="rpt-border rpt-center">{settings?.pctSilabus === 0 ? '-' : (d.nilaiSilabus !== null ? d.nilaiSilabus.toFixed(2) : '-')}</td>
+                        <td colSpan={2} className="rpt-border">Ujian semester ({d.bobot.semester}%)</td>
+                        <td colSpan={2} className="rpt-border rpt-center">{angka(d.nilaiSemester)}</td>
                         <td colSpan={2} className="rpt-border">Target hafalan</td>
-                        <td colSpan={2} className="rpt-border rpt-center">{d.targetHafalan || '-'}</td>
+                        <td colSpan={2} className="rpt-border rpt-center">{d.info?.target_hafalan || '-'}</td>
                     </tr>
                     <tr>
-                        <td colSpan={2} className="rpt-border">Rata-rata ujian bulanan</td>
-                        <td colSpan={2} className="rpt-border rpt-center">{settings?.pctBulanan === 0 ? '-' : (d.avgBln !== null ? d.avgBln.toFixed(2) : '-')}</td>
+                        <td colSpan={2} className="rpt-border">Rata-rata ujian bulanan ({d.bobot.bulanan}%)</td>
+                        <td colSpan={2} className="rpt-border rpt-center">{d.bobot.bulanan > 0 ? angka(d.rataBulanan) : '-'}</td>
                         <td colSpan={2} className="rpt-border">Hafalan depan</td>
-                        <td colSpan={2} className="rpt-border rpt-center">{d.hafalanDepan || '-'}</td>
+                        <td colSpan={2} className="rpt-border rpt-center">{d.info?.hafalan_depan || '-'}</td>
                     </tr>
                     <tr>
-                        <td colSpan={2} className="rpt-border">Ujian semester</td>
-                        <td colSpan={2} className="rpt-border rpt-center">{settings?.pctSemester === 0 ? '-' : (d.valSem !== null ? d.valSem.toFixed(2) : '-')}</td>
-                        <td colSpan={2} className="rpt-border">Hafalan Belakang</td>
-                        <td colSpan={2} className="rpt-border rpt-center">{d.hafalanBelakang || '-'}</td>
+                        <td colSpan={2} className="rpt-border">Tingkat kehadiran ({d.bobot.kehadiran}%)</td>
+                        <td colSpan={2} className="rpt-border rpt-center">{d.bobot.kehadiran > 0 || d.kehadiran !== null ? angka(d.kehadiran, true) : '-'}</td>
+                        <td colSpan={2} className="rpt-border">Hafalan belakang</td>
+                        <td colSpan={2} className="rpt-border rpt-center">{d.info?.hafalan_belakang || '-'}</td>
                     </tr>
                     <tr>
-                        <td colSpan={2} className="rpt-border">Tingkat Kehadiran</td>
-                        <td colSpan={2} className="rpt-border rpt-center">{settings?.pctKehadiran === 0 ? '-' : (d.pctKehadiran !== null ? d.pctKehadiran.toFixed(2) + '%' : '-')}</td>
+                        <td colSpan={4} className="rpt-border"></td>
                         <td colSpan={2} className="rpt-border">Total hafalan</td>
-                        <td colSpan={2} className="rpt-border rpt-center">{d.totalHafalan || '-'}</td>
+                        <td colSpan={2} className="rpt-border rpt-center">{d.info?.total_hafalan || '-'}</td>
                     </tr>
-
-                    {/* NILAI AKHIR RAPORT TAHFIDZ */}
                     <tr>
                         <td colSpan={4} className="rpt-border rpt-bold">NILAI AKHIR RAPORT TAHFIDZ</td>
-                        <td colSpan={4} className="rpt-border rpt-center rpt-bold">{d.finalScore !== null ? d.finalScore.toFixed(2) : '-'} {d.predikat ? `(${d.predikat})` : ''}</td>
+                        <td colSpan={4} className="rpt-border rpt-center rpt-bold">{angka(d.nilaiAkhir)} {d.predikat ? `(${d.predikat.toUpperCase()})` : ''}</td>
                     </tr>
 
                     <tr><td colSpan={8}></td></tr>
 
-                    {/* Catatan Box */}
+                    {/* Catatan */}
                     <tr>
-                        <td colSpan={8} rowSpan={4} className="rpt-border rpt-top-left" style={{ whiteSpace: 'pre-wrap', height: '120px' }}>
-        <span className="rpt-bold">Catatan:</span><br/>
-        <div style={{ marginTop: '4px', fontWeight: 'normal' }}>{d.us?.catatan || ''}</div>
-    </td>
-                    </tr>
-                    <tr></tr>
-                    <tr></tr>
-                    <tr></tr>
-
-                    {/* Ruang kosong sebelum tanda tangan */}
-                    <tr><td colSpan={8}></td></tr>
-                    <tr><td colSpan={8}></td></tr>
-                    <tr><td colSpan={8}></td></tr>
-                    <tr><td colSpan={8}></td></tr>
-                    <tr><td colSpan={8}></td></tr>
-
-                    {/* Signatures */}
-                    <tr>
-                        <td colSpan={1}></td>
-                        <td colSpan={2} className="rpt-border-top rpt-center" style={{ position: 'relative', overflow: 'visible' }}>
-                            {signatureImage && (
-                                <img
-                                    src={signatureImage}
-                                    alt="Tanda Tangan Lajnah"
-                                    style={{
-                                        position: 'absolute',
-                                        bottom: '100%',
-                                        left: '50%',
-                                        transform: 'translateX(-50%)',
-                                        height: '110px',
-                                        maxWidth: '200px',
-                                        marginBottom: '-8px',
-                                        objectFit: 'contain',
-                                        mixBlendMode: 'multiply'
-                                    }}
-                                />
-                            )}
-                            Lajnah Al-quran
+                        <td colSpan={8} rowSpan={4} className="rpt-border rpt-top-left" style={{ whiteSpace: 'pre-wrap', height: '110px' }}>
+                            <span className="rpt-bold">Catatan:</span><br />
+                            <div style={{ marginTop: '4px', fontWeight: 'normal' }}>{d.catatan || ''}</div>
                         </td>
-                        <td colSpan={2}></td>
-                        <td colSpan={2} className="rpt-border-top rpt-center">Wali Santri</td>
+                    </tr>
+                    <tr></tr>
+                    <tr></tr>
+                    <tr></tr>
+
+                    {/* Tempat & tanggal */}
+                    <tr><td colSpan={8}></td></tr>
+                    <tr>
+                        <td colSpan={5}></td>
+                        <td colSpan={3} className="rpt-center">{ttd.kota ? `${ttd.kota}, ` : ''}{tanggalIndonesia(d.terbit?.tanggal)}</td>
+                    </tr>
+                    <tr>
                         <td colSpan={1}></td>
+                        <td colSpan={2} className="rpt-center">Wali Santri,</td>
+                        <td colSpan={2}></td>
+                        <td colSpan={2} className="rpt-center">{ttd.jabatan || 'Ketua Lajnah'},</td>
+                        <td colSpan={1}></td>
+                    </tr>
+                    {/* Ruang tanda tangan */}
+                    <tr><td colSpan={8}></td></tr>
+                    <tr><td colSpan={8}></td></tr>
+                    <tr><td colSpan={8}></td></tr>
+                    <tr>
+                        <td colSpan={1}></td>
+                        <td colSpan={2} className="rpt-border-top rpt-center">( ........................................ )</td>
+                        <td colSpan={2}></td>
+                        <td colSpan={2} className="rpt-border-top rpt-center" style={{ position: 'relative', overflow: 'visible' }}>
+                            {ttd.gambar && !draf && (
+                                <img src={ttd.gambar} alt="Tanda tangan Ketua Lajnah"
+                                    style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', height: '90px', maxWidth: '200px', marginBottom: '-6px', objectFit: 'contain', mixBlendMode: 'multiply' }} />
+                            )}
+                            {ttd.nama || '........................................'}
+                        </td>
+                        <td colSpan={1}></td>
+                    </tr>
+                    <tr><td colSpan={8}></td></tr>
+                    <tr>
+                        <td colSpan={8} className="rpt-center" style={{ fontSize: '10px', color: '#475569', whiteSpace: 'normal' }}>
+                            {d.terbit
+                                ? `Raport resmi v${d.terbit.versi} · Kode verifikasi: ${d.terbit.kode}${verifyUrl ? ` · cek keaslian di ${verifyUrl}` : ''}`
+                                : 'DRAF — belum diterbitkan, tidak berlaku sebagai raport resmi'}
+                        </td>
                     </tr>
                 </tbody>
             </table>

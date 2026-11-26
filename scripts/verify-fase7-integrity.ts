@@ -35,42 +35,41 @@ const ujianBulananPage = fs.readFileSync(ujianBulananPagePath, 'utf-8');
 const pengaturanNilaiPage = fs.readFileSync(pengaturanNilaiPagePath, 'utf-8');
 const rekapNilaiPage = fs.readFileSync(rekapNilaiPagePath, 'utf-8');
 const verifyReportPage = fs.readFileSync(verifyReportPagePath, 'utf-8');
+// Fase 5 v2 (30-11-2026): exam_attempts = satu sumber nilai ujian (tabel ujian lama diarsipkan),
+// nilai & raport dihitung server. Perilaku diuji nyata di tests/v2/f5-database.test.ts.
+const f5Rpc = fs.readFileSync(path.resolve(process.cwd(), 'database/migrations/2026_11_30_02_f5_rpc_ujian_raport.sql'), 'utf-8');
+const f5Migrasi = fs.readFileSync(path.resolve(process.cwd(), 'database/migrations/2026_11_30_03_f5_migrasi_ujian_lama.sql'), 'utf-8');
+const hookCode = fs.readFileSync(path.resolve(process.cwd(), 'hooks/useSupabaseData.tsx'), 'utf-8');
 
 // -----------------------------------------------------------------------------
 // Test Case 1: Ujian Bulanan (exam_attempts + ujian_bulanan sync)
 // -----------------------------------------------------------------------------
-test('FASE7-01', 'Ujian Bulanan tersinkronisasi ke exam_attempts V2 kanonikal dan ujian_bulanan legacy', () => {
-  const hasSqlRpc = hardeningSql.includes('ELSIF v_exam_type = \'monthly\' THEN') &&
-                    hardeningSql.includes('INSERT INTO public.ujian_bulanan') &&
-                    hardeningSql.includes('ON CONFLICT (santri_id, periode)');
-  const hasFrontendSync = ujianBulananPage.includes('rpc_record_exam_attempt') &&
-                          ujianBulananPage.includes('p_exam_type: \'monthly\'') &&
-                          ujianBulananPage.includes('saveUjianBulanan');
-  return hasSqlRpc && hasFrontendSync;
+test('FASE7-01', 'Ujian Bulanan tersimpan di exam_attempts (satu sumber) per ujian bulanan ke-n', () => {
+  return f5Rpc.includes('create or replace function public.rpc_simpan_ujian(') &&
+         f5Rpc.includes('Pilih ujian bulanan (ke-berapa) pada semester ini.') &&
+         f5Migrasi.includes('revoke select, insert, update, delete on public.ujian_bulanan from anon, authenticated;') &&
+         ujianBulananPage.includes("jenis: 'bulanan'") && hookCode.includes("rpcUjian('rpc_simpan_ujian'") &&
+         !ujianBulananPage.includes('saveUjianBulanan');
 });
 
 // -----------------------------------------------------------------------------
 // Test Case 2: Ujian Semester (exam_attempts + ujian_semester sync)
 // -----------------------------------------------------------------------------
-test('FASE7-02', 'Ujian Semester tersinkronisasi ke exam_attempts V2 kanonikal dan ujian_semester legacy', () => {
-  const hasSqlRpc = hardeningSql.includes('IF v_exam_type = \'semester\' THEN') &&
-                    hardeningSql.includes('INSERT INTO public.ujian_semester') &&
-                    hardeningSql.includes('ON CONFLICT (santri_id, academic_year_id, semester)');
-  const hasFrontendSync = ujianSemesterPage.includes('rpc_record_exam_attempt') &&
-                          ujianSemesterPage.includes('p_exam_type: \'semester\'');
-  return hasSqlRpc && hasFrontendSync;
+test('FASE7-02', 'Ujian Semester: khoto per juz, nilai dihitung server dari rubrik, tersimpan di exam_attempts', () => {
+  return f5Rpc.includes('public.fn_nilai_juz(v_rubric, v_k, v_s)') &&
+         f5Rpc.includes("Isi khoto kabir & shoghir minimal untuk satu juz.") &&
+         f5Migrasi.includes('revoke select, insert, update, delete on public.ujian_semester from anon, authenticated;') &&
+         ujianSemesterPage.includes("jenis: 'semester'");
 });
 
 // -----------------------------------------------------------------------------
 // Test Case 3: Remedial (attempt bertambah, attempt lama TIDAK DITIMPA)
 // -----------------------------------------------------------------------------
-test('FASE7-03', 'Remedial menaikkan attempt_no atomik tanpa menimpa histori attempt lama', () => {
-  const hasAtomicAttemptBump = hardeningSql.includes('v_next_attempt := v_max_attempt + 1;') &&
-                               hardeningSql.includes('v_is_remedial := (p_is_remedial IS TRUE) OR (v_next_attempt > 1);');
-  const hasInsertOnlyAttempt = hardeningSql.includes('INSERT INTO public.exam_attempts') &&
-                               !hardeningSql.includes('ON CONFLICT (organization_id, academic_year_id, semester_name, exam_type, santri_id) DO UPDATE');
-  const hasFrontendFlag = ujianSemesterPage.includes('p_is_remedial: isRemedialAttempt');
-  return hasAtomicAttemptBump && hasInsertOnlyAttempt && hasFrontendFlag;
+test('FASE7-03', 'Remedial = percobaan baru (attempt_no naik), percobaan lama tidak ditimpa; koreksi Admin membatalkan, tidak menghapus', () => {
+  return f5Rpc.includes("Remedial hanya untuk santri yang sudah punya nilai.") &&
+         f5Rpc.includes("update public.exam_attempts set status = 'voided'") &&
+         !f5Rpc.includes('delete from public.exam_attempts') &&
+         ujianSemesterPage.includes("buka(s, 'remedial')");
 });
 
 // -----------------------------------------------------------------------------
@@ -101,13 +100,11 @@ test('FASE7-05', 'Rubrik penilaian membuat versi baru (version bump) jika versi 
 // -----------------------------------------------------------------------------
 // Test Case 6: Perhitungan Nilai (bobot, nilai kosong, konsistensi)
 // -----------------------------------------------------------------------------
-test('FASE7-06', 'Kalkulasi nilai akhir gradebook transparan, konsisten, dan memiliki predikat dinamis', () => {
-  const hasFormula = rekapNilaiPage.includes('avgBln * (settings.pctBulanan / 100)') &&
-                     rekapNilaiPage.includes('valSem * (settings.pctSemester / 100)') &&
-                     rekapNilaiPage.includes('nilaiSilabus * (settings.pctSilabus / 100)') &&
-                     rekapNilaiPage.includes('pctKehadiran * (settings.pctKehadiran / 100)');
-  const hasPredikat = rekapNilaiPage.includes('getPredikat(finalScore, globalPredikatNilai)');
-  return hasFormula && hasPredikat;
+test('FASE7-06', 'Nilai akhir raport dihitung server: 3 komponen berbobot (total 100%), predikat dari rubrik', () => {
+  return f5Rpc.includes('create or replace function public.fn_komponen_raport(') &&
+         f5Rpc.includes('v_bs * v_semester.final_score') &&
+         f5Rpc.includes('public.fn_predikat_nilai(v_rubric, v_akhir)') &&
+         rekapNilaiPage.includes('komponenRaport(') && !rekapNilaiPage.includes('pctSilabus');
 });
 
 // -----------------------------------------------------------------------------
@@ -180,11 +177,9 @@ test('FASE7-12', 'Verifikasi publik menyensor nama santri untuk pengguna anonim 
 // -----------------------------------------------------------------------------
 // Test Case 13: Laporan dan Export Konsisten
 // -----------------------------------------------------------------------------
-test('FASE7-13', 'Export Excel dan tampilan layar menggunakan data terfilter, kalkulasi nilai akhir, dan predikat yang identik', () => {
-  const hasConsistentSource = rekapNilaiPage.includes('const dataToExport = sortedRekapData.map(');
-  const hasExportPredikat = rekapNilaiPage.includes('row[\'Predikat\'] = d.predikat;');
-  const hasExportNilaiAkhir = rekapNilaiPage.includes('row[\'Nilai Akhir\'] = d.finalScore;');
-  return hasConsistentSource && hasExportPredikat && hasExportNilaiAkhir;
+test('FASE7-13', 'Export Excel dan tampilan layar memakai komponen raport yang sama dari server', () => {
+  return rekapNilaiPage.includes('const ekspor = () => exportToExcel(baris.map(') &&
+         rekapNilaiPage.includes("'Nilai Akhir': k.nilai_akhir") && rekapNilaiPage.includes('Predikat: k.predikat');
 });
 
 // -----------------------------------------------------------------------------

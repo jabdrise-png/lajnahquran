@@ -140,6 +140,19 @@ const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
+  // Fase 5: musammi' penguji mengisi ujian halaqahnya (bulanan & semester)
+  if (canonicalRole === 'musammi') {
+    tenantNav.push({
+      id: 'ujian_raport_group',
+      label: 'Ujian',
+      icon: <Book size={18} />,
+      children: [
+        { id: 'ujian_bulanan', label: 'Ujian Bulanan', page: 'UjianBulanan' },
+        { id: 'ujian_semester', label: 'Ujian Semester', page: 'UjianSemester' },
+      ]
+    });
+  }
+
   if (canonicalRole === 'admin' || canonicalRole === 'superadmin') {
     tenantNav.push(
       {
@@ -150,7 +163,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           { id: 'ujian_bulanan', label: 'Ujian Bulanan', page: 'UjianBulanan' },
           { id: 'ujian_semester', label: 'Ujian Semester', page: 'UjianSemester' },
           { id: 'rekap_nilai', label: 'Buku Nilai & Raport', page: 'RekapNilai' },
-          { id: 'pengaturan_nilai', label: 'Rubrik & Komponen Nilai', page: 'PengaturanNilai' },
+          { id: 'pengaturan_nilai', label: 'Pengaturan Nilai', page: 'PengaturanNilai' },
         ]
       },
       { id: 'g_sistem', label: 'STRUKTUR & SISTEM', isGroup: true },

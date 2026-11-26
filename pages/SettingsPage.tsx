@@ -166,8 +166,6 @@ const SettingsPage: React.FC = () => {
 
     // Data Referensi states
     const [newRefMarhalah, setNewRefMarhalah] = useState('');
-    const [newPredikatLabel, setNewPredikatLabel] = useState('');
-    const [newPredikatMinScore, setNewPredikatMinScore] = useState('');
 
     const fetchSecretMetadata = async () => {
         try {
@@ -400,37 +398,6 @@ const SettingsPage: React.FC = () => {
         }
     };
 
-
-    const handleSavePredikat = async () => {
-        if (!newPredikatLabel.trim() || !newPredikatMinScore) return;
-        if (globalPredikatNilai.some(p => p.label === newPredikatLabel.trim())) {
-            NotificationStore.addNotification('Predikat sudah ada.', 'error');
-            return;
-        }
-        setIsSaving(true);
-        try {
-            const updated = [...globalPredikatNilai, { label: newPredikatLabel.trim(), minScore: Number(newPredikatMinScore) }];
-            updated.sort((a, b) => b.minScore - a.minScore);
-            await saveAppSetting('GLOBAL_PREDIKAT_NILAI', JSON.stringify(updated));
-            setNewPredikatLabel('');
-            setNewPredikatMinScore('');
-            NotificationStore.addNotification('Predikat berhasil ditambahkan.', 'success');
-        } catch (e: any) {
-            NotificationStore.addNotification('Gagal menyimpan: ' + e.message, 'error');
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const handleDeletePredikat = async (labelToDelete: string) => {
-        try {
-            const updated = globalPredikatNilai.filter(v => v.label !== labelToDelete);
-            await saveAppSetting('GLOBAL_PREDIKAT_NILAI', JSON.stringify(updated));
-            NotificationStore.addNotification(`Predikat "${labelToDelete}" dihapus.`, 'info');
-        } catch (e: any) {
-            NotificationStore.addNotification('Gagal menghapus: ' + e.message, 'error');
-        }
-    };
 
     if (loading) return (
         <div className="flex items-center justify-center p-12 text-slate-500">
@@ -730,30 +697,15 @@ const SettingsPage: React.FC = () => {
             <>
                 <section className="mt-6 space-y-6">
 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
-                        <h2 className="text-base font-bold text-slate-800">Data Predikat Nilai Global</h2>
-                        <p className="text-xs text-slate-500 mt-1">Atur predikat (MUMTAZ, JAYYID, dll) beserta batas nilai minimumnya.</p>
-                    </div>
-                    <div className="p-6">
-                        <div className="flex flex-col sm:flex-row gap-3 mb-6 bg-slate-50 p-4 rounded-lg border border-slate-100">
-                            <input type="text" value={newPredikatLabel} onChange={e => setNewPredikatLabel(e.target.value)} placeholder="Label Predikat (ex: MUMTAZ JIDDAN)" className="flex-1 px-4 py-2 text-sm border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm bg-white" />
-                            <input type="number" value={newPredikatMinScore} onChange={e => setNewPredikatMinScore(e.target.value)} placeholder="Skor Minimum (ex: 95)" className="w-full sm:w-48 px-4 py-2 text-sm border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm bg-white" />
-                            <button onClick={handleSavePredikat} disabled={!newPredikatLabel || !newPredikatMinScore || isSaving} className="bg-slate-800 text-white w-10 h-10 flex items-center justify-center rounded-lg shadow-sm hover:bg-slate-900 transition-all disabled:opacity-50 shrink-0">
-                                <Plus size={20} strokeWidth={2.5} />
-                            </button>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                            {globalPredikatNilai.map((p, index) => (
-                                <div key={index} className="flex justify-between items-center bg-white border border-slate-200 rounded-lg p-3 shadow-sm hover:border-slate-300 transition-colors">
-                                    <div>
-                                        <div className="font-bold text-slate-800 text-sm">{p.label}</div>
-                                        <div className="text-xs text-slate-500 mt-0.5">Min: {p.minScore}</div>
-                                    </div>
-                                    <button onClick={() => handleDeletePredikat(p.label)} className="text-slate-400 hover:text-red-600 p-1.5 rounded-md hover:bg-red-50 transition-colors">
-                                        <Trash2 size={16} />
-                                    </button>
-                                </div>
+                    <div className="px-6 py-5">
+                        <h2 className="text-base font-bold text-slate-800">Predikat Nilai Ujian & Raport</h2>
+                        <p className="text-xs text-slate-500 mt-1">
+                            Skala predikat (Mumtaz, Jayyid, …), KKM, dan rumus nilai juz kini diatur di <b>Ujian &amp; Raport &gt; Pengaturan Nilai</b>
+                            dan berlaku untuk ujian bulanan, ujian semester, dan raport.
+                        </p>
+                        <div className="flex flex-wrap gap-2 mt-3">
+                            {globalPredikatNilai.map((p) => (
+                                <span key={p.label} className="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">{p.label} ≥ {p.minScore}</span>
                             ))}
                         </div>
                     </div>

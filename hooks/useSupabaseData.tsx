@@ -12,6 +12,10 @@ import {
     fieldKePertanyaanHalaqah, formKeHalaqahEvaluation,
     type EvaluationPeriod, type PeriodFormField, type PeriodRecap, type PeriodForm,
 } from '../lib/rekapAdapter';
+import {
+    normalisasiRubrik, normalisasiPercobaan, RUBRIK_BAWAAN, PENGATURAN_RAPORT_BAWAAN,
+    type Rubrik, type PercobaanUjian, type PeriodeUjianBulanan, type PengaturanRaport,
+} from '../lib/ujian';
 import { NotificationStore } from '../lib/NotificationStore';
 import {
     recitationToSetoranRow, setoranInputToRpcArgs, attendanceToLegacy, attendanceInputToRpcRecords, isUuid,
@@ -43,8 +47,13 @@ const useSupabaseDataInternal = () => {
     const [orgLogo, setOrgLogo] = useState<string>('');
     
     // Ujian states
-    const [ujianBulanan, setUjianBulanan] = useState<any[]>([]);
-    const [ujianSemester, setUjianSemester] = useState<any[]>([]);
+    // Fase 5: nilai ujian dari exam_attempts (satu sumber), pengaturan raport & rubrik
+    const [examAttempts, setExamAttempts] = useState<PercobaanUjian[]>([]);
+    const [periodeUjianBulanan, setPeriodeUjianBulanan] = useState<PeriodeUjianBulanan[]>([]);
+    const [rubrikAktif, setRubrikAktif] = useState<Rubrik>(RUBRIK_BAWAAN);
+    const [pengaturanRaport, setPengaturanRaport] = useState<PengaturanRaport>(PENGATURAN_RAPORT_BAWAAN);
+    const [pengujiUjian, setPengujiUjian] = useState<any[]>([]);
+    const [catatanRaport, setCatatanRaport] = useState<any[]>([]);
     // Fase 2: setoran dari recitation_entries (bentuk baris lama lewat lib/v2Adapter)
     const [setoranHarian, setSetoranHarian] = useState<SetoranRow[]>([]);
     // Fase 2: tabel referensi per lembaga
@@ -59,7 +68,6 @@ const useSupabaseDataInternal = () => {
     const [periodFormFields, setPeriodFormFields] = useState<PeriodFormField[]>([]);
     const [periodRecaps, setPeriodRecaps] = useState<PeriodRecap[]>([]);
     const [periodForms, setPeriodForms] = useState<PeriodForm[]>([]);
-    const [silabusScores, setSilabusScores] = useState<any[]>([]);
     
     const [activeSemesterDates, setActiveSemesterDates] = useState<{ startDate: string | null; endDate: string | null }>({ startDate: null, endDate: null });
     const [studentEnrollments, setStudentEnrollments] = useState<any[]>([]);
@@ -257,17 +265,23 @@ const useSupabaseDataInternal = () => {
             const [
                 { data: recapsData },
                 { data: formsData },
-                { data: silabusData },
-                { data: ujianBulananData },
-                { data: ujianSemesterData }
+                { data: attemptsData },
+                { data: periodeUjianData },
+                { data: rubrikData },
+                { data: raportSetData },
+                { data: pengujiData },
+                { data: catatanData }
             ] = await Promise.all([
                 fetchRecaps(),
                 yearPeriodIds.length
                     ? executeTableQuery('period_forms', (supabase as any).from('period_forms').select('*').eq('organization_id', orgId).in('period_id', yearPeriodIds).limit(5000), [], { optionalTransitionTable: true })
                     : Promise.resolve({ data: [] as any[], error: null }),
-                executeTableQuery('silabus_scores', (supabase as any).from('silabus_scores').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(10000), [], { optionalTransitionTable: true }),
-                executeTableQuery('ujian_bulanan', (supabase as any).from('ujian_bulanan').select('*').eq('organization_id', orgId).limit(10000), []),
-                executeTableQuery('ujian_semester', (supabase as any).from('ujian_semester').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(10000), [])
+                executeTableQuery('exam_attempts', (supabase as any).from('exam_attempts').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).order('attempt_no', { ascending: true }).limit(20000), []),
+                executeTableQuery('monthly_exam_periods', (supabase as any).from('monthly_exam_periods').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).order('ke', { ascending: true }), [], { optionalTransitionTable: true }),
+                executeTableQuery('rubric_versions', (supabase as any).from('rubric_versions').select('*').eq('organization_id', orgId).eq('is_active', true).order('version_no', { ascending: false }).limit(1), []),
+                executeTableQuery('raport_settings', (supabase as any).from('raport_settings').select('*').eq('organization_id', orgId).limit(1), [], { optionalTransitionTable: true }),
+                executeTableQuery('exam_assignments', (supabase as any).from('exam_assignments').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id), [], { optionalTransitionTable: true }),
+                executeTableQuery('raport_catatan', (supabase as any).from('raport_catatan').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(10000), [], { optionalTransitionTable: true })
             ]);
             const fieldsList: PeriodFormField[] = ((fieldsData as any[]) || []).map(normalisasiField);
             const recapsList: PeriodRecap[] = ((recapsData as any[]) || []).map(normalisasiRekap);
@@ -276,7 +290,6 @@ const useSupabaseDataInternal = () => {
             setPeriodFormFields(fieldsList);
             setPeriodRecaps(recapsList);
             setPeriodForms(formsList);
-            setSilabusScores((silabusData as any[]) || []);
 
             // Fetch active semester dates from canonical V2 `semesters` table first, fallback to `app_settings`
             const currSemName = selectedAcademicYear.active_semester || 'Ganjil';
@@ -479,8 +492,13 @@ const useSupabaseDataInternal = () => {
             setHalaqahEvalQuestions(fieldKePertanyaanHalaqah(fieldsList));
             setHalaqahEvaluations(formKeHalaqahEvaluation(formsList));
             setAppSettings((appSettingsData as unknown as any[]) || []);
-            setUjianBulanan(ujianBulananData || []);
-            setUjianSemester(ujianSemesterData || []);
+            setExamAttempts(((attemptsData as any[]) || []).map(normalisasiPercobaan));
+            setPeriodeUjianBulanan(((periodeUjianData as any[]) || []).map((p: any) => ({ ...p, academic_year_id: Number(p.academic_year_id), ke: Number(p.ke) })));
+            setRubrikAktif(normalisasiRubrik((rubrikData as any[])?.[0]));
+            const rs = (raportSetData as any[])?.[0];
+            setPengaturanRaport(rs ? { ...rs, bobot_semester: Number(rs.bobot_semester), bobot_bulanan: Number(rs.bobot_bulanan), bobot_kehadiran: Number(rs.bobot_kehadiran) } : PENGATURAN_RAPORT_BAWAAN);
+            setPengujiUjian((pengujiData as any[]) || []);
+            setCatatanRaport((catatanData as any[]) || []);
             setSetoranHarian(setoranHarianData || []);
             setMasterKelas(mkData);
             setMasterMarhalahs(masterMarhalahData || []);
@@ -1112,26 +1130,7 @@ const useSupabaseDataInternal = () => {
         return data;
     };
 
-    /** Nilai Silabus Hafalan per semester (raport). */
-    const simpanNilaiSilabus = useCallback(async (rows: { santri_id: number; score: number | null }[], semester: string) => {
-        const orgId = await getOrgId();
-        if (!selectedAcademicYear?.id) throw new Error('Pilih tahun ajaran dulu.');
-        const isi = rows.filter(r => r.score !== null && r.score !== undefined && !Number.isNaN(Number(r.score)));
-        const kosong = rows.filter(r => r.score === null || r.score === undefined || Number.isNaN(Number(r.score)));
-        if (isi.length > 0) {
-            const { error } = await (supabase as any).from('silabus_scores').upsert(isi.map(r => ({
-                organization_id: orgId, santri_id: r.santri_id, academic_year_id: selectedAcademicYear.id, semester,
-                score: Math.max(0, Math.min(100, Number(r.score))), updated_at: new Date().toISOString(),
-            })), { onConflict: 'organization_id,santri_id,academic_year_id,semester' });
-            if (error) throw error;
-        }
-        if (kosong.length > 0) {
-            const { error } = await (supabase as any).from('silabus_scores').delete().eq('organization_id', orgId)
-                .eq('academic_year_id', selectedAcademicYear.id).eq('semester', semester).in('santri_id', kosong.map(r => r.santri_id));
-            if (error) throw error;
-        }
-        await fetchData();
-    }, [fetchData, getOrgId, selectedAcademicYear]);
+    // Fase 5: Silabus Hafalan tidak lagi menjadi komponen raport (raport 3 komponen).
 
     // ---- Fase 4: Rekap Periode ----
     const bukaFormPeriode = useCallback((periodId: string, halaqahId: number) =>
@@ -1514,205 +1513,111 @@ const useSupabaseDataInternal = () => {
         await fetchData();
     };
 
-    const saveUjianBulanan = async (data: any[]) => {
-        const orgId = await getOrgId();
-        const semester = selectedAcademicYear?.active_semester || 'Ganjil';
-        if (!data || data.length === 0) return;
-
-        // Query existing ujian_bulanan records for this org to differentiate insert vs update
-        const santriIds = data.map(d => d.santri_id).filter(Boolean);
-        const periodes = Array.from(new Set(data.map(d => d.periode).filter(Boolean)));
-
-        let existingMap = new Map<string, any>();
-        if (santriIds.length > 0 && periodes.length > 0) {
-            const { data: existingRecords, error: fetchErr } = await (supabase as any)
-                .from('ujian_bulanan')
-                .select('id, santri_id, periode')
-                .eq('organization_id', orgId)
-                .in('santri_id', santriIds)
-                .in('periode', periodes);
-
-            if (!fetchErr && existingRecords) {
-                existingRecords.forEach((row: any) => {
-                    existingMap.set(`${row.santri_id}_${row.periode}`, row.id);
-                });
-            }
-        }
-
-        const toInsert: any[] = [];
-        const toUpdate: any[] = [];
-
-        for (const item of data) {
-            const key = `${item.santri_id}_${item.periode}`;
-            const existingId = item.id || existingMap.get(key);
-            const payload: any = {
-                organization_id: orgId,
-                academic_year_id: item.academic_year_id || selectedAcademicYear?.id || null,
-                santri_id: item.santri_id,
-                periode: item.periode,
-                materi_juz: item.materi_juz !== undefined ? item.materi_juz : '',
-                nilai: item.nilai !== undefined ? item.nilai : null,
-                semester: item.semester || semester,
-                updated_at: new Date().toISOString()
-            };
-
-            if (existingId) {
-                toUpdate.push({ id: existingId, ...payload });
-            } else {
-                toInsert.push(payload);
-            }
-        }
-
-        if (toInsert.length > 0) {
-            const { error: insertErr } = await (supabase as any).from('ujian_bulanan').insert(toInsert);
-            if (insertErr) {
-                console.error('Error inserting ujian_bulanan:', insertErr);
-                throw insertErr;
-            }
-        }
-
-        if (toUpdate.length > 0) {
-            for (const item of toUpdate) {
-                const { id, ...updateFields } = item;
-                const { error: updateErr } = await (supabase as any)
-                    .from('ujian_bulanan')
-                    .update(updateFields)
-                    .eq('organization_id', orgId)
-                    .eq('id', id);
-                if (updateErr) {
-                    console.error(`Error updating ujian_bulanan ID ${id}:`, updateErr);
-                    throw updateErr;
-                }
-            }
-        }
-
-        await fetchData();
+    // ---- Fase 5: Ujian & Raport (semua tulis lewat RPC / tabel ber-RLS Admin) ----
+    const rpcUjian = async (fn: string, args: Record<string, any>) => {
+        const { data, error } = await (supabase as any).rpc(fn, args);
+        if (error) throw error;
+        return data;
     };
 
-    const deleteUjianBulanan = async (id: number) => {
-        const orgId = await getOrgId();
-        const { error } = await (supabase as any).from('ujian_bulanan').delete().eq('organization_id', orgId).eq('id', id);
-        if (error) {
-            console.error('Error deleting ujian_bulanan:', error);
-            throw error;
-        }
+    /** Simpan nilai ujian. mode: 'baru' | 'remedial' | 'koreksi' (Admin + alasan). */
+    const simpanUjian = useCallback(async (args: {
+        santriId: number; jenis: 'bulanan' | 'semester'; periodId?: string | null; materiJuz?: string | null;
+        juz?: { juz: number; kabir: number; shoghir: number }[] | null; nilai?: number | null;
+        mode?: 'baru' | 'remedial' | 'koreksi'; alasan?: string | null; catatan?: string | null;
+    }, opts: { refresh?: boolean } = {}) => {
+        if (!selectedAcademicYear?.id) throw new Error('Pilih tahun ajaran dulu.');
+        const res = await rpcUjian('rpc_simpan_ujian', {
+            p_santri_id: args.santriId, p_exam_type: args.jenis, p_academic_year_id: selectedAcademicYear.id,
+            p_semester: selectedAcademicYear.active_semester || 'Ganjil', p_period_id: args.periodId ?? null,
+            p_materi_juz: args.materiJuz ?? null, p_juz: args.juz ?? null, p_nilai: args.nilai ?? null,
+            p_mode: args.mode || 'baru', p_reason: args.alasan?.trim() || null, p_notes: args.catatan ?? null,
+        });
+        if (opts.refresh !== false) await fetchData();
+        return res;
+    }, [fetchData, selectedAcademicYear]);
+
+    const batalUjian = useCallback(async (attemptId: string, alasan: string) => {
+        await rpcUjian('rpc_batal_ujian', { p_attempt_id: attemptId, p_reason: alasan.trim() });
         await fetchData();
-    };
+    }, [fetchData]);
 
-    const saveUjianSemester = async (data: any[]) => {
+    const simpanCatatanRaport = useCallback(async (santriId: number, catatan: string, opts: { refresh?: boolean } = {}) => {
+        if (!selectedAcademicYear?.id) throw new Error('Pilih tahun ajaran dulu.');
+        await rpcUjian('rpc_simpan_catatan_raport', {
+            p_santri_id: santriId, p_academic_year_id: selectedAcademicYear.id,
+            p_semester: selectedAcademicYear.active_semester || 'Ganjil', p_catatan: catatan,
+        });
+        if (opts.refresh !== false) await fetchData();
+    }, [fetchData, selectedAcademicYear]);
+
+    /** Komponen raport & kekurangan (server). */
+    const komponenRaport = useCallback(async (santriIds?: number[] | null) => {
+        if (!selectedAcademicYear?.id) return [];
+        const data = await rpcUjian('rpc_komponen_raport', {
+            p_academic_year_id: selectedAcademicYear.id, p_semester: selectedAcademicYear.active_semester || 'Ganjil',
+            p_santri_ids: santriIds && santriIds.length ? santriIds : null,
+        });
+        return ((data as any[]) || []).map((r: any) => ({ ...r.komponen, santri_id: Number(r.santri_id) }));
+    }, [selectedAcademicYear]);
+
+    /** Terbitkan / amandemen raport. Nilai dihitung server; ditolak bila komponen kurang. */
+    const terbitkanRaport = useCallback(async (santriId: number, info: Record<string, any>, alasan?: string | null) =>
+        rpcUjian('rpc_publish_report_card', {
+            p_academic_year_id: selectedAcademicYear?.id, p_semester: selectedAcademicYear?.active_semester || 'Ganjil',
+            p_santri_id: santriId, p_info: info || {}, p_amendment_reason: alasan?.trim() || null,
+        }), [selectedAcademicYear]);
+
+    const simpanPeriodeUjian = useCallback(async (p: { id?: string; ke: number; label: string }) => {
         const orgId = await getOrgId();
-        if (!data || data.length === 0) return;
-
-        const santriIds = data.map(d => d.santri_id).filter(Boolean);
-        const academicYearIds = Array.from(new Set(data.map(d => d.academic_year_id).filter(Boolean)));
-        const semesters = Array.from(new Set(data.map(d => d.semester).filter(Boolean)));
-
-        let existingMap = new Map<string, any>();
-        if (santriIds.length > 0 && academicYearIds.length > 0) {
-            let query = (supabase as any)
-                .from('ujian_semester')
-                .select('id, santri_id, academic_year_id, semester')
-                .eq('organization_id', orgId)
-                .in('santri_id', santriIds)
-                .in('academic_year_id', academicYearIds);
-            
-            if (semesters.length > 0) {
-                query = query.in('semester', semesters);
-            }
-
-            const { data: existingRecords, error: fetchErr } = await query;
-            if (!fetchErr && existingRecords) {
-                existingRecords.forEach((row: any) => {
-                    existingMap.set(`${row.santri_id}_${row.academic_year_id}_${row.semester}`, row.id);
-                });
-            }
-        }
-
-        const toInsert: any[] = [];
-        const toUpdate: any[] = [];
-
-        for (const item of data) {
-            const key = `${item.santri_id}_${item.academic_year_id}_${item.semester}`;
-            const existingId = item.id || existingMap.get(key);
-            const payload: any = {
-                organization_id: orgId,
-                santri_id: item.santri_id,
-                academic_year_id: item.academic_year_id,
-                semester: item.semester,
-                materi_juz: item.materi_juz !== undefined ? item.materi_juz : '',
-                khoto_shogir: item.khoto_shogir || {},
-                khoto_kabir: item.khoto_kabir || {},
-                is_custom_nilai: item.is_custom_nilai || false,
-                custom_nilai: item.custom_nilai !== undefined ? item.custom_nilai : null,
-                nilai_akhir: item.nilai_akhir !== undefined ? item.nilai_akhir : null,
-                catatan: item.catatan !== undefined ? item.catatan : '',
-                updated_at: new Date().toISOString()
-            };
-
-            if (existingId) {
-                toUpdate.push({ id: existingId, ...payload });
-            } else {
-                toInsert.push(payload);
-            }
-        }
-
-        if (toInsert.length > 0) {
-            const { error: insertErr } = await (supabase as any).from('ujian_semester').insert(toInsert);
-            if (insertErr) {
-                console.error('Error inserting ujian_semester:', insertErr);
-                throw insertErr;
-            }
-        }
-
-        if (toUpdate.length > 0) {
-            for (const item of toUpdate) {
-                const { id, ...updateFields } = item;
-                const { error: updateErr } = await (supabase as any)
-                    .from('ujian_semester')
-                    .update(updateFields)
-                    .eq('id', id);
-                if (updateErr) {
-                    console.error(`Error updating ujian_semester ID ${id}:`, updateErr);
-                    throw updateErr;
-                }
-            }
-        }
-
-        // Catat riwayat percobaan ujian/remedial ke tabel V2 exam_attempts tanpa menimpa histori lama (Blueprint Fase 4)
-        try {
-            const attemptRows = data
-                .filter((d) => d.santri_id && d.nilai_akhir !== null && d.nilai_akhir !== undefined)
-                .map((d) => ({
-                    organization_id: orgId,
-                    santri_id: d.santri_id,
-                    attempt_no: d.is_remedial ? 2 : 1,
-                    is_remedial: Boolean(d.is_remedial),
-                    raw_score: Number(d.nilai_akhir) || 0,
-                    final_score: Number(d.nilai_akhir) || 0,
-                    notes: d.catatan || `Materi Juz: ${d.materi_juz || '-'}`,
-                }));
-            if (attemptRows.length > 0) {
-                await (supabase as any).from('exam_attempts').insert(attemptRows);
-            }
-        } catch {
-            // Abaikan bila tabel exam_attempts belum dimigrasikan
-        }
-
+        if (!selectedAcademicYear?.id) throw new Error('Pilih tahun ajaran dulu.');
+        const row = { ke: p.ke, label: p.label.trim() };
+        const { error } = p.id
+            ? await (supabase as any).from('monthly_exam_periods').update(row).eq('organization_id', orgId).eq('id', p.id)
+            : await (supabase as any).from('monthly_exam_periods').insert({ ...row, organization_id: orgId, academic_year_id: selectedAcademicYear.id, semester: selectedAcademicYear.active_semester || 'Ganjil' });
+        if (error) throw error;
         await fetchData();
-    };
+    }, [fetchData, getOrgId, selectedAcademicYear]);
 
-    // Parse app settings for global references
+    const hapusPeriodeUjian = useCallback(async (id: string) => {
+        const orgId = await getOrgId();
+        const { error } = await (supabase as any).from('monthly_exam_periods').delete().eq('organization_id', orgId).eq('id', id);
+        if (error) throw error;
+        await fetchData();
+    }, [fetchData, getOrgId]);
+
+    const simpanPengaturanRaport = useCallback(async (p: Partial<PengaturanRaport>) => {
+        const orgId = await getOrgId();
+        const { organization_id, ...rest } = p as any;
+        const { error } = await (supabase as any).from('raport_settings').upsert({ ...rest, organization_id: orgId }, { onConflict: 'organization_id' });
+        if (error) throw error;
+        await fetchData();
+    }, [fetchData, getOrgId]);
+
+    const tambahPenguji = useCallback(async (halaqahId: number, musammiId: number, jenis: 'semua' | 'bulanan' | 'semester') => {
+        const orgId = await getOrgId();
+        if (!selectedAcademicYear?.id) throw new Error('Pilih tahun ajaran dulu.');
+        const { error } = await (supabase as any).from('exam_assignments').insert({
+            organization_id: orgId, academic_year_id: selectedAcademicYear.id, semester: selectedAcademicYear.active_semester || 'Ganjil',
+            halaqah_id: halaqahId, musammi_id: musammiId, exam_type: jenis,
+        });
+        if (error) throw error;
+        await fetchData();
+    }, [fetchData, getOrgId, selectedAcademicYear]);
+
+    const hapusPenguji = useCallback(async (id: string) => {
+        const orgId = await getOrgId();
+        const { error } = await (supabase as any).from('exam_assignments').delete().eq('organization_id', orgId).eq('id', id);
+        if (error) throw error;
+        await fetchData();
+    }, [fetchData, getOrgId]);
+
     const globalMarhalahs = useMemo(() => masterMarhalahs.map((m: any) => m.nama), [masterMarhalahs]);
     const [globalWaktuHalaqah, setGlobalWaktuHalaqah] = useState<string[]>(['Shubuh', 'Dhuha', 'Ashar', 'Maghrib', 'Isya']);
     const [globalJenisHalaqah, setGlobalJenisHalaqah] = useState<string[]>(['Halaqah Utama', 'Halaqah Pagi']);
     const [globalAttendanceStatus, setGlobalAttendanceStatus] = useState<string[]>(['Hadir', 'Izin', 'Sakit', 'Terlambat', 'Alpa']);
-    const [globalPredikatNilai, setGlobalPredikatNilai] = useState<{label: string; minScore: number}[]>([
-        { label: 'Mumtaz', minScore: 90 },
-        { label: 'Jayyid Jiddan', minScore: 80 },
-        { label: 'Jayyid', minScore: 70 },
-        { label: 'Maqbul', minScore: 60 },
-        { label: 'Rasib', minScore: 0 }
-    ]);
+    // Fase 5: skala predikat nilai = predikat rubrik penilaian aktif (bukan app_settings GLOBAL_PREDIKAT_NILAI)
+    const globalPredikatNilai = rubrikAktif.predicates;
 
     useEffect(() => {
         if (!loading) {
@@ -1720,7 +1625,6 @@ const useSupabaseDataInternal = () => {
             const waktuSetting = appSettings.find(s => s.key === 'GLOBAL_WAKTU_HALAQAH')?.value;
             const jenisSetting = appSettings.find(s => s.key === 'GLOBAL_JENIS_HALAQAH')?.value;
             const statusSetting = appSettings.find(s => s.key === 'GLOBAL_ATTENDANCE_STATUS')?.value;
-            const predikatSetting = appSettings.find(s => s.key === 'GLOBAL_PREDIKAT_NILAI')?.value;
             
             
             // Fase 2: waktu, jenis halaqah, dan status kehadiran dari tabel referensi.
@@ -1734,14 +1638,6 @@ const useSupabaseDataInternal = () => {
             else if (jenisSetting) { try { setGlobalJenisHalaqah(JSON.parse(jenisSetting)); } catch(e) {} }
             if (activeStatuses.length) setGlobalAttendanceStatus(activeStatuses);
             else if (statusSetting) { try { setGlobalAttendanceStatus(JSON.parse(statusSetting)); } catch(e) {} }
-            if (predikatSetting) {
-                try { 
-                    const parsed = JSON.parse(predikatSetting);
-                    if (Array.isArray(parsed) && parsed.length > 0) {
-                        setGlobalPredikatNilai(parsed); 
-                    }
-                } catch(e) {}
-            }
         }
     }, [appSettings, loading, sessionSlots, halaqahTypes, attendanceStatuses]);
 
@@ -1910,7 +1806,7 @@ const useSupabaseDataInternal = () => {
     return {
         santri, allSantri, musammi, waliKelas, musyrifs, halaqah, attendance, studentProgress, classTargets, 
         studentEvaluations, evaluationSettings, halaqahEvalQuestions, halaqahEvaluations, appSettings,
-        ujianBulanan, ujianSemester, masterKelas, masterMarhalahs, masterKelasRelasi,
+        masterKelas, masterMarhalahs, masterKelasRelasi,
         studentEnrollments, halaqahMemberships, musammiAssignments, queryErrors,
         userProfile, setoranHarian, orgName, orgLogo, updateOrganization,
         recitationKinds, attendanceStatuses, sessionSlots, halaqahTypes, fluencyRules, simpanSetoran,
@@ -1921,11 +1817,14 @@ const useSupabaseDataInternal = () => {
         addSetoranHarianRecord, updateSetoranHarianRecord, deleteSetoranHarianRecord,
         saveClassTarget, saveClassTargetBatch, saveAppSetting,
         // Fase 4: Rekap Periode
-        evaluationPeriods, periodeEvaluasi, periodFormFields, periodRecaps, periodForms, silabusScores,
+        evaluationPeriods, periodeEvaluasi, periodFormFields, periodRecaps, periodForms,
         bukaFormPeriode, simpanFormPeriode, bukaKembaliFormPeriode, hitungRekapHarian, statusPeriode,
-        simpanPeriode, hapusPeriode, setModeHalaqah, simpanIsianForm, hapusIsianForm, simpanNilaiSilabus,
+        simpanPeriode, hapusPeriode, setModeHalaqah, simpanIsianForm, hapusIsianForm,
         saveMultipleAppSettings,
-        saveUjianBulanan, deleteUjianBulanan, saveUjianSemester,
+        // Fase 5: Ujian & Raport
+        examAttempts, periodeUjianBulanan, rubrikAktif, pengaturanRaport, pengujiUjian, catatanRaport,
+        simpanUjian, batalUjian, simpanCatatanRaport, komponenRaport, terbitkanRaport,
+        simpanPeriodeUjian, hapusPeriodeUjian, simpanPengaturanRaport, tambahPenguji, hapusPenguji,
         addMasterKelas, deleteMasterKelas,
         addMasterMarhalah, updateMasterMarhalah, deleteMasterMarhalah,
         addMasterKelasRelasi, updateMasterKelasRelasi, deleteMasterKelasRelasi,

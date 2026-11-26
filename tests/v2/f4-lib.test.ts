@@ -195,6 +195,7 @@ test('layar Fase 4 terpasang', () => {
   const pengaturan = read('pages/PengaturanEvaluasiPage.tsx');
   for (const k of ['PeriodeEvaluasiPanel', 'ModePencatatanPanel', 'IsianFormPanel']) assert.ok(pengaturan.includes(k), k);
   const hook = read('hooks/useSupabaseData.tsx');
-  for (const k of ["from('period_recaps')", 'rpc_simpan_form_periode', 'rpc_status_periode', 'rpc_set_mode_halaqah', "from('silabus_scores')"]) assert.ok(hook.includes(k), k);
-  assert.ok(read('pages/UjianRaport/RekapNilaiPage.tsx').includes('simpanNilaiSilabus'));
+  for (const k of ["from('period_recaps')", 'rpc_simpan_form_periode', 'rpc_status_periode', 'rpc_set_mode_halaqah']) assert.ok(hook.includes(k), k);
+  // Fase 5: Silabus Hafalan bukan lagi komponen raport (data lama tetap di tabel silabus_scores)
+  assert.ok(!read('pages/UjianRaport/RekapNilaiPage.tsx').includes('simpanNilaiSilabus'));
 });

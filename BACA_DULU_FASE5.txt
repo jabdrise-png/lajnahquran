@@ -1,0 +1,16 @@
+FASE 5 — UJIAN & RAPORT (cabang: fase-5-ujian-raport, dari main 218bb41)
+
+Cara pasang (pilih salah satu):
+A. Salin isi folder ini ke root repo (timpa), lalu commit & push ke cabang fase-5-ujian-raport.
+B. Atau: git checkout -b fase-5-ujian-raport && git am fase5.patch  (patch ada di ZIP, author & pesan commit sudah ada)
+
+Tidak ada file yang dihapus.
+
+Urutan setelah kode di-push:
+1. Cadangan database Supabase.
+2. Jalankan database/checks/f5_preflight.sql (hanya membaca). Ada PERIKSA -> kirim hasilnya dulu.
+3. Jalankan migrasi berurutan: 2026_11_30_01 -> _02 -> _03 (satu file per kali).
+   Setelah _02, langsung deploy kode Fase 5.
+4. select * from public.f5_legacy_reconciliation();  -> semua OK
+5. Pengaturan Nilai: cek rubrik, bobot raport, isi nama Ketua Lajnah, kota, unggah tanda tangan.
+6. Uji manual: docs/FASE_5_UJI.md bagian 4.

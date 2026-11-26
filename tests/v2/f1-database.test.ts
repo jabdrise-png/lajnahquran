@@ -187,16 +187,33 @@ test('no.12: alasan Support Access yang jelas diterima', async () => {
   assert.equal(await one(db, `select count(*)::int from public.support_access_sessions where reason = 'Bantu admin cek absensi'`), 1);
 });
 
-const PUBLISH = `select public.rpc_publish_report_card($1::uuid, ${ID.academicYear}, 'Ganjil', $2::bigint, $3::numeric, 'Mumtaz', $4::jsonb, $5)`;
+// Fase 5: rpc_publish_report_card menghitung nilai sendiri dari komponen raport (ujian semester saja di sini)
+const PUBLISH = `select public.rpc_publish_report_card(${ID.academicYear}, 'Ganjil', $1::bigint, '{}'::jsonb, $2)`;
+const UJIAN_SEMESTER = (kabir: number, mode: string, reason: string | null) => db.query(
+  `select public.rpc_simpan_ujian(p_santri_id => ${ID.santri1}, p_exam_type => 'semester', p_academic_year_id => ${ID.academicYear},
+     p_semester => 'Ganjil', p_juz => $1::jsonb, p_mode => $2, p_reason => $3)`,
+  [JSON.stringify([{ juz: 30, kabir, shoghir: 0 }]), mode, reason]);
 
 test('no.13: amandemen raport dengan alasan "tes" ditolak, alasan jelas diterima', async () => {
   await as(db, ID.admin, async () => {
-    await db.query(PUBLISH, [ID.org, ID.santri1, 90, JSON.stringify({ nilai: 90 }), null]);
-    await expectError(db.query(PUBLISH, [ID.org, ID.santri1, 91, JSON.stringify({ nilai: 91 }), 'tes']), /alasan/i);
-    await db.query(PUBLISH, [ID.org, ID.santri1, 92, JSON.stringify({ nilai: 92 }), 'Koreksi nilai tajwid']);
+    await db.query(`update public.raport_settings set bobot_semester = 100, bobot_bulanan = 0, bobot_kehadiran = 0 where organization_id = $1`, [ID.org]);
+    await UJIAN_SEMESTER(0, 'baru', null);
+    await db.query(PUBLISH, [ID.santri1, null]);
+    await UJIAN_SEMESTER(1, 'koreksi', 'Koreksi khoto juz 30');
+    await expectError(db.query(PUBLISH, [ID.santri1, 'tes']), /alasan/i);
+    await db.query(PUBLISH, [ID.santri1, 'Koreksi nilai tajwid']);
   });
   const n = await one(db, `select count(*)::int from public.report_cards where santri_id = $1`, [ID.santri1]);
   assert.equal(n, 2);
+});
+
+test('raport tidak bisa ditulis langsung dari aplikasi (hanya lewat RPC, alasan dijaga server)', async () => {
+  const parent = await one<string>(db, `select id from public.report_cards where santri_id = $1 order by version_no desc limit 1`, [ID.santri1]);
+  await as(db, ID.admin, () => expectError(db.query(
+    `insert into public.report_cards(organization_id, academic_year_id, semester_name, santri_id, version_no, status,
+       final_score, predikat, snapshot_json, snapshot_hash, parent_report_card_id, amendment_reason)
+     values ($1, ${ID.academicYear}, 'Ganjil', $2, 50, 'published', 80, 'Jayyid', '{}', 'h', $3, 'Alasan yang jelas')`,
+    [ID.org, ID.santri1, parent]), /permission denied/));
 });
 
 test('trigger alasan raport juga menjaga insert langsung (jalur cadangan di RekapNilaiPage)', async () => {

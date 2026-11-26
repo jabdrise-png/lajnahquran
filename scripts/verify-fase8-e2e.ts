@@ -29,6 +29,8 @@ const setoranHarianPage = fs.readFileSync(path.resolve(process.cwd(), 'pages/Set
 const ujianSemesterPage = fs.readFileSync(path.resolve(process.cwd(), 'pages/UjianRaport/UjianSemesterPage.tsx'), 'utf-8');
 const rekapNilaiPage = fs.readFileSync(path.resolve(process.cwd(), 'pages/UjianRaport/RekapNilaiPage.tsx'), 'utf-8');
 const verifyReportPage = fs.readFileSync(path.resolve(process.cwd(), 'pages/VerifyReportPage.tsx'), 'utf-8');
+const f5Rpc = fs.readFileSync(path.resolve(process.cwd(), 'database/migrations/2026_11_30_02_f5_rpc_ujian_raport.sql'), 'utf-8');
+const hookCode = fs.readFileSync(path.resolve(process.cwd(), 'hooks/useSupabaseData.tsx'), 'utf-8');
 
 // Step 1: Login Superadmin
 step(1, 'E2E-01', 'Superadmin Login & Verifikasi Hak Akses Platform Console', () => {
@@ -118,15 +120,18 @@ step(12, 'E2E-12', 'Admin Mengoreksi atau Membatalkan Setoran Beralasan (rpc_rev
 });
 
 // Step 13: Admin Menginput Ujian
-step(13, 'E2E-13', 'Admin / Penguji Mencatat Hasil Ujian via rpc_record_exam_attempt', () => {
-  return hardeningSql.includes('CREATE OR REPLACE FUNCTION public.rpc_record_exam_attempt') &&
-         ujianSemesterPage.includes('rpc_record_exam_attempt');
+// Fase 5 v2: rpc_record_exam_attempt diganti rpc_simpan_ujian (nilai dihitung server).
+step(13, 'E2E-13', 'Admin / Penguji Mencatat Hasil Ujian via rpc_simpan_ujian', () => {
+  return f5Rpc.includes('create or replace function public.rpc_simpan_ujian(') &&
+         ujianSemesterPage.includes('simpanUjian(') && hookCode.includes("'rpc_simpan_ujian'");
 });
 
 // Step 14: Admin Menerbitkan Raport
 step(14, 'E2E-14', 'Admin Membekukan & Menerbitkan Raport via rpc_publish_report_card (version_no = 1)', () => {
-  return hardeningSql.includes('CREATE OR REPLACE FUNCTION public.rpc_publish_report_card') &&
-         rekapNilaiPage.includes('rpc_publish_report_card');
+  // Fase 5 v2: versi baru rpc_publish_report_card (komponen dihitung server, tolak jika belum lengkap).
+  return f5Rpc.includes('create or replace function public.rpc_publish_report_card(') &&
+         f5Rpc.includes('Raport belum bisa terbit') &&
+         rekapNilaiPage.includes('terbitkanRaport(') && hookCode.includes("'rpc_publish_report_card'");
 });
 
 // Step 15: Verifikasi Dokumen Publik

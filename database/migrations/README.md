@@ -45,6 +45,9 @@ contoh: 2026_12_01_01_fix_recitation_revisions_action_check.sql
 | `2026_11_29_01_f4_periode_dan_rekap.sql` | F4 (periode, mode halaqah, form & Rekap Periode, total hafalan) | belum |
 | `2026_11_29_02_f4_hitung_rekap.sql` | F4 (hitung rekap harian, form evaluasi, pemantauan) | belum |
 | `2026_11_29_03_f4_migrasi_evaluasi_lama.sql` | F4 (pindah data evaluasi lama, nilai Silabus Hafalan → `silabus_scores`, cabut akses tabel lama) | belum |
+| `2026_11_30_01_f5_ujian_struktur.sql` | F5 (pengaturan raport, rubrik aktif, ujian bulanan, kolom exam_attempts, penguji, catatan raport) | belum |
+| `2026_11_30_02_f5_rpc_ujian_raport.sql` | F5 (simpan ujian, komponen raport, terbit raport dijaga server) | belum |
+| `2026_11_30_03_f5_migrasi_ujian_lama.sql` | F5 (pindah nilai ujian lama ke exam_attempts, cabut akses tabel lama) | belum |
 
 ## Pemeriksaan sebelum migrasi
 

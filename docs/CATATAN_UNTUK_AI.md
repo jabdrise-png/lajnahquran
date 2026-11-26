@@ -1,4 +1,4 @@
-# Catatan untuk Asisten AI (AI Studio, dll.) — Perubahan Fase 0 s.d. Fase 4
+# Catatan untuk Asisten AI (AI Studio, dll.) — Perubahan Fase 0 s.d. Fase 5
 
 Baca file ini **sebelum** mengubah kode. Isinya: apa yang sudah diubah, aturan yang wajib diikuti, dan hal yang tidak boleh dilakukan. Acuan utama: `docs/SPESIFIKASI_V2.md` (kebutuhan) dan `docs/RENCANA_V2.md` (urutan fase).
 
@@ -24,6 +24,7 @@ Baca file ini **sebelum** mengubah kode. Isinya: apa yang sudah diubah, aturan y
 8. Jangan menambah fitur di luar `docs/RENCANA_V2.md` selama F1–F3 (pembekuan fitur).
 9. **Jangan menghidupkan lagi Kunci Sesi atau Validasi Setoran** (Fase 3). Setoran langsung sah; halaman & predikat dihitung server — jangan mengirim angka/predikat dari layar sebagai kebenaran.
 10. **Capaian per periode hanya dari Rekap Periode** (`period_recaps`, Fase 4). Jangan membaca/menulis `student_progress`, `student_evaluation`, `halaqah_evaluations`, `halaqah_evaluation_questions`, `evaluation_settings`, atau JSON `EVALUATION_PERIODS`. Menulis rekap hanya lewat `rpc_simpan_form_periode`.
+11. **Nilai ujian hanya di `exam_attempts`, ditulis lewat `rpc_simpan_ujian`** (Fase 5); raport hanya lewat `rpc_publish_report_card` (komponen & nilai dihitung server). Jangan membaca/menulis `ujian_bulanan`, `ujian_semester`, `silabus_scores`, atau pengaturan `PCT_*`, `UB_PERIODS_*`, `NILAI_AWAL_JUZ`, `PENGURANG_KHOTO_*`, `GLOBAL_PREDIKAT_NILAI`; jangan menghitung nilai raport di layar sebagai kebenaran.
 
 ---
 
@@ -66,7 +67,7 @@ Baca file ini **sebelum** mengubah kode. Isinya: apa yang sudah diubah, aturan y
 | `halaqah_santri` | `halaqah_student_memberships` |
 | `student_classes` | `student_enrollments` |
 
-Detail kolom: `docs/FASE_2_INVENTARIS.md`. Tabel `santri`, `halaqah`, `musammi`, `master_marhalah`, `master_kelas_relasi`, `academic_years` tetap dipakai. `ujian_bulanan`, `ujian_semester`, `student_progress`, `student_evaluation` masih dipakai sampai F4/F5.
+Detail kolom: `docs/FASE_2_INVENTARIS.md`. Tabel `santri`, `halaqah`, `musammi`, `master_marhalah`, `master_kelas_relasi`, `academic_years` tetap dipakai. `student_progress` & `student_evaluation` dipindah ke Rekap Periode di F4 (bagian 7); `ujian_bulanan` & `ujian_semester` dipindah ke `exam_attempts` di F5 (bagian 8).
 
 ### 5.2 Tabel referensi baru (per lembaga, diatur Admin)
 
@@ -191,7 +192,7 @@ Hook (`hooks/useSupabaseData.tsx`): tambah `fluencyRules`, `simpanSetoran(args, 
 | `period_forms` | satu per halaqah per periode: `recording_mode` (dibekukan), `status` (`belum_diisi`/`draft`/`submitted`), `activity_answers` |
 | `period_recaps` | **satu baris per santri per periode**: `ziyadah_pages`, `murojaah_pages` (halaman), `posisi_maju_*`/`posisi_mundur_*`, `total_pages`, `total_juz`, `kelancaran`, `hadir_count`/`kehadiran_total`/`kehadiran_persen`, `sumber` (`harian`/`rekap`/`migrasi`), `overrides` (isian sistem yang dikoreksi Admin), `free_answers`, `notes` |
 | `quran_juz` + `fn_total_hafalan(maju_s, maju_a, mundur_s, mundur_a)` | total hafalan dari posisi = `hitungTotalHafalan()` di `lib/totalHafalan.ts` (diuji) |
-| `silabus_scores` | nilai Silabus Hafalan raport per santri per semester (dulu `student_progress` `SEM-*`) |
+| `silabus_scores` | nilai Silabus Hafalan per santri per semester (dulu `student_progress` `SEM-*`). **Sejak Fase 5 tidak dipakai raport** (hanya arsip) |
 
 ### 7.2 Aturan (dijaga database)
 
@@ -212,11 +213,11 @@ Hook (`hooks/useSupabaseData.tsx`): tambah `fluencyRules`, `simpanSetoran(args, 
 | Pemantauan Periode | `rpc_status_periode(period)` → `statusPeriode` |
 | Hapus periode berisi rekap | `rpc_hapus_periode(period, reason)` |
 | Mode halaqah | `rpc_set_mode_halaqah(halaqah, mode)` |
-| Periode & isian (Admin, RLS) | tabel langsung: `simpanPeriode`, `simpanIsianForm`, `hapusIsianForm`, `simpanNilaiSilabus` |
+| Periode & isian (Admin, RLS) | tabel langsung: `simpanPeriode`, `simpanIsianForm`, `hapusIsianForm` (`simpanNilaiSilabus` dihapus di Fase 5) |
 
 ### 7.4 Frontend
 
-- Hook memuat `evaluationPeriods`, `periodeEvaluasi` (bentuk lama `MasterEvaluationPeriod`, id = UUID), `periodFormFields`, `periodRecaps` (diambil bertahap per 1000 baris), `periodForms`, `silabusScores`.
+- Hook memuat `evaluationPeriods`, `periodeEvaluasi` (bentuk lama `MasterEvaluationPeriod`, id = UUID), `periodFormFields`, `periodRecaps` (diambil bertahap per 1000 baris), `periodForms` (`silabusScores` tidak dimuat lagi sejak Fase 5).
 - `lib/rekapAdapter.ts` menurunkan bentuk lama untuk halaman analitik: `studentProgress` (Ziyadah = halaman, Murojaah & Total Hafalan = juz, Hafalan Depan/Belakang, Kelancaran, Kehadiran, isian bebas per label), `studentEvaluations`, `evaluationSettings` (dari isian pilihan), `halaqahEvalQuestions`, `halaqahEvaluations`. `month_key` = id periode. Fungsi lama `getEvaluationPeriods()` dihapus; `formatPeriodName(id, periodeEvaluasi)`.
 - Layar: `pages/Evaluasi/FormEvaluasiPeriodePage.tsx` (`/app/evaluations`), `pages/Evaluasi/ProgresEvaluasiPage.tsx` (`/app/evaluations-master`: Pemantauan, Rekap Santri + ekspor, Pivot, Statistik), panel `components/evaluasi/PeriodeEvaluasiPanel.tsx`, `ModePencatatanPanel.tsx`, `IsianFormPanel.tsx` di `pages/PengaturanEvaluasiPage.tsx`.
 - Dihapus: `PerkembanganInputPage`, `PerkembanganMasterDataPage`, `lib/syncEngine.ts` (Tarik Data/sinkronisasi), halaman tak terpakai `Chat.tsx`, `WaliSantriReport.tsx`, `WaliKelasReport.tsx`, tipe `AutoSync*`.
@@ -227,26 +228,73 @@ Hook (`hooks/useSupabaseData.tsx`): tambah `fluencyRules`, `simpanSetoran(args, 
 
 ---
 
-## 8. Test otomatis
+## 8. Fase 5 — Ujian & Raport
+
+### 8.1 Tabel
+
+| Tabel | Isi |
+| --- | --- |
+| `exam_attempts` | **satu sumber nilai ujian**. `exam_type` `monthly`/`semester`, `period_id` (ujian bulanan ke-n), `halaqah_id`, `attempt_no` (remedial = percobaan baru), `is_remedial`, `materi_juz`, `juz_scores` (`[{juz, kabir, shoghir, nilai}]`), `final_score`, `predikat`, `passed`, `rubric_version_id`, `status` `valid`/`voided` (koreksi Admin membatalkan, tidak menghapus), `source` `aplikasi`/`migrasi`. Hanya bisa dibaca dari aplikasi; tulis lewat RPC |
+| `monthly_exam_periods` | ujian bulanan ke-1…24 per tahun ajaran & semester (`label`, `legacy_key`). Admin kelola (RLS); tidak bisa dihapus bila sudah ada nilai |
+| `rubric_versions` | rubrik aktif (`fn_rubrik_aktif`): `initial_score`, `deduction_major` (kabir), `deduction_minor` (shoghir), `min_score`, `passing_score` (KKM), `predicates` `[{label, minScore}]`. Simpan lewat `rpc_save_rubric_version` (versi baru) |
+| `raport_settings` | per lembaga: `bobot_semester` (> 0), `bobot_bulanan`, `bobot_kehadiran` (total 100), `ketua_lajnah_nama`, `ketua_lajnah_jabatan`, `ttd_image` (data URL ≤ 400.000 karakter), `kota_terbit` |
+| `exam_assignments` | penguji tambahan: musammi' → halaqah, `exam_type` `semua`/`bulanan`/`semester`, per tahun ajaran & semester |
+| `raport_catatan` | catatan raport per santri per semester (tulis lewat `rpc_simpan_catatan_raport`) |
+| `report_cards` | raport terbit (versi, `snapshot_json` format `f5`, `snapshot_hash`). Tulis langsung dicabut |
+
+### 8.2 Aturan (dijaga database)
+
+- Nilai juz = `fn_nilai_juz(rubrik, kabir, shoghir)` = max(min, nilai awal − kabir × pengurang kabir − shoghir × pengurang shoghir); nilai semester = rata-rata juz; predikat `fn_predikat_nilai`. Rumus layar `lib/ujian.ts` (`nilaiJuz`, `nilaiSemester`, `predikatNilai`) diuji sama dengan server.
+- Penguji (`fn_bisa_menguji`): Admin; musammi' yang boleh mencatat halaqah santri saat ini; atau musammi' yang ditugaskan di `exam_assignments` sesuai jenis ujian.
+- Simpan nilai baru ditolak bila sudah ada nilai → mode `remedial`. Mode `koreksi` hanya Admin + alasan (`fn_alasan_valid`). Musammi' tidak bisa mengubah nilai bila raport santri sudah terbit.
+- Komponen raport `fn_komponen_raport`: ujian semester (percobaan terakhir yang sah), rata-rata ujian bulanan (percobaan terakhir per ujian bulanan), kehadiran (`attendance_records` dalam tanggal semester, `fn_tanggal_semester`). `kekurangan` (menghalangi terbit) vs `peringatan`.
+- `rpc_publish_report_card` hanya Admin; menolak bila ada kekurangan; idempoten bila hash sama; amandemen wajib alasan; snapshot menyimpan identitas santri, komponen, info hafalan (whitelist), tanda tangan (nama, jabatan, kota, sha256 gambar).
+
+### 8.3 RPC & hook
+
+| Keperluan | RPC / hook |
+| --- | --- |
+| Simpan nilai ujian (baru / remedial / koreksi) | `rpc_simpan_ujian(santri, exam_type, year, semester, period, materi_juz, juz, nilai, mode, reason, notes)` → `simpanUjian` |
+| Batalkan percobaan (Admin) | `rpc_batal_ujian(id, reason)` → `batalUjian` |
+| Catatan raport | `rpc_simpan_catatan_raport` → `simpanCatatanRaport` |
+| Komponen raport (difilter sesuai hak penguji) | `rpc_komponen_raport(year, semester, santri_ids)` → `komponenRaport` |
+| Terbit / amandemen raport | `rpc_publish_report_card(year, semester, santri, info, amendment_reason)` → `terbitkanRaport` |
+| Ujian bulanan, pengaturan raport, penguji (Admin, RLS) | tabel langsung: `simpanPeriodeUjian`, `hapusPeriodeUjian`, `simpanPengaturanRaport`, `tambahPenguji`, `hapusPenguji` |
+
+Hook memuat `examAttempts`, `periodeUjianBulanan`, `rubrikAktif`, `pengaturanRaport`, `pengujiUjian`, `catatanRaport`; `globalPredikatNilai` = predikat rubrik aktif. Dihapus: `ujianBulanan`, `ujianSemester`, `saveUjian*`, `deleteUjianBulanan`, `rpc_record_exam_attempt`.
+
+### 8.4 Layar
+
+- `pages/UjianRaport/UjianBulananPage.tsx` (`/app/exams-monthly`), `UjianSemesterPage.tsx` (`/app/exams-semester`) — Admin & musammi' (menu "Ujian").
+- `RekapNilaiPage.tsx` (`/app/report-cards`) — komponen dari server, kekurangan, terbit/amandemen, cetak; dokumen `components/RaportDocument.tsx` (3 komponen, tanda tangan Ketua Lajnah, ruang tanda tangan wali; raport terbit dicetak dari snapshot).
+- `PengaturanNilaiPage.tsx` (`/app/settings/rubrics`) — rubrik, bobot & tanda tangan raport, penguji.
+
+### 8.5 Migrasi Fase 5 (urutan)
+
+`2026_11_30_01_f5_ujian_struktur` → `_02_f5_rpc_ujian_raport` → `_03_f5_migrasi_ujian_lama` (`f5_migrate_legacy_exams()`, `f5_legacy_reconciliation()`, bisa diulang). Pemeriksaan awal: `database/checks/f5_preflight.sql`. Panduan: `docs/FASE_5_UJI.md`.
+
+---
+
+## 9. Test otomatis
 
 - `npm run test` = `npm run test:v2` + suite lama (`scripts/verify-fase*.ts`).
 - `tests/v2/` memakai PGlite (PostgreSQL di memori). `tests/v2/helpers/db.ts` membangun database dari skema repo + **semua** migrasi; `seed.sql` (data uji: 1 lembaga, superadmin, admin, musammi', halaqah, 2 santri), `seed_legacy.sql` (contoh data tabel lama).
 - Helper: `as(db, userId, fn)` menjalankan kueri sebagai pengguna tertentu (RLS aktif); `expectError()`.
-- Test penting yang menjaga aturan di atas: `f2-kode-dan-peran.test.ts` (tidak ada query tabel lama / kunci app_settings lama), `migrasi-umum.test.ts` (aturan migrasi + aman diulang), `f3-database.test.ts` (aturan 6.1), `f3-lib.test.ts` (predikat layar = database, arah hafalan, dan larangan kunci sesi/validasi di kode), `f4-database.test.ts` (aturan 7.2), `f4-lib.test.ts` (adaptor Rekap Periode dan larangan tabel evaluasi lama di kode).
+- Test penting yang menjaga aturan di atas: `f2-kode-dan-peran.test.ts` (tidak ada query tabel lama / kunci app_settings lama), `migrasi-umum.test.ts` (aturan migrasi + aman diulang), `f3-database.test.ts` (aturan 6.1), `f3-lib.test.ts` (predikat layar = database, arah hafalan, dan larangan kunci sesi/validasi di kode), `f4-database.test.ts` (aturan 7.2), `f4-lib.test.ts` (adaptor Rekap Periode dan larangan tabel evaluasi lama di kode), `f5-database.test.ts` (aturan 8.2), `f5-lib.test.ts` (rumus layar = server dan larangan tabel/pengaturan ujian lama di kode).
 - Bila mengubah perilaku yang diuji, perbarui test-nya dan jelaskan alasannya. Jangan menghapus test agar lulus.
 
 ---
 
-## 9. Yang masih dikerjakan fase berikutnya (jangan dianggap selesai)
+## 10. Yang masih dikerjakan fase berikutnya (jangan dianggap selesai)
 
 - Halaman analitik lama (Pivot, Statistik, Detail Santri, Raport) masih memakai bentuk lama lewat `lib/rekapAdapter.ts`; bila ditulis ulang, bacalah `periodRecaps` langsung.
-- **F5–F8:** ujian & raport, Telegram, PWA, bisnis. Lihat `docs/RENCANA_V2.md`.
+- **F6–F8:** Telegram & laporan otomatis, PWA, bisnis. Lihat `docs/RENCANA_V2.md`.
 - Pengaturan lama "Automasi Perhitungan Nilai" (`SETORAN_AUTO_*` di `app_settings`) tidak dipakai untuk setoran baru; masih dibaca beberapa laporan lama untuk rata-rata nilai. Jangan dipakai di fitur baru.
 
-## 10. Cara meminta pekerjaan ke AI (contoh)
+## 11. Cara meminta pekerjaan ke AI (contoh)
 
 ```text
 Baca docs/CATATAN_UNTUK_AI.md dan docs/SPESIFIKASI_V2.md bagian 4.
-Kerjakan F5 butir 1 (raport 3 komponen). Perubahan database lewat file migrasi baru.
+Kerjakan F6 butir 1. Perubahan database lewat file migrasi baru.
 Tambahkan test di tests/v2/. Jalankan npm run test sampai lulus.
 ```
