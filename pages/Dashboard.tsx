@@ -1068,37 +1068,36 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto mt-3">
-                <table className="w-full text-left border-collapse text-xs">
+              <div className="wadah-tabel mt-3 overflow-x-auto">
+                <table className="tabel">
                   <thead>
-                    <tr className="border-b border-slate-200 text-slate-500 text-2xs font-semibold">
-                      <th className="py-2.5 px-3">Santri</th>
-                      <th className="py-2.5 px-2">Halaqah & Pengampu</th>
-                      <th className="py-2.5 px-2 text-center">Akumulasi Alpa</th>
-                      <th className="py-2.5 px-2 text-center">Terlambat</th>
-                      <th className="py-2.5 px-2 text-center">Izin / Sakit</th>
-                      <th className="py-2.5 px-2 text-center">Kehadiran</th>
-                      <th className="py-2.5 px-3">Status & Rekomendasi</th>
-                      <th className="py-2.5 px-2 text-right">Tindakan</th>
+                    <tr>
+                      <th>Santri</th>
+                      <th>Halaqah & Pengampu</th>
+                      <th className="text-center">Akumulasi Alpa</th>
+                      <th className="text-center">Terlambat</th>
+                      <th className="text-center">Izin / Sakit</th>
+                      <th className="text-center">Kehadiran</th>
+                      <th>Status & Rekomendasi</th>
+                      <th className="text-right">Tindakan</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
+                  <tbody>
                     {santriPerluPerhatian.items.map((s) => (
                       <tr
                         key={s.id}
-                        className="hover:bg-blue-50/50 transition-colors group"
                       >
-                        <td className="py-3 px-3">
+                        <td>
                           <div className="font-semibold text-slate-900">{s.nama}</div>
                           <div className="text-2xs text-slate-500">
                             NIS: {s.nis} · Kelas {s.kelas}
                           </div>
                         </td>
-                        <td className="py-3 px-2">
+                        <td>
                           <div className="font-medium text-slate-700">{s.halaqahNama}</div>
                           <div className="text-2xs text-slate-500">{s.musammiNama}</div>
                         </td>
-                        <td className="py-3 px-2 text-center">
+                        <td className="text-center">
                           {s.alpa > 0 ? (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800">
                               {s.alpa} Alpa
@@ -1107,7 +1106,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
                             <span className="text-slate-500 font-normal">0</span>
                           )}
                         </td>
-                        <td className="py-3 px-2 text-center">
+                        <td className="text-center">
                           {s.terlambat > 0 ? (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
                               {s.terlambat}x
@@ -1116,12 +1115,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
                             <span className="text-slate-500 font-normal">0</span>
                           )}
                         </td>
-                        <td className="py-3 px-2 text-center">
+                        <td className="text-center">
                           <span className="text-2xs text-slate-600 font-medium">
                             {s.izin} Izin · {s.sakit} Sakit
                           </span>
                         </td>
-                        <td className="py-3 px-2 text-center">
+                        <td className="text-center">
                           <div className="font-semibold text-slate-900">{s.attRate}%</div>
                           <div className="w-16 bg-slate-200 rounded-full h-1.5 mx-auto mt-1 overflow-hidden">
                             <div
@@ -1136,7 +1135,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
                             />
                           </div>
                         </td>
-                        <td className="py-3 px-3">
+                        <td>
                           <span
                             className={`inline-block px-2 py-0.5 rounded text-2xs font-semibold ${
                               s.urgency === 'kritis'
@@ -1149,7 +1148,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
                             {s.statusKeterangan}
                           </span>
                         </td>
-                        <td className="py-3 px-2 text-right">
+                        <td className="text-right">
                           <button
                             type="button"
                             onClick={() =>

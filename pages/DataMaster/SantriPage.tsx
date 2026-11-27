@@ -628,8 +628,8 @@ const SantriPage: React.FC = () => {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20 max-w-[1400px] font-sans">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 sm:gap-4">
-                <div>
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3 sm:gap-4">
+                <div className="min-w-0 flex-1">
                     <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
                         Data Santri
                     </h1>
@@ -637,24 +637,24 @@ const SantriPage: React.FC = () => {
                         Identitas santri dan kelasnya pada tahun ajaran ini. Klik nama santri untuk melihat progres & riwayat kelas.
                     </p>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 lg:shrink-0 lg:justify-end">
                     <input type="file" ref={fileInputRef} onChange={handleImportCSV} accept=".csv,.xlsx,.xls" className="hidden" />
                     
                     <ActionDropdown label="Ekspor data" icon={<Download size={14}/>}>
                         <button onClick={() => exportToExcel(filteredData, 'Data_Santri')} className="flex items-center w-full px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-left">
-                            <FileSpreadsheet size={16} className="mr-3 text-emerald-600"/> Export Excel
+                            <FileSpreadsheet size={16} className="mr-3 text-emerald-600"/> Ekspor Excel
                         </button>
                         <button onClick={handleExportPDF} className="flex items-center w-full px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-left border-t border-slate-100">
-                            <FileText size={16} className="mr-3 text-red-600"/> Export PDF
+                            <FileText size={16} className="mr-3 text-red-600"/> Ekspor PDF
                         </button>
                     </ActionDropdown>
                     
                     <ActionDropdown label="Impor data" icon={<Upload size={14}/>}>
                         <button onClick={() => fileInputRef.current?.click()} className="flex items-center w-full px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-left">
-                            <FileSpreadsheet size={16} className="mr-3 text-emerald-600"/> Upload File Excel/CSV
+                            <FileSpreadsheet size={16} className="mr-3 text-emerald-600"/> Unggah file Excel/CSV
                         </button>
                         <button onClick={handleDownloadTemplate} className="flex items-center w-full px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-left border-t border-slate-100">
-                            <Download size={16} className="mr-3 text-blue-600"/> Download Template
+                            <Download size={16} className="mr-3 text-blue-600"/> Unduh template
                         </button>
                     </ActionDropdown>
                     
@@ -698,94 +698,67 @@ const SantriPage: React.FC = () => {
             </div>
 
             {/* Content Wrap */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                {/* Filters */}
-                <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-                    <div className="flex flex-col md:flex-row gap-5 items-center justify-between">
-                        <div className="w-full md:w-1/3 relative">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                            <input 
-                                type="text" 
-                                placeholder="Cari nama / ID santri..."
-                                value={filterSearch} 
-                                onChange={e => setFilterSearch(e.target.value)} 
-                                className="w-full pl-11 pr-4 h-11 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none text-sm font-semibold transition-all shadow-sm placeholder:text-slate-400"
-                            />
-                        </div>
-                        <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-                            <div className="relative flex-shrink-0 group flex items-center">
-                                <div className="relative">
-                                    <select 
-                                        value={filterMarhalah} 
-                                        onChange={e => {setFilterMarhalah(e.target.value as any); setFilterKelas('all')}}
-                                        className="w-full sm:w-[180px] h-11 pl-4 pr-10 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none text-sm font-semibold text-slate-700 transition-all shadow-sm appearance-none cursor-pointer hover:border-slate-300"
-                                    >
-                                        <option value="all">Semua Marhalah</option>
-                                        {masterMarhalahs.map((m: any) => <option key={m.id} value={m.nama}>{m.nama}</option>)}
-                                    </select>
-                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                        <ChevronRight size={16} className="rotate-90"/>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="relative flex-shrink-0 group flex items-center">
-                                <div className="relative">
-                                    <select 
-                                        value={filterKelas} 
-                                        onChange={e => setFilterKelas(e.target.value)} 
-                                        disabled={filterMarhalah === 'all'} 
-                                        className="w-full sm:w-[150px] h-11 pl-4 pr-10 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none text-sm font-semibold text-slate-700 transition-all shadow-sm appearance-none cursor-pointer disabled:bg-slate-50 disabled:text-slate-400 disabled:shadow-none hover:border-slate-300"
-                                    >
-                                        <option value="all">Semua Kelas</option>
-                                        {filterMarhalah !== 'all' && availableFilterKelas.map(k => <option key={k} value={k}>{k}</option>)}
-                                    </select>
-                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                        <ChevronRight size={16} className="rotate-90"/>
-                                    </div>
-                                </div>
-                            </div>
+            <div className="panel-filter">
+              <div className="grid-filter">
+                <input 
+                                                type="text" 
+                                                placeholder="Cari nama / ID santri..."
+                                                value={filterSearch} 
+                                                onChange={e => setFilterSearch(e.target.value)} 
+                                                className="kontrol kontrol-cari"
+                                            />
+                <select 
+                                                        value={filterMarhalah} 
+                                                        onChange={e => {setFilterMarhalah(e.target.value as any); setFilterKelas('all')}}
+                                                        className="kontrol"
+                                                    >
+                                                        <option value="all">Semua Marhalah</option>
+                                                        {masterMarhalahs.map((m: any) => <option key={m.id} value={m.nama}>{m.nama}</option>)}
+                                                    </select>
+                <select 
+                                                        value={filterKelas} 
+                                                        onChange={e => setFilterKelas(e.target.value)} 
+                                                        disabled={filterMarhalah === 'all'} 
+                                                        className="kontrol"
+                                                    >
+                                                        <option value="all">Semua Kelas</option>
+                                                        {filterMarhalah !== 'all' && availableFilterKelas.map(k => <option key={k} value={k}>{k}</option>)}
+                                                    </select>
+                <select 
+                                                        value={filterStatus}
+                                                        onChange={e => setFilterStatus(e.target.value)}
+                                                        className="kontrol"
+                                                    >
+                                                        <option value="active">Aktif</option>
+                                                        <option value="inactive">Tidak Aktif</option>
+                                                        <option value="all">Semua Status</option>
+                                                    </select>
+              </div>
+            </div>
+            <div className="wadah-tabel">
+                
 
-                            <div className="relative flex-shrink-0 group flex items-center">
-                                <div className="relative">
-                                    <select 
-                                        value={filterStatus}
-                                        onChange={e => setFilterStatus(e.target.value)}
-                                        className="w-full sm:w-[150px] h-11 pl-4 pr-10 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none text-sm font-semibold text-slate-700 transition-all shadow-sm appearance-none cursor-pointer hover:border-slate-300"
-                                    >
-                                        <option value="active">Aktif</option>
-                                        <option value="inactive">Tidak Aktif</option>
-                                        <option value="all">Semua Status</option>
-                                    </select>
-                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                        <ChevronRight size={16} className="rotate-90"/>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="overflow-x-auto bg-white min-h-[400px] hide-scrollbar">
-                                        <table className="tabel-kartu w-full min-w-max text-left border-collapse">
+                <div className="wadah-tabel min-h-[400px] hide-scrollbar overflow-x-auto">
+                                        <table className="tabel tabel-kartu">
                         <thead>
-                            <tr className="bg-slate-50/50 border-b border-slate-200/60">
-                                <th className="px-5 py-3 text-xs md:text-2xs font-semibold text-slate-400 w-12 text-center">No</th>
-                                <th className="px-5 py-3 text-xs md:text-2xs font-semibold text-slate-400 w-16 text-center border-l border-slate-100"><div onClick={() => handleSort('id')} className="flex items-center justify-center gap-1.5 group cursor-pointer hover:text-slate-600 transition-colors"><span>ID</span>{getSortIcon('id')}</div></th>
-                                <th className="px-5 py-3 text-xs md:text-2xs font-semibold text-slate-400 min-w-[200px] border-l border-slate-100"><div onClick={() => handleSort('nama')} className="flex items-center justify-start gap-1.5 group cursor-pointer hover:text-slate-600 transition-colors"><span>Nama Santri</span>{getSortIcon('nama')}</div></th>
-                                <th className="px-5 py-3 text-xs md:text-2xs font-semibold text-slate-400 border-l border-slate-100 min-w-[140px]"><div onClick={() => handleSort('marhalah_kelas')} className="flex items-center justify-start gap-1.5 group cursor-pointer hover:text-slate-600 transition-colors"><span>Marhalah & Kelas</span>{getSortIcon('marhalah_kelas')}</div></th>
-                                <th className="px-5 py-3 text-xs md:text-2xs font-semibold text-slate-400 border-l border-slate-100 text-center w-24"><div onClick={() => handleSort('status')} className="flex items-center gap-1.5 justify-center group cursor-pointer hover:text-slate-600 transition-colors"><span>Status Santri</span>{getSortIcon('status')}</div></th>
-                                <th className="px-5 py-3 text-xs md:text-2xs font-semibold text-slate-400 border-l border-slate-100 min-w-[160px]"><div onClick={() => handleSort('nama_wali')} className="flex items-center justify-start gap-1.5 group cursor-pointer hover:text-slate-600 transition-colors"><span>Nama Wali</span>{getSortIcon('nama_wali')}</div></th>
-                                <th className="px-5 py-3 text-xs md:text-2xs font-semibold text-slate-400 border-l border-slate-100 min-w-[140px]"><div onClick={() => handleSort('no_hp_wali')} className="flex items-center justify-start gap-1.5 group cursor-pointer hover:text-slate-600 transition-colors"><span>No HP Wali</span>{getSortIcon('no_hp_wali')}</div></th>
-                                <th className="px-5 py-3 text-xs md:text-2xs font-semibold text-slate-400 border-l border-slate-100 text-center min-w-[140px]"><div onClick={() => handleSort('telegram_chat_id')} className="flex items-center gap-1.5 justify-center group cursor-pointer hover:text-slate-600 transition-colors"><span>Telegram Wali</span>{getSortIcon('telegram_chat_id')}</div></th>
-                                <th className="px-5 py-3 text-xs md:text-2xs font-semibold text-slate-400 border-l border-slate-100 text-right w-24">Aksi</th>
+                            <tr>
+                                <th className="w-12 text-center">No</th>
+                                <th className="w-16 text-center"><div onClick={() => handleSort('id')} className="flex items-center justify-center gap-1.5 group cursor-pointer hover:text-slate-600 transition-colors"><span>ID</span>{getSortIcon('id')}</div></th>
+                                <th className="min-w-[200px]"><div onClick={() => handleSort('nama')} className="flex items-center justify-start gap-1.5 group cursor-pointer hover:text-slate-600 transition-colors"><span>Nama Santri</span>{getSortIcon('nama')}</div></th>
+                                <th className="min-w-[140px]"><div onClick={() => handleSort('marhalah_kelas')} className="flex items-center justify-start gap-1.5 group cursor-pointer hover:text-slate-600 transition-colors"><span>Marhalah & Kelas</span>{getSortIcon('marhalah_kelas')}</div></th>
+                                <th className="text-center w-24"><div onClick={() => handleSort('status')} className="flex items-center gap-1.5 justify-center group cursor-pointer hover:text-slate-600 transition-colors"><span>Status Santri</span>{getSortIcon('status')}</div></th>
+                                <th className="min-w-[160px]"><div onClick={() => handleSort('nama_wali')} className="flex items-center justify-start gap-1.5 group cursor-pointer hover:text-slate-600 transition-colors"><span>Nama Wali</span>{getSortIcon('nama_wali')}</div></th>
+                                <th className="min-w-[140px]"><div onClick={() => handleSort('no_hp_wali')} className="flex items-center justify-start gap-1.5 group cursor-pointer hover:text-slate-600 transition-colors"><span>No HP Wali</span>{getSortIcon('no_hp_wali')}</div></th>
+                                <th className="text-center min-w-[140px]"><div onClick={() => handleSort('telegram_chat_id')} className="flex items-center gap-1.5 justify-center group cursor-pointer hover:text-slate-600 transition-colors"><span>Telegram Wali</span>{getSortIcon('telegram_chat_id')}</div></th>
+                                <th className="text-right w-24">Aksi</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100/80">
+                        <tbody>
                             {paginatedData.map((s, idx) => (
-                                <tr key={s.id} className="hover:bg-blue-50/30 transition-colors group">
-                                    <td data-label="No" className="px-6 py-4 text-xs font-medium text-slate-500 text-center">{(currentPage - 1) * itemsPerPage + idx + 1}</td>
-                                    <td data-label="ID" className="px-6 py-4 border-l border-slate-100/80 text-xs font-medium text-slate-400 text-center group-hover:text-blue-500 transition-colors">#{s.id}</td>
-                                    <td className="px-6 py-4 border-l border-slate-100/80 cursor-pointer" onClick={() => openDetailTimeline(s)}>
+                                <tr key={s.id}>
+                                    <td data-label="No" className="text-xs font-medium text-slate-500 text-center">{(currentPage - 1) * itemsPerPage + idx + 1}</td>
+                                    <td data-label="ID" className="text-xs font-medium text-slate-400 text-center group-hover:text-blue-500 transition-colors">#{s.id}</td>
+                                    <td className="cursor-pointer" onClick={() => openDetailTimeline(s)}>
                                         <div className="flex items-center gap-4">
                                             <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br from-blue-50 to-blue-50 border border-blue-100 flex items-center justify-center shadow-sm">
                                                 <span className="text-xs font-extrabold text-blue-600">
@@ -803,26 +776,26 @@ const SantriPage: React.FC = () => {
                                             </div>
                                         </div>
                                     </td>
-                                    <td data-label="Marhalah & kelas" className="px-6 py-4 border-l border-slate-100/80">
+                                    <td data-label="Marhalah & kelas">
                                         <div className="flex flex-col gap-1">
                                             <span className="inline-flex self-start items-center px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-600"><MarhalahLabel text={s.marhalah} id={s.marhalah_id} /></span>
                                             <span className="text-sm font-bold text-slate-700">Kelas <KelasLabel text={s.kelas} id={s.kelas_id} /></span>
                                         </div>
                                     </td>
                                     
-                                    <td data-label="Status" className="px-6 py-4 border-l border-slate-100/80 text-center">
+                                    <td data-label="Status" className="text-center">
                                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-2xs font-bold uppercase tracking-wider ${(s.status || 'active') === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
                                             {(s.status || 'active') === 'active' ? 'Aktif' : 'Tidak Aktif'}
                                         </span>
                                     </td>
-                                    <td data-label="Nama wali" className="px-6 py-4 border-l border-slate-100/80">
+                                    <td data-label="Nama wali">
                                         {s.nama_wali ? (
                                             <span className="text-sm font-bold text-slate-700">{s.nama_wali}</span>
                                         ) : (
                                             <span className="text-xs italic text-slate-400 font-medium">Belum ada data</span>
                                         )}
                                     </td>
-                                    <td data-label="No HP wali" className="px-6 py-4 border-l border-slate-100/80">
+                                    <td data-label="No HP wali">
                                         {s.no_hp_wali ? (
                                             <button onClick={(e) => { e.stopPropagation(); handleWA(s.no_hp_wali!); }} className="inline-flex items-center text-2xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-md hover:bg-emerald-100 transition-colors tracking-wide border border-emerald-200/60 shadow-sm">
                                                 <Send size={12} className="mr-1.5" strokeWidth={2.5}/> {s.no_hp_wali}
@@ -831,7 +804,7 @@ const SantriPage: React.FC = () => {
                                             <span className="text-xs italic text-slate-400 font-medium">Belum ada data</span>
                                         )}
                                     </td>
-                                    <td data-label="Telegram" className="px-6 py-4 border-l border-slate-100/80 text-center" onClick={(e) => e.stopPropagation()}>
+                                    <td data-label="Telegram" className="text-center" onClick={(e) => e.stopPropagation()}>
                                         {/* Fase 6: status tautan wali + kode santri (kelola di Notifikasi Telegram) */}
                                         {s.telegram_chat_id ? (
                                             <span className="text-xs font-semibold text-emerald-700">Tertaut</span>
@@ -840,7 +813,7 @@ const SantriPage: React.FC = () => {
                                         )}
                                         {(s as any).kode_telegram && <div className="text-2xs font-mono text-slate-400 tracking-wider">{tampilKode((s as any).kode_telegram)}</div>}
                                     </td>
-                                    <td data-label="Aksi" className="px-6 py-4 border-l border-slate-100/80 text-right">
+                                    <td data-label="Aksi" className="text-right">
                                         <div className="flex justify-end gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                             <button
                                                 onClick={() => openDetailTimeline(s)}
@@ -1049,30 +1022,30 @@ const SantriPage: React.FC = () => {
                             <h4 className="text-xs font-semibold text-slate-600 mb-2">
                                 Riwayat kelas per tahun ajaran
                             </h4>
-                            <div className="border border-slate-200 rounded-lg overflow-hidden">
-                                <table className="w-full text-left border-collapse text-xs">
-                                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
+                            <div className="wadah-tabel">
+                                <table className="tabel">
+                                    <thead>
                                         <tr>
-                                            <th className="px-3.5 py-2">Tahun Ajaran</th>
-                                            <th className="px-3.5 py-2">Marhalah & Kelas</th>
-                                            <th className="px-3.5 py-2">Status penempatan</th>
-                                            <th className="px-3.5 py-2">Periode Efektif</th>
+                                            <th>Tahun Ajaran</th>
+                                            <th>Marhalah & Kelas</th>
+                                            <th>Status penempatan</th>
+                                            <th>Periode Efektif</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-200">
+                                    <tbody>
                                         {studentEnrollmentHistory.map((row: any) => {
                                             const ayObj = (academicYears || []).find((a) => a.id === row.academic_year_id);
                                             const st = row.status || row.enrollment_status || 'active';
                                             return (
                                                 <tr key={row.id || row.academic_year_id}>
-                                                    <td className="px-3.5 py-2 font-semibold text-slate-800">
+                                                    <td className="font-semibold text-slate-800">
                                                         {ayObj?.name || `TA #${row.academic_year_id}`}
                                                     </td>
-                                                    <td className="px-3.5 py-2">
+                                                    <td>
                                                         <span className="text-slate-600">{row.marhalah}</span> •{' '}
                                                         <span className="font-bold text-blue-700">Kelas {row.kelas}</span>
                                                     </td>
-                                                    <td className="px-3.5 py-2">
+                                                    <td>
                                                         <StatusBadge
                                                             label={String(st).toUpperCase()}
                                                             tone={
@@ -1084,7 +1057,7 @@ const SantriPage: React.FC = () => {
                                                             }
                                                         />
                                                     </td>
-                                                    <td className="px-3.5 py-2 font-mono text-2xs text-slate-500">
+                                                    <td className="font-mono text-2xs text-slate-500">
                                                         {row.enrolled_at || '-'} {row.left_at ? `s/d ${row.left_at}` : '(Aktif)'}
                                                     </td>
                                                 </tr>

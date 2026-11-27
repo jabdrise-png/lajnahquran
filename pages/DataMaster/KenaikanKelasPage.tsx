@@ -338,8 +338,8 @@ const KenaikanKelasPage: React.FC = () => {
             )}
 
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 sm:gap-4">
-                <div>
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3 sm:gap-4">
+                <div className="min-w-0 flex-1">
                     <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
                         Kenaikan Kelas & Kelulusan
                     </h1>
@@ -358,7 +358,7 @@ const KenaikanKelasPage: React.FC = () => {
                                     Tahun Ajaran Sumber (Lama)
                                 </label>
                                 <select
-                                    className="w-full h-10 px-4 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none text-sm font-medium transition-all"
+                                    className="kontrol"
                                     value={sourceYearId}
                                     onChange={(e) => setSourceYearId(e.target.value ? Number(e.target.value) : '')}
                                 >
@@ -371,11 +371,10 @@ const KenaikanKelasPage: React.FC = () => {
                                 </select>
                             </div>
                             <div className="w-full sm:w-1/2 relative">
-                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                                 <input
                                     type="text"
                                     placeholder="Cari nama / kelas asal..."
-                                    className="w-full h-10 pl-10 pr-4 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none text-sm transition-all placeholder:text-slate-400"
+                                    className="kontrol kontrol-cari"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     disabled={!sourceYearId}
@@ -386,7 +385,7 @@ const KenaikanKelasPage: React.FC = () => {
                         <div className="flex flex-col sm:flex-row gap-4">
                             <div className="w-full sm:w-1/3">
                                 <select
-                                    className="w-full h-9 px-3 bg-white border border-slate-200/80 rounded-lg focus:ring-2 focus:ring-blue-50 focus:border-blue-500 outline-none text-xs font-medium text-slate-700 transition-colors cursor-pointer"
+                                    className="kontrol"
                                     value={sourceMarhalah}
                                     onChange={(e) => {
                                         setSourceMarhalah(e.target.value);
@@ -404,7 +403,7 @@ const KenaikanKelasPage: React.FC = () => {
                             </div>
                             <div className="w-full sm:w-1/3">
                                 <select
-                                    className="w-full h-9 px-3 bg-white border border-slate-200/80 rounded-lg focus:ring-2 focus:ring-blue-50 focus:border-blue-500 outline-none text-xs font-medium text-slate-700 transition-colors cursor-pointer"
+                                    className="kontrol"
                                     value={sourceKelas}
                                     onChange={(e) => setSourceKelas(e.target.value)}
                                     disabled={!sourceYearId || !sourceMarhalah}
@@ -420,7 +419,7 @@ const KenaikanKelasPage: React.FC = () => {
                             </div>
                             <div className="w-full sm:w-1/3">
                                 <select
-                                    className="w-full h-9 px-3 bg-white border border-slate-200/80 rounded-lg focus:ring-2 focus:ring-blue-50 focus:border-blue-500 outline-none text-xs font-medium text-slate-700 transition-colors cursor-pointer"
+                                    className="kontrol"
                                     value={sourceStatus}
                                     onChange={(e) => setSourceStatus(e.target.value)}
                                     disabled={!sourceYearId || !targetYearId}
@@ -450,10 +449,10 @@ const KenaikanKelasPage: React.FC = () => {
                                 <p className="text-sm font-medium">Tidak ada santri ditemukan pada filter ini.</p>
                             </div>
                         ) : (
-                            <table className="w-full text-left border-collapse">
-                                <thead className="bg-white sticky top-0 z-10">
-                                    <tr className="border-b border-slate-200/60 bg-slate-50/50">
-                                        <th className="px-6 py-4 text-xs font-semibold text-slate-400 w-12 text-center border-r border-slate-100/80">
+                            <table className="tabel">
+                                <thead className="sticky top-0 z-10">
+                                    <tr>
+                                        <th className="w-12 text-center">
                                             <input
                                                 type="checkbox"
                                                 className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
@@ -464,26 +463,26 @@ const KenaikanKelasPage: React.FC = () => {
                                                 onChange={handleSelectAll}
                                             />
                                         </th>
-                                        <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80">
+                                        <th>
                                             Nama Santri
                                         </th>
-                                        <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80">
+                                        <th>
                                             Kelas Asal & Status Histori
                                         </th>
-                                        <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80">
+                                        <th>
                                             Status kelas di TA tujuan
                                         </th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100/80">
+                                <tbody>
                                     {paginatedStudents.map((s) => (
                                         <tr
                                             key={s.id}
-                                            className="hover:bg-blue-50/30 transition-colors group cursor-pointer"
+                                            className="cursor-pointer"
                                             onClick={() => handleSelectStudent(s.id)}
                                         >
                                             <td
-                                                className="px-6 py-3.5 border-r border-slate-100/80 text-center"
+                                                className="text-center"
                                                 onClick={(e) => e.stopPropagation()}
                                             >
                                                 <input
@@ -493,7 +492,7 @@ const KenaikanKelasPage: React.FC = () => {
                                                     onChange={() => handleSelectStudent(s.id)}
                                                 />
                                             </td>
-                                            <td className="px-6 py-3.5 border-l border-slate-100/80">
+                                            <td>
                                                 <div className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
                                                     {s.nama}
                                                 </div>
@@ -501,7 +500,7 @@ const KenaikanKelasPage: React.FC = () => {
                                                     <div className="text-2xs font-mono text-slate-400">NIS: {s.nis}</div>
                                                 )}
                                             </td>
-                                            <td className="px-6 py-3.5 border-l border-slate-100/80">
+                                            <td>
                                                 <div className="flex flex-wrap items-center gap-2">
                                                     <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
                                                         <KelasLabel text={s.kelas} id={s.kelas_id} />{' '}
@@ -517,7 +516,7 @@ const KenaikanKelasPage: React.FC = () => {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-3.5 border-l border-slate-100/80">
+                                            <td>
                                                 {targetYearClasses.some((tc) => tc.santri_id === s.id) ? (
                                                     <span className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
                                                         Ter-Enroll ({targetYearClasses.find((tc) => tc.santri_id === s.id)?.kelas})

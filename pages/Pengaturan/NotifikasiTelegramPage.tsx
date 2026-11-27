@@ -279,7 +279,7 @@ const NotifikasiTelegramPage: React.FC = () => {
   if (loading && !set) return <LoadingState label="Memuat Notifikasi Telegram…" />;
 
   const tabBtn = (t: Tab, teks: string) => (
-    <button type="button" onClick={() => setTab(t)} className={`pb-2.5 text-sm font-bold border-b-2 ${tab === t ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500'}`}>{teks}</button>
+    <button type="button" onClick={() => setTab(t)} className={`tab ${tab === t ? 'tab-aktif' : ''}`}>{teks}</button>
   );
 
   return (
@@ -312,7 +312,7 @@ const NotifikasiTelegramPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex gap-5 border-b border-slate-200">
+      <div className="tabs">
         {tabBtn('pengaturan', 'Pesan & jadwal')}
         {tabBtn('kode', `Kode wali (${jumlahTertaut}/${santriAktif.length} tertaut)`)}
         {tabBtn('antrian', 'Antrian & kirim')}
@@ -365,20 +365,20 @@ const NotifikasiTelegramPage: React.FC = () => {
             <button type="button" className={btn} onClick={eksporKode}><Download size={15} /> Ekspor kode</button>
           </div>
           {baris.length === 0 ? <EmptyState title="Tidak ada santri" description="Tidak ada santri aktif yang cocok dengan filter." /> : (
-            <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead className="bg-slate-50 text-2xs uppercase text-slate-500"><tr>
-                  <th className="px-4 py-2 text-left">Santri</th><th className="px-4 py-2 text-left">Kode</th><th className="px-4 py-2 text-left">Telegram wali</th><th className="px-4 py-2 text-right">Aksi</th>
+            <div className="wadah-tabel overflow-x-auto">
+              <table className="tabel">
+                <thead><tr>
+                  <th className="text-left">Santri</th><th className="text-left">Kode</th><th className="text-left">Telegram wali</th><th className="text-right">Aksi</th>
                 </tr></thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody>
                   {baris.slice(0, 400).map((s) => (
                     <tr key={s.id}>
-                      <td className="px-4 py-2"><div className="font-semibold text-slate-800">{s.nama}</div><div className="text-2xs text-slate-400">{s.kode || '-'} · {halaqahSantri.get(Number(s.id)) || s.kelas || '-'}</div></td>
-                      <td className="px-4 py-2 font-mono tracking-wider text-slate-700">{tampilKode(s.kode_telegram)}</td>
-                      <td className="px-4 py-2">{s.telegram_chat_id
+                      <td><div className="font-semibold text-slate-800">{s.nama}</div><div className="text-2xs text-slate-400">{s.kode || '-'} · {halaqahSantri.get(Number(s.id)) || s.kelas || '-'}</div></td>
+                      <td className="font-mono tracking-wider text-slate-700">{tampilKode(s.kode_telegram)}</td>
+                      <td>{s.telegram_chat_id
                         ? <span className="inline-flex items-center gap-1 text-emerald-700 text-xs font-semibold"><CheckCircle2 size={14} /> Tertaut{s.telegram_linked_at ? ` · ${new Date(s.telegram_linked_at).toLocaleDateString('id-ID')}` : ''}</span>
                         : <span className="text-xs text-slate-400">Belum</span>}</td>
-                      <td className="px-4 py-2 text-right whitespace-nowrap">
+                      <td className="text-right whitespace-nowrap">
                         <button type="button" className="text-xs font-semibold text-blue-700 mr-3 inline-flex items-center gap-1" disabled={!s.kode_telegram} onClick={() => bukaUndangan(s)}><Copy size={12} /> Undangan</button>
                         {s.telegram_chat_id && <button type="button" className="text-xs font-semibold text-slate-600 mr-3 inline-flex items-center gap-1" onClick={() => uji(s)}><Send size={12} /> Uji</button>}
                         <button type="button" className="text-xs font-semibold text-slate-600 mr-3 inline-flex items-center gap-1" onClick={() => buatUlang(s)}><RefreshCw size={12} /> Kode baru</button>
@@ -428,23 +428,23 @@ const NotifikasiTelegramPage: React.FC = () => {
           {memuatAntrian && !antrian.length ? <LoadingState rows={4} label="Memuat antrian…" /> : antrian.length === 0
             ? <EmptyState title="Belum ada pesan" description="Pesan muncul di sini setelah ada setoran, form periode terkirim, atau jadwal mingguan — untuk wali yang sudah menautkan Telegram." />
             : (
-              <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-slate-50 text-2xs uppercase text-slate-500"><tr>
-                    <th className="px-4 py-2 text-left">Waktu</th><th className="px-4 py-2 text-left">Santri</th><th className="px-4 py-2 text-left">Jenis</th>
-                    <th className="px-4 py-2 text-left">Status</th><th className="px-4 py-2 text-left">Keterangan</th><th className="px-4 py-2 text-right">Aksi</th>
+              <div className="wadah-tabel overflow-x-auto">
+                <table className="tabel">
+                  <thead><tr>
+                    <th className="text-left">Waktu</th><th className="text-left">Santri</th><th className="text-left">Jenis</th>
+                    <th className="text-left">Status</th><th className="text-left">Keterangan</th><th className="text-right">Aksi</th>
                   </tr></thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody>
                     {antrian.map((q) => (
                       <tr key={q.id} title={q.pesan}>
-                        <td className="px-4 py-2 text-xs text-slate-500 whitespace-nowrap">{new Date(q.created_at).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}</td>
-                        <td className="px-4 py-2 font-semibold text-slate-800">{namaSantri(q.santri_id)}</td>
-                        <td className="px-4 py-2 text-xs">{JENIS_LABEL[q.jenis] || q.jenis}</td>
-                        <td className="px-4 py-2"><span className={`text-2xs font-semibold px-2 py-0.5 rounded-full border ${STATUS_LABEL[q.status]?.c || ''}`}>{STATUS_LABEL[q.status]?.t || q.status}</span></td>
-                        <td className="px-4 py-2 text-xs text-slate-500 max-w-xs truncate">
+                        <td className="text-xs text-slate-500 whitespace-nowrap">{new Date(q.created_at).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}</td>
+                        <td className="font-semibold text-slate-800">{namaSantri(q.santri_id)}</td>
+                        <td className="text-xs">{JENIS_LABEL[q.jenis] || q.jenis}</td>
+                        <td><span className={`text-2xs font-semibold px-2 py-0.5 rounded-full border ${STATUS_LABEL[q.status]?.c || ''}`}>{STATUS_LABEL[q.status]?.t || q.status}</span></td>
+                        <td className="text-xs text-slate-500 max-w-xs truncate">
                           {q.status === 'terkirim' && q.sent_at ? `Terkirim ${new Date(q.sent_at).toLocaleTimeString('id-ID', { timeStyle: 'short' })}` : q.last_error ? `${terjemahGalat(q.last_error)}${q.attempts ? ` (percobaan ${q.attempts})` : ''}` : ''}
                         </td>
-                        <td className="px-4 py-2 text-right whitespace-nowrap">
+                        <td className="text-right whitespace-nowrap">
                           {['gagal', 'batal'].includes(q.status) && <button type="button" className="text-xs font-semibold text-blue-700 mr-3" onClick={() => rpcAntrian('rpc_antrian_ulangi', { p_id: q.id }, 'Pesan diantrikan ulang.')}>Ulangi</button>}
                           {['antri', 'proses', 'gagal'].includes(q.status) && <button type="button" className="text-xs font-semibold text-red-600" onClick={() => batalPesan(q)}>Batalkan</button>}
                         </td>

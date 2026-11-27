@@ -1299,39 +1299,39 @@ export const SantriDetailProgressView: React.FC<SantriDetailProgressViewProps> =
                         <p className="text-xs font-semibold text-slate-500">Belum ada riwayat setoran</p>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto rounded-xl border border-slate-100">
-                        <table className="w-full text-left text-xs">
-                            <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-semibold text-xs">
+                    <div className="wadah-tabel overflow-x-auto">
+                        <table className="tabel">
+                            <thead>
                                 <tr>
-                                    <th className="px-4 py-3.5 w-12 text-center">No</th>
-                                    <th className="px-4 py-3.5">Tanggal</th>
-                                    <th className="px-4 py-3.5">Waktu</th>
-                                    <th className="px-4 py-3.5">Skema</th>
-                                    <th className="px-4 py-3.5 min-w-[180px]">Surat & Ayat</th>
-                                    <th className="px-4 py-3.5 text-center">Jml Hal</th>
-                                    <th className="px-4 py-3.5 text-center">Nilai</th>
-                                    <th className="px-4 py-3.5 text-center">Kesalahan</th>
-                                    <th className="px-4 py-3.5 min-w-[160px]">Keterangan</th>
+                                    <th className="w-12 text-center">No</th>
+                                    <th>Tanggal</th>
+                                    <th>Waktu</th>
+                                    <th>Skema</th>
+                                    <th className="min-w-[180px]">Surat & Ayat</th>
+                                    <th className="text-center">Jml Hal</th>
+                                    <th className="text-center">Nilai</th>
+                                    <th className="text-center">Kesalahan</th>
+                                    <th className="min-w-[160px]">Keterangan</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 bg-white">
+                            <tbody>
                                 {tableSetoranList.map((sh, idx) => (
-                                    <tr key={sh.id} className="hover:bg-slate-50/60 transition-colors">
-                                        <td className="px-4 py-3.5 text-center text-slate-400 font-medium">
+                                    <tr key={sh.id}>
+                                        <td className="text-center text-slate-400 font-medium">
                                             {idx + 1}
                                         </td>
-                                        <td className="px-4 py-3.5 font-bold text-slate-900 whitespace-nowrap">
+                                        <td className="font-bold text-slate-900 whitespace-nowrap">
                                             {formatDateDisplay(sh.tanggal)}
                                         </td>
-                                        <td className="px-4 py-3.5 text-slate-500 whitespace-nowrap font-medium">
+                                        <td className="text-slate-500 whitespace-nowrap font-medium">
                                             {sh.waktu || '-'}
                                         </td>
-                                        <td className="px-4 py-3.5 whitespace-nowrap">
+                                        <td className="whitespace-nowrap">
                                             <span className="font-bold text-blue-600">
                                                 {sh.skema || '-'}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-3.5 text-slate-900 font-semibold">
+                                        <td className="text-slate-900 font-semibold">
                                             {sh.surat || '-'}
                                             {sh.ayat && (
                                                 <span className="text-slate-500 font-normal ml-1">
@@ -1339,18 +1339,18 @@ export const SantriDetailProgressView: React.FC<SantriDetailProgressViewProps> =
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="px-4 py-3.5 text-center font-bold text-slate-800">
+                                        <td className="text-center font-bold text-slate-800">
                                             {sh.jumlah_halaman ?? '-'}
                                         </td>
-                                        <td className="px-4 py-3.5 text-center font-bold text-slate-700">
+                                        <td className="text-center font-bold text-slate-700">
                                             {sh.nilai || '-'}
                                         </td>
-                                        <td className="px-4 py-3.5 text-center text-slate-600 font-semibold">
+                                        <td className="text-center text-slate-600 font-semibold">
                                             <span className="text-red-600">K:{sh.kesalahan_kabir || 0}</span>
                                             <span className="text-slate-300 mx-1.5">•</span>
                                             <span className="text-amber-600">S:{sh.kesalahan_shoghir || 0}</span>
                                         </td>
-                                        <td className="px-4 py-3.5 text-slate-500 text-2xs truncate max-w-[220px]" title={sh.keterangan || ''}>
+                                        <td className="text-slate-500 text-2xs truncate max-w-[220px]" title={sh.keterangan || ''}>
                                             {sh.keterangan || '-'}
                                         </td>
                                     </tr>
@@ -1379,37 +1379,37 @@ export const SantriDetailProgressView: React.FC<SantriDetailProgressViewProps> =
                         Belum ada riwayat halaqah yang tercatat untuk santri ini.
                     </div>
                 ) : (
-                    <div className="overflow-x-auto overflow-y-auto max-h-[185px] border border-slate-200/80 rounded-xl relative shadow-2xs">
-                        <table className="w-full text-left text-xs">
-                            <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200 text-slate-600 font-semibold text-xs shadow-xs">
+                    <div className="wadah-tabel overflow-y-auto max-h-[185px] relative overflow-x-auto">
+                        <table className="tabel">
+                            <thead className="sticky top-0 z-10">
                                 <tr>
-                                    <th className="px-5 py-3">Nama Halaqah</th>
-                                    <th className="px-5 py-3">Jenis Halaqah</th>
-                                    <th className="px-5 py-3">Pengampu / Musammi</th>
-                                    <th className="px-5 py-3">Periode Keanggotaan</th>
-                                    <th className="px-5 py-3 text-right">Status</th>
+                                    <th>Nama Halaqah</th>
+                                    <th>Jenis Halaqah</th>
+                                    <th>Pengampu / Musammi</th>
+                                    <th>Periode Keanggotaan</th>
+                                    <th className="text-right">Status</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 bg-white">
+                            <tbody>
                                 {halaqahHistory.map((h, i) => (
-                                    <tr key={i} className="hover:bg-slate-50/60 transition-colors">
-                                        <td className="px-5 py-3.5 font-bold text-slate-800">
+                                    <tr key={i}>
+                                        <td className="font-bold text-slate-800">
                                             {h.halaqahNama}
                                         </td>
-                                        <td className="px-5 py-3.5 text-slate-600 font-medium">
+                                        <td className="text-slate-600 font-medium">
                                             {h.jenis || '-'}
                                         </td>
-                                        <td className="px-5 py-3.5 text-slate-700 font-medium">
+                                        <td className="text-slate-700 font-medium">
                                             {h.musammiNama}
                                         </td>
-                                        <td className="px-5 py-3.5 text-slate-600 font-medium">
+                                        <td className="text-slate-600 font-medium">
                                             {formatDateDisplay(h.startDate)}
                                             <span className="text-slate-300 mx-1.5">–</span>
                                             {h.endDate ? formatDateDisplay(h.endDate) : (
                                                 <span className="text-emerald-600 font-semibold">Sekarang</span>
                                             )}
                                         </td>
-                                        <td className="px-5 py-3.5 text-right font-medium">
+                                        <td className="text-right font-medium">
                                             {h.isCurrent ? (
                                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
                                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>

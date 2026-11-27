@@ -836,41 +836,41 @@ const TahunAjaranPage: React.FC = () => {
                                             </div>
                                         </div>
 
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-left border-collapse">
+                                        <div className="wadah-tabel overflow-x-auto">
+                                            <table className="tabel">
                                                 <thead>
-                                                    <tr className="border-b border-slate-200 bg-white text-xs font-semibold text-slate-500">
-                                                        <th className="px-5 py-2.5 w-16">Urutan</th>
-                                                        <th className="px-5 py-2.5">Nama Kelas</th>
-                                                        <th className="px-5 py-2.5">Wali Kelas (Atribut Administratif)</th>
-                                                        <th className="px-5 py-2.5">Kontak Wali Kelas</th>
-                                                        <th className="px-5 py-2.5">Musyrif Pembina</th>
-                                                        <th className="px-5 py-2.5 text-right">Aksi</th>
+                                                    <tr>
+                                                        <th className="w-16">Urutan</th>
+                                                        <th>Nama Kelas</th>
+                                                        <th>Wali Kelas (Atribut Administratif)</th>
+                                                        <th>Kontak Wali Kelas</th>
+                                                        <th>Musyrif Pembina</th>
+                                                        <th className="text-right">Aksi</th>
                                                     </tr>
                                                 </thead>
-                                                <tbody className="divide-y divide-slate-200 text-xs">
+                                                <tbody className="text-xs">
                                                     {classesForM.map((k: any) => (
-                                                        <tr key={k.id} className="hover:bg-slate-50/80">
-                                                            <td className="px-5 py-3 font-mono text-slate-500">#{k.urutan || 1}</td>
-                                                            <td className="px-5 py-3">
+                                                        <tr key={k.id}>
+                                                            <td className="font-mono text-slate-500">#{k.urutan || 1}</td>
+                                                            <td>
                                                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-blue-50 text-blue-700 font-bold border border-blue-200">
                                                                     Kelas {k.nama_kelas}
                                                                 </span>
                                                             </td>
-                                                            <td className="px-5 py-3 font-medium text-slate-800">
+                                                            <td className="font-medium text-slate-800">
                                                                 {k.wali_kelas_name || (
                                                                     <span className="text-slate-400 italic">Belum diatur</span>
                                                                 )}
                                                             </td>
-                                                            <td className="px-5 py-3 text-slate-600">
+                                                            <td className="text-slate-600">
                                                                 {k.wali_kelas_phone || '-'}
                                                             </td>
-                                                            <td className="px-5 py-3 text-slate-700">
+                                                            <td className="text-slate-700">
                                                                 {k.musyrif_name || (
                                                                     <span className="text-slate-400 italic">-</span>
                                                                 )}
                                                             </td>
-                                                            <td className="px-5 py-3 text-right">
+                                                            <td className="text-right">
                                                                 <div className="inline-flex items-center gap-1.5">
                                                                     <button
                                                                         type="button"
@@ -953,18 +953,18 @@ const TahunAjaranPage: React.FC = () => {
                         </div>
                     )}
 
-                    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm border-collapse">
-                                <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
+                    <div className="wadah-tabel">
+                        <div className="wadah-tabel overflow-x-auto">
+                            <table className="tabel">
+                                <thead>
                                     <tr>
-                                        <th className="px-6 py-3.5">Tahun Ajaran</th>
-                                        <th className="px-6 py-3.5">Semester Berjalan & Rentang Tanggal</th>
-                                        <th className="px-6 py-3.5">Status</th>
-                                        <th className="px-6 py-3.5 text-right">Tindakan Tata Kelola</th>
+                                        <th>Tahun Ajaran</th>
+                                        <th>Semester Berjalan & Rentang Tanggal</th>
+                                        <th>Status</th>
+                                        <th className="text-right">Tindakan Tata Kelola</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-200">
+                                <tbody>
                                     {localAcademicYears.map((ay) => {
                                         const lifecycle = getEffectiveLifecycleStatus(ay);
                                         const badgeMeta = LIFECYCLE_LABELS[lifecycle] || LIFECYCLE_LABELS.setup;
@@ -972,7 +972,7 @@ const TahunAjaranPage: React.FC = () => {
                                         const isCurrentlyViewed = selectedAcademicYear?.id === ay.id;
                                         return (
                                             <tr key={ay.id} className={`hover:bg-slate-50/70 transition-colors ${isCurrentlyViewed ? 'bg-blue-50/20' : ''}`}>
-                                                <td className="px-6 py-4">
+                                                <td>
                                                     <div className="flex items-center gap-2">
                                                         <span className="font-bold text-slate-900 tabular-nums">
                                                             {ay.name}
@@ -989,7 +989,7 @@ const TahunAjaranPage: React.FC = () => {
                                                         </div>
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-4">
+                                                <td>
                                                     <div className="flex flex-wrap items-center justify-between gap-3">
                                                         <div>
                                                             <span className="text-xs font-semibold text-slate-800">
@@ -1026,10 +1026,10 @@ const TahunAjaranPage: React.FC = () => {
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4">
+                                                <td>
                                                     <StatusBadge label={badgeMeta.label} tone={badgeMeta.tone} />
                                                 </td>
-                                                <td className="px-6 py-4 text-right">
+                                                <td className="text-right">
                                                     <div className="inline-flex flex-wrap items-center justify-end gap-2">
                                                         {!ay.is_active && !isCurrentlyViewed && (
                                                             <button

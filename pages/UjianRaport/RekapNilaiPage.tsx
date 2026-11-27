@@ -236,60 +236,53 @@ const RekapNilaiPage: React.FC = () => {
           {proses && <span className="text-slate-500">{proses}</span>}
         </div>
 
-        <div className="flex flex-wrap gap-2 items-end">
-          <label className="text-xs font-semibold text-slate-600">Marhalah<br />
-            <select className={inputCls} value={filterMarhalah} onChange={(e) => setFilterMarhalah(e.target.value)}>
+        <div className="panel-filter"><div className="grid-filter">
+          <label className="kontrol-label"><span>Marhalah</span><select className="kontrol-dalam" value={filterMarhalah} onChange={(e) => setFilterMarhalah(e.target.value)}>
               <option value="all">Semua</option>
               {(masterMarhalahs || []).map((m: any) => <option key={m.id} value={m.nama}>{m.nama}</option>)}
-            </select>
-          </label>
-          <label className="text-xs font-semibold text-slate-600">Status<br />
-            <select className={inputCls} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as any)}>
+            </select></label>
+          <label className="kontrol-label"><span>Status</span><select className="kontrol-dalam" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as any)}>
               <option value="semua">Semua</option>
               <option value="kurang">Belum lengkap</option>
               <option value="lengkap">Siap terbit</option>
               <option value="terbit">Sudah terbit</option>
               <option value="berubah">Terbit tapi nilai berubah</option>
-            </select>
-          </label>
-          <label className="text-xs font-semibold text-slate-600">Cari<br />
-            <span className="relative inline-block"><Search size={14} className="absolute left-2 top-2.5 text-slate-400" />
-              <input className={`${inputCls} pl-7`} value={cari} onChange={(e) => setCari(e.target.value)} placeholder="Nama santri…" /></span>
-          </label>
-        </div>
+            </select></label>
+          <label className="kontrol-label"><span>Cari</span><input className="kontrol-dalam" value={cari} onChange={(e) => setCari(e.target.value)} placeholder="Nama santri…" /></label>
+        </div></div>
 
         {memuat && !Object.keys(komponen).length ? <LoadingState rows={4} label="Menghitung komponen raport…" /> : baris.length === 0 ? (
           <EmptyState title="Tidak ada santri" description="Tidak ada santri yang cocok dengan filter, atau Anda belum menjadi penguji pada semester ini." />
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-            <table className="min-w-full text-sm tabel-kartu">
-              <thead className="bg-slate-50 text-xs text-slate-500">
+          <div className="wadah-tabel overflow-x-auto">
+            <table className="tabel tabel-kartu">
+              <thead>
                 <tr>
-                  <th className="px-3 py-2 w-8"><input type="checkbox" checked={semuaTerpilih} onChange={() => setPilih(semuaTerpilih ? new Set() : new Set(baris.map(({ s }) => s.id)))} /></th>
-                  <th className="px-3 py-2 text-left">Santri</th>
-                  <th className="px-3 py-2 text-right">Semester</th>
-                  <th className="px-3 py-2 text-right">Bulanan</th>
-                  <th className="px-3 py-2 text-right">Hadir</th>
-                  <th className="px-3 py-2 text-right">Nilai akhir</th>
-                  <th className="px-3 py-2 text-left">Kelengkapan</th>
-                  <th className="px-3 py-2 text-left">Raport</th>
+                  <th className="w-8"><input type="checkbox" checked={semuaTerpilih} onChange={() => setPilih(semuaTerpilih ? new Set() : new Set(baris.map(({ s }) => s.id)))} /></th>
+                  <th className="text-left">Santri</th>
+                  <th className="text-right">Semester</th>
+                  <th className="text-right">Bulanan</th>
+                  <th className="text-right">Hadir</th>
+                  <th className="text-right">Nilai akhir</th>
+                  <th className="text-left">Kelengkapan</th>
+                  <th className="text-left">Raport</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {baris.map(({ s, k, rc, berubah }) => (
                   <tr key={s.id} className={pilih.has(s.id) ? 'bg-blue-50/40' : ''}>
-                    <td className="px-3 py-2"><input type="checkbox" checked={pilih.has(s.id)} onChange={() => setPilih((p) => { const n = new Set(p); n.has(s.id) ? n.delete(s.id) : n.add(s.id); return n; })} /></td>
-                    <td className="px-3 py-2"><div className="font-semibold text-slate-800">{s.nama}</div><div className="text-2xs text-slate-400">{s.kelas || '-'} · {halaqahSantri.get(s.id) || '-'}</div></td>
-                    <td data-label="Semester" className="px-3 py-2 text-right tabular-nums">{tampilNilai(k.semester?.nilai)}{k.semester?.is_remedial ? <span className="text-2xs text-slate-400"> R</span> : null}</td>
-                    <td data-label="Bulanan" className="px-3 py-2 text-right tabular-nums">{k.bobot.bulanan > 0 ? tampilNilai(k.bulanan.rata_rata) : '-'}<div className="text-2xs text-slate-400">{k.bulanan.jumlah_nilai}/{k.bulanan.jumlah_ujian}</div></td>
-                    <td data-label="Hadir" className="px-3 py-2 text-right tabular-nums">{k.kehadiran.persen !== null ? `${tampilNilai(k.kehadiran.persen)}%` : '-'}</td>
-                    <td data-label="Nilai akhir" className="px-3 py-2 text-right"><b className="tabular-nums">{tampilNilai(k.nilai_akhir)}</b>{k.predikat && <div className="text-2xs text-slate-500">{k.predikat}</div>}</td>
-                    <td data-label="Kelengkapan" className="px-3 py-2 text-xs">
+                    <td><input type="checkbox" checked={pilih.has(s.id)} onChange={() => setPilih((p) => { const n = new Set(p); n.has(s.id) ? n.delete(s.id) : n.add(s.id); return n; })} /></td>
+                    <td><div className="font-semibold text-slate-800">{s.nama}</div><div className="text-2xs text-slate-400">{s.kelas || '-'} · {halaqahSantri.get(s.id) || '-'}</div></td>
+                    <td data-label="Semester" className="text-right tabular-nums">{tampilNilai(k.semester?.nilai)}{k.semester?.is_remedial ? <span className="text-2xs text-slate-400"> R</span> : null}</td>
+                    <td data-label="Bulanan" className="text-right tabular-nums">{k.bobot.bulanan > 0 ? tampilNilai(k.bulanan.rata_rata) : '-'}<div className="text-2xs text-slate-400">{k.bulanan.jumlah_nilai}/{k.bulanan.jumlah_ujian}</div></td>
+                    <td data-label="Hadir" className="text-right tabular-nums">{k.kehadiran.persen !== null ? `${tampilNilai(k.kehadiran.persen)}%` : '-'}</td>
+                    <td data-label="Nilai akhir" className="text-right"><b className="tabular-nums">{tampilNilai(k.nilai_akhir)}</b>{k.predikat && <div className="text-2xs text-slate-500">{k.predikat}</div>}</td>
+                    <td data-label="Kelengkapan" className="text-xs">
                       {k.lengkap ? <span className="inline-flex items-center gap-1 text-emerald-700"><CheckCircle2 size={13} /> Lengkap</span>
                         : <ul className="text-red-700 list-disc pl-4">{k.kekurangan.map((x) => <li key={x}>{x}</li>)}</ul>}
                       {k.peringatan.length > 0 && <div className="text-amber-700 mt-0.5">{k.peringatan.join('; ')}</div>}
                     </td>
-                    <td data-label="Raport" className="px-3 py-2 text-xs whitespace-nowrap">
+                    <td data-label="Raport" className="text-xs whitespace-nowrap">
                       {rc ? (
                         <div>
                           <span className="font-semibold text-blue-700">Terbit v{rc.version_no}</span> <span className="text-slate-400">{rc.verification_code}</span>

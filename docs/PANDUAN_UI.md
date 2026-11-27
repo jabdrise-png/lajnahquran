@@ -38,6 +38,38 @@ Palet `blue` di `tailwind.config.js` sudah diganti ke biru merek, jadi cukup tul
 | Tabel | `tabel`; agar terbaca di HP tambah `tabel-kartu` dan `data-label="…"` di setiap `<td>` |
 | Komponen React | `components/ui/SaaSPrimitives.tsx`: `PageHeader`, `Button`, `Input`, `Select`, `Card`, `StatCard`, `StatusBadge`, `EmptyState`, `LoadingState`, `Modal`, `ConfirmDialog` |
 
+## 3a. Pola "Buku Absensi" untuk filter & tabel (wajib di semua halaman)
+
+**Filter** — satu kartu di atas tabel, tanpa judul kolom:
+
+```tsx
+<div className="panel-filter">
+  <div className="grid-filter">                                  {/* 1 / 2 / 4 kolom */}
+    <label className="kontrol-label"><span>Dari</span><input type="date" className="kontrol-dalam" … /></label>
+    <select className="kontrol">…<option value="all">Semua Marhalah</option>…</select>
+    <input className="kontrol kontrol-cari" placeholder="Cari nama…" />   {/* ikon cari otomatis */}
+  </div>
+</div>
+```
+
+- Tinggi kontrol 44 px, sudut `rounded-xl`, panah pilihan & ikon cari dari CSS (jangan menambah ikon `absolute`).
+- Pilihan "Semua …" menggantikan label; bila nilai tidak jelas tanpa label, pakai `kontrol-label` (label kecil di dalam kotak, mis. "Ujian:", "Dari:").
+
+**Tabel** — kartu putih, kepala abu tebal, garis kolom halus:
+
+```tsx
+<div className="wadah-tabel">                       {/* + overflow-x-auto bila lebar */}
+  <table className="tabel tabel-kartu">            {/* tabel-kartu = jadi kartu di HP; isi data-label di <td> */}
+    <thead><tr><th>Nama</th><th className="text-center">Hadir</th></tr></thead>
+    <tbody><tr><td>…</td></tr></tbody>
+  </table>
+</div>
+```
+
+- Jangan memberi padding/warna/ukuran huruf pada `th`/`td`/`thead`; cukup perataan (`text-center`/`text-right`) dan lebar (`w-*`, `min-w-*`).
+- Toolbar tabel (jumlah data + tombol Ekspor) boleh di dalam `wadah-tabel` di atas tabel.
+- Tab halaman selalu `tabs` + `tab`/`tab-aktif` (bukan garis bawah).
+
 ## 4. Pola halaman
 
 1. **Judul:** `PageHeader` (judul + deskripsi satu kalimat, tombol di kanan). Tanpa label kapital di atas judul.

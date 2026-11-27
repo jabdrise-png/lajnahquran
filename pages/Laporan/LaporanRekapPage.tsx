@@ -59,34 +59,22 @@ const LaporanRekapPage: React.FC<Props> = () => {
             </div>
 
             {/* Tabs */}
-            <div className="flex items-center gap-6 border-b border-slate-200 w-full overflow-x-auto">
+            <div className="tabs">
                 <button
                     onClick={() => handleChangeTab('ringkasan')}
-                    className={`whitespace-nowrap pb-3 text-sm font-bold transition-all duration-200 border-b-2 -mb-[1px] ${
-                        activeTab === 'ringkasan'
-                            ? 'border-blue-600 text-blue-600'
-                            : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-                    }`}
+                    className={`tab ${activeTab === 'ringkasan' ? 'tab-aktif' : ''}`}
                 >
                     Ringkasan Global
                 </button>
                 <button
                     onClick={() => handleChangeTab('kelas')}
-                    className={`whitespace-nowrap pb-3 text-sm font-bold transition-all duration-200 border-b-2 -mb-[1px] ${
-                        activeTab === 'kelas'
-                            ? 'border-blue-600 text-blue-600'
-                            : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-                    }`}
+                    className={`tab ${activeTab === 'kelas' ? 'tab-aktif' : ''}`}
                 >
                     Analisis Per Kelas
                 </button>
                 <button
                     onClick={() => handleChangeTab('waktu')}
-                    className={`whitespace-nowrap pb-3 text-sm font-bold transition-all duration-200 border-b-2 -mb-[1px] ${
-                        activeTab === 'waktu'
-                            ? 'border-blue-600 text-blue-600'
-                            : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-                    }`}
+                    className={`tab ${activeTab === 'waktu' ? 'tab-aktif' : ''}`}
                 >
                     Tren Historis
                 </button>

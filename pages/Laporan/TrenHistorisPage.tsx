@@ -232,69 +232,49 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
     return (
         <div className="space-y-6 animate-in fade-in duration-500 font-sans">
             {dialogAlasan}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col min-h-[500px]">
-                {/* Filters */}
-                {showAdvancedFilters && (
-                    <div className="bg-white p-5 sm:p-6 border-b border-slate-100 flex flex-col md:flex-row gap-4 justify-between items-start md:items-end animate-in fade-in duration-200">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 w-full flex-1">
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Dari Tanggal</label>
-                                <input 
-                                    type="date" 
-                                    value={dateRange.start} 
-                                    onChange={e => setDateRange(p => ({...p, start: e.target.value}))} 
-                                    className="w-full text-sm font-medium border border-slate-200/80 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white transition-colors"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Sampai Tanggal</label>
-                                <input 
-                                    type="date" 
-                                    value={dateRange.end} 
-                                    onChange={e => setDateRange(p => ({...p, end: e.target.value}))} 
-                                    className="w-full text-sm font-medium border border-slate-200/80 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white transition-colors"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-500 mb-2">Marhalah</label>
-                                <select 
-                                    value={selectedMarhalah} 
-                                    onChange={e => {setSelectedMarhalah(e.target.value); setSelectedKelas('all');}} 
-                                    className="w-full text-sm font-medium border border-slate-200/80 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white transition-colors"
-                                >
-                                    <option value="all">Semua Marhalah</option>
-                                    {availableMarhalah.map(m => <option key={m} value={m}>{m}</option>)}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-500 mb-2">Kelas</label>
-                                <select 
-                                    value={selectedKelas} 
-                                    onChange={e => setSelectedKelas(e.target.value)} 
-                                    className="w-full text-sm font-medium border border-slate-200/80 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white transition-colors"
-                                >
-                                    <option value="all">Semua Kelas</option>
-                                    {availableKelas.map(k => <option key={k} value={k}>{k}</option>)}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-500 mb-2">Peran</label>
-                                <select 
-                                    value={selectedPeran} 
-                                    onChange={e => setSelectedPeran(e.target.value)} 
-                                    className="w-full text-sm font-medium border border-slate-200/80 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white transition-colors"
-                                >
-                                    <option value="all">Semua Peran</option>
-                                    <option value="Santri">Santri</option>
-                                    <option value="Musammi">Musammi</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                )}
+            <div className="panel-filter">
+              <div className="grid-filter">
+                <label className="kontrol flex items-center gap-2"><span className="shrink-0 text-xs font-semibold text-slate-400">Dari:</span><input 
+                                                    type="date" 
+                                                    value={dateRange.start} 
+                                                    onChange={e => setDateRange(p => ({...p, start: e.target.value}))} 
+                                                    className="min-w-0 flex-1 bg-transparent text-sm font-medium text-slate-700 outline-none cursor-pointer"
+                                                /></label>
+                <label className="kontrol flex items-center gap-2"><span className="shrink-0 text-xs font-semibold text-slate-400">Sampai:</span><input 
+                                                    type="date" 
+                                                    value={dateRange.end} 
+                                                    onChange={e => setDateRange(p => ({...p, end: e.target.value}))} 
+                                                    className="min-w-0 flex-1 bg-transparent text-sm font-medium text-slate-700 outline-none cursor-pointer"
+                                                /></label>
+                <select 
+                                                    value={selectedMarhalah} 
+                                                    onChange={e => {setSelectedMarhalah(e.target.value); setSelectedKelas('all');}} 
+                                                    className="kontrol"
+                                                >
+                                                    <option value="all">Semua Marhalah</option>
+                                                    {availableMarhalah.map(m => <option key={m} value={m}>{m}</option>)}
+                                                </select>
+                <select 
+                                                    value={selectedKelas} 
+                                                    onChange={e => setSelectedKelas(e.target.value)} 
+                                                    className="kontrol"
+                                                >
+                                                    <option value="all">Semua Kelas</option>
+                                                    {availableKelas.map(k => <option key={k} value={k}>{k}</option>)}
+                                                </select>
+                <select 
+                                                    value={selectedPeran} 
+                                                    onChange={e => setSelectedPeran(e.target.value)} 
+                                                    className="kontrol"
+                                                >
+                                                    <option value="all">Semua Peran</option>
+                                                    <option value="Santri">Santri</option>
+                                                    <option value="Musammi">Musammi</option>
+                                                </select>
+              </div>
+            </div>
+            <div className="wadah-tabel flex flex-col min-h-[500px]">
+                
 
                 {/* Toolbar */}
                 <div className="p-4 bg-white border-b border-slate-100 flex justify-between items-center gap-3">
@@ -302,62 +282,50 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
                         {timeRecapData.length} Data Rekapitutulasi
                     </span>
                     <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => setShowAdvancedFilters(prev => !prev)}
-                            title="Filter Lanjutan"
-                            className={`p-2 rounded-xl border flex items-center justify-center transition-all shadow-sm ${
-                                showAdvancedFilters 
-                                    ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700' 
-                                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                            }`}
-                        >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M3 6a1 1 0 011-1h16a1 1 0 110 2H4a1 1 0 01-1-1zm3 6a1 1 0 011-1h10a1 1 0 110 2H7a1 1 0 01-1-1zm3 6a1 1 0 011-1h4a1 1 0 110 2h-4a1 1 0 01-1-1z" />
-                            </svg>
-                        </button>
+
                         <button 
                             onClick={() => exportToExcel(timeRecapData, 'Rekap_Waktu')}
                             className="btn btn-primary btn-sm"
                         >
-                            <Download size={15} className="mr-1.5" /> Export Data
+                            <Download size={15} className="mr-1.5" /> Ekspor data
                         </button>
                     </div>
                 </div>
 
                 {/* Table */}
-                <div className="overflow-x-auto flex-1 custom-scrollbar">
-                    <table className="w-full text-left border-collapse min-w-[700px]">
+                <div className="flex-1 custom-scrollbar overflow-x-auto">
+                    <table className="tabel min-w-[700px]">
                         <thead>
-                            <tr className="bg-slate-50/50 border-b border-slate-200/80">
-                                <th className="px-5 py-3.5 sticky top-0 bg-slate-50/95 backdrop-blur-sm z-10 border-r border-slate-200/60 text-xs font-semibold text-slate-500">Tanggal</th>
-                                <th className="px-5 py-3.5 sticky top-0 bg-slate-50/95 backdrop-blur-sm z-10 border-r border-slate-200/60 text-xs font-semibold text-slate-500">Waktu</th>
+                            <tr>
+                                <th className="sticky top-0 z-10">Tanggal</th>
+                                <th className="sticky top-0 z-10">Waktu</th>
                                 {globalAttendanceStatus?.map(s => (
-                                    <th key={s} className="px-5 py-3.5 sticky top-0 bg-slate-50/95 backdrop-blur-sm z-10 text-xs font-semibold text-slate-500 text-center">{s}</th>
+                                    <th key={s} className="sticky top-0 z-10 text-center">{s}</th>
                                 ))}
-                                <th className="px-5 py-3.5 sticky top-0 bg-slate-50/95 backdrop-blur-sm z-10 text-xs font-semibold text-slate-700 text-center border-l border-slate-200/60">Total</th>
+                                <th className="sticky top-0 z-10 text-center">Total</th>
                                 {canDeleteSession && (
-                                    <th className="px-5 py-3.5 sticky top-0 bg-slate-50/95 backdrop-blur-sm z-10 text-xs font-semibold text-slate-500 text-right border-l border-slate-200/60 w-16">Aksi</th>
+                                    <th className="sticky top-0 z-10 text-right w-16">Aksi</th>
                                 )}
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 bg-white">
+                        <tbody>
                             {paginatedData.map((item: any, idx: number) => (
                                 <tr 
                                     key={idx} 
-                                    className="hover:bg-slate-50/40 transition-colors group cursor-pointer"
+                                    className="cursor-pointer"
                                     onClick={() => setSelectedSession({ date: item.date, waktu: item.waktu })}
                                     title="Klik untuk lihat detail per kelas"
                                 >
-                                    <td className="px-5 py-3 font-medium text-sm text-slate-800 border-r border-slate-100/60">
+                                    <td className="font-medium text-sm text-slate-800">
                                         {item.date}
                                     </td>
-                                    <td className="px-5 py-3 border-r border-slate-100/60"><span className="px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 text-xs font-semibold">{item.waktu}</span></td>
+                                    <td><span className="px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 text-xs font-semibold">{item.waktu}</span></td>
                                     {globalAttendanceStatus?.map(s => (
-                                        <td key={s} className="px-5 py-3 text-center text-sm text-slate-600 font-bold">{item[s] || 0}</td>
+                                        <td key={s} className="text-center text-sm text-slate-600 font-bold">{item[s] || 0}</td>
                                     ))}
-                                    <td className="px-5 py-3 text-center text-sm font-extrabold text-slate-700 bg-slate-50/50 border-l border-slate-100/60">{item.Total}</td>
+                                    <td className="text-center text-sm font-extrabold text-slate-700 bg-slate-50/50">{item.Total}</td>
                                     {canDeleteSession && (
-                                        <td className="px-5 py-3 text-right border-l border-slate-100/60">
+                                        <td className="text-right">
                                             <div className="flex justify-end">
                                                 <button 
                                                     onClick={(e) => handleDeleteTimeRecap(e, item.date, item.waktu)} 
@@ -443,25 +411,25 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
             {/* MODAL DETAIL PER KELAS */}
             <Modal isOpen={!!selectedSession} onClose={() => setSelectedSession(null)} title={`Detail Absensi: ${selectedSession?.date} (${selectedSession?.waktu})`} maxWidth="3xl">
                 <div className="max-h-[60vh] overflow-y-auto custom-scrollbar p-1">
-                    <div className="overflow-x-auto border border-slate-200/60 rounded-xl">
-                        <table className="w-full text-left border-collapse min-w-[500px]">
-                            <thead className="bg-slate-50 uppercase text-xs sticky top-0 z-10 shadow-sm border-b border-slate-200/80">
+                    <div className="wadah-tabel overflow-x-auto">
+                        <table className="tabel min-w-[500px]">
+                            <thead className="sticky top-0 z-10">
                                 <tr>
-                                    <th className="px-5 py-3 text-xs font-semibold text-slate-500 border-r border-slate-100/60">Kelas</th>
+                                    <th>Kelas</th>
                                     {globalAttendanceStatus?.map(s => (
-                                        <th key={s} className="px-5 py-3 text-xs font-semibold text-slate-500 text-center">{s}</th>
+                                        <th key={s} className="text-center">{s}</th>
                                     ))}
-                                    <th className="px-5 py-3 text-xs font-semibold text-slate-700 text-center border-l border-slate-100/60">Total</th>
+                                    <th className="text-center">Total</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 bg-white">
+                            <tbody>
                                 {sessionDetailData.map((cls, idx) => (
-                                    <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
-                                        <td className="px-5 py-3 font-bold text-sm text-slate-800 border-r border-slate-100/60"><KelasLabel text={cls.kelas} id={cls.kelas_id} /> <span className="text-2xs font-medium text-slate-500 block"><MarhalahLabel text={cls.marhalah} id={cls.marhalah_id} /></span></td>
+                                    <tr key={idx}>
+                                        <td className="font-bold text-sm text-slate-800"><KelasLabel text={cls.kelas} id={cls.kelas_id} /> <span className="text-2xs font-medium text-slate-500 block"><MarhalahLabel text={cls.marhalah} id={cls.marhalah_id} /></span></td>
                                         {globalAttendanceStatus?.map(s => (
-                                            <td key={s} className="px-5 py-3 text-center text-sm font-bold text-slate-600">{cls[s] || 0}</td>
+                                            <td key={s} className="text-center text-sm font-bold text-slate-600">{cls[s] || 0}</td>
                                         ))}
-                                        <td className="px-5 py-3 text-center text-sm font-extrabold text-slate-700 bg-slate-50/50 border-l border-slate-100/60">{cls.Total}</td>
+                                        <td className="text-center text-sm font-extrabold text-slate-700 bg-slate-50/50">{cls.Total}</td>
                                     </tr>
                                 ))}
                                 {sessionDetailData.length === 0 && (

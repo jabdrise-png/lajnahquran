@@ -117,28 +117,28 @@ const PeriodeEvaluasiPanel: React.FC = () => {
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-        <table className="min-w-full text-sm">
-          <thead className="bg-slate-50 text-xs text-slate-500">
+      <div className="wadah-tabel overflow-x-auto">
+        <table className="tabel">
+          <thead>
             <tr>
-              <th className="px-3 py-2 text-left">Periode</th>
-              <th className="px-3 py-2 text-left">Tanggal</th>
-              <th className="px-3 py-2 text-right">Rekap santri</th>
-              <th className="px-3 py-2" />
+              <th className="text-left">Periode</th>
+              <th className="text-left">Tanggal</th>
+              <th className="text-right">Rekap santri</th>
+              <th />
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody>
             {list.length === 0 && <tr><td colSpan={4} className="px-3 py-6 text-center text-slate-400">Belum ada periode.</td></tr>}
             {list.map((p) => (
               <tr key={p.id} className={p.needs_review ? 'bg-amber-50/50' : ''}>
-                <td className="px-3 py-2 font-semibold text-slate-800">
+                <td className="font-semibold text-slate-800">
                   {p.name}
                   {p.needs_review && <span className="ml-2 text-2xs font-semibold text-amber-700">perlu dicek</span>}
                   {p.legacy_key && <div className="text-2xs font-normal text-slate-400">dari aplikasi lama ({p.legacy_key})</div>}
                 </td>
-                <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{p.start_date} s.d. {p.end_date}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{jumlahRekap.get(p.id) ?? '-'}</td>
-                <td className="px-3 py-2 text-right whitespace-nowrap">
+                <td className="text-slate-600 whitespace-nowrap">{p.start_date} s.d. {p.end_date}</td>
+                <td className="text-right tabular-nums">{jumlahRekap.get(p.id) ?? '-'}</td>
+                <td className="text-right whitespace-nowrap">
                   {isAdmin && (
                     <>
                       <button type="button" title="Ubah" className="text-slate-500 hover:text-blue-600 mr-3"

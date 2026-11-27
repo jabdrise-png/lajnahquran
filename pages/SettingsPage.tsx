@@ -542,19 +542,19 @@ const SettingsPage: React.FC = () => {
                     )}
 
                     <div className="overflow-y-auto flex-1 max-h-[400px]">
-                        <table className="w-full text-left text-sm text-slate-600">
-                            <thead className="bg-white border-b border-slate-100 text-slate-500 text-xs font-semibold sticky top-0">
+                        <table className="tabel">
+                            <thead className="sticky top-0">
                                 <tr>
-                                    <th className="px-5 py-3">ID</th>
-                                    <th className="px-5 py-3">Nama Marhalah</th>
-                                    <th className="px-5 py-3 text-right">Aksi</th>
+                                    <th>ID</th>
+                                    <th>Nama Marhalah</th>
+                                    <th className="text-right">Aksi</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody>
                                 {masterMarhalahs?.map((m: any) => (
-                                    <tr key={m.id} className="hover:bg-slate-50/50 transition-colors">
-                                        <td className="px-5 py-3 font-mono text-xs text-slate-400">#{m.id}</td>
-                                        <td className="px-5 py-3 font-semibold text-slate-800">
+                                    <tr key={m.id}>
+                                        <td className="font-mono text-xs text-slate-400">#{m.id}</td>
+                                        <td className="font-semibold text-slate-800">
                                             {editingMarhalahId === m.id ? (
                                                 <form onSubmit={handleUpdateMarhalah} className="flex gap-2">
                                                     <input type="text" value={editMarhalahName} onChange={e => setEditMarhalahName(e.target.value)} className="px-2 py-1 text-sm border border-slate-200 rounded focus:ring-1 focus:ring-blue-500 w-full" autoFocus required/>
@@ -563,7 +563,7 @@ const SettingsPage: React.FC = () => {
                                                 </form>
                                             ) : m.nama}
                                         </td>
-                                        <td className="px-5 py-3 text-right">
+                                        <td className="text-right">
                                             {editingMarhalahId !== m.id && (
                                                 <div className="flex justify-end gap-1">
                                                     <button onClick={() => {setEditingMarhalahId(m.id); setEditMarhalahName(m.nama);}} className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors"><Edit size={14} /></button>
@@ -620,20 +620,20 @@ const SettingsPage: React.FC = () => {
                     )}
 
                     <div className="overflow-y-auto flex-1 max-h-[400px]">
-                        <table className="w-full text-left text-sm text-slate-600">
-                            <thead className="bg-white border-b border-slate-100 text-slate-500 text-xs font-semibold sticky top-0">
+                        <table className="tabel">
+                            <thead className="sticky top-0">
                                 <tr>
-                                    <th className="px-5 py-3">ID</th>
-                                    <th className="px-5 py-3">Marhalah</th>
-                                    <th className="px-5 py-3">Nama Kelas</th>
-                                    <th className="px-5 py-3 text-right">Aksi</th>
+                                    <th>ID</th>
+                                    <th>Marhalah</th>
+                                    <th>Nama Kelas</th>
+                                    <th className="text-right">Aksi</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody>
                                 {masterKelasRelasi?.map((mk: any) => (
-                                    <tr key={mk.id} className="hover:bg-slate-50/50 transition-colors">
-                                        <td className="px-5 py-3 font-mono text-xs text-slate-400">#{mk.id}</td>
-                                        <td className="px-5 py-3 font-medium text-slate-600">
+                                    <tr key={mk.id}>
+                                        <td className="font-mono text-xs text-slate-400">#{mk.id}</td>
+                                        <td className="font-medium text-slate-600">
                                             {editingKelasId === mk.id ? (
                                                 <select value={editKelasMarhalahId || ''} onChange={e => setEditKelasMarhalahId(e.target.value)} className="px-2 py-1 text-sm border border-slate-200 rounded focus:ring-1 focus:ring-blue-500 w-full" required>
                                                     {masterMarhalahs?.map((m: any) => <option key={m.id} value={m.id}>{m.nama}</option>)}
@@ -642,14 +642,14 @@ const SettingsPage: React.FC = () => {
                                                 masterMarhalahs?.find((m: any) => m.id === mk.marhalah_id)?.nama || 'Unknown'
                                             )}
                                         </td>
-                                        <td className="px-5 py-3 font-semibold text-slate-800">
+                                        <td className="font-semibold text-slate-800">
                                             {editingKelasId === mk.id ? (
                                                 <form onSubmit={handleUpdateKelas} id={`form-kelas-${mk.id}`} className="flex gap-2">
                                                     <input type="text" value={editKelasName} onChange={e => setEditKelasName(e.target.value)} className="px-2 py-1 text-sm border border-slate-200 rounded focus:ring-1 focus:ring-blue-500 w-full" autoFocus required/>
                                                 </form>
                                             ) : mk.nama_kelas}
                                         </td>
-                                        <td className="px-5 py-3 text-right">
+                                        <td className="text-right">
                                             {editingKelasId === mk.id ? (
                                                 <div className="flex justify-end gap-1">
                                                     <button key="save-kelas" type="submit" form={`form-kelas-${mk.id}`} className="text-blue-600 hover:text-blue-800 p-1"><Save size={14}/></button>

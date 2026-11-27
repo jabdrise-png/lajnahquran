@@ -144,15 +144,15 @@ const SesiHalaqahPage: React.FC = () => {
     <div className="space-y-4 pb-24">
       <PageHeader title="Sesi Halaqah" description="Absensi dan setoran satu halaqah. Sesi tercatat saat absensi pertama disimpan." />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <select value={active.id} onChange={(e) => setHalaqahId(Number(e.target.value))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm font-semibold bg-white">
+      <div className="panel-filter grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <select value={active.id} onChange={(e) => setHalaqahId(Number(e.target.value))} className="kontrol">
           {mine.map((h) => <option key={h.id} value={h.id}>{h.nama} — {h.musammi?.nama || 'tanpa musammi\''}</option>)}
         </select>
-        <input type="date" value={date} max={today} onChange={(e) => setDate(e.target.value || today)} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white" />
+        <input type="date" value={date} max={today} onChange={(e) => setDate(e.target.value || today)} className="kontrol" />
         <div className="flex flex-wrap gap-1.5">
           {slotOptions.map((w) => (
             <button key={w} type="button" onClick={() => setSlot(w)}
-              className={`flex-1 px-3 py-2 rounded-lg border text-sm font-semibold ${slot === w ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-700'}`}>
+              className={`flex-1 h-11 px-3 rounded-xl border text-sm font-semibold transition-colors ${slot === w ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
               {sessionSlots.find((s) => s.code === w)?.name || w}
             </button>
           ))}

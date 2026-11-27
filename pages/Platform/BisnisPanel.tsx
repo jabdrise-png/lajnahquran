@@ -115,7 +115,7 @@ const BisnisPanel: React.FC<{ awal?: Sub }> = ({ awal = 'pendaftaran' }) => {
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm text-slate-600">Lembaga yang mendaftar sendiri dari halaman masuk. Setujui untuk mengaktifkan lembaga dan menjadikan pendaftar Admin.</p>
-            <select className="field w-auto" value={filterPendaftaran} onChange={(e) => setFilterPendaftaran(e.target.value as any)}>
+            <select className="kontrol w-auto" value={filterPendaftaran} onChange={(e) => setFilterPendaftaran(e.target.value as any)}>
               <option value="menunggu">Menunggu ({menunggu.length})</option>
               <option value="semua">Semua ({pendaftaran.length})</option>
             </select>

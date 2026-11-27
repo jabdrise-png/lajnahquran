@@ -422,8 +422,8 @@ const MusammiPage: React.FC = () => {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20 max-w-[1400px] font-sans">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 sm:gap-4">
-                <div>
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3 sm:gap-4">
+                <div className="min-w-0 flex-1">
                     <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
                         Data Musammi'
                     </h1>
@@ -476,61 +476,42 @@ const MusammiPage: React.FC = () => {
             </div>
 
             {/* Content Wrap */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                {/* Filters */}
-                <div className="p-5 border-b border-slate-100 bg-slate-50/30">
-                    <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-                        <div className="w-full md:w-1/3 relative">
-                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                            <input 
-                                type="text" 
-                                placeholder="Cari nama musammi..."
-                                value={search} 
-                                onChange={e => setSearch(e.target.value)} 
-                                className="w-full pl-10 pr-4 h-10 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none text-sm transition-all shadow-xs placeholder:text-slate-400"
-                            />
-                        </div>
-                        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-                            <div className="relative flex-shrink-0 group flex items-center">
-                                <div className="relative">
-                                    <select 
-                                        value={filterMarhalah} 
-                                        onChange={e => {setFilterMarhalah(e.target.value as any); setFilterKelas('all')}}
-                                        className="w-full sm:w-[160px] h-10 pl-4 pr-10 bg-white border border-slate-200/80 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-xs font-medium text-slate-700 transition-colors shadow-xs appearance-none cursor-pointer hover:border-slate-300"
-                                    >
-                                        <option value="all">Semua Marhalah</option>
-                                        {masterMarhalahs?.map((m: any) => <option key={m.id} value={m.nama}>{m.nama}</option>) || globalMarhalahs.map(m => <option key={m} value={m}>{m}</option>)}
-                                    </select>
-                                    <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="relative flex-shrink-0 group flex items-center">
-                                <div className="relative">
-                                    <select 
-                                        value={filterKelas} 
-                                        onChange={e => setFilterKelas(e.target.value)} 
-                                        disabled={filterMarhalah === 'all'} 
-                                        className="w-full sm:w-[140px] h-10 pl-4 pr-10 bg-white border border-slate-200/80 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-xs font-medium text-slate-700 transition-colors shadow-xs appearance-none cursor-pointer disabled:bg-slate-50 disabled:text-slate-400 hover:border-slate-300"
-                                    >
-                                        <option value="all">Semua Kelas</option>
-                                        {filterMarhalah !== 'all' && availableFilterKelasList.map(k => <option key={k} value={k}>{k}</option>)}
-                                    </select>
-                                    <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div className="panel-filter">
+              <div className="grid-filter">
+                <input 
+                                                type="text" 
+                                                placeholder="Cari nama musammi..."
+                                                value={search} 
+                                                onChange={e => setSearch(e.target.value)} 
+                                                className="kontrol kontrol-cari"
+                                            />
+                <select 
+                                                        value={filterMarhalah} 
+                                                        onChange={e => {setFilterMarhalah(e.target.value as any); setFilterKelas('all')}}
+                                                        className="kontrol"
+                                                    >
+                                                        <option value="all">Semua Marhalah</option>
+                                                        {masterMarhalahs?.map((m: any) => <option key={m.id} value={m.nama}>{m.nama}</option>) || globalMarhalahs.map(m => <option key={m} value={m}>{m}</option>)}
+                                                    </select>
+                <select 
+                                                        value={filterKelas} 
+                                                        onChange={e => setFilterKelas(e.target.value)} 
+                                                        disabled={filterMarhalah === 'all'} 
+                                                        className="kontrol"
+                                                    >
+                                                        <option value="all">Semua Kelas</option>
+                                                        {filterMarhalah !== 'all' && availableFilterKelasList.map(k => <option key={k} value={k}>{k}</option>)}
+                                                    </select>
+              </div>
+            </div>
+            <div className="wadah-tabel">
+                
 
-                <div className="overflow-x-auto bg-white min-h-[400px] hide-scrollbar">
-                    <table className="tabel-kartu w-full text-left border-collapse">
+                <div className="wadah-tabel min-h-[400px] hide-scrollbar overflow-x-auto">
+                    <table className="tabel tabel-kartu">
                         <thead>
-                            <tr className="bg-slate-50/50 border-b border-slate-200/60">
-                                <th className="px-6 py-4 w-[50px] border-r border-slate-100/80">
+                            <tr>
+                                <th className="w-[50px]">
                                     <input 
                                         type="checkbox" 
                                         className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
@@ -538,22 +519,22 @@ const MusammiPage: React.FC = () => {
                                         onChange={handleSelectAll}
                                     />
                                 </th>
-                                <th className="px-4 py-4 text-xs font-semibold text-slate-400 w-[60px] text-center border-r border-slate-100/80">
+                                <th className="w-[60px] text-center">
                                     No
                                 </th>
-                                <th className="px-6 py-4 text-xs font-semibold text-slate-400 min-w-[200px]">Nama Musammi</th>
-                                <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80">Marhalah & Kelas</th>
-                                <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80">No HP</th>
-                                <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80">Status akun</th>
-                                <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80 text-right">Aksi</th>
+                                <th className="min-w-[200px]">Nama Musammi</th>
+                                <th>Marhalah & Kelas</th>
+                                <th>No HP</th>
+                                <th>Status akun</th>
+                                <th className="text-right">Aksi</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100/80">
+                        <tbody>
                             {paginatedData.map((m, index) => {
                                 const linkedProfile = authProfiles.find((p) => p.id === m.user_id);
                                 return (
                                 <tr key={m.id} className={`hover:bg-blue-50/30 transition-colors group ${selectedIds.includes(m.id) ? 'bg-blue-50/50' : ''}`}>
-                                    <td className="px-6 py-4 border-r border-slate-100/80">
+                                    <td>
                                         <input 
                                             type="checkbox" 
                                             className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
@@ -561,10 +542,10 @@ const MusammiPage: React.FC = () => {
                                             onChange={() => toggleSelection(m.id)}
                                         />
                                     </td>
-                                    <td data-label="No" className="px-4 py-4 text-center border-r border-slate-100/80 text-sm font-medium text-slate-500">
+                                    <td data-label="No" className="text-center text-sm font-medium text-slate-500">
                                         {(currentPage - 1) * itemsPerPage + index + 1}
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td>
                                         <div className="flex items-center gap-3">
                                             <div className="flex-shrink-0 h-9 w-9 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200/60 shadow-sm relative overflow-hidden group-hover:border-blue-200 group-hover:bg-blue-50 transition-colors">
                                                 <span className="text-xs font-bold text-slate-600 group-hover:text-blue-600 transition-colors">
@@ -579,16 +560,16 @@ const MusammiPage: React.FC = () => {
                                             </div>
                                         </div>
                                     </td>
-                                    <td data-label="Marhalah & kelas" className="px-6 py-4 border-l border-slate-100/80">
+                                    <td data-label="Marhalah & kelas">
                                         <div className="flex flex-col">
                                             <span className="text-sm font-semibold text-slate-700"><MarhalahLabel text={m.marhalah} id={m.marhalah_id} /></span>
                                             <span className="text-xs text-slate-500 font-semibold">Kelas <KelasLabel text={m.kelas} id={m.kelas_id} /></span>
                                         </div>
                                     </td>
-                                    <td data-label="No HP" className="px-6 py-4 border-l border-slate-100/80 text-sm font-medium text-slate-600">
+                                    <td data-label="No HP" className="text-sm font-medium text-slate-600">
                                         {(m as any).no_hp || '-'}
                                     </td>
-                                    <td data-label="Status akun" className="px-6 py-4 border-l border-slate-100/80">
+                                    <td data-label="Status akun">
                                         {m.user_id ? (
                                             <div className="flex flex-col gap-0.5">
                                                 <StatusBadge label="TERTAUT AKUN" tone="success" />
@@ -609,7 +590,7 @@ const MusammiPage: React.FC = () => {
                                             </div>
                                         )}
                                     </td>
-                                    <td data-label="Aksi" className="px-6 py-4 border-l border-slate-100/80 text-right">
+                                    <td data-label="Aksi" className="text-right">
                                         <div className="opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex justify-end gap-2">
                                             <button onClick={() => openModal(m)} className="h-9 w-9 inline-flex items-center justify-center rounded-xl bg-slate-50 text-slate-500 hover:bg-blue-500 hover:text-white transition-all shadow-sm">
                                                 <Edit size={14} strokeWidth={2.5}/>
@@ -666,14 +647,14 @@ const MusammiPage: React.FC = () => {
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-semibold text-slate-500 mb-1.5">Marhalah</label>
-                            <select className="w-full border-slate-300 rounded-md text-sm" value={modalMarhalah} onChange={e => setModalMarhalah(e.target.value as any)}>
+                            <select className="kontrol" value={modalMarhalah} onChange={e => setModalMarhalah(e.target.value as any)}>
                                 <option value="all">Semua</option>
                                 {masterMarhalahs?.map((m: any) => <option key={m.id} value={m.nama}>{m.nama}</option>) || globalMarhalahs.map(m => <option key={m} value={m}>{m}</option>)}
                             </select>
                         </div>
                         <div>
                             <label className="block text-xs font-semibold text-slate-500 mb-1.5">Kelas</label>
-                            <select className="w-full border-slate-300 rounded-md text-sm" value={modalKelas} onChange={e => setModalKelas(e.target.value)}>
+                            <select className="kontrol" value={modalKelas} onChange={e => setModalKelas(e.target.value)}>
                                 <option value="all">Semua</option>
                                 {modalMarhalah !== 'all' && availableModalFilterKelasList.map(k => <option key={k} value={k}>{k}</option>)}
                             </select>

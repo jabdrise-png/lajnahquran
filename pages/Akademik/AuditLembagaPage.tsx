@@ -136,13 +136,12 @@ export const AuditLembagaPage: React.FC = () => {
         </div>
 
         <div className="relative w-full sm:w-72">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Cari aksi, santri, atau alasan audit..."
-            className="w-full pl-9 pr-3 py-2 text-xs font-medium border border-slate-200 rounded-lg bg-white text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            className="kontrol kontrol-cari"
           />
         </div>
       </div>
@@ -155,18 +154,18 @@ export const AuditLembagaPage: React.FC = () => {
               description="Setiap perubahan nilai ujian, koreksi absensi pasca-simpan, review setoran, dan publikasi versi target/rubrik akan tercatat otomatis di sini."
             />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
+            <div className="wadah-tabel overflow-x-auto">
+              <table className="tabel">
+                <thead>
                   <tr>
-                    <th className="px-5 py-3">Waktu</th>
-                    <th className="px-5 py-3">Aksi</th>
-                    <th className="px-5 py-3">Entitas / Resource</th>
-                    <th className="px-5 py-3">Alasan / Keterangan</th>
-                    <th className="px-5 py-3 text-right">Detail</th>
+                    <th>Waktu</th>
+                    <th>Aksi</th>
+                    <th>Entitas / Resource</th>
+                    <th>Alasan / Keterangan</th>
+                    <th className="text-right">Detail</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200">
+                <tbody>
                   {filteredLogs.map((log) => {
                     const resType = log.resource_type || log.entity_type || '-';
                     const resId = log.resource_id || log.entity_id || '';
@@ -177,21 +176,21 @@ export const AuditLembagaPage: React.FC = () => {
                       log.diff_json?.note ||
                       '-';
                     return (
-                      <tr key={log.id} className="hover:bg-slate-50">
-                        <td className="px-5 py-3 text-slate-500 tabular-nums whitespace-nowrap">
+                      <tr key={log.id}>
+                        <td className="text-slate-500 tabular-nums whitespace-nowrap">
                           {log.created_at ? new Date(log.created_at).toLocaleString('id-ID') : '-'}
                         </td>
-                        <td className="px-5 py-3">
+                        <td>
                           <StatusBadge label={String(log.action || 'MUTATION').toUpperCase()} tone="primary" />
                         </td>
-                        <td className="px-5 py-3 font-mono text-slate-700">
+                        <td className="font-mono text-slate-700">
                           {resType}
                           {resId ? <span className="text-slate-400 ml-1">({String(resId).slice(0, 16)})</span> : null}
                         </td>
-                        <td className="px-5 py-3 text-slate-700 max-w-md truncate">
+                        <td className="text-slate-700 max-w-md truncate">
                           {reasonText}
                         </td>
-                        <td className="px-5 py-3 text-right">
+                        <td className="text-right">
                           <button
                             type="button"
                             onClick={() => setSelectedAuditLog(log)}
@@ -216,20 +215,20 @@ export const AuditLembagaPage: React.FC = () => {
               description="Raport yang diterbitkan dari halaman Rekap Nilai & Raport akan tercatat di sini."
             />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
+            <div className="wadah-tabel overflow-x-auto">
+              <table className="tabel">
+                <thead>
                   <tr>
-                    <th className="px-5 py-3">Santri</th>
-                    <th className="px-5 py-3">Semester</th>
-                    <th className="px-5 py-3">Versi</th>
-                    <th className="px-5 py-3">Nilai Akhir & Predikat</th>
-                    <th className="px-5 py-3">Status</th>
-                    <th className="px-5 py-3">Catatan Amendment</th>
-                    <th className="px-5 py-3 text-right">Arsip terbit</th>
+                    <th>Santri</th>
+                    <th>Semester</th>
+                    <th>Versi</th>
+                    <th>Nilai Akhir & Predikat</th>
+                    <th>Status</th>
+                    <th>Catatan Amendment</th>
+                    <th className="text-right">Arsip terbit</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200">
+                <tbody>
                   {filteredReportCards.map((rc) => {
                     const sId = rc.santri_id || rc.student_id;
                     const student = santri.find((s) => Number(s.id) === Number(sId));
@@ -237,32 +236,32 @@ export const AuditLembagaPage: React.FC = () => {
                     const finalScore = rc.final_score ?? snap.final_score ?? '-';
                     const predikat = rc.predikat || snap.predikat || '-';
                     return (
-                      <tr key={rc.id} className="hover:bg-slate-50">
-                        <td className="px-5 py-3 font-semibold text-slate-900">
+                      <tr key={rc.id}>
+                        <td className="font-semibold text-slate-900">
                           <div>{student?.nama || snap.santri_nama || `Santri #${sId}`}</div>
                           <div className="text-2xs font-normal text-slate-500">
                             {snap.marhalah || student?.marhalah || '-'} • Kelas {snap.kelas || student?.kelas || '-'}
                           </div>
                         </td>
-                        <td className="px-5 py-3 font-medium text-slate-700">
+                        <td className="font-medium text-slate-700">
                           {rc.semester_name || snap.semester || 'Ganjil'}
                         </td>
-                        <td className="px-5 py-3 font-bold text-slate-800 tabular-nums">
+                        <td className="font-bold text-slate-800 tabular-nums">
                           v{rc.version_no || 1}
                         </td>
-                        <td className="px-5 py-3 font-bold text-slate-900 tabular-nums">
+                        <td className="font-bold text-slate-900 tabular-nums">
                           {finalScore} <span className="text-slate-500 font-sans font-semibold">({predikat})</span>
                         </td>
-                        <td className="px-5 py-3">
+                        <td>
                           <StatusBadge
                             label={String(rc.status || 'published').toUpperCase()}
                             tone={rc.status === 'published' ? 'success' : 'warning'}
                           />
                         </td>
-                        <td className="px-5 py-3 text-slate-600 max-w-xs truncate">
+                        <td className="text-slate-600 max-w-xs truncate">
                           {rc.amendment_reason || 'Publikasi awal'}
                         </td>
-                        <td className="px-5 py-3 text-right">
+                        <td className="text-right">
                           <button
                             type="button"
                             onClick={() => setSelectedSnapshot(rc)}

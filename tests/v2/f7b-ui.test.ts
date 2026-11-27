@@ -55,3 +55,14 @@ test('komponen dasar tersedia di index.css (btn, field, card, badge, tabs, tabel
   const css = read('index.css');
   for (const k of ['.btn ', '.btn-primary', '.btn-secondary', '.field ', '.card ', '.badge ', '.tabs ', '.tab-aktif', '.tabel-kartu']) assert.ok(css.includes(k), k);
 });
+
+test('pola Buku Absensi: semua tabel memakai kelas tabel, filter memakai panel-filter/kontrol', () => {
+  const tanpa = FILES.filter((f) => !/BukuAbsensiPage|SaaSPrimitives/.test(f))
+    .flatMap((f) => (read(f).match(/<table\b[^>]*>/g) || []).filter((t) => !/className="tabel\b/.test(t)).map((t) => `${f}: ${t}`));
+  assert.deepEqual(tanpa, []);
+  const css = read('index.css');
+  for (const k of ['.panel-filter', '.grid-filter', '.kontrol ', '.kontrol-cari', '.kontrol-label', '.wadah-tabel']) assert.ok(css.includes(k), k);
+  for (const f of ['pages/DataMaster/SantriPage.tsx', 'pages/DataMaster/HalaqahPage.tsx', 'pages/DataMaster/MusammiPage.tsx', 'pages/SetoranHarianPage.tsx', 'pages/UjianRaport/UjianBulananPage.tsx', 'pages/Laporan/TrenHistorisPage.tsx'])
+    assert.match(read(f), /panel-filter/, f);
+  assert.match(read('components/Sidebar.tsx'), /w-\[288px\]/);
+});

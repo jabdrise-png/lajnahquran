@@ -793,31 +793,31 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                         )}
                     </div>
                 </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-center whitespace-nowrap">
+                <div className="wadah-tabel overflow-x-auto">
+                    <table className="tabel">
                         <thead>
-                            <tr className="border-b border-slate-100 bg-slate-50/50">
-                                <th className="p-4 text-left font-semibold text-slate-500 text-xs">Marhalah</th>
-                                {showStatsKelas && <th className="p-4 text-left font-semibold text-slate-500 text-xs">Kelas</th>}
-                                {showStatsWaktu && <th className="p-4 text-left font-semibold text-slate-500 text-xs">Waktu</th>}
+                            <tr>
+                                <th className="text-left">Marhalah</th>
+                                {showStatsKelas && <th className="text-left">Kelas</th>}
+                                {showStatsWaktu && <th className="text-left">Waktu</th>}
                                 {globalAttendanceStatus?.map(status => (
-                                    <th key={status} className="p-4 font-semibold text-slate-500 text-xs">
+                                    <th key={status}>
                                         {status}
                                     </th>
                                 ))}
-                                <th className="p-4 font-semibold text-slate-800 text-xs">Total</th>
+                                <th>Total</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody>
                             {summaryOptions.map((row, idx) => (
-                                <tr key={idx} className="hover:bg-slate-50/50 transition-colors bg-white">
-                                    <td className="p-4 text-left font-semibold text-slate-700"><MarhalahLabel text={row.marhalah} id={row.marhalah_id} /></td>
-                                    {showStatsKelas && <td className="p-4 text-left text-slate-600"><KelasLabel text={row.kelas} id={row.kelas_id} /></td>}
-                                    {showStatsWaktu && <td className="p-4 text-left text-slate-600">{row.waktu}</td>}
+                                <tr key={idx} className="bg-white">
+                                    <td className="text-left font-semibold text-slate-700"><MarhalahLabel text={row.marhalah} id={row.marhalah_id} /></td>
+                                    {showStatsKelas && <td className="text-left text-slate-600"><KelasLabel text={row.kelas} id={row.kelas_id} /></td>}
+                                    {showStatsWaktu && <td className="text-left text-slate-600">{row.waktu}</td>}
                                     {globalAttendanceStatus?.map((status: string) => {
                                         const val = row[status as keyof typeof row] as number;
                                         return (
-                                            <td key={status} className="p-4 text-slate-700 font-medium">
+                                            <td key={status} className="text-slate-700 font-medium">
                                                 {val > 0 ? (
                                                     <div className="flex items-center justify-center">
                                                         {status?.toLowerCase() === 'hadir' && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-2"></div>}
@@ -827,7 +827,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                                             </td>
                                         )
                                     })}
-                                    <td className="p-4 font-bold text-slate-800">{row.Total}</td>
+                                    <td className="font-bold text-slate-800">{row.Total}</td>
                                 </tr>
                             ))}
                             {summaryOptions.length === 0 && (
@@ -843,10 +843,9 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
             <Card className="!rounded-2xl !p-0 border-slate-200 overflow-hidden mt-6 mb-12">
                 <div className="p-4 lg:px-5 lg:py-4 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
                     <div className="relative flex-1 w-full max-w-sm">
-                        <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={16}/>
                         <input 
                             type="text" 
-                            className="w-full border-slate-200 rounded-full text-sm py-2 pl-10 pr-3 focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none text-slate-700 bg-white border placeholder:text-slate-400 font-medium shadow-sm" 
+                            className="kontrol kontrol-cari" 
                             placeholder="Cari nama santri..."
                             value={searchName}
                             onChange={e => setSearchName(e.target.value)}
@@ -866,29 +865,23 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                         )}
                         <div className="relative">
                             <select 
-                                className="border-slate-200 text-slate-600 font-medium rounded-full text-sm py-2 pl-4 pr-8 bg-white w-full md:w-auto border focus:ring-2 focus:ring-blue-100 focus:outline-none focus:border-blue-500 shadow-sm appearance-none cursor-pointer"
+                                className="kontrol md:w-auto"
                                 value={selectedMarhalah} 
                                 onChange={e => {setSelectedMarhalah(e.target.value as any); setSelectedKelas('all');}}
                             >
                                 <option value="all">Semua Marhalah</option>
                                 {globalMarhalahs.map(m => <option key={m} value={m}>{m}</option>)}
                             </select>
-                            <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none text-slate-400">
-                                <ChevronDown size={14} />
-                            </div>
                         </div>
                         <div className="relative">
                             <select 
-                                className="border-slate-200 text-slate-600 font-medium rounded-full text-sm py-2 pl-4 pr-8 bg-white w-full md:w-auto border focus:ring-2 focus:ring-blue-100 focus:outline-none focus:border-blue-500 shadow-sm appearance-none cursor-pointer"
+                                className="kontrol md:w-auto"
                                 value={selectedKelas} 
                                 onChange={e => setSelectedKelas(e.target.value)}
                             >
                                 <option value="all">Semua Kelas</option>
                                 {availableKelas.map(k => <option key={k} value={k}>{k}</option>)}
                             </select>
-                            <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none text-slate-400">
-                                <ChevronDown size={14} />
-                            </div>
                         </div>
                         <button
                             onClick={() => setShowAdvancedFilters(prev => !prev)}
@@ -953,7 +946,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                                 <select 
                                     value={selectedPeran} 
                                     onChange={e => setSelectedPeran(e.target.value as any)} 
-                                    className="w-full border border-slate-200 bg-white rounded-xl text-xs py-2 px-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none text-slate-700 font-medium cursor-pointer"
+                                    className="kontrol"
                                 >
                                     <option value="all">Semua Peran</option>
                                     {ALL_PERAN.map(p => <option key={p} value={p}>{p}</option>)}
@@ -964,7 +957,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                                 <select 
                                     value={selectedStatus} 
                                     onChange={e => setSelectedStatus(e.target.value as any)} 
-                                    className="w-full border border-slate-200 bg-white rounded-xl text-xs py-2 px-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none text-slate-700 font-medium cursor-pointer"
+                                    className="kontrol"
                                 >
                                     <option value="all">Semua Status</option>
                                     {globalAttendanceStatus?.map(s => <option key={s} value={s}>{s}</option>)}
@@ -974,45 +967,45 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                     </div>
                 )}
 
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-white border-b border-slate-100">
+                <div className="wadah-tabel overflow-x-auto">
+                    <table className="tabel">
+                        <thead>
                             <tr>
-                                <th className="px-4 py-4 w-12 border-r border-slate-100">
+                                <th className="w-12">
                                     <button onClick={handleSelectAll} className="w-full h-full flex items-center justify-center text-slate-400 hover:text-slate-600">
                                         {selectedSantriIds.length > 0 && selectedSantriIds.length === visibleData.filter(d => d.Peran === 'Santri').length ? <CheckSquare size={16} className="text-blue-600"/> : <Square size={16}/>}
                                     </button>
                                 </th>
-                                <th className="px-6 py-4 text-xs md:text-2xs font-medium text-slate-400 group cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleSort('Nama')}>
+                                <th className="group cursor-pointer" onClick={() => handleSort('Nama')}>
                                     <div className="flex items-center">Nama Santri <SortIcon field="Nama"/></div>
                                 </th>
-                                <th className="px-6 py-4 text-xs md:text-2xs font-medium text-slate-400 group cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleSort('Marhalah')}>
+                                <th className="group cursor-pointer" onClick={() => handleSort('Marhalah')}>
                                     <div className="flex items-center">Informasi <SortIcon field="Marhalah"/></div>
                                 </th>
-                                <th className="px-6 py-4 text-xs md:text-2xs font-medium text-slate-400 group cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleSort('Hadir')}>
+                                <th className="group cursor-pointer" onClick={() => handleSort('Hadir')}>
                                     <div className="flex items-center justify-center">Hadir <SortIcon field="Hadir"/></div>
                                 </th>
-                                <th className="px-6 py-4 text-xs md:text-2xs font-medium text-slate-400 group cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleSort('Izin')}>
+                                <th className="group cursor-pointer" onClick={() => handleSort('Izin')}>
                                     <div className="flex items-center justify-center">Izin <SortIcon field="Izin"/></div>
                                 </th>
-                                <th className="px-6 py-4 text-xs md:text-2xs font-medium text-slate-400 group cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleSort('Sakit')}>
+                                <th className="group cursor-pointer" onClick={() => handleSort('Sakit')}>
                                     <div className="flex items-center justify-center">Sakit <SortIcon field="Sakit"/></div>
                                 </th>
-                                <th className="px-6 py-4 text-xs md:text-2xs font-medium text-slate-400 group cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleSort('Alpa')}>
+                                <th className="group cursor-pointer" onClick={() => handleSort('Alpa')}>
                                     <div className="flex items-center justify-center">Alpa <SortIcon field="Alpa"/></div>
                                 </th>
-                                <th className="px-6 py-4 text-xs md:text-2xs font-medium text-slate-400 group cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleSort('Terlambat')}>
+                                <th className="group cursor-pointer" onClick={() => handleSort('Terlambat')}>
                                     <div className="flex items-center justify-center">Telat <SortIcon field="Terlambat"/></div>
                                 </th>
-                                <th className="px-6 py-4 text-xs md:text-2xs font-medium text-slate-900 group cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleSort('Total')}>
+                                <th className="group cursor-pointer" onClick={() => handleSort('Total')}>
                                     <div className="flex items-center justify-center">Total <SortIcon field="Total"/></div>
                                 </th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody>
                             {visibleData.map((item, idx) => (
-                                <tr key={idx} className="bg-white hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => setSelectedStudentDetail({id: item.id, nama: item.Nama, peran: item.Peran as Peran})}>
-                                    <td className="px-4 py-4 border-r border-slate-100" onClick={(e) => { e.stopPropagation(); if (item.Peran === 'Santri') { setSelectedSantriIds(p => p.includes(item.id) ? p.filter(id => id !== item.id) : [...p, item.id]); } }}>
+                                <tr key={idx} className="bg-white cursor-pointer" onClick={() => setSelectedStudentDetail({id: item.id, nama: item.Nama, peran: item.Peran as Peran})}>
+                                    <td onClick={(e) => { e.stopPropagation(); if (item.Peran === 'Santri') { setSelectedSantriIds(p => p.includes(item.id) ? p.filter(id => id !== item.id) : [...p, item.id]); } }}>
                                         <div className="flex items-center justify-center">
                                             {item.Peran === 'Santri' ? (
                                                 <button className="text-slate-400 hover:text-slate-600">
@@ -1021,7 +1014,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                                             ) : null}
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td>
                                         <div className="flex items-center">
                                             <div className="flex-shrink-0 h-10 w-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 font-bold text-sm border border-slate-200/80 mr-4">
                                                 {getInitials(item.Nama)}
@@ -1032,28 +1025,28 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 text-slate-500 text-sm">
+                                    <td className="text-slate-500 text-sm">
                                         <div className="flex items-center">
                                             {item.Kelas && <span className="bg-slate-100 text-slate-600 text-2xs px-2 py-0.5 rounded font-bold mr-2 uppercase">{item.Kelas}</span>}
                                             <span className="font-medium text-sm">{item.Marhalah}</span>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 text-center font-bold text-emerald-600">
+                                    <td className="text-center font-bold text-emerald-600">
                                         {item.Hadir > 0 ? item.Hadir : '-'}
                                     </td>
-                                    <td className="px-6 py-4 text-center text-slate-400 font-medium">
+                                    <td className="text-center text-slate-400 font-medium">
                                         {item.Izin > 0 ? item.Izin : '-'}
                                     </td>
-                                    <td className="px-6 py-4 text-center text-slate-400 font-medium">
+                                    <td className="text-center text-slate-400 font-medium">
                                         {item.Sakit > 0 ? item.Sakit : '-'}
                                     </td>
-                                    <td className="px-6 py-4 text-center text-slate-400 font-medium">
+                                    <td className="text-center text-slate-400 font-medium">
                                         {item.Alpa > 0 ? item.Alpa : '-'}
                                     </td>
-                                    <td className="px-6 py-4 text-center text-slate-400 font-medium">
+                                    <td className="text-center text-slate-400 font-medium">
                                         {item.Terlambat > 0 ? item.Terlambat : '-'}
                                     </td>
-                                    <td className="px-6 py-4 text-center font-bold text-slate-800">
+                                    <td className="text-center font-bold text-slate-800">
                                         {item.Total}
                                     </td>
                                 </tr>
@@ -1095,15 +1088,15 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                         </button>
                     )}
                 </div>
-                <div className="max-h-[60vh] overflow-y-auto border border-slate-100 rounded-lg">
-                    <table className="w-full text-sm text-left text-slate-500">
-                        <thead className="bg-slate-50 sticky top-0"><tr><th className="px-4 py-3 font-semibold text-slate-600">Tanggal</th><th className="px-4 py-3 font-semibold text-slate-600">Waktu</th><th className="px-4 py-3 font-semibold text-slate-600">Status</th>{(userProfile?.role?.toLowerCase() || '') !== 'musammi' && <th className="px-4 py-3 font-semibold text-slate-600 text-right">Aksi</th>}</tr></thead>
-                        <tbody className="divide-y divide-slate-100">
+                <div className="wadah-tabel max-h-[60vh] overflow-y-auto">
+                    <table className="tabel">
+                        <thead className="sticky top-0"><tr><th>Tanggal</th><th>Waktu</th><th>Status</th>{(userProfile?.role?.toLowerCase() || '') !== 'musammi' && <th className="text-right">Aksi</th>}</tr></thead>
+                        <tbody>
                             {studentDetailData.map(r => (
-                                <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                                    <td className="px-4 py-3 text-slate-800">{r.date}</td>
-                                    <td className="px-4 py-3">{r.waktu}</td>
-                                    <td className="px-4 py-3">
+                                <tr key={r.id}>
+                                    <td className="text-slate-800">{r.date}</td>
+                                    <td>{r.waktu}</td>
+                                    <td>
                                         <span className={`inline-flex min-w-[50px] justify-center items-center px-2.5 py-1 rounded-md text-2xs font-bold border tabular-nums shadow-xs ${
                                             r.status === 'Hadir' ? 'bg-emerald-50 text-emerald-700 border-emerald-100/50' : 
                                             r.status === 'Sakit' ? 'bg-amber-50 text-amber-700 border-amber-100/50' : 
@@ -1113,7 +1106,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                                         }`}>{r.status}</span>
                                     </td>
                                     {(userProfile?.role?.toLowerCase() || '') !== 'musammi' && (
-                                        <td className="px-4 py-3 text-right flex justify-end gap-2">
+                                        <td className="text-right flex justify-end gap-2">
                                             <button onClick={() => handleEdit(r)} className="text-blue-600 hover:bg-blue-50 p-1.5 rounded"><Edit size={14}/></button>
                                             <button onClick={() => handleDelete(r.id)} className="text-red-500 hover:bg-red-50 p-1.5 rounded"><Trash size={14}/></button>
                                         </td>

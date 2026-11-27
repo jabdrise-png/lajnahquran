@@ -78,38 +78,30 @@ export default function SetoranHarianPage() {
         ))}
       </div>
 
-      <div className="flex flex-wrap items-end gap-2 bg-white border border-slate-200 rounded-xl p-3">
-        <label className="text-sm sm:text-xs font-semibold text-slate-600">Dari
-          <input type="date" value={dari} onChange={(e) => setDari(e.target.value)} className="block mt-1 border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
-        </label>
-        <label className="text-sm sm:text-xs font-semibold text-slate-600">Sampai
-          <input type="date" value={sampai} onChange={(e) => setSampai(e.target.value)} className="block mt-1 border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
-        </label>
-        <label className="text-sm sm:text-xs font-semibold text-slate-600">Halaqah
-          <select value={halaqahId} onChange={(e) => setHalaqahId(e.target.value)} className="block mt-1 border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white">
-            <option value="all">Semua</option>
+      <div className="panel-filter space-y-3">
+        <div className="grid-filter">
+          <label className="kontrol-label"><span>Dari</span><input type="date" value={dari} onChange={(e) => setDari(e.target.value)} className="kontrol-dalam" /></label>
+          <label className="kontrol-label"><span>Sampai</span><input type="date" value={sampai} onChange={(e) => setSampai(e.target.value)} className="kontrol-dalam" /></label>
+          <select value={halaqahId} onChange={(e) => setHalaqahId(e.target.value)} className="kontrol">
+            <option value="all">Semua Halaqah</option>
             {mine.map((h) => <option key={h.id} value={h.id}>{h.nama}</option>)}
           </select>
-        </label>
-        <label className="text-sm sm:text-xs font-semibold text-slate-600">Jenis
-          <select value={jenis} onChange={(e) => setJenis(e.target.value)} className="block mt-1 border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white">
-            <option value="all">Semua</option>
+          <select value={jenis} onChange={(e) => setJenis(e.target.value)} className="kontrol">
+            <option value="all">Semua Jenis</option>
             {recitationKinds.map((k) => <option key={k.code} value={k.code}>{k.name}</option>)}
           </select>
-        </label>
-        <label className="text-sm sm:text-xs font-semibold text-slate-600 flex-1 min-w-[160px]">Cari santri
-          <input value={cari} onChange={(e) => setCari(e.target.value)} placeholder="Nama…" className="block w-full mt-1 border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
-        </label>
-        {tab === 'daftar' && (
-          <label className="inline-flex items-center gap-1.5 text-sm sm:text-xs text-slate-700 pb-2">
-            <input type="checkbox" checked={hanyaUlang} onChange={(e) => setHanyaUlang(e.target.checked)} className="rounded border-slate-300" /> Hanya yang diulang (Rasib)
-          </label>
-        )}
-        {tab === 'rekap' && (
-          <button type="button" onClick={() => rekapRef.current?.exportData()} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-700">
-            <Download size={14} /> Excel
-          </button>
-        )}
+          <input value={cari} onChange={(e) => setCari(e.target.value)} placeholder="Cari nama santri…" className="kontrol kontrol-cari" />
+          {tab === 'daftar' && (
+            <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+              <input type="checkbox" checked={hanyaUlang} onChange={(e) => setHanyaUlang(e.target.checked)} className="rounded border-slate-300" /> Hanya yang diulang (Rasib)
+            </label>
+          )}
+          {tab === 'rekap' && (
+            <button type="button" onClick={() => rekapRef.current?.exportData()} className="btn btn-secondary h-11">
+              <Download size={14} /> Ekspor Excel
+            </button>
+          )}
+        </div>
       </div>
 
       {tab === 'daftar' ? (

@@ -140,20 +140,20 @@ const LaporanMudirPage: React.FC = () => {
               <div key={k} className="rounded-lg bg-slate-50 px-3 py-2"><div className="text-2xs text-slate-500">{k}</div><div className="text-sm font-bold text-slate-800">{v}</div></div>
             ))}
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-slate-50 text-2xs uppercase text-slate-500"><tr>
-                <th className="px-3 py-2 text-left">Halaqah</th><th className="px-3 py-2 text-left">Musammi'</th><th className="px-3 py-2 text-right">Santri</th>
-                <th className="px-3 py-2 text-right">Ziyadah (hal)</th><th className="px-3 py-2 text-right">Rata murojaah</th><th className="px-3 py-2 text-right">Kehadiran</th>
-                <th className="px-3 py-2 text-right">Rata total (juz)</th><th className="px-3 py-2 text-center">Form</th>
+          <div className="wadah-tabel overflow-x-auto">
+            <table className="tabel">
+              <thead><tr>
+                <th className="text-left">Halaqah</th><th className="text-left">Musammi'</th><th className="text-right">Santri</th>
+                <th className="text-right">Ziyadah (hal)</th><th className="text-right">Rata murojaah</th><th className="text-right">Kehadiran</th>
+                <th className="text-right">Rata total (juz)</th><th className="text-center">Form</th>
               </tr></thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {data.perHalaqah.map((h) => (
                   <tr key={h.halaqah_id}>
-                    <td className="px-3 py-1.5 font-semibold text-slate-800">{h.halaqah}</td><td className="px-3 py-1.5 text-slate-600">{h.musammi}</td>
-                    <td className="px-3 py-1.5 text-right">{h.santri}</td><td className="px-3 py-1.5 text-right">{fmt(h.ziyadah)}</td>
-                    <td className="px-3 py-1.5 text-right">{fmt(h.rata_murojaah)}</td><td className="px-3 py-1.5 text-right">{fmt(h.kehadiran, '%')}</td>
-                    <td className="px-3 py-1.5 text-right">{fmt(h.rata_total_juz)}</td>
+                    <td className="font-semibold text-slate-800">{h.halaqah}</td><td className="text-slate-600">{h.musammi}</td>
+                    <td className="text-right">{h.santri}</td><td className="text-right">{fmt(h.ziyadah)}</td>
+                    <td className="text-right">{fmt(h.rata_murojaah)}</td><td className="text-right">{fmt(h.kehadiran, '%')}</td>
+                    <td className="text-right">{fmt(h.rata_total_juz)}</td>
                     <td className={`px-3 py-1.5 text-center ${h.form_terkirim < h.form_total ? 'text-amber-700' : 'text-emerald-700'}`}>{h.form_terkirim}/{h.form_total}</td>
                   </tr>
                 ))}

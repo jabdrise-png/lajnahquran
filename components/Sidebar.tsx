@@ -217,8 +217,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     if (item.isGroup) {
       if (isCollapsed) return <div key={item.id} className="my-3.5 border-t border-slate-200 mx-4"></div>;
       return (
-        <li key={item.id} className="px-4 mt-6 mb-2 first:mt-2">
-          <span className="text-xs font-semibold text-slate-500 px-2">{item.label}</span>
+        <li key={item.id} className="px-5 mt-7 mb-2.5 first:mt-3">
+          <span className="text-xs font-semibold text-slate-400 px-1.5">{item.label}</span>
         </li>
       );
     }
@@ -235,7 +235,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
     const baseClasses = `flex items-center w-full ${
       isCollapsed ? 'justify-center px-2' : 'px-3.5'
-    } py-2.5 mb-1 rounded-lg transition-all duration-150 group relative`;
+    } py-2.5 mb-1.5 rounded-lg transition-all duration-150 group relative`;
     const activeClasses = isPlatformSuperadmin
       ? 'bg-blue-50 text-blue-600 font-semibold shadow-2xs'
       : 'bg-blue-50/90 text-blue-700 font-semibold';
@@ -249,12 +249,12 @@ const Sidebar: React.FC<SidebarProps> = ({
       return (
         <li key={item.id} className="relative">
           {isActive && !isParent && (
-            <div className="absolute -left-[9px] top-1/2 transform -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-blue-600"></div>
+            <div className="absolute -left-[13px] top-1/2 transform -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-blue-600"></div>
           )}
           {isParent ? (
             <button
               onClick={(e) => { e.preventDefault(); toggleMenu(item.id); }}
-              className={`flex items-center justify-between w-full py-1.5 px-3 rounded-md text-sm transition-colors ${
+              className={`flex items-center justify-between w-full py-2 px-3 rounded-lg text-sm transition-colors ${
                 isActive
                   ? 'text-blue-600 font-semibold'
                   : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100 group'
@@ -267,7 +267,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             <a
               href="#"
               onClick={(e) => { e.preventDefault(); if (item.page) setPage(item.page); }}
-              className={`flex items-center py-1.5 px-3 rounded-md text-sm transition-colors ${
+              className={`flex items-center py-2 px-3 rounded-lg text-sm transition-colors ${
                 isActive
                   ? 'text-blue-600 font-semibold bg-blue-50/70'
                   : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100 group'
@@ -277,7 +277,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             </a>
           )}
           {isParent && isExpanded && !isCollapsed && (
-            <ul className="mt-1 space-y-0.5 ml-4 border-l border-slate-200 pl-2 py-0.5 relative">
+            <ul className="mt-1.5 mb-1 space-y-1 ml-4 border-l border-slate-200 pl-2.5 py-0.5 relative">
               {item.children?.map(child => renderNavItem(child, depth + 1))}
             </ul>
           )}
@@ -286,7 +286,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
 
     return (
-      <li key={item.id} className="px-3">
+      <li key={item.id} className="px-4">
         {isParent ? (
           <button
             onClick={() => toggleMenu(item.id)}
@@ -297,7 +297,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               <div className={`flex-shrink-0 transition-colors ${isActive ? 'text-blue-600' : 'text-slate-500 group-hover:text-slate-900'}`}>
                 {item.icon}
               </div>
-              {!isCollapsed && <span className="ml-3 text-sm whitespace-nowrap leading-none pt-px">{item.label}</span>}
+              {!isCollapsed && <span className="ml-3.5 text-sm whitespace-nowrap leading-none pt-px">{item.label}</span>}
             </div>
             {!isCollapsed && (
               <div className={`transition-transform duration-200 flex-shrink-0 ${isActive ? 'text-blue-600' : 'text-slate-500 group-hover:text-slate-900'} ${isExpanded ? 'rotate-180' : ''}`}>
@@ -325,7 +325,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               )}
             </div>
             {!isCollapsed && (
-              <span className="ml-3 text-sm whitespace-nowrap leading-none pt-px flex-1 truncate">
+              <span className="ml-3.5 text-sm whitespace-nowrap leading-none pt-px flex-1 truncate">
                 {item.label}
               </span>
             )}
@@ -341,7 +341,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         {isParent && isExpanded && !isCollapsed && (
-          <ul className="mt-1 space-y-0.5 ml-7 border-l border-slate-200 pl-2 py-0.5 relative">
+          <ul className="mt-1 mb-2 space-y-1 ml-8 border-l border-slate-200 pl-2.5 py-0.5 relative">
             {item.children?.map(child => renderNavItem(child, depth + 1))}
           </ul>
         )}
@@ -372,13 +372,13 @@ const Sidebar: React.FC<SidebarProps> = ({
           fixed md:relative inset-y-0 left-0
           transform transition-all duration-300 ease-in-out
           overflow-hidden shadow-xs
-          w-[272px]
+          w-[288px]
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
           md:transform-none
-          ${isCollapsed ? 'md:w-20' : 'md:w-[272px]'}
+          ${isCollapsed ? 'md:w-20' : 'md:w-[288px]'}
         `}
       >
-        <div className={`flex-grow flex flex-col min-h-0 ${isCollapsed ? 'w-20' : 'w-[272px]'}`}>
+        <div className={`flex-grow flex flex-col min-h-0 ${isCollapsed ? 'w-20' : 'w-[288px]'}`}>
           {/* Brand Header */}
           <div
             className={`flex items-center justify-between pt-5 pb-4 border-b border-slate-200/70 ${
@@ -435,8 +435,8 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           {/* Navigation Items */}
-          <nav className="flex-grow overflow-y-auto custom-scrollbar pt-2 pb-6">
-            <ul className="space-y-0.5">
+          <nav className="flex-grow overflow-y-auto custom-scrollbar pt-3 pb-8">
+            <ul>
               {navStructure.map(item => renderNavItem(item))}
             </ul>
           </nav>

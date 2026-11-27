@@ -209,24 +209,17 @@ const UjianBulananPage: React.FC = () => {
         }
       />
 
-      <div className="flex flex-wrap gap-2 items-end">
-        <label className="text-xs font-semibold text-slate-600">Ujian<br />
-          <select className={inputCls} value={periodId} onChange={(e) => setPeriodId(e.target.value)}>
+      <div className="panel-filter"><div className="grid-filter">
+        <label className="kontrol-label"><span>Ujian</span><select className="kontrol-dalam" value={periodId} onChange={(e) => setPeriodId(e.target.value)}>
             {periodeList.length === 0 && <option value="">Belum ada ujian bulanan</option>}
             {periodeList.map((p) => <option key={p.id} value={p.id}>Ke-{p.ke} · {p.label}</option>)}
-          </select>
-        </label>
-        <label className="text-xs font-semibold text-slate-600">Halaqah<br />
-          <select className={inputCls} value={filterHalaqah} onChange={(e) => setFilterHalaqah(e.target.value)}>
+          </select></label>
+        <label className="kontrol-label"><span>Halaqah</span><select className="kontrol-dalam" value={filterHalaqah} onChange={(e) => setFilterHalaqah(e.target.value)}>
             <option value="all">Semua yang saya uji</option>
             {halaqah.filter((h) => boleh.has(Number(h.id)) && !h.is_archived).map((h) => <option key={h.id} value={String(h.id)}>{h.nama}</option>)}
-          </select>
-        </label>
-        <label className="text-xs font-semibold text-slate-600">Cari<br />
-          <span className="relative inline-block"><Search size={14} className="absolute left-2 top-2.5 text-slate-400" />
-            <input className={`${inputCls} pl-7`} value={cari} onChange={(e) => setCari(e.target.value)} placeholder="Nama santri…" /></span>
-        </label>
-      </div>
+          </select></label>
+        <label className="kontrol-label"><span>Cari</span><input className="kontrol-dalam" value={cari} onChange={(e) => setCari(e.target.value)} placeholder="Nama santri…" /></label>
+      </div></div>
 
       {periodeList.length === 0 && (
         <EmptyState title="Belum ada ujian bulanan" description={isAdmin ? 'Klik "Kelola ujian" untuk menambah Ujian Bulanan ke-1.' : 'Minta Admin menambah ujian bulanan untuk semester ini.'} />
@@ -234,18 +227,18 @@ const UjianBulananPage: React.FC = () => {
       {periodId && baris.length === 0 && <EmptyState title="Tidak ada santri" description="Anda belum menjadi penguji halaqah mana pun pada semester ini." />}
 
       {periodId && baris.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-          <table className="min-w-full text-sm tabel-kartu">
-            <thead className="bg-slate-50 text-xs text-slate-500">
+        <div className="wadah-tabel overflow-x-auto">
+          <table className="tabel tabel-kartu">
+            <thead>
               <tr>
-                <th className="px-3 py-2 text-left">Santri</th>
-                <th className="px-3 py-2 text-left w-40">Materi (juz)</th>
-                <th className="px-3 py-2 text-left w-28">Nilai</th>
-                <th className="px-3 py-2 text-left">Predikat</th>
-                <th className="px-3 py-2 text-right">Aksi</th>
+                <th className="text-left">Santri</th>
+                <th className="text-left w-40">Materi (juz)</th>
+                <th className="text-left w-28">Nilai</th>
+                <th className="text-left">Predikat</th>
+                <th className="text-right">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody>
               {baris.map(({ s, h }) => {
                 const t = nilaiRaport(s.id);
                 const d = draf[s.id];
@@ -255,22 +248,22 @@ const UjianBulananPage: React.FC = () => {
                 const lulus = (nilaiPrev ?? t?.final_score ?? null) === null ? null : (nilaiPrev ?? t!.final_score!) >= rubrikAktif.passing_score;
                 return (
                   <tr key={s.id} className={d ? 'bg-blue-50/30' : ''}>
-                    <td className="px-3 py-2">
+                    <td>
                       <div className="font-semibold text-slate-800">{s.nama}</div>
                       <div className="text-2xs text-slate-400">{h.nama} · {s.kelas || '-'}{t ? ` · percobaan ${t.attempt_no}${t.is_remedial ? ' (remedial)' : ''}${jumlahSah(s.id) > 1 ? ` · tertinggi dari ${jumlahSah(s.id)} percobaan` : ''}` : ''}</div>
                     </td>
-                    <td data-label="Materi (juz)" className="px-3 py-2">
+                    <td data-label="Materi (juz)">
                       {edit ? <input className={inputCls} value={d?.materi ?? t?.materi_juz ?? ''} placeholder="mis. 30" onChange={(e) => ubah(s.id, { materi: e.target.value })} />
                         : <span className="text-slate-600">{t?.materi_juz || '-'}</span>}
                     </td>
-                    <td data-label="Nilai" className="px-3 py-2">
+                    <td data-label="Nilai">
                       {edit ? <input className={inputCls} inputMode="decimal" value={d?.nilai ?? ''} placeholder={d?.mode === 'remedial' ? 'remedial' : '0–100'} onChange={(e) => ubah(s.id, { nilai: e.target.value })} />
                         : <span className="font-semibold text-slate-800">{tampilNilai(t?.final_score)}</span>}
                     </td>
-                    <td data-label="Predikat" className="px-3 py-2">
+                    <td data-label="Predikat">
                       {pred ? <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${lulus ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>{pred}{lulus === false ? ' · perlu remedial' : ''}</span> : <span className="text-slate-300">-</span>}
                     </td>
-                    <td data-label="Aksi" className="px-3 py-2 text-right whitespace-nowrap">
+                    <td data-label="Aksi" className="text-right whitespace-nowrap">
                       {t && !d && (
                         <>
                           <button type="button" className="text-xs font-semibold text-blue-700 mr-3 inline-flex items-center gap-1" onClick={() => mulai(s.id, 'remedial')}><RotateCcw size={12} /> Remedial</button>

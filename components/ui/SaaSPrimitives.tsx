@@ -779,10 +779,10 @@ export function DataTable<T>({
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm border-collapse">
-          <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
+    <div className="wadah-tabel">
+      <div className="wadah-tabel overflow-x-auto">
+        <table className="tabel">
+          <thead>
             <tr>
               {columns.map((col) => (
                 <th
@@ -800,9 +800,9 @@ export function DataTable<T>({
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200">
+          <tbody>
             {data.map((row, idx) => (
-              <tr key={rowKey(row, idx)} className="hover:bg-blue-50/60 transition-colors">
+              <tr key={rowKey(row, idx)}>
                 {columns.map((col) => (
                   <td
                     key={col.key}

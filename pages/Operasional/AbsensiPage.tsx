@@ -93,33 +93,19 @@ const AbsensiPage: React.FC = () => {
           : 'Absensi halaqah yang Anda pegang.'}
       />
 
-      <div className="sticky top-0 z-10 bg-neutral/95 backdrop-blur py-2 flex flex-wrap items-end gap-3">
-        <label className="text-sm sm:text-xs font-semibold text-slate-600">
-          Tanggal
-          <input type="date" value={date} max={today} onChange={(e) => setDate(e.target.value || today)}
-            className="block mt-1 border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white" />
-        </label>
-        <div className="text-sm sm:text-xs font-semibold text-slate-600">
-          Waktu
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            {waktuList.length === 0 && <span className="text-sm sm:text-xs text-slate-500 py-2">Belum ada jadwal halaqah.</span>}
-            {waktuList.map((w) => (
-              <button key={w} type="button" onClick={() => setSlot(w)}
-                className={`px-3 py-2 rounded-lg border text-sm font-semibold ${slot === w ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-700'}`}>
-                {sessionSlots.find((s) => s.code === w)?.name || w}
-              </button>
-            ))}
-          </div>
+      <div className="panel-filter flex flex-col lg:flex-row lg:items-center gap-3">
+        <label className="kontrol-label lg:w-56"><span>Tanggal</span><input type="date" value={date} max={today} onChange={(e) => setDate(e.target.value || today)} className="kontrol-dalam" /></label>
+        <div className="flex flex-wrap gap-1.5">
+          {waktuList.length === 0 && <span className="text-sm text-slate-500 py-2">Belum ada jadwal halaqah.</span>}
+          {waktuList.map((w) => (
+            <button key={w} type="button" onClick={() => setSlot(w)}
+              className={`h-11 px-4 rounded-xl border text-sm font-semibold transition-colors ${slot === w ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
+              {sessionSlots.find((s) => s.code === w)?.name || w}
+            </button>
+          ))}
         </div>
         {(isAdmin || visible.length > 3) && (
-          <label className="text-sm sm:text-xs font-semibold text-slate-600 flex-1 min-w-[180px]">
-            Cari halaqah / musammi'
-            <div className="relative mt-1">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Ketik nama…"
-                className="w-full border border-slate-300 rounded-lg pl-8 pr-3 py-2 text-sm bg-white" />
-            </div>
-          </label>
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari halaqah / musammi'…" className="kontrol kontrol-cari lg:flex-1" />
         )}
         <div className="text-sm sm:text-xs text-slate-600 ml-auto">
           {visible.length} halaqah · {ringkasan.terisi}/{ringkasan.total} santri terisi

@@ -162,7 +162,7 @@ const UjianSemesterPage: React.FC = () => {
   if (loading) return <LoadingState label="Memuat ujian semester…" />;
 
   const tabBtn = (t: Tab, teks: string) => (
-    <button type="button" onClick={() => setTab(t)} className={`pb-2.5 text-sm font-bold border-b-2 ${tab === t ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500'}`}>{teks}</button>
+    <button type="button" onClick={() => setTab(t)} className={`tab ${tab === t ? 'tab-aktif' : ''}`}>{teks}</button>
   );
 
   return (
@@ -179,19 +179,14 @@ const UjianSemesterPage: React.FC = () => {
           </div>
         }
       />
-      <div className="flex flex-wrap gap-2 items-end">
-        <label className="text-xs font-semibold text-slate-600">Halaqah<br />
-          <select className={inputCls} value={filterHalaqah} onChange={(e) => setFilterHalaqah(e.target.value)}>
+      <div className="panel-filter"><div className="grid-filter">
+        <label className="kontrol-label"><span>Halaqah</span><select className="kontrol-dalam" value={filterHalaqah} onChange={(e) => setFilterHalaqah(e.target.value)}>
             <option value="all">Semua yang saya uji</option>
             {halaqah.filter((h) => boleh.has(Number(h.id)) && !h.is_archived).map((h) => <option key={h.id} value={String(h.id)}>{h.nama}</option>)}
-          </select>
-        </label>
-        <label className="text-xs font-semibold text-slate-600">Cari<br />
-          <span className="relative inline-block"><Search size={14} className="absolute left-2 top-2.5 text-slate-400" />
-            <input className={`${inputCls} pl-7`} value={cari} onChange={(e) => setCari(e.target.value)} placeholder="Nama santri…" /></span>
-        </label>
-      </div>
-      <div className="flex gap-6 border-b border-slate-200">
+          </select></label>
+        <label className="kontrol-label"><span>Cari</span><input className="kontrol-dalam" value={cari} onChange={(e) => setCari(e.target.value)} placeholder="Nama santri…" /></label>
+      </div></div>
+      <div className="tabs">
         {tabBtn('nilai', 'Nilai')}
         {tabBtn('remedial', `Perlu remedial (${baris.filter(({ s }) => nilaiRaport(s.id)?.passed === false).length})`)}
         {tabBtn('catatan', 'Catatan raport')}
@@ -200,22 +195,22 @@ const UjianSemesterPage: React.FC = () => {
       {tampil.length === 0 && <EmptyState title={tab === 'remedial' ? 'Tidak ada santri di bawah KKM' : 'Tidak ada santri'} description={tab === 'remedial' ? 'Semua nilai semester sudah memenuhi KKM.' : 'Anda belum menjadi penguji halaqah mana pun pada semester ini.'} />}
 
       {tab !== 'catatan' && tampil.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-          <table className="min-w-full text-sm tabel-kartu">
-            <thead className="bg-slate-50 text-xs text-slate-500">
-              <tr><th className="px-3 py-2 text-left">Santri</th><th className="px-3 py-2 text-left">Materi (juz)</th><th className="px-3 py-2 text-right">Nilai</th><th className="px-3 py-2 text-left">Predikat</th><th className="px-3 py-2 text-right">Aksi</th></tr>
+        <div className="wadah-tabel overflow-x-auto">
+          <table className="tabel tabel-kartu">
+            <thead>
+              <tr><th className="text-left">Santri</th><th className="text-left">Materi (juz)</th><th className="text-right">Nilai</th><th className="text-left">Predikat</th><th className="text-right">Aksi</th></tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody>
               {tampil.map(({ s, h }) => {
                 const t = nilaiRaport(s.id);
                 return (
                   <tr key={s.id}>
-                    <td className="px-3 py-2"><div className="font-semibold text-slate-800">{s.nama}</div>
+                    <td><div className="font-semibold text-slate-800">{s.nama}</div>
                       <div className="text-2xs text-slate-400">{h.nama} · {s.kelas || '-'}{t ? ` · percobaan ${t.attempt_no}${t.is_remedial ? ' (remedial)' : ''}${jumlahSah(s.id) > 1 ? ` · tertinggi dari ${jumlahSah(s.id)} percobaan` : ''}` : ''}{t?.source === 'migrasi' ? ' · data lama' : ''}</div></td>
-                    <td data-label="Materi (juz)" className="px-3 py-2 text-slate-600">{t?.materi_juz || '-'}</td>
-                    <td data-label="Nilai" className="px-3 py-2 text-right font-semibold tabular-nums">{tampilNilai(t?.final_score)}</td>
-                    <td data-label="Predikat" className="px-3 py-2">{t ? <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${t.passed === false ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>{t.predikat}{t.passed === false ? ' · perlu remedial' : ''}</span> : <span className="text-slate-300">-</span>}</td>
-                    <td data-label="Aksi" className="px-3 py-2 text-right whitespace-nowrap">
+                    <td data-label="Materi (juz)" className="text-slate-600">{t?.materi_juz || '-'}</td>
+                    <td data-label="Nilai" className="text-right font-semibold tabular-nums">{tampilNilai(t?.final_score)}</td>
+                    <td data-label="Predikat">{t ? <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${t.passed === false ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>{t.predikat}{t.passed === false ? ' · perlu remedial' : ''}</span> : <span className="text-slate-300">-</span>}</td>
+                    <td data-label="Aksi" className="text-right whitespace-nowrap">
                       {!t && <button type="button" className="text-xs font-semibold text-blue-700" onClick={() => buka(s, 'baru')}>Input nilai</button>}
                       {t && <button type="button" className="text-xs font-semibold text-blue-700 mr-3 inline-flex items-center gap-1" onClick={() => buka(s, 'remedial')}><RotateCcw size={12} /> Remedial</button>}
                       {t && isAdmin && <button type="button" className="text-xs font-semibold text-amber-700 mr-3 inline-flex items-center gap-1" onClick={() => buka(s, 'koreksi')}><Pencil size={12} /> Koreksi</button>}
@@ -251,22 +246,22 @@ const UjianSemesterPage: React.FC = () => {
               <input className={`${inputCls} mt-1`} value={form.materi} onChange={(e) => setForm({ ...form, materi: e.target.value })} />
             </label>
             {daftarJuz.length > 0 && (
-              <div className="rounded-lg border border-slate-200 overflow-hidden">
-                <table className="min-w-full text-sm tabel-kartu">
-                  <thead className="bg-slate-50 text-2xs uppercase text-slate-500"><tr><th className="px-3 py-1.5 text-left">Juz</th><th className="px-3 py-1.5 text-left">Kabir</th><th className="px-3 py-1.5 text-left">Shoghir</th><th className="px-3 py-1.5 text-left" title="Kosongkan untuk memakai hitungan rubrik">Nilai custom</th><th className="px-3 py-1.5 text-right">Nilai</th></tr></thead>
-                  <tbody className="divide-y divide-slate-100">
+              <div className="wadah-tabel">
+                <table className="tabel tabel-kartu">
+                  <thead><tr><th className="text-left">Juz</th><th className="text-left">Kabir</th><th className="text-left">Shoghir</th><th className="text-left" title="Kosongkan untuk memakai hitungan rubrik">Nilai custom</th><th className="text-right">Nilai</th></tr></thead>
+                  <tbody>
                     {daftarJuz.map((j) => (
                       <tr key={j}>
-                        <td className="px-3 py-1.5 font-semibold">Juz {j}</td>
+                        <td className="font-semibold">Juz {j}</td>
                         {(['kabir', 'shoghir'] as const).map((k) => (
-                          <td key={k} data-label={k === 'kabir' ? 'Kabir' : 'Shoghir'} className="px-3 py-1.5"><input type="number" min={0} step={1} inputMode="numeric" className={`${inputCls.replace('w-full', 'w-20')}`}
+                          <td key={k} data-label={k === 'kabir' ? 'Kabir' : 'Shoghir'}><input type="number" min={0} step={1} inputMode="numeric" className={`${inputCls.replace('w-full', 'w-20')}`}
                             value={form.juz[j]?.[k] ?? ''} placeholder="0"
                             onChange={(e) => setForm({ ...form, juz: { ...form.juz, [j]: { kabir: form.juz[j]?.kabir ?? '', shoghir: form.juz[j]?.shoghir ?? '', custom: form.juz[j]?.custom ?? '', [k]: e.target.value } } })} /></td>
                         ))}
-                        <td data-label="Nilai custom" className="px-3 py-1.5"><input type="number" min={0} max={100} step="any" inputMode="decimal" className={`${inputCls.replace('w-full', 'w-24')}`}
+                        <td data-label="Nilai custom"><input type="number" min={0} max={100} step="any" inputMode="decimal" className={`${inputCls.replace('w-full', 'w-24')}`}
                           value={form.juz[j]?.custom ?? ''} placeholder="otomatis"
                           onChange={(e) => setForm({ ...form, juz: { ...form.juz, [j]: { kabir: form.juz[j]?.kabir ?? '', shoghir: form.juz[j]?.shoghir ?? '', custom: e.target.value } } })} /></td>
-                        <td data-label="Nilai" className="px-3 py-1.5 text-right tabular-nums">{tampilNilai(nilaiJuzInput(rubrikAktif, juzIsi.find((x) => x.juz === j) || { juz: j, kabir: 0, shoghir: 0 }))}{(form.juz[j]?.custom ?? '').trim() !== '' && <span className="ml-1 text-2xs text-amber-700">custom</span>}</td>
+                        <td data-label="Nilai" className="text-right tabular-nums">{tampilNilai(nilaiJuzInput(rubrikAktif, juzIsi.find((x) => x.juz === j) || { juz: j, kabir: 0, shoghir: 0 }))}{(form.juz[j]?.custom ?? '').trim() !== '' && <span className="ml-1 text-2xs text-amber-700">custom</span>}</td>
                       </tr>
                     ))}
                   </tbody>

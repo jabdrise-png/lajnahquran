@@ -2639,17 +2639,17 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                     + Undang Admin / Musammi
                   </button>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
+                <div className="wadah-tabel overflow-x-auto">
+                  <table className="tabel">
+                    <thead>
                       <tr>
-                        <th className="px-5 py-3">Nama Pengguna</th>
-                        <th className="px-5 py-3">Role Kanonikal</th>
-                        <th className="px-5 py-3">Status Grant</th>
-                        <th className="px-5 py-3 text-right">Tindakan</th>
+                        <th>Nama Pengguna</th>
+                        <th>Role Kanonikal</th>
+                        <th>Status Grant</th>
+                        <th className="text-right">Tindakan</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200">
+                    <tbody>
                       {accounts.filter((a) => a.organizationId === selectedTenant.id).length === 0 ? (
                         <tr>
                           <td colSpan={4} className="px-6 py-8 text-center text-xs text-slate-500">
@@ -2660,27 +2660,27 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                         accounts
                           .filter((a) => a.organizationId === selectedTenant.id)
                           .map((acc) => (
-                            <tr key={acc.id} className="hover:bg-blue-50/50">
-                              <td className="px-5 py-3.5">
+                            <tr key={acc.id}>
+                              <td>
                                 <div className="font-semibold text-slate-900">{acc.fullName}</div>
                                 <div className="text-2xs font-mono text-slate-500">
                                   ID: {acc.userId.slice(0, 8)}...
                                 </div>
                               </td>
-                              <td className="px-5 py-3.5">
+                              <td>
                                 <StatusBadge
                                   label={formatCanonicalRoleLabel(acc.role)}
                                   tone={acc.role === 'admin' ? 'primary' : 'success'}
                                 />
                               </td>
-                              <td className="px-5 py-3.5">
+                              <td>
                                 <StatusBadge
                                   label={acc.status.toUpperCase()}
                                   tone={statusTone(acc.status)}
                                   dot
                                 />
                               </td>
-                              <td className="px-5 py-3.5 text-right">
+                              <td className="text-right">
                                 <div className="inline-flex items-center gap-2">
                                   <button
                                     type="button"
@@ -2806,20 +2806,20 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
             ) : (
               <>
                 {/* Desktop Table */}
-                <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
+                <div className="wadah-tabel hidden md:block overflow-x-auto">
+                  <table className="tabel">
+                    <thead>
                       <tr>
-                        <th className="px-6 py-3.5">Nama Organisasi</th>
-                        <th className="px-6 py-3.5">Status</th>
-                        <th className="px-6 py-3.5 text-right">Admin</th>
-                        <th className="px-6 py-3.5 text-right">Musammi</th>
-                        <th className="px-6 py-3.5 text-right">Santri</th>
-                        <th className="px-6 py-3.5 w-56">Readiness (Data Setup)</th>
-                        <th className="px-6 py-3.5 text-right">Tindakan</th>
+                        <th>Nama Organisasi</th>
+                        <th>Status</th>
+                        <th className="text-right">Admin</th>
+                        <th className="text-right">Musammi</th>
+                        <th className="text-right">Santri</th>
+                        <th className="w-56">Readiness (Data Setup)</th>
+                        <th className="text-right">Tindakan</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200">
+                    <tbody>
                       {tenants.slice(0, 10).map((t) => {
                         const readyCount = [
                           t.setupState.hasActiveAcademicYear,
@@ -2829,8 +2829,8 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                         ].filter(Boolean).length;
                         const readyPct = Math.round((readyCount / 4) * 100);
                         return (
-                          <tr key={t.id} className="hover:bg-blue-50/50 transition-colors">
-                            <td className="px-6 py-3.5">
+                          <tr key={t.id}>
+                            <td>
                               <button
                                 type="button"
                                 onClick={() => openTenantDetail(t.id)}
@@ -2851,23 +2851,23 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                 )}
                               </div>
                             </td>
-                            <td className="px-6 py-3.5">
+                            <td>
                               <StatusBadge
                                 label={(t.status || 'active').toUpperCase()}
                                 tone={statusTone(t.status)}
                                 dot
                               />
                             </td>
-                            <td className="px-6 py-3.5 text-right font-mono tabular-nums font-semibold text-slate-900">
+                            <td className="text-right font-mono tabular-nums font-semibold text-slate-900">
                               {t.adminCount}
                             </td>
-                            <td className="px-6 py-3.5 text-right font-mono tabular-nums font-semibold text-slate-900">
+                            <td className="text-right font-mono tabular-nums font-semibold text-slate-900">
                               {t.musammiCount}
                             </td>
-                            <td className="px-6 py-3.5 text-right font-mono tabular-nums font-semibold text-slate-900">
+                            <td className="text-right font-mono tabular-nums font-semibold text-slate-900">
                               {t.santriCount}
                             </td>
-                            <td className="px-6 py-3.5">
+                            <td>
                               <div className="space-y-1.5">
                                 <div className="flex items-center justify-between text-xs">
                                   <StatusBadge
@@ -2898,7 +2898,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                 />
                               </div>
                             </td>
-                            <td className="px-6 py-3.5 text-right">
+                            <td className="text-right">
                               <div className="inline-flex items-center gap-2">
                                 <button
                                   type="button"
@@ -3113,26 +3113,26 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                   Belum ada rekaman aktivitas di tabel audit_logs.
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs sm:text-sm">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
+                <div className="wadah-tabel overflow-x-auto">
+                  <table className="tabel sm:text-sm">
+                    <thead>
                       <tr>
-                        <th className="px-4 py-3">Waktu</th>
-                        <th className="px-4 py-3">Aktor</th>
-                        <th className="px-4 py-3">Aktivitas</th>
-                        <th className="px-4 py-3">Tenant</th>
-                        <th className="px-4 py-3 text-right">Status</th>
+                        <th>Waktu</th>
+                        <th>Aktor</th>
+                        <th>Aktivitas</th>
+                        <th>Tenant</th>
+                        <th className="text-right">Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200">
+                    <tbody>
                       {auditLogs.slice(0, 8).map((log) => {
                         const isFailureAction =
                           log.action.includes('failed') ||
                           log.action.includes('revoked') ||
                           log.action.includes('suspended');
                         return (
-                          <tr key={log.id} className="hover:bg-blue-50/50">
-                            <td className="px-4 py-3 font-mono text-xs text-slate-500 whitespace-nowrap tabular-nums">
+                          <tr key={log.id}>
+                            <td className="font-mono text-xs text-slate-500 whitespace-nowrap tabular-nums">
                               {new Date(log.created_at).toLocaleString('id-ID', {
                                 day: '2-digit',
                                 month: 'short',
@@ -3140,13 +3140,13 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                 minute: '2-digit',
                               })}
                             </td>
-                            <td className="px-4 py-3">
+                            <td>
                               <StatusBadge
                                 label={(log.actor_role || 'superadmin').toUpperCase()}
                                 tone="primary"
                               />
                             </td>
-                            <td className="px-4 py-3">
+                            <td>
                               <button
                                 type="button"
                                 onClick={() => setSelectedAuditLog(log)}
@@ -3160,10 +3160,10 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                 </div>
                               )}
                             </td>
-                            <td className="px-4 py-3 text-xs font-medium text-slate-700">
+                            <td className="text-xs font-medium text-slate-700">
                               {log.organization_name || 'Platform Global'}
                             </td>
-                            <td className="px-4 py-3 text-right">
+                            <td className="text-right">
                               <StatusBadge
                                 label={isFailureAction ? 'PERHATIAN' : 'TERCATAT'}
                                 tone={isFailureAction ? 'warning' : 'success'}
@@ -3199,14 +3199,14 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 value={searchTenant}
                 onChange={(e) => setSearchTenant(e.target.value)}
                 placeholder="Cari nama ma'had atau slug..."
-                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 bg-white"
+                className="kontrol kontrol-cari"
               />
             </FormField>
             <FormField label="Lifecycle / Status">
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-600"
+                className="kontrol"
               >
                 <option value="all">Semua Status</option>
                 <option value="provisioning">PROVISIONING</option>
@@ -3221,7 +3221,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               <select
                 value={filterPlan}
                 onChange={(e) => setFilterPlan(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-600"
+                className="kontrol"
               >
                 <option value="all">Semua Paket</option>
                 <option value="trial">Trial</option>
@@ -3264,26 +3264,26 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
             ) : (
               <>
                 {/* Desktop Tenant Table */}
-                <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
+                <div className="wadah-tabel hidden md:block overflow-x-auto">
+                  <table className="tabel">
+                    <thead>
                       <tr>
-                        <th className="px-6 py-3.5">Lembaga</th>
-                        <th className="px-6 py-3.5">Paket</th>
-                        <th className="px-6 py-3.5">Tim</th>
-                        <th className="px-6 py-3.5 w-64">Kapasitas & Quota Usage</th>
-                        <th className="px-6 py-3.5">Status</th>
-                        <th className="px-6 py-3.5 text-right">Tindakan</th>
+                        <th>Lembaga</th>
+                        <th>Paket</th>
+                        <th>Tim</th>
+                        <th className="w-64">Kapasitas & Quota Usage</th>
+                        <th>Status</th>
+                        <th className="text-right">Tindakan</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200">
+                    <tbody>
                       {filteredTenants.map((t) => {
                         const planDef = getPlanEntitlement(t.plan_id);
                         const isSuspended =
                           t.status === 'suspended' || t.status === 'archived';
                         return (
-                          <tr key={t.id} className="hover:bg-blue-50/50 transition-colors">
-                            <td className="px-6 py-4">
+                          <tr key={t.id}>
+                            <td>
                               <button
                                 type="button"
                                 onClick={() => openTenantDetail(t.id)}
@@ -3295,7 +3295,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                 {t.slug} · {t.timezone || 'Asia/Jakarta'}
                               </div>
                             </td>
-                            <td className="px-6 py-4">
+                            <td>
                               <StatusBadge
                                 label={(t.plan_id || 'standard').toUpperCase()}
                                 tone="primary"
@@ -3304,7 +3304,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                 Maks. {planDef.maxStudents} santri
                               </div>
                             </td>
-                            <td className="px-6 py-4 text-xs text-slate-700">
+                            <td className="text-xs text-slate-700">
                               <div className="font-semibold text-slate-900 font-mono tabular-nums">
                                 {t.adminCount} Admin
                               </div>
@@ -3312,21 +3312,21 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                 {t.musammiCount} Musammi
                               </div>
                             </td>
-                            <td className="px-6 py-4">
+                            <td>
                               <QuotaBar
                                 label="Santri"
                                 used={t.santriCount}
                                 limit={planDef.maxStudents}
                               />
                             </td>
-                            <td className="px-6 py-4">
+                            <td>
                               <StatusBadge
                                 label={(t.status || 'active').toUpperCase()}
                                 tone={statusTone(t.status)}
                                 dot
                               />
                             </td>
-                            <td className="px-6 py-4 text-right">
+                            <td className="text-right">
                               <div className="inline-flex items-center gap-2">
                                 <button
                                   type="button"
@@ -3507,14 +3507,14 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 value={searchAccount}
                 onChange={(e) => setSearchAccount(e.target.value)}
                 placeholder="Cari nama, email, atau organisasi..."
-                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 bg-white"
+                className="kontrol kontrol-cari"
               />
             </FormField>
             <FormField label="Organisasi / Scope Tenant">
               <select
                 value={filterAccountOrg}
                 onChange={(e) => setFilterAccountOrg(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-600"
+                className="kontrol"
               >
                 <option value="all">Semua Organisasi</option>
                 <option value="platform_global">Platform Global (Superadmin)</option>
@@ -3529,7 +3529,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               <select
                 value={filterAccountRole}
                 onChange={(e) => setFilterAccountRole(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-600"
+                className="kontrol"
               >
                 <option value="all">Semua Role</option>
                 <option value="superadmin">Superadmin</option>
@@ -3541,7 +3541,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               <select
                 value={filterAccountStatus}
                 onChange={(e) => setFilterAccountStatus(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-600"
+                className="kontrol"
               >
                 <option value="all">Semua Status</option>
                 <option value="active">ACTIVE</option>
@@ -3608,24 +3608,24 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
             ) : (
               <>
                 {/* Desktop Accounts Table */}
-                <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
+                <div className="wadah-tabel hidden md:block overflow-x-auto">
+                  <table className="tabel">
+                    <thead>
                       <tr>
-                        <th className="px-6 py-3.5">Identitas</th>
-                        <th className="px-6 py-3.5">Organisasi</th>
-                        <th className="px-6 py-3.5">Role</th>
-                        <th className="px-6 py-3.5">Status</th>
-                        <th className="px-6 py-3.5 text-right">Tindakan</th>
+                        <th>Identitas</th>
+                        <th>Organisasi</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th className="text-right">Tindakan</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200">
+                    <tbody>
                       {filteredAccounts.map((acc) => {
                         const isSuspendedOrRevoked =
                           acc.status === 'suspended' || acc.status === 'revoked';
                         return (
-                          <tr key={acc.id} className="hover:bg-blue-50/50 transition-colors">
-                            <td className="px-6 py-4">
+                          <tr key={acc.id}>
+                            <td>
                               <button
                                 type="button"
                                 onClick={() => setSelectedAccountDetail(acc)}
@@ -3637,7 +3637,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                 {acc.email ? acc.email : `ID: ${acc.userId.slice(0, 12)}...`}
                               </div>
                             </td>
-                            <td className="px-6 py-4">
+                            <td>
                               <div className="text-xs font-semibold text-slate-900">
                                 {acc.organizationName}
                               </div>
@@ -3647,7 +3647,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                   : 'Platform Scope (Global)'}
                               </div>
                             </td>
-                            <td className="px-6 py-4">
+                            <td>
                               <StatusBadge
                                 label={formatCanonicalRoleLabel(acc.role)}
                                 tone={
@@ -3659,7 +3659,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                 }
                               />
                             </td>
-                            <td className="px-6 py-4">
+                            <td>
                               <div className="flex flex-col items-start gap-1">
                                 <StatusBadge
                                   label={acc.status.toUpperCase()}
@@ -3678,7 +3678,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                 )}
                               </div>
                             </td>
-                            <td className="px-6 py-4 text-right">
+                            <td className="text-right">
                               <div className="inline-flex items-center gap-2">
                                 <button
                                   type="button"
@@ -3970,7 +3970,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               <select
                 value={filterSupportTenant}
                 onChange={(e) => setFilterSupportTenant(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-600"
+                className="kontrol"
               >
                 <option value="all">Semua Lembaga</option>
                 {tenants.map((t) => (
@@ -3984,7 +3984,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               <select
                 value={filterSupportMode}
                 onChange={(e) => setFilterSupportMode(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-600"
+                className="kontrol"
               >
                 <option value="all">Semua Mode</option>
                 <option value="read_only">Read-Only</option>
@@ -3995,7 +3995,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               <select
                 value={filterSupportStatus}
                 onChange={(e) => setFilterSupportStatus(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-600"
+                className="kontrol"
               >
                 <option value="all">Semua Status</option>
                 <option value="active">AKTIF</option>
@@ -4064,21 +4064,21 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 }}
               />
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
+              <div className="wadah-tabel overflow-x-auto">
+                <table className="tabel">
+                  <thead>
                     <tr>
-                      <th className="px-5 py-3.5">Tenant</th>
-                      <th className="px-5 py-3.5">Waktu</th>
-                      <th className="px-5 py-3.5">Mode</th>
-                      <th className="px-5 py-3.5">Alasan</th>
-                      <th className="px-5 py-3.5">Durasi</th>
-                      <th className="px-5 py-3.5">Status</th>
-                      <th className="px-5 py-3.5">Aktor</th>
-                      <th className="px-5 py-3.5 text-right">Tindakan</th>
+                      <th>Tenant</th>
+                      <th>Waktu</th>
+                      <th>Mode</th>
+                      <th>Alasan</th>
+                      <th>Durasi</th>
+                      <th>Status</th>
+                      <th>Aktor</th>
+                      <th className="text-right">Tindakan</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
+                  <tbody>
                     {filteredSupportSessions.map((s) => {
                       const isEnded = Boolean(s.ended_at);
                       const isExpired = !isEnded && new Date(s.expires_at).getTime() <= nowTick;
@@ -4091,17 +4091,17 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                         )
                       );
                       return (
-                        <tr key={s.id} className="hover:bg-blue-50/50 transition-colors">
-                          <td className="px-5 py-4 font-bold text-slate-900">
+                        <tr key={s.id}>
+                          <td className="font-bold text-slate-900">
                             {s.organization_name}
                           </td>
-                          <td className="px-5 py-4 font-mono text-xs text-slate-600 tabular-nums whitespace-nowrap">
+                          <td className="font-mono text-xs text-slate-600 tabular-nums whitespace-nowrap">
                             <div>Mulai: {new Date(s.started_at).toLocaleString('id-ID')}</div>
                             <div className="text-slate-500">
                               Batas: {new Date(s.expires_at).toLocaleString('id-ID')}
                             </div>
                           </td>
-                          <td className="px-5 py-4">
+                          <td>
                             <StatusBadge
                               label={
                                 s.mode === 'read_write' ? 'CONTROLLED-WRITE' : 'READ-ONLY'
@@ -4109,10 +4109,10 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                               tone={s.mode === 'read_write' ? 'warning' : 'neutral'}
                             />
                           </td>
-                          <td className="px-5 py-4 text-xs text-slate-700 max-w-xs">
+                          <td className="text-xs text-slate-700 max-w-xs">
                             {s.reason}
                           </td>
-                          <td className="px-5 py-4 font-mono text-xs font-semibold text-slate-900 tabular-nums">
+                          <td className="font-mono text-xs font-semibold text-slate-900 tabular-nums">
                             {durationMins} menit
                             {isActive && (
                               <div className="text-2xs text-amber-700 font-normal mt-0.5">
@@ -4120,7 +4120,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                               </div>
                             )}
                           </td>
-                          <td className="px-5 py-4">
+                          <td>
                             <StatusBadge
                               label={
                                 isActive
@@ -4135,7 +4135,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                               dot={isActive}
                             />
                           </td>
-                          <td className="px-5 py-4 text-xs text-slate-600">
+                          <td className="text-xs text-slate-600">
                             <span className="font-semibold text-slate-900">Superadmin</span>
                             {s.actor_id && (
                               <div className="font-mono text-2xs text-slate-500">
@@ -4143,7 +4143,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                               </div>
                             )}
                           </td>
-                          <td className="px-5 py-4 text-right">
+                          <td className="text-right">
                             {isActive ? (
                               <button
                                 type="button"
@@ -4321,14 +4321,14 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 value={searchAudit}
                 onChange={(e) => setSearchAudit(e.target.value)}
                 placeholder="Cari action, resource, atau alasan..."
-                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 bg-white"
+                className="kontrol kontrol-cari"
               />
             </FormField>
             <FormField label="Filter Tenant">
               <select
                 value={filterAuditTenant}
                 onChange={(e) => setFilterAuditTenant(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-600"
+                className="kontrol"
               >
                 <option value="all">Semua Tenant</option>
                 <option value="platform_global">Platform Global</option>
@@ -4343,7 +4343,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               <select
                 value={filterAuditRole}
                 onChange={(e) => setFilterAuditRole(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-600"
+                className="kontrol"
               >
                 <option value="all">Semua Role</option>
                 <option value="superadmin">SUPERADMIN</option>
@@ -4355,7 +4355,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               <select
                 value={filterAuditAction}
                 onChange={(e) => setFilterAuditAction(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-600"
+                className="kontrol"
               >
                 <option value="all">Semua Action</option>
                 {availableAuditActions.map((act) => (
@@ -4403,33 +4403,33 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 }}
               />
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
+              <div className="wadah-tabel overflow-x-auto">
+                <table className="tabel">
+                  <thead>
                     <tr>
-                      <th className="px-5 py-3.5">Waktu</th>
-                      <th className="px-5 py-3.5">Tenant</th>
-                      <th className="px-5 py-3.5">Aktor</th>
-                      <th className="px-5 py-3.5">Role</th>
-                      <th className="px-5 py-3.5">Action</th>
-                      <th className="px-5 py-3.5">Resource</th>
-                      <th className="px-5 py-3.5">Reason</th>
-                      <th className="px-5 py-3.5 text-right">Detail</th>
+                      <th>Waktu</th>
+                      <th>Tenant</th>
+                      <th>Aktor</th>
+                      <th>Role</th>
+                      <th>Action</th>
+                      <th>Resource</th>
+                      <th>Reason</th>
+                      <th className="text-right">Detail</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
+                  <tbody>
                     {filteredAuditLogs.map((log) => (
-                      <tr key={log.id} className="hover:bg-blue-50/50 transition-colors">
-                        <td className="px-5 py-3.5 font-mono text-xs text-slate-600 tabular-nums whitespace-nowrap">
+                      <tr key={log.id}>
+                        <td className="font-mono text-xs text-slate-600 tabular-nums whitespace-nowrap">
                           {new Date(log.created_at).toLocaleString('id-ID')}
                         </td>
-                        <td className="px-5 py-3.5 text-xs font-semibold text-slate-900">
+                        <td className="text-xs font-semibold text-slate-900">
                           {log.organization_name || 'Platform Global'}
                         </td>
-                        <td className="px-5 py-3.5 font-mono text-xs text-slate-500">
+                        <td className="font-mono text-xs text-slate-500">
                           {log.actor_id ? `${String(log.actor_id).slice(0, 8)}...` : 'system'}
                         </td>
-                        <td className="px-5 py-3.5">
+                        <td>
                           <StatusBadge
                             label={(log.actor_role || 'system').toUpperCase()}
                             tone={
@@ -4441,17 +4441,17 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                             }
                           />
                         </td>
-                        <td className="px-5 py-3.5 font-mono text-xs font-bold text-slate-900">
+                        <td className="font-mono text-xs font-bold text-slate-900">
                           {log.action}
                         </td>
-                        <td className="px-5 py-3.5 font-mono text-xs text-slate-600">
+                        <td className="font-mono text-xs text-slate-600">
                           {log.resource_type}
                           {log.resource_id ? ` (${String(log.resource_id).slice(0, 8)})` : ''}
                         </td>
-                        <td className="px-5 py-3.5 text-xs text-slate-600 max-w-xs truncate">
+                        <td className="text-xs text-slate-600 max-w-xs truncate">
                           {log.reason || '-'}
                         </td>
-                        <td className="px-5 py-3.5 text-right">
+                        <td className="text-right">
                           <button
                             type="button"
                             onClick={() => setSelectedAuditLog(log)}

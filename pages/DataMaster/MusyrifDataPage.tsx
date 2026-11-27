@@ -197,8 +197,8 @@ const MusyrifDataPage: React.FC = () => {
             <input type="file" ref={fileInputRef} onChange={handleImportCSV} accept=".csv,.xlsx,.xls" className="hidden" />
 
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 sm:gap-4">
-                <div>
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3 sm:gap-4">
+                <div className="min-w-0 flex-1">
                     <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
                         Musyrif Pembina
                     </h1>
@@ -212,19 +212,19 @@ const MusyrifDataPage: React.FC = () => {
                 <div className="flex flex-wrap items-center justify-end gap-2">
                     <ActionDropdown label="Impor data" icon={<Upload size={16}/>}>
                         <button onClick={() => fileInputRef.current?.click()} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left">
-                            <FileSpreadsheet size={14} className="mr-2 text-emerald-600"/> Upload File Excel/CSV
+                            <FileSpreadsheet size={14} className="mr-2 text-emerald-600"/> Unggah file Excel/CSV
                         </button>
                         <button onClick={handleDownloadTemplate} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100">
-                            <Download size={14} className="mr-2 text-blue-600"/> Download Template
+                            <Download size={14} className="mr-2 text-blue-600"/> Unduh template
                         </button>
                     </ActionDropdown>
 
                     <ActionDropdown label="Ekspor data" icon={<Download size={16}/>}>
                         <button onClick={() => exportToExcel(musyrifList, 'Data_Musyrif')} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left">
-                            <FileSpreadsheet size={14} className="mr-2 text-emerald-600"/> Export Excel
+                            <FileSpreadsheet size={14} className="mr-2 text-emerald-600"/> Ekspor Excel
                         </button>
                         <button onClick={handleExportPDF} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100">
-                            <FileText size={14} className="mr-2 text-red-600"/> Export PDF
+                            <FileText size={14} className="mr-2 text-red-600"/> Ekspor PDF
                         </button>
                     </ActionDropdown>
                     
@@ -237,56 +237,49 @@ const MusyrifDataPage: React.FC = () => {
                 </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col h-auto min-h-[500px]">
-                {/* Filters */}
-                <div className="p-5 border-b border-slate-100 bg-slate-50/30 flex flex-col md:flex-row gap-4">
-                    <div className="w-full md:w-1/2">
-                        <label className="block text-xs font-semibold text-slate-500 mb-1.5">Cari Nama</label>
-                        <div className="relative">
-                            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"/>
-                            <input 
-                                type="text" 
-                                placeholder="Ketik nama musyrif..." 
-                                value={search} 
-                                onChange={e => setSearch(e.target.value)} 
-                                className="w-full h-10 pl-10 pr-4 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none text-sm transition-all shadow-xs placeholder:text-slate-400" 
-                            />
-                        </div>
-                    </div>
-                    <div className="w-full md:w-1/2">
-                        <label className="block text-xs font-semibold text-slate-500 mb-1.5">Marhalah</label>
-                        <select 
-                            value={filterMarhalah} 
-                            onChange={e => setFilterMarhalah(e.target.value)} 
-                            className="w-full h-10 px-4 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none text-sm font-medium transition-all shadow-xs cursor-pointer"
-                        >
-                            <option value="all">Semua Marhalah</option>
-                            {masterMarhalahs?.map((m: any) => <option key={m.id} value={m.nama}>{m.nama}</option>) || globalMarhalahs.map((m: any) => <option key={m} value={m}>{m}</option>)}
-                        </select>
-                    </div>
-                </div>
+            <div className="panel-filter">
+              <div className="grid-filter">
+                <input 
+                                                type="text" 
+                                                placeholder="Cari nama musyrif..." 
+                                                value={search} 
+                                                onChange={e => setSearch(e.target.value)} 
+                                                className="kontrol kontrol-cari" 
+                                            />
+                <select 
+                                            value={filterMarhalah} 
+                                            onChange={e => setFilterMarhalah(e.target.value)} 
+                                            className="kontrol"
+                                        >
+                                            <option value="all">Semua Marhalah</option>
+                                            {masterMarhalahs?.map((m: any) => <option key={m.id} value={m.nama}>{m.nama}</option>) || globalMarhalahs.map((m: any) => <option key={m} value={m}>{m}</option>)}
+                                        </select>
+              </div>
+            </div>
+            <div className="wadah-tabel flex flex-col h-auto min-h-[500px]">
+                
 
                 <div className="flex-1 overflow-auto p-0 min-h-[300px]">
-                    <table className="tabel-kartu w-full text-left border-collapse">
-                        <thead className="bg-white sticky top-0 z-10">
-                            <tr className="border-b border-slate-200/60 bg-slate-50/50">
-                                <th className="px-6 py-4 text-xs font-semibold text-slate-400">Nama Musyrif</th>
-                                <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100">Marhalah (Yang Diampu)</th>
-                                <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100">No HP</th>
-                                <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100 text-right">Aksi</th>
+                    <table className="tabel tabel-kartu">
+                        <thead className="sticky top-0 z-10">
+                            <tr>
+                                <th>Nama Musyrif</th>
+                                <th>Marhalah (Yang Diampu)</th>
+                                <th>No HP</th>
+                                <th className="text-right">Aksi</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100/80">
+                        <tbody>
                             {paginatedData.map(w => (
-                                <tr key={w.id} className="hover:bg-blue-50/30 transition-colors group">
-                                    <td className="px-6 py-4 text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{w.nama}</td>
-                                    <td data-label="Marhalah" className="px-6 py-4 border-l border-slate-100/80 text-sm font-semibold text-slate-600">
+                                <tr key={w.id}>
+                                    <td className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{w.nama}</td>
+                                    <td data-label="Marhalah" className="text-sm font-semibold text-slate-600">
                                         <span className="inline-flex items-center px-2.5 py-1 rounded-md text-2xs font-bold bg-amber-50 text-amber-700 border border-amber-200/60">
                                             <MarhalahLabel text={w.marhalah} id={(w as any).marhalah_id} />
                                         </span>
                                     </td>
-                                    <td data-label="No HP" className="px-6 py-4 border-l border-slate-100/80 text-sm font-medium text-slate-600">{w.no_hp || '-'}</td>
-                                    <td data-label="Aksi" className="px-6 py-4 border-l border-slate-100/80 text-right">
+                                    <td data-label="No HP" className="text-sm font-medium text-slate-600">{w.no_hp || '-'}</td>
+                                    <td data-label="Aksi" className="text-right">
                                         <div className="flex items-center justify-end gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                                             <button onClick={() => openModal(w)} className="h-9 w-9 inline-flex items-center justify-center rounded-xl bg-slate-50 text-slate-500 hover:bg-blue-500 hover:text-white transition-all shadow-sm">
                                                 <Edit size={14} strokeWidth={2.5}/>

@@ -50,12 +50,39 @@
   .tab { @apply whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:text-slate-900; }
   .tab-aktif { @apply bg-white text-slate-900 shadow-xs; }
 
-  .tabel { @apply min-w-full text-sm; }
-  .tabel thead { @apply bg-slate-50 text-left text-xs font-semibold text-slate-500; }
-  .tabel th { @apply px-3 py-2.5 font-semibold; }
-  .tabel td { @apply px-3 py-2.5 align-middle; }
-  .tabel tbody tr { @apply border-t border-slate-100; }
-  .tabel tbody tr:hover { @apply bg-slate-50/60; }
+  /* ---- Fase 8 · pola "Buku Absensi" untuk SEMUA halaman ---- */
+  /* Panel filter: satu kartu putih, kontrol setinggi 44px tanpa judul kolom (pakai "Semua …" / placeholder) */
+  .panel-filter { @apply relative z-20 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs print:hidden; }
+  .grid-filter { @apply grid grid-cols-1 items-center gap-3 sm:grid-cols-2 lg:grid-cols-4; }
+  .kontrol { @apply h-11 w-full min-w-0 truncate rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-700 shadow-xs outline-none transition-colors placeholder:font-normal placeholder:text-slate-400 hover:border-slate-300 hover:bg-slate-50 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400; }
+  select.kontrol { @apply cursor-pointer appearance-none pr-9;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 16px; }
+  .kontrol-cari { @apply pl-10;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: left 0.875rem center; background-size: 16px; }
+  .kontrol[type="date"] { @apply cursor-pointer; }
+  /* Kontrol berlabel di dalam kotak (gaya "Dari:" Buku Absensi) */
+  .kontrol-label { @apply flex h-11 w-full min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white pl-3.5 text-sm shadow-xs transition-colors hover:border-slate-300 hover:bg-slate-50 focus-within:border-blue-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-500/20; }
+  .kontrol-label > span:first-child { @apply shrink-0 text-xs font-semibold text-slate-400; }
+  .kontrol-label > span:first-child::after { content: ":"; }
+  .kontrol-dalam { @apply h-full min-w-0 flex-1 truncate bg-transparent pr-3.5 text-sm font-medium text-slate-700 outline-none placeholder:font-normal placeholder:text-slate-400; }
+  select.kontrol-dalam { @apply cursor-pointer appearance-none pr-9;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 16px; }
+
+
+  /* Tabel: kartu putih, kepala abu, garis kolom halus, baris berhover */
+  .wadah-tabel { @apply relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs; }
+  .wadah-tabel > .gulir-tabel, .wadah-tabel > div:has(> table) { @apply overflow-x-auto; }
+  /* tabel di dalam kartu/wadah lain: tanpa bingkai ganda */
+  .wadah-tabel .wadah-tabel, .card .wadah-tabel { @apply rounded-none border-0 shadow-none; }
+  .tabel { @apply w-full border-collapse text-left text-sm; }
+  .tabel thead tr { @apply bg-slate-100 text-slate-700; }
+  .tabel thead th { @apply border-b border-r border-slate-200 px-3 py-3.5 text-xs font-bold last:border-r-0; }
+  .tabel tbody tr { @apply border-b border-slate-100 transition-colors last:border-b-0 hover:bg-slate-50/70; }
+  .tabel tbody td { @apply border-r border-slate-100 px-3 py-3 align-middle text-slate-700 last:border-r-0; }
+  .tabel tfoot td { @apply border-t border-slate-200 bg-slate-50 px-3 py-3 font-semibold; }
 }
 
 :root {
@@ -191,6 +218,7 @@ body {
    Pakai: <table className="... tabel-kartu"> dan <td data-label="Nilai">. */
 @media (max-width: 639px) {
   .tabel-kartu thead { display: none; }
+  .tabel-kartu tbody td { border: 0 !important; }
   .tabel-kartu, .tabel-kartu tbody, .tabel-kartu tr, .tabel-kartu td { display: block; width: 100%; min-width: 0 !important; }
   .tabel-kartu td[data-label="No"], .tabel-kartu td[data-label="ID"], .tabel-kartu td[data-label="No/ID"] { display: none !important; }
   .tabel-kartu tbody tr + tr { border-top: 1px solid #E2E8F0; }

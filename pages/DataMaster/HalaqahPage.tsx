@@ -123,11 +123,10 @@ const SearchableMusammiSelect = ({
         <div className="relative" ref={containerRef}>
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Pilih Musammi</label>
             <div className="relative">
-                <Search size={16} className="absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
                 <input
                     type="text"
                     placeholder="Cari nama musammi..."
-                    className="w-full border border-slate-200 rounded-lg text-sm pl-9 pr-8 py-2 focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all placeholder:text-slate-400"
+                    className="kontrol kontrol-cari"
                     value={search}
                     onChange={(e) => { setSearch(e.target.value); setIsOpen(true); }}
                     onFocus={(e) => { setIsOpen(true); e.target.select(); }}
@@ -1035,8 +1034,8 @@ const HalaqahPage: React.FC = () => {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20 max-w-[1400px] font-sans">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 sm:gap-4">
-                <div>
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3 sm:gap-4">
+                <div className="min-w-0 flex-1">
                     <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
                         Kelompok Halaqah
                     </h1>
@@ -1237,24 +1236,24 @@ const HalaqahPage: React.FC = () => {
                                 ).sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
 
                                 return (
-                                    <table className="w-full text-left border-collapse">
+                                    <table className="tabel">
                                         <thead>
-                                            <tr className="bg-slate-50/50 border-b border-slate-200/60">
-                                                <th className="px-6 py-4 text-xs font-semibold text-slate-400 w-12 text-center">No.</th>
-                                                <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80 w-16 text-center">ID</th>
-                                                <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80">Nama Santri</th>
-                                                <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80">Kelas</th>
-                                                <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80 text-right">Aksi</th>
+                                            <tr>
+                                                <th className="w-12 text-center">No.</th>
+                                                <th className="w-16 text-center">ID</th>
+                                                <th>Nama Santri</th>
+                                                <th>Kelas</th>
+                                                <th className="text-right">Aksi</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-slate-100/80">
+                                        <tbody>
                                             {uniqueMembers.map((s, idx) => (
-                                                <tr key={s.id} className="hover:bg-blue-50/30 transition-colors group">
-                                                    <td className="px-6 py-4 text-xs font-bold text-slate-500 text-center">{idx + 1}</td>
-                                                    <td className="px-6 py-4 border-l border-slate-100/80 text-xs font-mono font-medium text-slate-400 text-center">#{s.id}</td>
-                                                    <td className="px-6 py-4 border-l border-slate-100/80 text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{s.nama}</td>
-                                                    <td className="px-6 py-4 border-l border-slate-100/80 text-sm font-semibold text-slate-600"><KelasLabel text={s.kelas} id={s.kelas_id} /></td>
-                                                    <td className="px-6 py-4 border-l border-slate-100/80 text-right">
+                                                <tr key={s.id}>
+                                                    <td className="text-xs font-bold text-slate-500 text-center">{idx + 1}</td>
+                                                    <td className="text-xs font-mono font-medium text-slate-400 text-center">#{s.id}</td>
+                                                    <td className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{s.nama}</td>
+                                                    <td className="text-sm font-semibold text-slate-600"><KelasLabel text={s.kelas} id={s.kelas_id} /></td>
+                                                    <td className="text-right">
                                                         {!rosterAsOfDate && (
                                                             <div className="opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex justify-end">
                                                                 <button title="Mutasi / Keluarkan Santri" onClick={() => openManageStatusModal(s.id)} className="h-9 px-3 inline-flex items-center justify-center rounded-xl bg-slate-50 text-slate-500 hover:bg-amber-500 hover:text-white transition-all shadow-sm text-xs font-semibold gap-1.5">
@@ -1289,24 +1288,24 @@ const HalaqahPage: React.FC = () => {
                             </div>
 
                             {showRiwayat && (
-                                <table className="w-full text-left border-collapse">
+                                <table className="tabel">
                                     <thead>
-                                        <tr className="bg-slate-50/50 border-b border-slate-200/60">
-                                            <th className="px-6 py-4 text-xs font-semibold text-slate-400 w-12 text-center">No.</th>
-                                            <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80">Nama Santri</th>
-                                            <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80">Tgl Masuk (valid_from)</th>
-                                            <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80">Tgl Keluar (valid_to)</th>
-                                            <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80">Status</th>
+                                        <tr>
+                                            <th className="w-12 text-center">No.</th>
+                                            <th>Nama Santri</th>
+                                            <th>Tgl Masuk (valid_from)</th>
+                                            <th>Tgl Keluar (valid_to)</th>
+                                            <th>Status</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-100/80">
+                                    <tbody>
                                         {(selectedHalaqah.history || []).filter(h => h.status !== 'Aktif').sort((a,b) => new Date(b.end_date || '').getTime() - new Date(a.end_date || '').getTime()).map((h, idx) => (
-                                            <tr key={`${h.santri_id}-${h.start_date}-${idx}`} className="hover:bg-slate-50/50 transition-colors">
-                                                <td className="px-6 py-4 text-xs font-bold text-slate-500 text-center">{idx + 1}</td>
-                                                <td className="px-6 py-4 border-l border-slate-100/80 text-sm font-bold text-slate-800">{h.santri?.nama || '-'}</td>
-                                                <td className="px-6 py-4 border-l border-slate-100/80 text-sm font-semibold text-slate-600">{h.start_date}</td>
-                                                <td className="px-6 py-4 border-l border-slate-100/80 text-sm font-semibold text-slate-600">{h.end_date || '-'}</td>
-                                                <td className="px-6 py-4 border-l border-slate-100/80 text-sm font-bold text-slate-500">
+                                            <tr key={`${h.santri_id}-${h.start_date}-${idx}`}>
+                                                <td className="text-xs font-bold text-slate-500 text-center">{idx + 1}</td>
+                                                <td className="text-sm font-bold text-slate-800">{h.santri?.nama || '-'}</td>
+                                                <td className="text-sm font-semibold text-slate-600">{h.start_date}</td>
+                                                <td className="text-sm font-semibold text-slate-600">{h.end_date || '-'}</td>
+                                                <td className="text-sm font-bold text-slate-500">
                                                     <span className="bg-slate-100 px-2.5 py-1 rounded-md">{h.status}</span>
                                                 </td>
                                             </tr>
@@ -1521,10 +1520,10 @@ const HalaqahPage: React.FC = () => {
                             
                             <ActionDropdown label="Ekspor" icon={<Download size={14}/>}>
                                 <button onClick={handleExportExcel} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left">
-                                    <FileSpreadsheet size={14} className="mr-2 text-emerald-600"/> Export Excel Lengkap
+                                    <FileSpreadsheet size={14} className="mr-2 text-emerald-600"/> Ekspor Excel Lengkap
                                 </button>
                                 <button onClick={handleExportPDF} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100">
-                                    <FileText size={14} className="mr-2 text-red-600"/> Export PDF Lengkap
+                                    <FileText size={14} className="mr-2 text-red-600"/> Ekspor PDF Lengkap
                                 </button>
                             </ActionDropdown>
                             
@@ -1546,66 +1545,46 @@ const HalaqahPage: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                        {/* Filters */}
-                        <div className="p-5 border-b border-slate-100 bg-slate-50/30">
-                            <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-                                <div className="w-full md:w-1/3 relative">
-                                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                                    <input 
-                                        type="text" 
-                                        placeholder="Cari halaqah atau musammi..."
-                                        value={filterSearch} 
-                                        onChange={e => setFilterSearch(e.target.value)} 
-                                        className="w-full pl-10 pr-4 h-10 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none text-sm transition-all shadow-xs placeholder:text-slate-400"
-                                    />
-                                </div>
-                                <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-                                    <div className="relative flex-shrink-0 group flex items-center">
-                                        <div className="relative">
-                                            <select 
-                                                value={filterJenis} onChange={e => setFilterJenis(e.target.value as any)}
-                                                className="w-full sm:w-[160px] h-10 pl-4 pr-10 bg-white border border-slate-200/80 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-xs font-medium text-slate-700 transition-colors shadow-xs appearance-none cursor-pointer hover:border-slate-300"
-                                            >
-                                                <option value="all">Semua Jenis</option>{availableTypes.map(t => <option key={t} value={t}>{t}</option>)}
-                                            </select>
-                                            <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><ChevronDown size={14}/></div>
-                                        </div>
-                                    </div>
-                                    <div className="relative flex-shrink-0 group flex items-center">
-                                        <div className="relative">
-                                            <select 
-                                                value={filterMarhalah} onChange={e => setFilterMarhalah(e.target.value as any)}
-                                                className="w-full sm:w-[160px] h-10 pl-4 pr-10 bg-white border border-slate-200/80 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-xs font-medium text-slate-700 transition-colors shadow-xs appearance-none cursor-pointer hover:border-slate-300"
-                                            >
-                                                <option value="all">Semua Marhalah</option>{masterMarhalahs?.map((m: any) => <option key={m.id} value={m.nama}>{m.nama}</option>) || globalMarhalahs.map((m: any) => <option key={m} value={m}>{m}</option>)}
-                                            </select>
-                                            <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><ChevronDown size={14}/></div>
-                                        </div>
-                                    </div>
-                                    <div className="relative flex-shrink-0 group min-w-[140px]">
-                                        <div className="relative">
-                                            <select 
-                                                value={filterStatus}
-                                                onChange={(e) => setFilterStatus(e.target.value as any)}
-                                                className="w-full appearance-none bg-slate-50 border border-slate-200/80 text-slate-700 text-xs font-semibold rounded-lg pl-3 pr-8 py-2.5 outline-none hover:bg-slate-100/50 hover:border-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all cursor-pointer"
-                                            >
-                                                <option value="Aktif">Aktif</option>
-                                                <option value="Diarsipkan">Diarsipkan</option>
-                                                <option value="Semua">Semua status</option>
-                                            </select>
-                                            <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><ChevronDown size={14}/></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                    <div className="panel-filter">
+                      <div className="grid-filter">
+                        <input 
+                                                                type="text" 
+                                                                placeholder="Cari halaqah atau musammi..."
+                                                                value={filterSearch} 
+                                                                onChange={e => setFilterSearch(e.target.value)} 
+                                                                className="kontrol kontrol-cari"
+                                                            />
+                        <select 
+                                                                        value={filterJenis} onChange={e => setFilterJenis(e.target.value as any)}
+                                                                        className="kontrol"
+                                                                    >
+                                                                        <option value="all">Semua Jenis</option>{availableTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                                                                    </select>
+                        <select 
+                                                                        value={filterMarhalah} onChange={e => setFilterMarhalah(e.target.value as any)}
+                                                                        className="kontrol"
+                                                                    >
+                                                                        <option value="all">Semua Marhalah</option>{masterMarhalahs?.map((m: any) => <option key={m.id} value={m.nama}>{m.nama}</option>) || globalMarhalahs.map((m: any) => <option key={m} value={m}>{m}</option>)}
+                                                                    </select>
+                        <select 
+                                                                        value={filterStatus}
+                                                                        onChange={(e) => setFilterStatus(e.target.value as any)}
+                                                                        className="kontrol"
+                                                                    >
+                                                                        <option value="Aktif">Aktif</option>
+                                                                        <option value="Diarsipkan">Diarsipkan</option>
+                                                                        <option value="Semua">Semua status</option>
+                                                                    </select>
+                      </div>
+                    </div>
+                    <div className="wadah-tabel">
+                        
 
-                        <div className="overflow-x-auto min-h-[400px]">
-                            <table className="tabel-kartu w-full text-left border-collapse">
+                        <div className="min-h-[400px] overflow-x-auto">
+                            <table className="tabel tabel-kartu">
                                 <thead>
-                                    <tr className="bg-slate-50/50 border-b border-slate-200/60">
-                                        <th className="px-5 py-3 text-xs font-semibold text-slate-400 w-12 text-center border-r border-slate-100">
+                                    <tr>
+                                        <th className="w-12 text-center">
                                             <button onClick={toggleSelectAll} className="text-slate-400 hover:text-blue-600 transition-colors">
                                                 {selectedHalaqahIds.length === filteredHalaqah.length && filteredHalaqah.length > 0 
                                                     ? <CheckSquare size={16} className="text-blue-600"/> 
@@ -1613,25 +1592,25 @@ const HalaqahPage: React.FC = () => {
                                                 }
                                             </button>
                                         </th>
-                                        <th className="px-6 py-4 text-xs font-semibold text-slate-400 w-16 text-center">No/ID</th>
-                                        <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80">Nama Halaqah & Jenis</th>
-                                        <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80">Musammi'</th>
-                                        <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80">Waktu</th>
+                                        <th className="w-16 text-center">No/ID</th>
+                                        <th>Nama Halaqah & Jenis</th>
+                                        <th>Musammi'</th>
+                                        <th>Waktu</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100/80">
+                                <tbody>
                                     {paginatedHalaqah.map(h => {
                                         const isSelected = selectedHalaqahIds.includes(h.id);
                                         return (
                                             <tr key={h.id} className={`hover:bg-blue-50/30 transition-colors cursor-pointer group ${isSelected ? 'bg-blue-50/50' : ''}`} onClick={() => { setSelectedHalaqah(h); setShowRiwayat(false); setRosterAsOfDate(''); }}>
-                                                <td className="px-6 py-4 border-r border-slate-100/80 text-center" onClick={(e) => { e.stopPropagation(); toggleSelectRow(h.id); }}>
+                                                <td className="text-center" onClick={(e) => { e.stopPropagation(); toggleSelectRow(h.id); }}>
                                                     {isSelected ? <CheckSquare size={16} className="text-blue-600"/> : <Square size={16} className="text-slate-300 group-hover:text-slate-400"/>}
                                                 </td>
-                                                <td data-label="No/ID" className="px-6 py-4 text-2xs font-mono font-bold text-slate-400 text-center flex flex-col">
+                                                <td data-label="No/ID" className="text-2xs font-mono font-bold text-slate-400 text-center flex flex-col">
                                                     <span className="text-sm text-slate-700">{h.no_urut || '-'}</span>
                                                     <span className="text-2xs font-normal opacity-70">#{h.id}</span>
                                                 </td>
-                                                <td className="px-6 py-4 border-l border-slate-100/80">
+                                                <td>
                                                     <div className="flex flex-col">
                                                         <div className="flex items-center gap-2">
                                                             <span className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{h.nama}</span>
@@ -1645,7 +1624,7 @@ const HalaqahPage: React.FC = () => {
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td data-label="Musammi'" className="px-6 py-4 border-l border-slate-100/80 text-sm font-bold text-slate-700">
+                                                <td data-label="Musammi'" className="text-sm font-bold text-slate-700">
                                                     <div>{h.musammi.nama}</div>
                                                     {(h.substitute_musammi || []).length > 0 && (
                                                         <div className="text-2xs font-semibold text-blue-600 mt-0.5">
@@ -1653,7 +1632,7 @@ const HalaqahPage: React.FC = () => {
                                                         </div>
                                                     )}
                                                 </td>
-                                                <td data-label="Waktu" className="px-6 py-4 border-l border-slate-100/80 text-xs font-medium text-slate-500 max-w-[150px] truncate" title={h.waktu.join(', ')}>
+                                                <td data-label="Waktu" className="text-xs font-medium text-slate-500 max-w-[150px] truncate" title={h.waktu.join(', ')}>
                                                     <div className="flex items-center gap-1.5 text-slate-600 bg-slate-50 px-2 py-1 rounded-md w-fit border border-slate-200/60 font-semibold shadow-sm">
                                                         <Clock size={12}/> {h.waktu.join(', ')}
                                                     </div>

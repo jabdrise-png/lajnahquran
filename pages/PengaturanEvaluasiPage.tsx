@@ -351,37 +351,25 @@ export const PengaturanEvaluasiPage: React.FC = () => {
                 </div>
 
                 {/* Sub-tabs: Target Hafalan vs Target Murojaah vs Riwayat Versi */}
-                <div className="flex border-b border-slate-200 gap-6 overflow-x-auto hide-scrollbar">
+                <div className="tabs">
                     <button
                         type="button"
                         onClick={() => setTargetActiveTab('hafalan')}
-                        className={`pb-3 text-xs font-bold border-b-2 transition-colors cursor-pointer shrink-0 ${
-                            targetActiveTab === 'hafalan'
-                                ? 'border-blue-600 text-blue-700'
-                                : 'border-transparent text-slate-500 hover:text-slate-700'
-                        }`}
+                        className={`tab ${targetActiveTab === 'hafalan' ? 'tab-aktif' : ''}`}
                     >
                         Target Hafalan ({activeSemester})
                     </button>
                     <button
                         type="button"
                         onClick={() => setTargetActiveTab('murojaah')}
-                        className={`pb-3 text-xs font-bold border-b-2 transition-colors cursor-pointer shrink-0 ${
-                            targetActiveTab === 'murojaah'
-                                ? 'border-blue-600 text-blue-700'
-                                : 'border-transparent text-slate-500 hover:text-slate-700'
-                        }`}
+                        className={`tab ${targetActiveTab === 'murojaah' ? 'tab-aktif' : ''}`}
                     >
                         Target Murojaah
                     </button>
                     <button
                         type="button"
                         onClick={() => setTargetActiveTab('versions')}
-                        className={`pb-3 text-xs font-bold border-b-2 transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 ${
-                            targetActiveTab === 'versions'
-                                ? 'border-blue-600 text-blue-700'
-                                : 'border-transparent text-slate-500 hover:text-slate-700'
-                        }`}
+                        className={`tab flex items-center gap-1.5 ${targetActiveTab === 'versions' ? 'tab-aktif' : ''}`}
                     >
                         <span>Riwayat Versi Target</span>
                         <span className="px-1.5 py-0.5 text-2xs rounded-full bg-slate-100 text-slate-600 font-bold">

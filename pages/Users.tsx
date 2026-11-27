@@ -568,13 +568,12 @@ const Users: React.FC = () => {
                     </p>
                     <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
                         <div className="relative w-full sm:w-64">
-                            <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
                             <input 
                                 type="text" 
                                 placeholder="Cari nama, email, atau ma'had..." 
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-10 block w-full border-slate-300 rounded-md focus:ring-secondary focus:border-secondary sm:text-sm py-2"
+                                className="kontrol kontrol-cari"
                             />
                         </div>
                         {['super_admin', 'admin', 'admin_mahad'].includes(currentUser?.role) && (
@@ -588,18 +587,18 @@ const Users: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                    <table className="tabel-kartu w-full text-sm text-left text-slate-500">
-                        <thead className="text-xs text-slate-700 uppercase bg-slate-50 border-b">
+                <div className="wadah-tabel overflow-x-auto">
+                    <table className="tabel tabel-kartu">
+                        <thead>
                             <tr>
-                                <th className="px-6 py-3">Nama Lengkap</th>
-                                <th className="px-6 py-3">Email</th>
-                                <th className="px-6 py-3">Peran / Status</th>
-                                <th className="px-6 py-3">Nama Ma'had & ID</th>
-                                <th className="px-6 py-3 text-right">Aksi</th>
+                                <th>Nama Lengkap</th>
+                                <th>Email</th>
+                                <th>Peran / Status</th>
+                                <th>Nama Ma'had & ID</th>
+                                <th className="text-right">Aksi</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 bg-white">
+                        <tbody>
                             {loading ? (
                                 <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-400">Memuat data users...</td></tr>
                             ) : filteredUsers.length === 0 ? (
@@ -607,13 +606,13 @@ const Users: React.FC = () => {
                             ) : (
                                 filteredUsers.map((user) => (
                                     <tr key={user.id} className={`hover:bg-slate-50 transition-colors ${user.role === 'pending' || user.grant_status === 'invited' ? 'bg-yellow-50/50' : ''}`}>
-                                        <td className="px-6 py-4 font-medium text-slate-900">
+                                        <td className="font-medium text-slate-900">
                                             {user.full_name || 'Tanpa Nama'}
                                         </td>
-                                        <td data-label="Email" className="px-6 py-4 text-xs">
+                                        <td data-label="Email" className="text-xs">
                                             {user.email || '-'}
                                         </td>
-                                        <td data-label="Peran / status" className="px-6 py-4">
+                                        <td data-label="Peran / status">
                                             <div className="flex flex-wrap items-center gap-1.5">
                                                 {user.role === 'super_admin' || user.role === 'superadmin' ? (
                                                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-slate-900 text-white">
@@ -652,7 +651,7 @@ const Users: React.FC = () => {
                                                 )}
                                             </div>
                                         </td>
-                                        <td data-label="Lembaga" className="px-6 py-4">
+                                        <td data-label="Lembaga">
                                             {user.organizations ? (
                                                 <div>
                                                     <div className="flex items-center mb-1">
@@ -673,7 +672,7 @@ const Users: React.FC = () => {
                                                 <span className="text-red-400 italic">Tidak ada Org</span>
                                             )}
                                         </td>
-                                        <td data-label="Aksi" className="px-6 py-4 text-right">
+                                        <td data-label="Aksi" className="text-right">
                                             <div className="flex justify-end gap-2">
                                                 {canManageGrant(user) && (user.role === 'pending' || user.grant_status === 'invited' || user.grant_status === 'suspended' || user.grant_status === 'revoked') && (
                                                     <button 

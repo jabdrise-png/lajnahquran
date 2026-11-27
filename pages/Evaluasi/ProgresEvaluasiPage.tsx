@@ -196,7 +196,7 @@ const ProgresEvaluasiPage: React.FC = () => {
 
   const tabBtn = (t: Tab, teks: string) => (
     <button key={t} type="button" onClick={() => setTab(t)}
-      className={`pb-2.5 text-sm font-bold border-b-2 ${tab === t ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>{teks}</button>
+      className={`tab ${tab === t ? 'tab-aktif' : ''}`}>{teks}</button>
   );
 
   return (
@@ -213,45 +213,32 @@ const ProgresEvaluasiPage: React.FC = () => {
         }
       />
 
-      <div className="flex flex-wrap gap-2 items-end">
-        <label className="text-xs font-semibold text-slate-600">Periode<br />
-          <select className={selectCls} value={periodId} onChange={(e) => setPeriodId(e.target.value)}>
+      <div className="panel-filter"><div className="grid-filter">
+        <label className="kontrol-label"><span>Periode</span><select className="kontrol-dalam" value={periodId} onChange={(e) => setPeriodId(e.target.value)}>
             {periods.length === 0 && <option value="">Belum ada periode</option>}
             {periods.map((p) => <option key={p.id} value={p.id}>{p.name}{p.needs_review ? ' (tanggal perlu dicek)' : ''}</option>)}
-          </select>
-        </label>
+          </select></label>
         {tab !== 'pemantauan' && (
           <>
-            <label className="text-xs font-semibold text-slate-600">Marhalah<br />
-              <select className={selectCls} value={filterMarhalah} onChange={(e) => { setFilterMarhalah(e.target.value); setFilterKelas('all'); }}>
+            <label className="kontrol-label"><span>Marhalah</span><select className="kontrol-dalam" value={filterMarhalah} onChange={(e) => { setFilterMarhalah(e.target.value); setFilterKelas('all'); }}>
                 <option value="all">Semua</option>
                 {(masterMarhalahs || []).map((m: any) => <option key={m.id} value={m.nama}>{m.nama}</option>)}
-              </select>
-            </label>
-            <label className="text-xs font-semibold text-slate-600">Kelas<br />
-              <select className={selectCls} value={filterKelas} onChange={(e) => setFilterKelas(e.target.value)}>
+              </select></label>
+            <label className="kontrol-label"><span>Kelas</span><select className="kontrol-dalam" value={filterKelas} onChange={(e) => setFilterKelas(e.target.value)}>
                 <option value="all">Semua</option>
                 {kelasList.map((k) => <option key={k} value={k}>{k}</option>)}
-              </select>
-            </label>
-            <label className="text-xs font-semibold text-slate-600">Halaqah<br />
-              <select className={selectCls} value={filterHalaqah} onChange={(e) => setFilterHalaqah(e.target.value)}>
+              </select></label>
+            <label className="kontrol-label"><span>Halaqah</span><select className="kontrol-dalam" value={filterHalaqah} onChange={(e) => setFilterHalaqah(e.target.value)}>
                 <option value="all">Semua</option>
                 {halaqah.filter((h) => !h.is_archived).map((h) => <option key={h.id} value={String(h.id)}>{h.nama}</option>)}
-              </select>
-            </label>
-            <label className="text-xs font-semibold text-slate-600">Cari santri<br />
-              <span className="relative inline-block">
-                <Search size={14} className="absolute left-2 top-2.5 text-slate-400" />
-                <input className={`${selectCls} pl-7`} value={cari} onChange={(e) => setCari(e.target.value)} placeholder="Nama…" />
-              </span>
-            </label>
+              </select></label>
+            <label className="kontrol-label"><span>Cari santri</span><input className="kontrol-dalam" value={cari} onChange={(e) => setCari(e.target.value)} placeholder="Nama…" /></label>
           </>
         )}
-      </div>
+      </div></div>
       {periode && <p className="text-xs text-slate-500">{periode.start_date} s.d. {periode.end_date}{periode.needs_review ? ' · tanggal periode hasil pemindahan data lama perlu dicek di Pengaturan Evaluasi' : ''}</p>}
 
-      <div className="flex gap-6 border-b border-slate-200">
+      <div className="tabs">
         {tabBtn('pemantauan', 'Pemantauan Periode')}
         {tabBtn('rekap', 'Rekap Santri')}
         {tabBtn('pivot', 'Pivot')}
@@ -280,30 +267,30 @@ const ProgresEvaluasiPage: React.FC = () => {
             </div>
           </div>
           {memuatStatus ? <LoadingState rows={4} /> : (
-            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-              <table className="min-w-full text-sm">
-                <thead className="bg-slate-50 text-xs text-slate-500">
+            <div className="wadah-tabel overflow-x-auto">
+              <table className="tabel">
+                <thead>
                   <tr>
-                    <th className="px-3 py-2 text-left">Halaqah</th>
-                    <th className="px-3 py-2 text-left">Musammi'</th>
-                    <th className="px-3 py-2 text-left">Mode</th>
-                    <th className="px-3 py-2 text-left">Status</th>
-                    <th className="px-3 py-2 text-right">Terisi</th>
-                    <th className="px-3 py-2 text-left">Dikirim</th>
-                    <th className="px-3 py-2" />
+                    <th className="text-left">Halaqah</th>
+                    <th className="text-left">Musammi'</th>
+                    <th className="text-left">Mode</th>
+                    <th className="text-left">Status</th>
+                    <th className="text-right">Terisi</th>
+                    <th className="text-left">Dikirim</th>
+                    <th />
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody>
                   {status.length === 0 && <tr><td colSpan={7} className="px-3 py-6 text-center text-slate-400">Tidak ada halaqah.</td></tr>}
                   {status.map((s) => (
-                    <tr key={s.halaqah_id} className="hover:bg-slate-50">
-                      <td className="px-3 py-2 font-semibold text-slate-800">{s.halaqah_nama}<div className="text-2xs font-normal text-slate-400">{s.marhalah || ''}</div></td>
-                      <td className="px-3 py-2 text-slate-600">{s.musammi_nama || '-'}</td>
-                      <td className="px-3 py-2 text-slate-600">{MODE_LABEL[s.recording_mode] || s.recording_mode}</td>
-                      <td className="px-3 py-2"><span className={`px-2 py-0.5 rounded-full border text-xs font-semibold ${badge[s.status]}`}>{STATUS_FORM_LABEL[s.status]}</span></td>
-                      <td className="px-3 py-2 text-right tabular-nums">{s.terisi}/{s.jumlah_santri}</td>
-                      <td className="px-3 py-2 text-xs text-slate-500">{s.submitted_at ? new Date(s.submitted_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '-'}</td>
-                      <td className="px-3 py-2 text-right whitespace-nowrap">
+                    <tr key={s.halaqah_id}>
+                      <td className="font-semibold text-slate-800">{s.halaqah_nama}<div className="text-2xs font-normal text-slate-400">{s.marhalah || ''}</div></td>
+                      <td className="text-slate-600">{s.musammi_nama || '-'}</td>
+                      <td className="text-slate-600">{MODE_LABEL[s.recording_mode] || s.recording_mode}</td>
+                      <td><span className={`px-2 py-0.5 rounded-full border text-xs font-semibold ${badge[s.status]}`}>{STATUS_FORM_LABEL[s.status]}</span></td>
+                      <td className="text-right tabular-nums">{s.terisi}/{s.jumlah_santri}</td>
+                      <td className="text-xs text-slate-500">{s.submitted_at ? new Date(s.submitted_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '-'}</td>
+                      <td className="text-right whitespace-nowrap">
                         <button type="button" className="text-xs font-semibold text-blue-700 mr-3" onClick={() => navigate(`/app/evaluations?period=${periodId}&halaqah=${s.halaqah_id}`)}>Buka form</button>
                         {isAdmin && s.status === 'submitted' && (
                           <button type="button" className="text-xs font-semibold text-amber-700 inline-flex items-center gap-1" onClick={() => bukaKembali(s)}><Unlock size={12} /> Buka kembali</button>
@@ -327,41 +314,41 @@ const ProgresEvaluasiPage: React.FC = () => {
               <Download size={13} /> Ekspor Excel
             </button>
           </div>
-          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-            <table className="min-w-full text-sm">
-              <thead className="bg-slate-50 text-xs text-slate-500">
+          <div className="wadah-tabel overflow-x-auto">
+            <table className="tabel">
+              <thead>
                 <tr>
-                  <th className="px-3 py-2 text-left">Santri</th>
-                  <th className="px-3 py-2 text-left">Halaqah</th>
-                  <th className="px-3 py-2 text-right">{label.ziyadah}</th>
-                  <th className="px-3 py-2 text-right">{label.murojaah}</th>
-                  <th className="px-3 py-2 text-left">{label.posisi}</th>
-                  <th className="px-3 py-2 text-right">Total (juz)</th>
-                  <th className="px-3 py-2 text-left">{label.kelancaran}</th>
-                  <th className="px-3 py-2 text-right">{label.kehadiran}</th>
-                  {isianBebas.map((f) => <th key={f.id} className="px-3 py-2 text-left">{f.label}</th>)}
+                  <th className="text-left">Santri</th>
+                  <th className="text-left">Halaqah</th>
+                  <th className="text-right">{label.ziyadah}</th>
+                  <th className="text-right">{label.murojaah}</th>
+                  <th className="text-left">{label.posisi}</th>
+                  <th className="text-right">Total (juz)</th>
+                  <th className="text-left">{label.kelancaran}</th>
+                  <th className="text-right">{label.kehadiran}</th>
+                  {isianBebas.map((f) => <th key={f.id} className="text-left">{f.label}</th>)}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {rekapRows.length === 0 && (
                   <tr><td colSpan={8 + isianBebas.length} className="px-3 py-6 text-center text-slate-400">
                     Belum ada rekap untuk periode ini. {isAdmin ? 'Gunakan "Hitung rekap semua halaqah" di tab Pemantauan, atau minta musammi\' membuka form periode.' : 'Buka Form Periode untuk mengisi.'}
                   </td></tr>
                 )}
                 {rekapRows.map(({ r, s, h }) => (
-                  <tr key={r.id} className="hover:bg-slate-50">
-                    <td className="px-3 py-2">
+                  <tr key={r.id}>
+                    <td>
                       <button type="button" className="font-semibold text-blue-700 hover:underline text-left" onClick={() => setDetail(s)}>{s.nama}</button>
                       <div className="text-2xs text-slate-400">{s.kelas} · {r.sumber === 'harian' ? 'harian' : r.sumber === 'rekap' ? 'rekap' : 'data lama'}{Object.keys(r.overrides || {}).length ? ' · dikoreksi' : ''}</div>
                     </td>
-                    <td className="px-3 py-2 text-slate-600">{h?.nama || '-'}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{r.ziyadah_pages ?? '-'}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{r.murojaah_pages ?? '-'}</td>
-                    <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{teksPosisi(r) || '-'}</td>
-                    <td className="px-3 py-2 text-right tabular-nums font-semibold">{r.total_juz ?? '-'}</td>
-                    <td className="px-3 py-2">{r.kelancaran || '-'}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{r.kehadiran_persen !== null ? `${r.kehadiran_persen}%` : '-'}</td>
-                    {isianBebas.map((f) => <td key={f.id} className="px-3 py-2 text-slate-600">{String(nilaiBebas(r.free_answers?.[f.id]) || '-')}</td>)}
+                    <td className="text-slate-600">{h?.nama || '-'}</td>
+                    <td className="text-right tabular-nums">{r.ziyadah_pages ?? '-'}</td>
+                    <td className="text-right tabular-nums">{r.murojaah_pages ?? '-'}</td>
+                    <td className="text-slate-600 whitespace-nowrap">{teksPosisi(r) || '-'}</td>
+                    <td className="text-right tabular-nums font-semibold">{r.total_juz ?? '-'}</td>
+                    <td>{r.kelancaran || '-'}</td>
+                    <td className="text-right tabular-nums">{r.kehadiran_persen !== null ? `${r.kehadiran_persen}%` : '-'}</td>
+                    {isianBebas.map((f) => <td key={f.id} className="text-slate-600">{String(nilaiBebas(r.free_answers?.[f.id]) || '-')}</td>)}
                   </tr>
                 ))}
               </tbody>

@@ -213,25 +213,25 @@ const SetoranHarianRekap = forwardRef<SetoranHarianRekapRef, Props>(({
 
     return (
         <div className="space-y-6">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden flex flex-col min-h-[500px]">
-                <div className="flex-1 overflow-x-auto p-0 min-h-[300px] border-b border-slate-200/80">
-                    <table className="w-full text-left border-collapse">
+            <div className="wadah-tabel flex flex-col min-h-[500px]">
+                <div className="wadah-tabel flex-1 min-h-[300px] overflow-x-auto">
+                    <table className="tabel">
                         <thead className="sticky top-0 z-40">
-                            <tr className="bg-slate-50 border-b border-slate-200/80">
-                                <th className="px-5 py-4 sticky left-0 bg-slate-50 z-50 w-12 border-r border-slate-200/80 text-xs font-semibold text-slate-600 text-center shadow-xs"></th>
-                                <th className="px-5 py-4 sticky left-[48px] bg-slate-50 z-50 min-w-[200px] border-r border-slate-200/80 text-xs font-semibold text-slate-600 shadow-xs">Nama Santri</th>
-                                <th className="px-5 py-4 text-xs font-semibold text-slate-600 min-w-[100px] border-r border-slate-200/80">Marhalah / Kelas</th>
-                                <th className="px-5 py-4 text-xs font-semibold text-slate-600 text-center min-w-[150px] border-r border-slate-200/80">
+                            <tr>
+                                <th className="sticky left-0 z-50 w-12 text-center"></th>
+                                <th className="sticky left-[48px] z-50 min-w-[200px]">Nama Santri</th>
+                                <th className="min-w-[100px]">Marhalah / Kelas</th>
+                                <th className="text-center min-w-[150px]">
                                     Jumlah Setoran
                                 </th>
-                                <th className="px-5 py-4 text-xs font-semibold text-slate-600 text-center min-w-[120px] border-r border-slate-200/80">% Kelancaran</th>
-                                <th className="px-5 py-4 text-xs font-semibold text-slate-600 text-center min-w-[120px] border-r border-slate-200/80">Nilai Rata-rata</th>
-                                <th className="px-5 py-4 text-xs font-semibold text-slate-600 text-center min-w-[120px]">
+                                <th className="text-center min-w-[120px]">% Kelancaran</th>
+                                <th className="text-center min-w-[120px]">Nilai Rata-rata</th>
+                                <th className="text-center min-w-[120px]">
                                     % Kehadiran
                                 </th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody>
                             {paginatedData.length === 0 ? (
                                 <tr>
                                     <td colSpan={7} className="px-5 py-8 text-center text-sm text-slate-500 font-medium">
@@ -248,10 +248,10 @@ const SetoranHarianRekap = forwardRef<SetoranHarianRekapRef, Props>(({
                                             className={`hover:bg-slate-50/50 cursor-pointer transition-colors group`}
                                             onClick={() => setSelectedSantriForModal(s)}
                                         >
-                                            <td className="px-5 py-4 text-slate-400 sticky left-0 z-10 border-r border-slate-200/80 shadow-xs text-center bg-white group-hover:bg-slate-50/50 transition-colors">
+                                            <td className="text-slate-400 sticky left-0 z-10 shadow-xs text-center bg-white group-hover:bg-slate-50/50 transition-colors">
                                                 <ChevronRight size={18} className="mx-auto" />
                                             </td>
-                                            <td className="px-5 py-3 sticky left-[48px] bg-white group-hover:bg-slate-50 z-10 border-r-2 border-slate-100 shadow-xs min-w-[200px] transition-colors">
+                                            <td className="sticky left-[48px] bg-white group-hover:bg-slate-50 z-10 shadow-xs min-w-[200px] transition-colors">
                                                 <div className="flex items-center gap-3">
                                                     <div className="flex-shrink-0 h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200/60 shadow-xs">
                                                         <span className="text-2xs font-bold text-slate-600">
@@ -261,13 +261,13 @@ const SetoranHarianRekap = forwardRef<SetoranHarianRekapRef, Props>(({
                                                     <p className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors truncate max-w-[150px]" title={s.nama}>{s.nama}</p>
                                                 </div>
                                             </td>
-                                            <td className="px-5 py-3 border-r border-slate-100/60">
+                                            <td>
                                                 <div className="flex flex-col">
                                                     <span className="text-xs font-semibold text-slate-700">{s.marhalah}</span>
                                                     <span className="text-xs text-slate-500 font-medium">Kelas {s.kelas}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-5 py-4 text-center text-sm font-bold text-blue-600 border-r border-slate-200/80">
+                                            <td className="text-center text-sm font-bold text-blue-600">
                                                 <div className="flex flex-col items-center justify-center">
                                                     <div>
                                                         {(filterSkema || '').toLowerCase().includes('murojaah') ? (s.totalHalaman / 20).toFixed(2) : s.totalHalaman.toString()}
@@ -277,17 +277,17 @@ const SetoranHarianRekap = forwardRef<SetoranHarianRekapRef, Props>(({
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-5 py-4 text-center border-r border-slate-200/80">
+                                            <td className="text-center">
                                                 <div className="flex flex-col items-center justify-center">
                                                     <span className="text-sm font-bold text-slate-800">{s.persentaseKelancaran.toFixed(1)}%</span>
                                                 </div>
                                             </td>
-                                            <td className="px-5 py-4 text-center border-r border-slate-200/80">
+                                            <td className="text-center">
                                                 <span className={`inline-flex px-2.5 py-1 rounded-md text-2xs font-bold tracking-wide uppercase ${s.finalNilaiLabel.includes('Mumtaz') ? 'bg-emerald-100 text-emerald-700' : s.finalNilaiLabel.includes('Jayyid') ? 'bg-blue-100 text-blue-700' : s.finalNilaiLabel !== '-' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
                                                     {s.finalNilaiLabel}
                                                 </span>
                                             </td>
-                                            <td className="px-5 py-4 text-center">
+                                            <td className="text-center">
                                                 <div className="flex flex-col items-center justify-center">
                                                     <span className="text-sm font-bold text-slate-800">{s.persentaseKehadiran.toFixed(1)}%</span>
                                                 </div>
@@ -329,33 +329,33 @@ const SetoranHarianRekap = forwardRef<SetoranHarianRekapRef, Props>(({
                                     <p className="text-sm text-slate-500 font-medium">Belum ada data setoran pada periode ini.</p>
                                 </div>
                             ) : (
-                                <div className="overflow-x-auto rounded-xl border border-slate-200/80 shadow-sm bg-white">
-                                    <table className="w-full text-left">
-                                        <thead className="bg-slate-50 border-b border-slate-200/80 sticky top-0 z-30">
+                                <div className="wadah-tabel overflow-x-auto">
+                                    <table className="tabel">
+                                        <thead className="sticky top-0 z-30">
                                             <tr>
-                                                <th className="px-4 py-3 text-xs font-semibold text-slate-500">Tanggal</th>
-                                                <th className="px-4 py-3 text-xs font-semibold text-slate-500">Waktu</th>
-                                                <th className="px-4 py-3 text-xs font-semibold text-slate-500">Skema</th>
-                                                <th className="px-4 py-3 text-xs font-semibold text-slate-500">Surat & Ayat</th>
-                                                <th className="px-4 py-3 text-xs font-semibold text-slate-500 text-center">Jml Hal</th>
-                                                <th className="px-4 py-3 text-xs font-semibold text-slate-500 text-center">Nilai</th>
-                                                <th className="px-4 py-3 text-xs font-semibold text-slate-500 text-center">Khoto</th>
+                                                <th>Tanggal</th>
+                                                <th>Waktu</th>
+                                                <th>Skema</th>
+                                                <th>Surat & Ayat</th>
+                                                <th className="text-center">Jml Hal</th>
+                                                <th className="text-center">Nilai</th>
+                                                <th className="text-center">Khoto</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-slate-100 bg-white">
+                                        <tbody>
                                             {[...selectedSantriForModal.setoranList].sort((a: any, b: any) => (b.tanggal || '').localeCompare(a.tanggal || '')).map((sh: any) => (
-                                                <tr key={sh.id} className="hover:bg-slate-50/50 transition-colors">
-                                                    <td className="px-4 py-3 whitespace-nowrap text-xs font-medium text-slate-700">{sh.tanggal ? (function(){ try { return format(parseISO(sh.tanggal), 'dd MMM yyyy', { locale: id }); } catch(e) { return sh.tanggal; } })() : '-'}</td>
-                                                    <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-500">{sh.waktu}</td>
-                                                    <td className="px-4 py-3 whitespace-nowrap text-xs font-medium text-blue-600">{sh.skema}</td>
-                                                    <td className="px-4 py-3 text-xs text-slate-700 font-bold">
+                                                <tr key={sh.id}>
+                                                    <td className="whitespace-nowrap text-xs font-medium text-slate-700">{sh.tanggal ? (function(){ try { return format(parseISO(sh.tanggal), 'dd MMM yyyy', { locale: id }); } catch(e) { return sh.tanggal; } })() : '-'}</td>
+                                                    <td className="whitespace-nowrap text-xs text-slate-500">{sh.waktu}</td>
+                                                    <td className="whitespace-nowrap text-xs font-medium text-blue-600">{sh.skema}</td>
+                                                    <td className="text-xs text-slate-700 font-bold">
                                                         {sh.surat} <span className="font-normal text-slate-500">{sh.ayat ? `Ayat ${sh.ayat}` : ''}</span>
                                                     </td>
-                                                    <td className="px-4 py-3 text-center text-xs font-bold text-slate-700">{sh.jumlah_halaman || '-'}</td>
-                                                    <td className="px-4 py-3 text-center">
+                                                    <td className="text-center text-xs font-bold text-slate-700">{sh.jumlah_halaman || '-'}</td>
+                                                    <td className="text-center">
                                                         <span className="inline-flex px-2 py-1 bg-slate-100 rounded-md text-xs font-semibold text-slate-600">{sh.nilai}</span>
                                                     </td>
-                                                    <td className="px-4 py-3 text-center">
+                                                    <td className="text-center">
                                                         <div className="flex items-center justify-center gap-2 text-2xs">
                                                             <span className="text-red-500 font-bold" title="Kesalahan Kabir">K:{sh.kesalahan_kabir || 0}</span>
                                                             <span className="text-amber-500 font-bold" title="Kesalahan Shoghir">S:{sh.kesalahan_shoghir || 0}</span>

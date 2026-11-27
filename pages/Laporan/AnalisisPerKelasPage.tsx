@@ -307,43 +307,32 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500 font-sans">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col min-h-[500px]">
-                {/* Filters */}
-                {showAdvancedFilters && (
-                    <div className="bg-white p-5 sm:p-6 border-b border-slate-100 flex flex-col md:flex-row gap-4 justify-between items-start md:items-end animate-in fade-in duration-200">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full md:w-auto flex-1">
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Dari Tanggal</label>
-                                <input 
-                                    type="date" 
-                                    value={dateRange.start} 
-                                    onChange={e => setDateRange(p => ({...p, start: e.target.value}))} 
-                                    className="w-full border border-slate-200 bg-white rounded-xl text-sm py-2 px-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none text-slate-700 font-medium"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Sampai Tanggal</label>
-                                <input 
-                                    type="date" 
-                                    value={dateRange.end} 
-                                    onChange={e => setDateRange(p => ({...p, end: e.target.value}))} 
-                                    className="w-full border border-slate-200 bg-white rounded-xl text-sm py-2 px-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none text-slate-700 font-medium"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Marhalah</label>
-                                <select 
-                                    value={selectedMarhalah} 
-                                    onChange={e => setSelectedMarhalah(e.target.value as any)} 
-                                    className="w-full border border-slate-200 bg-white rounded-xl text-sm py-2 px-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none text-slate-700 font-medium cursor-pointer"
-                                >
-                                    <option value="all">Semua Marhalah</option>
-                                    {globalMarhalahs.map(m => <option key={m} value={m}>{m}</option>)}
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                )}
+            <div className="panel-filter">
+              <div className="grid-filter">
+                <label className="kontrol flex items-center gap-2"><span className="shrink-0 text-xs font-semibold text-slate-400">Dari:</span><input 
+                                                    type="date" 
+                                                    value={dateRange.start} 
+                                                    onChange={e => setDateRange(p => ({...p, start: e.target.value}))} 
+                                                    className="min-w-0 flex-1 bg-transparent text-sm font-medium text-slate-700 outline-none cursor-pointer"
+                                                /></label>
+                <label className="kontrol flex items-center gap-2"><span className="shrink-0 text-xs font-semibold text-slate-400">Sampai:</span><input 
+                                                    type="date" 
+                                                    value={dateRange.end} 
+                                                    onChange={e => setDateRange(p => ({...p, end: e.target.value}))} 
+                                                    className="min-w-0 flex-1 bg-transparent text-sm font-medium text-slate-700 outline-none cursor-pointer"
+                                                /></label>
+                <select 
+                                                    value={selectedMarhalah} 
+                                                    onChange={e => setSelectedMarhalah(e.target.value as any)} 
+                                                    className="kontrol"
+                                                >
+                                                    <option value="all">Semua Marhalah</option>
+                                                    {globalMarhalahs.map(m => <option key={m} value={m}>{m}</option>)}
+                                                </select>
+              </div>
+            </div>
+            <div className="wadah-tabel flex flex-col min-h-[500px]">
+                
 
                 {/* Toolbar */}
                 <div className="p-4 bg-white border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-3">
@@ -351,24 +340,12 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
                         {selectedClassKeys.length} kelas dipilih
                     </span>
                     <div className="flex items-center gap-2.5 w-full sm:w-auto flex-wrap">
-                        <button
-                            onClick={() => setShowAdvancedFilters(prev => !prev)}
-                            title="Filter Lanjutan"
-                            className={`p-2 rounded-xl border flex items-center justify-center transition-all shadow-sm ${
-                                showAdvancedFilters 
-                                    ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700' 
-                                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                            }`}
-                        >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M3 6a1 1 0 011-1h16a1 1 0 110 2H4a1 1 0 01-1-1zm3 6a1 1 0 011-1h10a1 1 0 110 2H7a1 1 0 01-1-1zm3 6a1 1 0 011-1h4a1 1 0 110 2h-4a1 1 0 01-1-1z" />
-                            </svg>
-                        </button>
+
                         <button 
                             onClick={() => exportToExcel(classRecapData, 'Rekap_Kelas')}
                             className="btn btn-primary btn-sm"
                         >
-                            <Download size={15} className="mr-1.5" /> Export Data
+                            <Download size={15} className="mr-1.5" /> Ekspor data
                         </button>
                         {selectedClassKeys.length > 0 && (
                             <button 
@@ -389,11 +366,11 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
                 </div>
 
                 {/* Table */}
-                <div className="overflow-x-auto flex-1 custom-scrollbar">
-                    <table className="w-full text-left border-collapse min-w-[600px]">
+                <div className="flex-1 custom-scrollbar overflow-x-auto">
+                    <table className="tabel min-w-[600px]">
                         <thead>
-                            <tr className="bg-slate-50/50 border-b border-slate-200/80">
-                                <th className="px-5 py-3.5 sticky top-0 left-0 bg-slate-50/95 backdrop-blur-sm z-20 w-12 border-r border-slate-100/60">
+                            <tr>
+                                <th className="sticky top-0 left-0 z-20 w-12">
                                     <button 
                                         className="h-full w-full flex items-center justify-center p-1 rounded-md hover:bg-slate-200/50 transition-colors"
                                         onClick={() => setSelectedClassKeys(selectedClassKeys.length === classRecapData.length ? [] : classRecapData.map((c: any) => c.key))}
@@ -401,28 +378,28 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
                                         {selectedClassKeys.length > 0 ? <CheckSquare size={18} className="text-blue-600"/> : <Square size={18} className="text-slate-400"/>}
                                     </button>
                                 </th>
-                                <th className="px-5 py-3.5 sticky top-0 left-[48px] bg-slate-50/95 backdrop-blur-sm z-20 min-w-[200px] border-r border-slate-200/60 text-xs font-semibold text-slate-500 group cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('Kelas')}>
+                                <th className="sticky top-0 left-[48px] z-20 min-w-[200px] group cursor-pointer" onClick={() => handleSort('Kelas')}>
                                     <div className="flex items-center">Kelas <SortIcon field="Kelas"/></div>
                                 </th>
                                 {globalAttendanceStatus?.map(s => (
-                                    <th key={s} className="px-5 py-3.5 sticky top-0 bg-slate-50/95 backdrop-blur-sm z-10 text-xs font-semibold text-slate-500 text-center group cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort(s)}>
+                                    <th key={s} className="sticky top-0 z-10 text-center group cursor-pointer" onClick={() => handleSort(s)}>
                                         <div className="flex items-center justify-center">{s} <SortIcon field={s}/></div>
                                     </th>
                                 ))}
-                                <th className="px-5 py-3.5 sticky top-0 bg-slate-50/95 backdrop-blur-sm z-10 text-xs font-semibold text-slate-500 text-center group cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('PersenKehadiran')}>
+                                <th className="sticky top-0 z-10 text-center group cursor-pointer" onClick={() => handleSort('PersenKehadiran')}>
                                     <div className="flex items-center justify-center">% Hadir <SortIcon field="PersenKehadiran"/></div>
                                 </th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 bg-white">
+                        <tbody>
                             {classRecapData.map((item: any) => (
-                                <tr key={item.key} className="hover:bg-slate-50/40 transition-colors group cursor-pointer" onClick={() => setSelectedClassKeys(p => p.includes(item.key) ? p.filter(k => k !== item.key) : [...p, item.key])}>
-                                    <td className="px-5 py-3 sticky left-0 bg-white group-hover:bg-slate-50/95 backdrop-blur-sm z-10 border-r border-slate-100/60 transition-colors text-center w-12">
+                                <tr key={item.key} className="cursor-pointer" onClick={() => setSelectedClassKeys(p => p.includes(item.key) ? p.filter(k => k !== item.key) : [...p, item.key])}>
+                                    <td className="sticky left-0 bg-white group-hover:bg-slate-50/95 backdrop-blur-sm z-10 transition-colors text-center w-12">
                                         <button className="p-1 rounded-md hover:bg-slate-100 transition-colors">
                                             {selectedClassKeys.includes(item.key) ? <CheckSquare size={18} className="text-blue-600"/> : <Square size={18} className="text-slate-300"/>}
                                         </button>
                                     </td>
-                                    <td className="px-5 py-3 sticky left-[48px] bg-white group-hover:bg-slate-50/95 backdrop-blur-sm z-10 border-r border-slate-100/60 transition-colors min-w-[200px]">
+                                    <td className="sticky left-[48px] bg-white group-hover:bg-slate-50/95 backdrop-blur-sm z-10 transition-colors min-w-[200px]">
                                         <div className="flex flex-col gap-0.5">
                                             <span className="font-bold text-sm text-slate-800 group-hover:text-blue-600 transition-colors">{item.Kelas}</span>
                                             <span className="text-2xs font-medium text-slate-500">{item.Marhalah}</span>
@@ -431,10 +408,10 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
                                     {globalAttendanceStatus?.map(s => {
                                          const val = item[s] || 0;
                                          return (
-                                            <td key={s} className="px-5 py-3 text-center text-sm font-bold text-slate-600">{val}</td>
+                                            <td key={s} className="text-center text-sm font-bold text-slate-600">{val}</td>
                                          )
                                     })}
-                                    <td className="px-5 py-3 text-center text-sm font-extrabold text-slate-700 bg-slate-50/50">{item.PersenKehadiran}</td>
+                                    <td className="text-center text-sm font-extrabold text-slate-700 bg-slate-50/50">{item.PersenKehadiran}</td>
                                 </tr>
                             ))}
                             {classRecapData.length === 0 && (
