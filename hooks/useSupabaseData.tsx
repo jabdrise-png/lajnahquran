@@ -174,6 +174,9 @@ const useSupabaseDataInternal = () => {
     const [loading, setLoading] = useState(true);
     // Fase 7: lingkup data absensi & setoran ('jendela' saat dibuka, 'lengkap' bila halaman butuh riwayat)
     const lingkupRef = useRef<'jendela' | 'lengkap'>('jendela');
+    // Fase 7: muat-awal sedang berjalan? (muatRiwayat saat itu tidak boleh memicu muat-awal kedua)
+    const sedangMuatRef = useRef(false);
+    const segarkanRef = useRef<() => Promise<void>>(async () => undefined);
     const konteksAbsensiRef = useRef<KonteksAbsensi | null>(null);
     const [riwayatTermuat, setRiwayatTermuat] = useState(false);
     const [memuatRiwayat, setMemuatRiwayat] = useState(false);
@@ -247,6 +250,7 @@ const useSupabaseDataInternal = () => {
         }
         setLoading(true);
         setError(null);
+        sedangMuatRef.current = true;
         const collectedErrors: { table: string; code?: string; message: string }[] = [];
 
         try {
@@ -285,6 +289,27 @@ const useSupabaseDataInternal = () => {
                 }
             };
 
+            // Fase 7 · kinerja: batch 2 dan absensi/setoran 14 hari tidak bergantung pada batch 1,
+            // jadi dimulai bersamaan (satu putaran jaringan lebih sedikit di HP).
+            const catatGalatAbsensi = (tabel: string, e: any) => {
+                collectedErrors.push({ table: tabel, code: String(e?.code || ''), message: String(e?.message || e) });
+                console.error(`[useSupabaseData] Query error on ${tabel}: ${e?.message || e}`);
+            };
+            const janjiBatch2 = Promise.all([
+                executeTableQuery('class_targets', (supabase as any).from('class_targets').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(1000), []),
+                executeTableQuery('evaluation_periods', (supabase as any).from('evaluation_periods').select('*').eq('organization_id', orgId).order('start_date', { ascending: true }).limit(1000), [], { optionalTransitionTable: true }),
+                executeTableQuery('app_settings', (supabase as any).from('app_settings').select('*').eq('organization_id', orgId).limit(500), []),
+                executeTableQuery('period_form_fields', (supabase as any).from('period_form_fields').select('*').eq('organization_id', orgId).order('sort_order', { ascending: true }).limit(1000), [], { optionalTransitionTable: true }),
+                executeTableQuery('recitation_kinds', (supabase as any).from('recitation_kinds').select('*').eq('organization_id', orgId).order('sort_order', { ascending: true }), []),
+                executeTableQuery('attendance_statuses', (supabase as any).from('attendance_statuses').select('*').eq('organization_id', orgId).order('sort_order', { ascending: true }), []),
+                executeTableQuery('session_slots', (supabase as any).from('session_slots').select('*').eq('organization_id', orgId).order('sort_order', { ascending: true }), []),
+                executeTableQuery('halaqah_types', (supabase as any).from('halaqah_types').select('*').eq('organization_id', orgId).order('sort_order', { ascending: true }), []),
+                executeTableQuery('fluency_rules', (supabase as any).from('fluency_rules').select('*').eq('organization_id', orgId).order('sort_order', { ascending: true }), [], { optionalTransitionTable: true })
+            ]);
+            const janjiJendela = lingkupRef.current === 'jendela'
+                ? ambilAbsensiSetoran({ orgId, yearId: selectedAcademicYear.id, semMulai: null, semSelesai: null }, false, catatGalatAbsensi)
+                : null;
+
             // Batch 1: Core reference & V2 Canonical Academic Structure (scoped by organization_id)
             const [
                 { data: santriData, error: santriErr },
@@ -318,7 +343,7 @@ const useSupabaseDataInternal = () => {
                 throw new Error(`Gagal memuat data akademik utama (${santriErr.message || halaqahErr.message})`);
             }
 
-            // Batch 2: Configuration & Targets
+            // Batch 2: Configuration & Targets (sudah dimulai di atas)
             const [
                 { data: targetsData },
                 { data: periodsData },
@@ -329,17 +354,7 @@ const useSupabaseDataInternal = () => {
                 { data: slotsData },
                 { data: halaqahTypesData },
                 { data: fluencyData }
-            ] = await Promise.all([
-                executeTableQuery('class_targets', (supabase as any).from('class_targets').select('*').eq('organization_id', orgId).eq('academic_year_id', selectedAcademicYear.id).limit(1000), []),
-                executeTableQuery('evaluation_periods', (supabase as any).from('evaluation_periods').select('*').eq('organization_id', orgId).order('start_date', { ascending: true }).limit(1000), [], { optionalTransitionTable: true }),
-                executeTableQuery('app_settings', (supabase as any).from('app_settings').select('*').eq('organization_id', orgId).limit(500), []),
-                executeTableQuery('period_form_fields', (supabase as any).from('period_form_fields').select('*').eq('organization_id', orgId).order('sort_order', { ascending: true }).limit(1000), [], { optionalTransitionTable: true }),
-                executeTableQuery('recitation_kinds', (supabase as any).from('recitation_kinds').select('*').eq('organization_id', orgId).order('sort_order', { ascending: true }), []),
-                executeTableQuery('attendance_statuses', (supabase as any).from('attendance_statuses').select('*').eq('organization_id', orgId).order('sort_order', { ascending: true }), []),
-                executeTableQuery('session_slots', (supabase as any).from('session_slots').select('*').eq('organization_id', orgId).order('sort_order', { ascending: true }), []),
-                executeTableQuery('halaqah_types', (supabase as any).from('halaqah_types').select('*').eq('organization_id', orgId).order('sort_order', { ascending: true }), []),
-                executeTableQuery('fluency_rules', (supabase as any).from('fluency_rules').select('*').eq('organization_id', orgId).order('sort_order', { ascending: true }), [], { optionalTransitionTable: true })
-            ]);
+            ] = await janjiBatch2;
 
             const kindsList: RecitationKind[] = (kindsData as any[])?.length ? (kindsData as any[]) : DEFAULT_KINDS;
             const statusesList: AttendanceStatusRef[] = (statusesData as any[])?.length ? (statusesData as any[]) : DEFAULT_STATUSES;
@@ -419,15 +434,14 @@ const useSupabaseDataInternal = () => {
             setActiveSemesterDates({ startDate: activeSemStartDate, endDate: activeSemEndDate });
 
             // Batch 4: Absensi & setoran (Fase 7: lingkup jendela/lengkap, bertahap per 1.000 baris)
-            const lengkapSaatIni = lingkupRef.current === 'lengkap';
-            const { santriAtt: santriAttData, musammiAtt: musammiAttData, setoran: recitationData } = await ambilAbsensiSetoran(
-                { orgId, yearId: selectedAcademicYear.id, semMulai: activeSemStartDate, semSelesai: activeSemEndDate },
-                lengkapSaatIni,
-                (tabel, e) => {
-                    collectedErrors.push({ table: tabel, code: String(e?.code || ''), message: String(e?.message || e) });
-                    console.error(`[useSupabaseData] Query error on ${tabel}: ${e?.message || e}`);
-                }
-            );
+            const lengkapSaatIni = !janjiJendela;
+            const { santriAtt: santriAttData, musammiAtt: musammiAttData, setoran: recitationData } = janjiJendela
+                ? await janjiJendela
+                : await ambilAbsensiSetoran(
+                    { orgId, yearId: selectedAcademicYear.id, semMulai: activeSemStartDate, semSelesai: activeSemEndDate },
+                    true,
+                    catatGalatAbsensi
+                );
             setRiwayatTermuat(lengkapSaatIni);
 
             const rawAttendanceData = [
@@ -715,6 +729,8 @@ const useSupabaseDataInternal = () => {
                 musammiList, musammiData: (musammiData as any[]) || [],
             };
             konteksAbsensiRef.current = konteksAbsensi;
+            // Riwayat diminta setelah batch 4 berjalan dengan lingkup jendela → susulkan absensi & setoran saja.
+            if (!lengkapSaatIni && lingkupRef.current === 'lengkap') window.setTimeout(() => { segarkanRef.current(); }, 0);
             const attendanceWithNames: AttendanceRecord[] = beriNamaAbsensi(attendanceData, konteksAbsensi);
             setAttendance(attendanceWithNames);
 
@@ -724,6 +740,7 @@ const useSupabaseDataInternal = () => {
             setError(err.message || String(err));
             console.error("Error fetching data:", err);
         } finally {
+            sedangMuatRef.current = false;
             setLoading(false);
         }
     }, [selectedAcademicYear, getOrgId]);
@@ -738,7 +755,7 @@ const useSupabaseDataInternal = () => {
      */
     const segarkanAbsensiSetoran = useCallback(async () => {
         const k = konteksAbsensiRef.current;
-        if (!k) { await fetchData(); return; }
+        if (!k) { if (!sedangMuatRef.current) await fetchData(); return; }
         const lengkap = lingkupRef.current === 'lengkap';
         const { santriAtt, musammiAtt, setoran } = await ambilAbsensiSetoran(k, lengkap,
             (tabel, e) => console.error(`[useSupabaseData] Query error on ${tabel}: ${e?.message || e}`));
@@ -749,6 +766,7 @@ const useSupabaseDataInternal = () => {
         setSetoranHarian((setoran || []).map((e: any) => recitationToSetoranRow(e, k.kindsList)));
         setRiwayatTermuat(lengkap);
     }, [fetchData]);
+    segarkanRef.current = segarkanAbsensiSetoran;
 
     /** Muat riwayat penuh (absensi semester & semua setoran) sekali; dipanggil halaman laporan/riwayat. */
     const muatRiwayat = useCallback(async () => {

@@ -39,7 +39,6 @@ const SantriPage: React.FC = () => {
     };
 
     const { allSantri, santri, halaqah, setoranHarian, fetchData, loading, error, getOrgId, masterKelas, globalMarhalahs, masterMarhalahs, masterKelasRelasi } = useSupabaseData();
-    useRiwayat(); // Fase 7: riwayat absensi/setoran dimuat saat halaman ini dibuka
     const { selectedAcademicYear, academicYears } = useAcademicYear();
     
     // State
@@ -47,6 +46,7 @@ const SantriPage: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [editingPerson, setEditingPerson] = useState<Santri | null>(null);
     const [detailSantri, setDetailSantri] = useState<Santri | null>(null);
+    useRiwayat({ aktif: Boolean(detailSantri) }); // Fase 7: jumlah setoran di detail santri butuh riwayat
     const [studentEnrollmentHistory, setStudentEnrollmentHistory] = useState<any[]>([]);
     const [formData, setFormData] = useState({
         nama: '', kode: '', marhalah: '', 
