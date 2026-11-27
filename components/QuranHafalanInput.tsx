@@ -129,24 +129,24 @@ export const QuranHafalanInput: React.FC<Props> = ({
     return (
         <div className="space-y-4">
             <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Rentang Surat & Ayat {title}</label>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5">Rentang Surat & Ayat {title}</label>
                 <div className="flex flex-col md:flex-row items-center gap-2">
                     <div className="grid grid-cols-2 gap-2 w-full">
-                        <select className="w-full text-[12px] font-medium border border-slate-200/80 rounded-xl focus:ring-2 focus:ring-blue-500/20 h-10 px-2" value={sSurah} onChange={e => handleSSurahChange(Number(e.target.value))}>
+                        <select className="w-full text-xs font-medium border border-slate-200/80 rounded-xl focus:ring-2 focus:ring-blue-500/20 h-10 px-2" value={sSurah} onChange={e => handleSSurahChange(Number(e.target.value))}>
                             <option value={0}>- Surat -</option>
                             {quranMetadata.map(s => <option key={s.id} value={s.id}>{s.id}. {s.name}</option>)}
                         </select>
-                        <select className="w-full text-[12px] font-medium border border-slate-200/80 rounded-xl focus:ring-2 focus:ring-blue-500/20 h-10 px-2" value={sAyat} onChange={e => setSAyat(Number(e.target.value))}>
+                        <select className="w-full text-xs font-medium border border-slate-200/80 rounded-xl focus:ring-2 focus:ring-blue-500/20 h-10 px-2" value={sAyat} onChange={e => setSAyat(Number(e.target.value))}>
                             {renderAyatOptions(sSurah)}
                         </select>
                     </div>
                     <span className="text-slate-300 hidden md:block">-</span>
                     <div className="grid grid-cols-2 gap-2 w-full">
-                        <select className="w-full text-[12px] font-medium border border-slate-200/80 rounded-xl focus:ring-2 focus:ring-blue-500/20 h-10 px-2" value={eSurah} onChange={e => handleESurahChange(Number(e.target.value))}>
+                        <select className="w-full text-xs font-medium border border-slate-200/80 rounded-xl focus:ring-2 focus:ring-blue-500/20 h-10 px-2" value={eSurah} onChange={e => handleESurahChange(Number(e.target.value))}>
                             <option value={0}>- Surat -</option>
                             {quranMetadata.map(s => <option key={s.id} value={s.id}>{s.id}. {s.name}</option>)}
                         </select>
-                        <select className="w-full text-[12px] font-medium border border-slate-200/80 rounded-xl focus:ring-2 focus:ring-blue-500/20 h-10 px-2" value={eAyat} onChange={e => setEAyat(Number(e.target.value))}>
+                        <select className="w-full text-xs font-medium border border-slate-200/80 rounded-xl focus:ring-2 focus:ring-blue-500/20 h-10 px-2" value={eAyat} onChange={e => setEAyat(Number(e.target.value))}>
                             {renderAyatOptions(eSurah)}
                         </select>
                     </div>
@@ -155,18 +155,18 @@ export const QuranHafalanInput: React.FC<Props> = ({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="md:col-span-1">
                     <div className="flex items-center justify-between mb-1.5">
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">{title} (Juz)</label>
-                        <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-medium text-slate-500">
+                        <label className="block text-xs font-semibold text-slate-400">{title} (Juz)</label>
+                        <label className="flex items-center gap-1.5 cursor-pointer text-2xs font-medium text-slate-500">
                             <input type="checkbox" checked={isCustom} onChange={e => setIsCustom(e.target.checked)} className="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20 w-3 h-3" />
                             Custom
                         </label>
                     </div>
-                    <input type="number" step="0.1" readOnly={!isCustom} className={`w-full text-[13px] font-medium border border-slate-200/80 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 h-10 px-3 shadow-[0_1px_2px_rgba(0,0,0,0.02)] ${!isCustom ? 'bg-slate-50 text-slate-500 outline-none cursor-not-allowed' : 'bg-white text-slate-800'}`} value={juzValue} onChange={e => onJuzChange(e.target.value)} placeholder="0" />
+                    <input type="number" step="0.1" readOnly={!isCustom} className={`w-full text-sm font-medium border border-slate-200/80 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 h-10 px-3 shadow-xs ${!isCustom ? 'bg-slate-50 text-slate-500 outline-none cursor-not-allowed' : 'bg-white text-slate-800'}`} value={juzValue} onChange={e => onJuzChange(e.target.value)} placeholder="0" />
                 </div>
                 <div className="md:col-span-2">
                     <div className="flex items-center justify-between mb-1.5">
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pratinjau {title}</label>
-                        <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-medium text-slate-500 hover:text-blue-600 transition-colors">
+                        <label className="block text-xs font-semibold text-slate-400">Pratinjau {title}</label>
+                        <label className="flex items-center gap-1.5 cursor-pointer text-2xs font-medium text-slate-500 hover:text-blue-600 transition-colors">
                             <input type="checkbox" checked={usePrevChecked} onChange={e => onUsePrevChange(e.target.checked)} className="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20 w-3 h-3" />
                             Data Terakhir
                         </label>
@@ -174,7 +174,7 @@ export const QuranHafalanInput: React.FC<Props> = ({
                     <input 
                         type="text" 
                         readOnly={!isCustom} 
-                        className={`w-full text-[12px] font-medium border border-slate-200/80 rounded-xl h-10 px-3 shadow-[0_1px_2px_rgba(0,0,0,0.02)] ${!isCustom ? 'bg-slate-50 cursor-not-allowed text-slate-700 outline-none' : 'bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500'}`} 
+                        className={`w-full text-xs font-medium border border-slate-200/80 rounded-xl h-10 px-3 shadow-xs ${!isCustom ? 'bg-slate-50 cursor-not-allowed text-slate-700 outline-none' : 'bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500'}`} 
                         value={suratAyatValue || ''} 
                         onChange={e => onSuratAyatChange(e.target.value)} 
                         placeholder="-" 

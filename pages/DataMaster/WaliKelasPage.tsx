@@ -9,7 +9,7 @@ import { Marhalah, WaliKelas } from '../../types';
 import { Plus, Trash, Download, Edit, Upload, FileSpreadsheet, FileText, Search, ChevronRight } from 'lucide-react';
 import { parseSpreadsheet, exportToExcel, exportToPDF } from '../../lib/utils';
 import { supabase } from '../../lib/supabaseClient';
-import { StatusBadge } from '../../components/ui/SaaSPrimitives';
+import { StatusBadge, LoadingState } from '../../components/ui/SaaSPrimitives';
 import { NotificationStore } from '../../lib/NotificationStore';
 
 const WaliKelasPage: React.FC = () => {
@@ -174,7 +174,7 @@ const WaliKelasPage: React.FC = () => {
             await fetchWali();
             if (fetchData) await fetchData();
             setIsModalOpen(false);
-            NotificationStore.addNotification("Atribut Wali Kelas berhasil disimpan dan disinkronkan ke struktur kelas.", "success");
+            NotificationStore.addNotification("Data wali kelas berhasil disimpan dan disinkronkan ke struktur kelas.", "success");
         } catch (error: any) {
             console.error(error);
             NotificationStore.addNotification("Gagal menyimpan data: " + error.message, "error");
@@ -186,7 +186,7 @@ const WaliKelasPage: React.FC = () => {
         if (!orgId) return;
         await supabase.from('wali_kelas').delete().eq('id', id).eq('organization_id', orgId);
         fetchWali();
-        NotificationStore.addNotification("Atribut Wali Kelas berhasil dihapus.", "info");
+        NotificationStore.addNotification("Data wali kelas berhasil dihapus.", "info");
     };
 
     // Import/Export
@@ -234,41 +234,38 @@ const WaliKelasPage: React.FC = () => {
         exportToPDF("Data Wali Kelas", columns, rows, "Data_Wali_Kelas");
     };
 
-    if (loading) return <p>Loading...</p>;
+    if (loading) return <LoadingState label="Memuat data…" />;
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20 max-w-[1400px] font-sans">
             <input type="file" ref={fileInputRef} onChange={handleImportExcel} accept=".xlsx,.xls,.csv" className="hidden" />
 
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 mt-2">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 sm:gap-4">
                 <div>
-                    <div className="flex items-center gap-2 mb-1.5">
-                        <StatusBadge label="ATRIBUT ADMINISTRATIF KELAS (NON-LOGIN)" tone="primary" />
-                    </div>
-                    <h1 className="text-[24px] font-extrabold text-slate-900 tracking-tight leading-none mb-2">
-                        Atribut Wali Kelas
+                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+                        Wali Kelas
                     </h1>
-                    <p className="text-[13px] text-slate-500 font-medium">
-                        Sesuai Arsitektur 3-Role (Superadmin, Admin, Musammi), Wali Kelas dikelola sebagai atribut teks administratif pada struktur kelas & raport.
+                    <p className="mt-1 text-sm text-slate-500">
+                        Nama wali kelas per kelas, dipakai di dokumen kelas & raportt.
                     </p>
                 </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 justify-end mt-2 md:-mt-20 z-10 relative pointer-events-none">
-                <div className="pointer-events-auto flex flex-col sm:flex-row gap-3">
-                    <ActionDropdown label="Import Excel" icon={<Upload size={16}/>}>
+            <div className="flex justify-end">
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                    <ActionDropdown label="Impor Excel" icon={<Upload size={16}/>}>
                         <button onClick={() => fileInputRef.current?.click()} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left">
-                            <FileSpreadsheet size={14} className="mr-2 text-green-600"/> Upload File Excel
+                            <FileSpreadsheet size={14} className="mr-2 text-emerald-600"/> Upload File Excel
                         </button>
                         <button onClick={handleDownloadTemplate} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100">
                             <Download size={14} className="mr-2 text-blue-600"/> Download Template
                         </button>
                     </ActionDropdown>
 
-                    <ActionDropdown label="Export Data" icon={<Download size={16}/>}>
+                    <ActionDropdown label="Ekspor data" icon={<Download size={16}/>}>
                         <button onClick={() => exportToExcel(waliList, 'Data_Wali_Kelas')} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left">
-                            <FileSpreadsheet size={14} className="mr-2 text-green-600"/> Export Excel
+                            <FileSpreadsheet size={14} className="mr-2 text-emerald-600"/> Export Excel
                         </button>
                         <button onClick={handleExportPDF} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100">
                             <FileText size={14} className="mr-2 text-red-600"/> Export PDF
@@ -277,7 +274,7 @@ const WaliKelasPage: React.FC = () => {
                     
                     <button 
                         onClick={() => openModal(null)} 
-                        className="inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-5 text-[13px] font-bold text-white shadow-[0_2px_12px_rgba(37,99,235,0.25)] transition-all hover:bg-blue-700 hover:-translate-y-0.5 gap-2"
+                        className="btn btn-primary justify-center"
                     >
                         <Plus size={16} strokeWidth={2.5}/> Tambah Baru
                     </button>
@@ -288,7 +285,7 @@ const WaliKelasPage: React.FC = () => {
                 {/* Filters */}
                 <div className="p-5 border-b border-slate-100 bg-slate-50/30 flex flex-col md:flex-row gap-4">
                     <div className="w-full md:w-1/3">
-                        <label className="block text-[12px] font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Cari Nama</label>
+                        <label className="block text-xs font-semibold text-slate-500 mb-1.5">Cari Nama</label>
                         <div className="relative">
                             <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"/>
                             <input 
@@ -296,28 +293,28 @@ const WaliKelasPage: React.FC = () => {
                                 placeholder="Ketik nama walikelas..." 
                                 value={search} 
                                 onChange={e => setSearch(e.target.value)} 
-                                className="w-full h-10 pl-10 pr-4 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none text-[13px] transition-all shadow-[0_1px_2px_rgba(0,0,0,0.02)] placeholder:text-slate-400" 
+                                className="w-full h-10 pl-10 pr-4 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none text-sm transition-all shadow-xs placeholder:text-slate-400" 
                             />
                         </div>
                     </div>
                     <div className="w-full md:w-1/3">
-                        <label className="block text-[12px] font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Filter Marhalah</label>
+                        <label className="block text-xs font-semibold text-slate-500 mb-1.5">Marhalah</label>
                         <select 
                             value={filterMarhalah} 
                             onChange={e => {setFilterMarhalah(e.target.value as any); setFilterKelas('all')}} 
-                            className="w-full h-10 px-4 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none text-[13px] font-medium transition-all shadow-[0_1px_2px_rgba(0,0,0,0.02)] cursor-pointer"
+                            className="w-full h-10 px-4 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none text-sm font-medium transition-all shadow-xs cursor-pointer"
                         >
                             <option value="all">Semua Marhalah</option>
                             {masterMarhalahs.map((m: any) => <option key={m.id} value={m.nama}>{m.nama}</option>)}
                         </select>
                     </div>
                     <div className="w-full md:w-1/3">
-                        <label className="block text-[12px] font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Filter Kelas</label>
+                        <label className="block text-xs font-semibold text-slate-500 mb-1.5">Kelas</label>
                         <select 
                             value={filterKelas} 
                             onChange={e => setFilterKelas(e.target.value)} 
                             disabled={filterMarhalah === 'all'} 
-                            className="w-full h-10 px-4 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none text-[13px] font-medium transition-all shadow-[0_1px_2px_rgba(0,0,0,0.02)] disabled:bg-slate-50 cursor-pointer"
+                            className="w-full h-10 px-4 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none text-sm font-medium transition-all shadow-xs disabled:bg-slate-50 cursor-pointer"
                         >
                             <option value="all">Semua Kelas</option>
                             {filterMarhalah !== 'all' && availableFilterKelas.map(k => <option key={k} value={k}>{k}</option>)}
@@ -326,33 +323,33 @@ const WaliKelasPage: React.FC = () => {
                 </div>
 
                 <div className="flex-1 overflow-auto p-0 min-h-[300px]">
-                    <table className="w-full text-left border-collapse">
+                    <table className="tabel-kartu w-full text-left border-collapse">
                         <thead className="bg-white sticky top-0 z-10">
                             <tr className="border-b border-slate-200/60 bg-slate-50/50">
-                                <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400">Nama Wali Kelas</th>
-                                <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80">Marhalah</th>
-                                <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80">Kelas</th>
-                                <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80">No HP</th>
-                                <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80 text-right">Aksi</th>
+                                <th className="px-6 py-4 text-xs font-semibold text-slate-400">Nama Wali Kelas</th>
+                                <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80">Marhalah</th>
+                                <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80">Kelas</th>
+                                <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80">No HP</th>
+                                <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80 text-right">Aksi</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100/80">
                             {paginatedData.map(w => (
                                 <tr key={w.id} className="hover:bg-blue-50/30 transition-colors group">
-                                    <td className="px-6 py-4 text-[14px] font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{w.nama}</td>
-                                    <td className="px-6 py-4 border-l border-slate-100/80 text-[13px] font-semibold text-slate-600 uppercase tracking-widest"><MarhalahLabel text={w.marhalah} id={w.marhalah_id} /></td>
-                                    <td className="px-6 py-4 border-l border-slate-100/80">
-                                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold bg-blue-50 text-blue-700 uppercase tracking-widest border border-blue-200">
+                                    <td className="px-6 py-4 text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{w.nama}</td>
+                                    <td data-label="Marhalah" className="px-6 py-4 border-l border-slate-100/80 text-sm font-semibold text-slate-600"><MarhalahLabel text={w.marhalah} id={w.marhalah_id} /></td>
+                                    <td data-label="Kelas" className="px-6 py-4 border-l border-slate-100/80">
+                                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
                                             <KelasLabel text={w.kelas} id={w.kelas_id} />
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 border-l border-slate-100/80 text-[13px] font-medium text-slate-600">{w.no_hp || '-'}</td>
-                                    <td className="px-6 py-4 border-l border-slate-100/80 text-right">
+                                    <td data-label="No HP" className="px-6 py-4 border-l border-slate-100/80 text-sm font-medium text-slate-600">{w.no_hp || '-'}</td>
+                                    <td data-label="Aksi" className="px-6 py-4 border-l border-slate-100/80 text-right">
                                         <div className="flex items-center justify-end gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                                             <button onClick={() => openModal(w)} className="h-9 w-9 inline-flex items-center justify-center rounded-xl bg-slate-50 text-slate-500 hover:bg-blue-500 hover:text-white transition-all shadow-sm">
                                                 <Edit size={14} strokeWidth={2.5}/>
                                             </button>
-                                            <button onClick={() => handleDelete(w.id)} className="h-9 w-9 inline-flex items-center justify-center rounded-xl bg-slate-50 text-slate-500 hover:bg-rose-500 hover:text-white transition-all shadow-sm">
+                                            <button onClick={() => handleDelete(w.id)} className="h-9 w-9 inline-flex items-center justify-center rounded-xl bg-slate-50 text-slate-500 hover:bg-red-500 hover:text-white transition-all shadow-sm">
                                                 <Trash size={14} strokeWidth={2.5}/>
                                             </button>
                                         </div>
@@ -364,7 +361,7 @@ const WaliKelasPage: React.FC = () => {
                                     <td colSpan={5} className="py-16 text-center">
                                         <div className="flex flex-col items-center justify-center text-slate-400">
                                             <Search size={48} className="mb-4 opacity-20" />
-                                            <p className="text-[13px] font-medium">Tidak ada data wali kelas ditemukan.</p>
+                                            <p className="text-sm font-medium">Tidak ada data wali kelas ditemukan.</p>
                                         </div>
                                     </td>
                                 </tr>
@@ -376,24 +373,24 @@ const WaliKelasPage: React.FC = () => {
                 {/* Pagination Controls */}
                 {totalPages > 1 && (
                     <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-center gap-4">
-                        <span className="text-[12px] font-medium text-slate-500">
+                        <span className="text-xs font-medium text-slate-500">
                             Menampilkan <span className="font-bold text-slate-700">{((currentPage - 1) * itemsPerPage) + 1}</span> - <span className="font-bold text-slate-700">{Math.min(currentPage * itemsPerPage, filteredData.length)}</span> dari <span className="font-bold text-slate-700">{filteredData.length}</span> data
                         </span>
                         <div className="flex items-center gap-2">
                             <button 
                                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                 disabled={currentPage === 1}
-                                className="h-8 px-3 rounded-lg border border-slate-200 bg-white text-[12px] font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                className="btn btn-secondary btn-sm"
                             >
                                 Sebelumnya
                             </button>
-                            <span className="text-[12px] font-semibold text-slate-600 min-w-[80px] text-center">
+                            <span className="text-xs font-semibold text-slate-600 min-w-[80px] text-center">
                                 {currentPage} / {totalPages}
                             </span>
                             <button 
                                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                                 disabled={currentPage === totalPages}
-                                className="h-8 px-3 rounded-lg border border-slate-200 bg-white text-[12px] font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                className="btn btn-secondary btn-sm"
                             >
                                 Selanjutnya
                             </button>
@@ -405,17 +402,17 @@ const WaliKelasPage: React.FC = () => {
             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingWali ? "Edit Wali Kelas" : "Tambah Wali Kelas"}>
                 <div className="space-y-5 mt-2">
                     <div>
-                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Nama <span className="text-red-500">*</span></label>
-                        <input type="text" placeholder="Masukkan nama wali kelas..." className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-[13px] font-semibold text-slate-800 placeholder:text-slate-400" value={formData.nama} onChange={e => setFormData({...formData, nama: e.target.value})} />
+                        <label className="block text-xs font-semibold text-slate-500 mb-2">Nama <span className="text-red-500">*</span></label>
+                        <input type="text" placeholder="Masukkan nama wali kelas..." className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-sm font-semibold text-slate-800 placeholder:text-slate-400" value={formData.nama} onChange={e => setFormData({...formData, nama: e.target.value})} />
                     </div>
                     <div>
-                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">No HP</label>
-                        <input type="text" placeholder="Contoh: 08123456789" className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-[13px] font-semibold text-slate-800 placeholder:text-slate-400" value={formData.no_hp} onChange={e => setFormData({...formData, no_hp: e.target.value})} />
+                        <label className="block text-xs font-semibold text-slate-500 mb-2">No HP</label>
+                        <input type="text" placeholder="Contoh: 08123456789" className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-sm font-semibold text-slate-800 placeholder:text-slate-400" value={formData.no_hp} onChange={e => setFormData({...formData, no_hp: e.target.value})} />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Marhalah <span className="text-red-500">*</span></label>
-                            <select className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-[13px] font-semibold text-slate-800 cursor-pointer" value={formData.marhalah} onChange={e => {
+                            <label className="block text-xs font-semibold text-slate-500 mb-2">Marhalah <span className="text-red-500">*</span></label>
+                            <select className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-sm font-semibold text-slate-800 cursor-pointer" value={formData.marhalah} onChange={e => {
                                 const newMarhalah = e.target.value;
                                 const availableForNew = masterKelasRelasi.filter((k: any) => k.marhalah_id === masterMarhalahs.find((m: any) => m.nama === newMarhalah)?.id).map((k: any) => k.nama_kelas);
                                 setFormData({...formData, marhalah: newMarhalah, kelas: availableForNew[0] || ''});
@@ -425,8 +422,8 @@ const WaliKelasPage: React.FC = () => {
                             </select>
                         </div>
                         <div className="flex flex-col gap-2">
-                             <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Kelas <span className="text-red-500">*</span></label>
-                            <select className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-[13px] font-semibold text-slate-800 cursor-pointer" value={isCustomKelas ? 'NEW_CLASS' : formData.kelas} onChange={e => {
+                             <label className="block text-xs font-semibold text-slate-500 mb-2">Kelas <span className="text-red-500">*</span></label>
+                            <select className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-sm font-semibold text-slate-800 cursor-pointer" value={isCustomKelas ? 'NEW_CLASS' : formData.kelas} onChange={e => {
                                 if (e.target.value === 'NEW_CLASS') {
                                     setIsCustomKelas(true);
                                     setFormData({...formData, kelas: ''});
@@ -442,7 +439,7 @@ const WaliKelasPage: React.FC = () => {
                                 <input 
                                     type="text" 
                                     placeholder="Ketik nama kelas baru..." 
-                                    className="w-full border border-blue-300 rounded-xl px-4 py-2 bg-blue-50/50 outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-[13px] font-semibold text-blue-900 placeholder:text-blue-400" 
+                                    className="w-full border border-blue-300 rounded-xl px-4 py-2 bg-blue-50/50 outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm font-semibold text-blue-900 placeholder:text-blue-400" 
                                     value={customKelas} 
                                     onChange={e => setCustomKelas(e.target.value)} 
                                     autoFocus
@@ -455,8 +452,8 @@ const WaliKelasPage: React.FC = () => {
                         Nama Wali Kelas ini otomatis disinkronkan ke struktur <span className="font-semibold text-slate-800">master_kelas_relasi</span> dan atribut santri pada kelas terkait untuk keperluan cetak raport.
                     </div>
                     <div className="flex justify-end gap-3 pt-6 border-t border-slate-200/80">
-                        <button onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-xl text-[13px] font-bold text-slate-600 hover:bg-slate-100 transition-colors">Batal</button>
-                        <button onClick={handleSubmit} className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-[13px] font-bold hover:bg-blue-700 active:bg-blue-800 transition-all shadow-[0_2px_12px_rgba(37,99,235,0.25)] focus:ring-4 focus:ring-blue-500/20 flex items-center justify-center min-w-[120px]">Simpan Data</button>
+                        <button onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors">Batal</button>
+                        <button onClick={handleSubmit} className="btn btn-primary justify-center min-w-[120px]">Simpan Data</button>
                     </div>
                 </div>
             </Modal>

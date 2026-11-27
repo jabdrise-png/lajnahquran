@@ -81,7 +81,7 @@ const PeriodeEvaluasiPanel: React.FC = () => {
           <p className="text-xs sm:text-sm text-slate-500">Satu daftar periode per lembaga, tidak boleh tumpang tindih. Dipakai Rekap Periode, target murojaah, dan pesan progres.</p>
         </div>
         {isAdmin && (
-          <button type="button" onClick={baru} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold">
+          <button type="button" onClick={baru} className="btn btn-primary">
             <Plus size={15} /> Periode baru
           </button>
         )}
@@ -109,8 +109,8 @@ const PeriodeEvaluasiPanel: React.FC = () => {
             <p className="sm:col-span-4 text-xs text-red-700">Tumpang tindih dengan "{bentrok.name}" ({bentrok.start_date} s.d. {bentrok.end_date}).</p>
           )}
           <div className="sm:col-span-4 flex justify-end gap-2">
-            <button type="button" onClick={() => setDraf(null)} className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-700">Batal</button>
-            <button type="button" disabled={busy || Boolean(bentrok)} onClick={simpan} className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-50">
+            <button type="button" onClick={() => setDraf(null)} className="btn btn-secondary btn-sm">Batal</button>
+            <button type="button" disabled={busy || Boolean(bentrok)} onClick={simpan} className="btn btn-primary btn-sm">
               {busy ? 'Menyimpan…' : 'Simpan'}
             </button>
           </div>
@@ -119,7 +119,7 @@ const PeriodeEvaluasiPanel: React.FC = () => {
 
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="min-w-full text-sm">
-          <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
+          <thead className="bg-slate-50 text-xs text-slate-500">
             <tr>
               <th className="px-3 py-2 text-left">Periode</th>
               <th className="px-3 py-2 text-left">Tanggal</th>
@@ -133,8 +133,8 @@ const PeriodeEvaluasiPanel: React.FC = () => {
               <tr key={p.id} className={p.needs_review ? 'bg-amber-50/50' : ''}>
                 <td className="px-3 py-2 font-semibold text-slate-800">
                   {p.name}
-                  {p.needs_review && <span className="ml-2 text-[11px] font-semibold text-amber-700">perlu dicek</span>}
-                  {p.legacy_key && <div className="text-[10px] font-normal text-slate-400">dari aplikasi lama ({p.legacy_key})</div>}
+                  {p.needs_review && <span className="ml-2 text-2xs font-semibold text-amber-700">perlu dicek</span>}
+                  {p.legacy_key && <div className="text-2xs font-normal text-slate-400">dari aplikasi lama ({p.legacy_key})</div>}
                 </td>
                 <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{p.start_date} s.d. {p.end_date}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{jumlahRekap.get(p.id) ?? '-'}</td>
@@ -154,7 +154,7 @@ const PeriodeEvaluasiPanel: React.FC = () => {
           </tbody>
         </table>
       </div>
-      <p className="text-[11px] text-slate-400">Jumlah rekap dihitung untuk periode tahun ajaran terpilih.</p>
+      <p className="text-2xs text-slate-400">Jumlah rekap dihitung untuk periode tahun ajaran terpilih.</p>
     </section>
   );
 };

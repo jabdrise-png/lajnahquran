@@ -167,7 +167,7 @@ const AdminGalleryPage: React.FC = () => {
                                 <button 
                                     type="submit"
                                     disabled={isSubmitting}
-                                    className="w-full bg-blue-600 text-white font-bold py-2.5 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                                    className="btn btn-primary w-full"
                                 >
                                     {isSubmitting ? 'Menyimpan...' : 'Simpan Gambar'}
                                 </button>
@@ -194,7 +194,7 @@ const AdminGalleryPage: React.FC = () => {
                             ) : (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     {images.map((img) => (
-                                        <div key={img.id} className="group relative rounded-xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-md transition-all">
+                                        <div key={img.id} className="group relative rounded-xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-sm transition-all">
                                             <div className="aspect-video bg-slate-100">
                                                 <img src={img.image_url} alt={img.title || 'Gallery Image'} className="w-full h-full object-cover" />
                                             </div>

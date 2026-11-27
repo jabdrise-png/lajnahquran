@@ -9,7 +9,7 @@ import { Marhalah, Musammi } from '../../types';
 import { Plus, Trash, Upload, Download, Search, Edit, FileSpreadsheet, FileText, ChevronRight } from 'lucide-react';
 import { parseSpreadsheet, exportToExcel, exportToPDF } from '../../lib/utils';
 import { supabase } from '../../lib/supabaseClient';
-import { StatusBadge } from '../../components/ui/SaaSPrimitives';
+import { StatusBadge, LoadingState } from '../../components/ui/SaaSPrimitives';
 import { NotificationStore } from '../../lib/NotificationStore';
 
 const MusammiPage: React.FC = () => {
@@ -416,59 +416,59 @@ const MusammiPage: React.FC = () => {
         exportToPDF("Data Musammi", columns, rows, "Data_Musammi");
     };
 
-    if (loading) return <p>Loading...</p>;
+    if (loading) return <LoadingState label="Memuat data…" />;
     if (error) return <p className="text-error">{error}</p>;
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20 max-w-[1400px] font-sans">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 mt-2">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 sm:gap-4">
                 <div>
-                    <h1 className="text-[24px] font-extrabold text-slate-900 tracking-tight leading-none mb-2">
+                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
                         Data Musammi'
                     </h1>
-                    <p className="text-[13px] text-slate-500 font-medium">
+                    <p className="mt-1 text-sm text-slate-500">
                         Daftar santri senior (Aliyah/Jamiah) yang bertugas menyimak hafalan.
                     </p>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                <div className="flex flex-wrap items-center gap-2">
                     {selectedIds.length > 0 && (
                         <button
                             onClick={handleBulkDelete}
-                            className="inline-flex h-10 items-center justify-center rounded-xl bg-rose-600 px-5 text-[13px] font-bold text-white shadow-[0_2px_12px_rgba(225,29,72,0.25)] transition-all hover:bg-rose-700 hover:-translate-y-0.5 gap-2"
+                            className="btn btn-danger justify-center"
                         >
                             <Trash size={16} strokeWidth={2.5}/> ({selectedIds.length})
                         </button>
                     )}
                     <input type="file" ref={fileInputRef} onChange={handleImportCSV} accept=".csv,.xlsx,.xls" className="hidden" />
                     
-                    <ActionDropdown label="Ekspor" variant="blue">
-                        <button onClick={() => exportToExcel(musammi, 'Data_Musammi')} className="flex items-center w-full px-4 py-2.5 text-[13px] font-medium text-slate-700 hover:bg-slate-50 text-left transition-colors">
-                            <FileSpreadsheet size={15} className="mr-2 text-green-600"/> Ekspor Excel
+                    <ActionDropdown label="Ekspor">
+                        <button onClick={() => exportToExcel(musammi, 'Data_Musammi')} className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 text-left transition-colors">
+                            <FileSpreadsheet size={15} className="mr-2 text-emerald-600"/> Ekspor Excel
                         </button>
-                        <button onClick={handleExportPDF} className="flex items-center w-full px-4 py-2.5 text-[13px] font-medium text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100 transition-colors">
+                        <button onClick={handleExportPDF} className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100 transition-colors">
                             <FileText size={15} className="mr-2 text-red-600"/> Ekspor PDF
                         </button>
                     </ActionDropdown>
                     
-                    <ActionDropdown label="Impor" variant="blue">
-                        <button onClick={() => fileInputRef.current?.click()} className="flex items-center w-full px-4 py-2.5 text-[13px] font-medium text-slate-700 hover:bg-slate-50 text-left transition-colors">
-                            <FileSpreadsheet size={15} className="mr-2 text-green-600"/> Upload Excel/CSV
+                    <ActionDropdown label="Impor">
+                        <button onClick={() => fileInputRef.current?.click()} className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 text-left transition-colors">
+                            <FileSpreadsheet size={15} className="mr-2 text-emerald-600"/> Upload Excel/CSV
                         </button>
-                        <button onClick={handleDownloadTemplate} className="flex items-center w-full px-4 py-2.5 text-[13px] font-medium text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100 transition-colors">
+                        <button onClick={handleDownloadTemplate} className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100 transition-colors">
                             <Download size={15} className="mr-2 text-blue-600"/> Download Template
                         </button>
                     </ActionDropdown>
                     
                     <button 
                         onClick={() => openAccountModal(null)} 
-                        className="inline-flex h-10 items-center justify-center rounded-xl bg-emerald-600 px-4 sm:px-5 text-[13px] font-bold text-white shadow-[0_2px_12px_rgba(16,185,129,0.25)] transition-all hover:bg-emerald-700 hover:-translate-y-0.5 active:translate-y-0"
+                        className="btn btn-secondary"
                     >
                         Akun Musammi
                     </button>
                     <button 
                         onClick={() => openModal(null)} 
-                        className="inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-4 sm:px-5 text-[13px] font-bold text-white shadow-[0_2px_12px_rgba(37,99,235,0.25)] transition-all hover:bg-blue-700 hover:-translate-y-0.5 active:translate-y-0"
+                        className="btn btn-primary justify-center"
                     >
                         Tambah Data
                     </button>
@@ -487,7 +487,7 @@ const MusammiPage: React.FC = () => {
                                 placeholder="Cari nama musammi..."
                                 value={search} 
                                 onChange={e => setSearch(e.target.value)} 
-                                className="w-full pl-10 pr-4 h-10 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none text-[13px] transition-all shadow-[0_2px_4px_rgba(0,0,0,0.02)] placeholder:text-slate-400"
+                                className="w-full pl-10 pr-4 h-10 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none text-sm transition-all shadow-xs placeholder:text-slate-400"
                             />
                         </div>
                         <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
@@ -496,7 +496,7 @@ const MusammiPage: React.FC = () => {
                                     <select 
                                         value={filterMarhalah} 
                                         onChange={e => {setFilterMarhalah(e.target.value as any); setFilterKelas('all')}}
-                                        className="w-full sm:w-[160px] h-10 pl-4 pr-10 bg-white border border-slate-200/80 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-[12px] font-medium text-slate-700 transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.02)] appearance-none cursor-pointer hover:border-slate-300"
+                                        className="w-full sm:w-[160px] h-10 pl-4 pr-10 bg-white border border-slate-200/80 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-xs font-medium text-slate-700 transition-colors shadow-xs appearance-none cursor-pointer hover:border-slate-300"
                                     >
                                         <option value="all">Semua Marhalah</option>
                                         {masterMarhalahs?.map((m: any) => <option key={m.id} value={m.nama}>{m.nama}</option>) || globalMarhalahs.map(m => <option key={m} value={m}>{m}</option>)}
@@ -512,7 +512,7 @@ const MusammiPage: React.FC = () => {
                                         value={filterKelas} 
                                         onChange={e => setFilterKelas(e.target.value)} 
                                         disabled={filterMarhalah === 'all'} 
-                                        className="w-full sm:w-[140px] h-10 pl-4 pr-10 bg-white border border-slate-200/80 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-[12px] font-medium text-slate-700 transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.02)] appearance-none cursor-pointer disabled:bg-slate-50 disabled:text-slate-400 hover:border-slate-300"
+                                        className="w-full sm:w-[140px] h-10 pl-4 pr-10 bg-white border border-slate-200/80 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-xs font-medium text-slate-700 transition-colors shadow-xs appearance-none cursor-pointer disabled:bg-slate-50 disabled:text-slate-400 hover:border-slate-300"
                                     >
                                         <option value="all">Semua Kelas</option>
                                         {filterMarhalah !== 'all' && availableFilterKelasList.map(k => <option key={k} value={k}>{k}</option>)}
@@ -527,7 +527,7 @@ const MusammiPage: React.FC = () => {
                 </div>
 
                 <div className="overflow-x-auto bg-white min-h-[400px] hide-scrollbar">
-                    <table className="w-full text-left border-collapse">
+                    <table className="tabel-kartu w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-slate-50/50 border-b border-slate-200/60">
                                 <th className="px-6 py-4 w-[50px] border-r border-slate-100/80">
@@ -538,14 +538,14 @@ const MusammiPage: React.FC = () => {
                                         onChange={handleSelectAll}
                                     />
                                 </th>
-                                <th className="px-4 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 w-[60px] text-center border-r border-slate-100/80">
+                                <th className="px-4 py-4 text-xs font-semibold text-slate-400 w-[60px] text-center border-r border-slate-100/80">
                                     No
                                 </th>
-                                <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 min-w-[200px]">Nama Musammi</th>
-                                <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80">Marhalah & Kelas</th>
-                                <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80">No HP</th>
-                                <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80">Status Akun Login</th>
-                                <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80 text-right">Aksi</th>
+                                <th className="px-6 py-4 text-xs font-semibold text-slate-400 min-w-[200px]">Nama Musammi</th>
+                                <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80">Marhalah & Kelas</th>
+                                <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80">No HP</th>
+                                <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80">Status akun</th>
+                                <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80 text-right">Aksi</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100/80">
@@ -561,39 +561,39 @@ const MusammiPage: React.FC = () => {
                                             onChange={() => toggleSelection(m.id)}
                                         />
                                     </td>
-                                    <td className="px-4 py-4 text-center border-r border-slate-100/80 text-[13px] font-medium text-slate-500">
+                                    <td data-label="No" className="px-4 py-4 text-center border-r border-slate-100/80 text-sm font-medium text-slate-500">
                                         {(currentPage - 1) * itemsPerPage + index + 1}
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
                                             <div className="flex-shrink-0 h-9 w-9 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200/60 shadow-sm relative overflow-hidden group-hover:border-blue-200 group-hover:bg-blue-50 transition-colors">
-                                                <span className="text-[12px] font-bold text-slate-600 group-hover:text-blue-600 transition-colors">
+                                                <span className="text-xs font-bold text-slate-600 group-hover:text-blue-600 transition-colors">
                                                     {m.nama.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
                                                 </span>
                                             </div>
                                             <div>
-                                                <p className="text-[14px] font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{m.nama}</p>
+                                                <p className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{m.nama}</p>
                                                 {m.santri_id && (
-                                                    <span className="text-[10px] font-semibold text-blue-600">Santri Senior (#{m.santri_id})</span>
+                                                    <span className="text-2xs font-semibold text-blue-600">Santri Senior (#{m.santri_id})</span>
                                                 )}
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 border-l border-slate-100/80">
+                                    <td data-label="Marhalah & kelas" className="px-6 py-4 border-l border-slate-100/80">
                                         <div className="flex flex-col">
-                                            <span className="text-[13px] font-semibold text-slate-700 tracking-widest uppercase"><MarhalahLabel text={m.marhalah} id={m.marhalah_id} /></span>
-                                            <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Kelas <KelasLabel text={m.kelas} id={m.kelas_id} /></span>
+                                            <span className="text-sm font-semibold text-slate-700"><MarhalahLabel text={m.marhalah} id={m.marhalah_id} /></span>
+                                            <span className="text-xs text-slate-500 font-semibold">Kelas <KelasLabel text={m.kelas} id={m.kelas_id} /></span>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 border-l border-slate-100/80 text-[13px] font-medium text-slate-600">
+                                    <td data-label="No HP" className="px-6 py-4 border-l border-slate-100/80 text-sm font-medium text-slate-600">
                                         {(m as any).no_hp || '-'}
                                     </td>
-                                    <td className="px-6 py-4 border-l border-slate-100/80">
+                                    <td data-label="Status akun" className="px-6 py-4 border-l border-slate-100/80">
                                         {m.user_id ? (
                                             <div className="flex flex-col gap-0.5">
                                                 <StatusBadge label="TERTAUT AKUN" tone="success" />
                                                 {linkedProfile?.email && (
-                                                    <span className="text-[11px] text-slate-500 font-mono">{linkedProfile.email}</span>
+                                                    <span className="text-2xs text-slate-500">{linkedProfile.email}</span>
                                                 )}
                                             </div>
                                         ) : (
@@ -602,19 +602,19 @@ const MusammiPage: React.FC = () => {
                                                 <button
                                                     type="button"
                                                     onClick={() => openAccountModal(m)}
-                                                    className="text-[11px] font-semibold text-blue-600 hover:underline"
+                                                    className="text-2xs font-semibold text-blue-600 hover:underline"
                                                 >
                                                     + Buat Akun
                                                 </button>
                                             </div>
                                         )}
                                     </td>
-                                    <td className="px-6 py-4 border-l border-slate-100/80 text-right">
+                                    <td data-label="Aksi" className="px-6 py-4 border-l border-slate-100/80 text-right">
                                         <div className="opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex justify-end gap-2">
                                             <button onClick={() => openModal(m)} className="h-9 w-9 inline-flex items-center justify-center rounded-xl bg-slate-50 text-slate-500 hover:bg-blue-500 hover:text-white transition-all shadow-sm">
                                                 <Edit size={14} strokeWidth={2.5}/>
                                             </button>
-                                            <button onClick={() => handleDelete(m.id)} className="h-9 w-9 inline-flex items-center justify-center rounded-xl bg-slate-50 text-slate-500 hover:bg-rose-500 hover:text-white transition-all shadow-sm">
+                                            <button onClick={() => handleDelete(m.id)} className="h-9 w-9 inline-flex items-center justify-center rounded-xl bg-slate-50 text-slate-500 hover:bg-red-500 hover:text-white transition-all shadow-sm">
                                                 <Trash size={14} strokeWidth={2.5}/>
                                             </button>
                                         </div>
@@ -624,7 +624,7 @@ const MusammiPage: React.FC = () => {
                             })}
                             {paginatedData.length === 0 && (
                                 <tr>
-                                    <td colSpan={7} className="text-center py-16 text-[13px] text-slate-500 font-medium">
+                                    <td colSpan={7} className="text-center py-16 text-sm text-slate-500 font-medium">
                                         Tidak ada data yang ditemukan.
                                     </td>
                                 </tr>
@@ -636,24 +636,24 @@ const MusammiPage: React.FC = () => {
                 {/* Pagination Controls */}
                 {totalPages > 1 && (
                     <div className="flex justify-between items-center bg-slate-50 border-t border-slate-100 p-4">
-                        <p className="text-[12px] font-medium text-slate-500">
+                        <p className="text-xs font-medium text-slate-500">
                             Menampilkan <span className="font-bold text-slate-700">{((currentPage - 1) * itemsPerPage) + 1}</span> - <span className="font-bold text-slate-700">{Math.min(currentPage * itemsPerPage, filteredData.length)}</span> dari <span className="font-bold text-slate-700">{filteredData.length}</span> data
                         </p>
                         <div className="flex gap-2">
                             <button 
                                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                 disabled={currentPage === 1}
-                                className="px-3 py-1.5 border border-slate-200/80 bg-white rounded-md text-[12px] font-semibold disabled:opacity-50 text-slate-600 hover:bg-slate-50 transition-colors"
+                                className="btn btn-secondary btn-sm"
                             >
                                 Sebelumnya
                             </button>
-                            <span className="px-3 py-1.5 text-[12px] font-semibold text-slate-700 bg-white border border-slate-200/80 rounded-md">
+                            <span className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200/80 rounded-md">
                                 {currentPage} / {totalPages}
                             </span>
                             <button 
                                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                                 disabled={currentPage === totalPages}
-                                className="px-3 py-1.5 border border-slate-200/80 bg-white rounded-md text-[12px] font-semibold disabled:opacity-50 text-slate-600 hover:bg-slate-50 transition-colors"
+                                className="btn btn-secondary btn-sm"
                             >
                                 Selanjutnya
                             </button>
@@ -665,40 +665,40 @@ const MusammiPage: React.FC = () => {
                 <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Filter Marhalah</label>
-                            <select className="w-full border-slate-300 rounded-md text-[13px]" value={modalMarhalah} onChange={e => setModalMarhalah(e.target.value as any)}>
+                            <label className="block text-xs font-semibold text-slate-500 mb-1.5">Marhalah</label>
+                            <select className="w-full border-slate-300 rounded-md text-sm" value={modalMarhalah} onChange={e => setModalMarhalah(e.target.value as any)}>
                                 <option value="all">Semua</option>
                                 {masterMarhalahs?.map((m: any) => <option key={m.id} value={m.nama}>{m.nama}</option>) || globalMarhalahs.map(m => <option key={m} value={m}>{m}</option>)}
                             </select>
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Filter Kelas</label>
-                            <select className="w-full border-slate-300 rounded-md text-[13px]" value={modalKelas} onChange={e => setModalKelas(e.target.value)}>
+                            <label className="block text-xs font-semibold text-slate-500 mb-1.5">Kelas</label>
+                            <select className="w-full border-slate-300 rounded-md text-sm" value={modalKelas} onChange={e => setModalKelas(e.target.value)}>
                                 <option value="all">Semua</option>
                                 {modalMarhalah !== 'all' && availableModalFilterKelasList.map(k => <option key={k} value={k}>{k}</option>)}
                             </select>
                         </div>
                     </div>
                     <div>
-                        <label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Pilih Santri (Tautkan Data)</label>
-                        <select className="w-full border-slate-300 rounded-md text-[13px]" value={formData.santriId} onChange={e => handleSantriSelect(e.target.value)}>
+                        <label className="block text-xs font-semibold text-slate-500 mb-1.5">Pilih Santri (Tautkan Data)</label>
+                        <select className="w-full border-slate-300 rounded-md text-sm" value={formData.santriId} onChange={e => handleSantriSelect(e.target.value)}>
                             <option value="null" className="font-bold text-blue-600">Bukan Santri (Input Manual / Independen)</option>
                             <option value="" disabled>-- Pilih Santri --</option>
                             {filteredSantri.map(s => <option key={s.id} value={s.id}>{s.nama} ({s.kelas})</option>)}
                         </select>
-                        {editingPerson && <p className="text-[10px] text-amber-600 mt-1">Jika Musammi ini adalah Santri, pastikan data Santrinya dipilih di atas agar rekap absen terintegrasi.</p>}
+                        {editingPerson && <p className="text-2xs text-amber-600 mt-1">Jika Musammi ini adalah Santri, pastikan data Santrinya dipilih di atas agar rekap absen terintegrasi.</p>}
                     </div>
                     <div>
-                        <label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Nama Lengkap</label>
-                        <input type="text" placeholder="Nama Lengkap" className="w-full border-slate-300 rounded-md text-[13px]" value={formData.nama} onChange={e => setFormData({...formData, nama: e.target.value})} disabled={!editingPerson && formData.santriId !== 'null'} />
+                        <label className="block text-xs font-semibold text-slate-500 mb-1.5">Nama Lengkap</label>
+                        <input type="text" placeholder="Nama Lengkap" className="w-full border-slate-300 rounded-md text-sm" value={formData.nama} onChange={e => setFormData({...formData, nama: e.target.value})} disabled={!editingPerson && formData.santriId !== 'null'} />
                     </div>
                     
                     {(formData.santriId === 'null' || editingPerson) && (
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Marhalah</label>
+                                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Marhalah</label>
                                 <select 
-                                    className="w-full border-slate-300 rounded-md text-[13px]" 
+                                    className="w-full border-slate-300 rounded-md text-sm" 
                                     value={formData.marhalah || ''} 
                                     onChange={e => {
                                         setFormData({...formData, marhalah: e.target.value, kelas: ''});
@@ -711,18 +711,18 @@ const MusammiPage: React.FC = () => {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Kelas</label>
+                                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Kelas</label>
                                 {isCustomKelas ? (
                                     <input 
                                         type="text" 
                                         placeholder="Ketik Kelas..." 
-                                        className="w-full border-slate-300 rounded-md text-[13px]" 
+                                        className="w-full border-slate-300 rounded-md text-sm" 
                                         value={customKelas} 
                                         onChange={e => setCustomKelas(e.target.value)} 
                                     />
                                 ) : (
                                     <select 
-                                        className="w-full border-slate-300 rounded-md text-[13px]" 
+                                        className="w-full border-slate-300 rounded-md text-sm" 
                                         value={formData.kelas || ''} 
                                         onChange={e => {
                                             if (e.target.value === 'custom') {
@@ -743,27 +743,27 @@ const MusammiPage: React.FC = () => {
                     )}
                     
                     <div>
-                        <label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">No HP</label>
-                        <input type="text" placeholder="08..." className="w-full border-slate-300 rounded-md text-[13px]" value={formData.no_hp} onChange={e => setFormData({...formData, no_hp: e.target.value})} disabled={!editingPerson && formData.santriId !== 'null' && formData.no_hp !== ''} />
+                        <label className="block text-xs font-semibold text-slate-500 mb-1.5">No HP</label>
+                        <input type="text" placeholder="08..." className="w-full border-slate-300 rounded-md text-sm" value={formData.no_hp} onChange={e => setFormData({...formData, no_hp: e.target.value})} disabled={!editingPerson && formData.santriId !== 'null' && formData.no_hp !== ''} />
                     </div>
                     <div>
-                        <label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Akun Login Terkait (Opsional)</label>
-                        <select className="w-full border-slate-300 rounded-md text-[13px]" value={formData.user_id || ''} onChange={e => setFormData({...formData, user_id: e.target.value || null})}>
+                        <label className="block text-xs font-semibold text-slate-500 mb-1.5">Akun Login Terkait (Opsional)</label>
+                        <select className="w-full border-slate-300 rounded-md text-sm" value={formData.user_id || ''} onChange={e => setFormData({...formData, user_id: e.target.value || null})}>
                             <option value="">-- Tidak dikaitkan --</option>
                             {authProfiles.map(p => <option key={p.id} value={p.id}>{p.full_name} ({p.email})</option>)}
                         </select>
-                        <p className="text-[11px] text-slate-400 mt-1">Mengaitkan profil musammi dengan akun pengguna akan membatasi akses tampilan mereka sesuai dengan kelompok halaqah yang mereka pandu.</p>
+                        <p className="text-2xs text-slate-400 mt-1">Mengaitkan profil musammi dengan akun pengguna akan membatasi akses tampilan mereka sesuai dengan kelompok halaqah yang mereka pandu.</p>
                     </div>
                     <div className="flex justify-end pt-5 gap-3 border-t">
-                        <button onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-lg text-[13px] font-semibold text-slate-600 hover:bg-slate-100 transition-colors">Batal</button>
-                        <button onClick={handleSubmit} disabled={isSubmitting} className="px-5 py-2.5 bg-blue-600 text-white rounded-lg text-[13px] font-semibold hover:bg-blue-700 hover:-translate-y-0.5 disabled:opacity-50 disabled:translate-y-0 transition-all shadow-[0_2px_12px_rgba(37,99,235,0.25)]">{isSubmitting ? 'Menyimpan...' : 'Simpan'}</button>
+                        <button onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors">Batal</button>
+                        <button onClick={handleSubmit} disabled={isSubmitting} className="btn btn-primary">{isSubmitting ? 'Menyimpan...' : 'Simpan'}</button>
                     </div>
                 </div>
             </Modal>
             
             <Modal isOpen={isAccountModalOpen} onClose={() => setIsAccountModalOpen(false)} title="Buat Akun Akses Musammi">
                 <div className="space-y-4">
-                    <p className="text-[13px] text-slate-500 mb-2">
+                    <p className="text-sm text-slate-500 mb-2">
                         Akun ini digunakan oleh musammi untuk masuk ke aplikasi, melihat daftar halaqah mereka, dan memberikan evaluasi hafalan ke santri.
                     </p>
                     <div>
@@ -810,15 +810,15 @@ const MusammiPage: React.FC = () => {
                             ))}
                         </select>
                         {accountData.musammi_id && (
-                            <p className="text-[12px] text-emerald-600 mt-2 flex items-center">
+                            <p className="text-xs text-emerald-600 mt-2 flex items-center">
                                 Profil {musammi.find(m => m.id.toString() === accountData.musammi_id)?.nama} akan langsung dikaitkan.
                             </p>
                         )}
                     </div>
 
                     <div className="flex justify-end pt-5 gap-3 border-t">
-                        <button onClick={() => setIsAccountModalOpen(false)} className="px-5 py-2.5 rounded-lg text-[13px] font-semibold text-slate-600 hover:bg-slate-100 transition-colors">Batal</button>
-                        <button onClick={handleCreateAccount} disabled={isCreatingAccount} className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg text-[13px] font-semibold hover:bg-emerald-700 hover:-translate-y-0.5 disabled:opacity-50 disabled:translate-y-0 transition-all shadow-[0_2px_12px_rgba(16,185,129,0.25)]">{isCreatingAccount ? 'Membuat Akun...' : 'Buat Akun'}</button>
+                        <button onClick={() => setIsAccountModalOpen(false)} className="px-5 py-2.5 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors">Batal</button>
+                        <button onClick={handleCreateAccount} disabled={isCreatingAccount} className="btn btn-primary">{isCreatingAccount ? 'Membuat Akun...' : 'Buat Akun'}</button>
                     </div>
                 </div>
             </Modal>

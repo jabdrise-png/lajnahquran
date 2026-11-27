@@ -302,15 +302,15 @@ const KenaikanKelasPage: React.FC = () => {
     const renderSourceEnrollmentStatusBadge = (status?: string) => {
         const st = status || 'active';
         if (st === 'promoted') {
-            return <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold uppercase">Promoted</span>;
+            return <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-2xs font-bold uppercase">Promoted</span>;
         }
         if (st === 'graduated') {
-            return <span className="px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 text-[10px] font-bold uppercase">Graduated</span>;
+            return <span className="px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 text-2xs font-bold uppercase">Graduated</span>;
         }
         if (st === 'transferred' || st === 'withdrawn') {
-            return <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold uppercase">{st}</span>;
+            return <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-2xs font-bold uppercase">{st}</span>;
         }
-        return <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">Active</span>;
+        return <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-2xs font-bold uppercase">Active</span>;
     };
 
     return (
@@ -319,7 +319,7 @@ const KenaikanKelasPage: React.FC = () => {
                 <div
                     className={`p-4 rounded-xl flex items-start gap-3 shadow-sm ${
                         notification.type === 'success'
-                            ? 'bg-green-50 text-green-800 border border-green-200'
+                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                             : 'bg-red-50 text-red-800 border border-red-200'
                     }`}
                 >
@@ -338,13 +338,13 @@ const KenaikanKelasPage: React.FC = () => {
             )}
 
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-4 mt-2">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 sm:gap-4">
                 <div>
-                    <h1 className="text-[24px] font-extrabold text-slate-900 tracking-tight leading-none mb-2">
-                        Kenaikan Kelas, Kelulusan & Plotting Enrollment V2
+                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+                        Kenaikan Kelas & Kelulusan
                     </h1>
-                    <p className="text-[13px] text-slate-500 font-medium">
-                        Promosikan atau luluskan santri antar tahun ajaran secara atomik tanpa menimpa histori kelas tahun ajaran lama (<span className="font-mono">student_enrollments</span>).
+                    <p className="mt-1 text-sm text-slate-500">
+                        Naikkan kelas atau luluskan santri ke tahun ajaran berikutnya. Riwayat kelas tahun lalu tetap tersimpan.
                     </p>
                 </div>
             </div>
@@ -354,11 +354,11 @@ const KenaikanKelasPage: React.FC = () => {
                     <div className="p-5 border-b border-slate-100 bg-slate-50/30 flex flex-col gap-5">
                         <div className="flex flex-col sm:flex-row gap-4 items-end">
                             <div className="w-full sm:w-1/2">
-                                <label className="block text-[12px] font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">
+                                <label className="block text-xs font-semibold text-slate-500 mb-1.5">
                                     Tahun Ajaran Sumber (Lama)
                                 </label>
                                 <select
-                                    className="w-full h-10 px-4 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none text-[13px] font-medium transition-all"
+                                    className="w-full h-10 px-4 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none text-sm font-medium transition-all"
                                     value={sourceYearId}
                                     onChange={(e) => setSourceYearId(e.target.value ? Number(e.target.value) : '')}
                                 >
@@ -375,7 +375,7 @@ const KenaikanKelasPage: React.FC = () => {
                                 <input
                                     type="text"
                                     placeholder="Cari nama / kelas asal..."
-                                    className="w-full h-10 pl-10 pr-4 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none text-[13px] transition-all placeholder:text-slate-400"
+                                    className="w-full h-10 pl-10 pr-4 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none text-sm transition-all placeholder:text-slate-400"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     disabled={!sourceYearId}
@@ -386,7 +386,7 @@ const KenaikanKelasPage: React.FC = () => {
                         <div className="flex flex-col sm:flex-row gap-4">
                             <div className="w-full sm:w-1/3">
                                 <select
-                                    className="w-full h-9 px-3 bg-white border border-slate-200/80 rounded-lg focus:ring-2 focus:ring-blue-50 focus:border-blue-500 outline-none text-[12px] font-medium text-slate-700 transition-colors cursor-pointer"
+                                    className="w-full h-9 px-3 bg-white border border-slate-200/80 rounded-lg focus:ring-2 focus:ring-blue-50 focus:border-blue-500 outline-none text-xs font-medium text-slate-700 transition-colors cursor-pointer"
                                     value={sourceMarhalah}
                                     onChange={(e) => {
                                         setSourceMarhalah(e.target.value);
@@ -404,7 +404,7 @@ const KenaikanKelasPage: React.FC = () => {
                             </div>
                             <div className="w-full sm:w-1/3">
                                 <select
-                                    className="w-full h-9 px-3 bg-white border border-slate-200/80 rounded-lg focus:ring-2 focus:ring-blue-50 focus:border-blue-500 outline-none text-[12px] font-medium text-slate-700 transition-colors cursor-pointer"
+                                    className="w-full h-9 px-3 bg-white border border-slate-200/80 rounded-lg focus:ring-2 focus:ring-blue-50 focus:border-blue-500 outline-none text-xs font-medium text-slate-700 transition-colors cursor-pointer"
                                     value={sourceKelas}
                                     onChange={(e) => setSourceKelas(e.target.value)}
                                     disabled={!sourceYearId || !sourceMarhalah}
@@ -420,7 +420,7 @@ const KenaikanKelasPage: React.FC = () => {
                             </div>
                             <div className="w-full sm:w-1/3">
                                 <select
-                                    className="w-full h-9 px-3 bg-white border border-slate-200/80 rounded-lg focus:ring-2 focus:ring-blue-50 focus:border-blue-500 outline-none text-[12px] font-medium text-slate-700 transition-colors cursor-pointer"
+                                    className="w-full h-9 px-3 bg-white border border-slate-200/80 rounded-lg focus:ring-2 focus:ring-blue-50 focus:border-blue-500 outline-none text-xs font-medium text-slate-700 transition-colors cursor-pointer"
                                     value={sourceStatus}
                                     onChange={(e) => setSourceStatus(e.target.value)}
                                     disabled={!sourceYearId || !targetYearId}
@@ -437,7 +437,7 @@ const KenaikanKelasPage: React.FC = () => {
                         {!sourceYearId ? (
                             <div className="h-full flex flex-col items-center justify-center text-slate-400 p-8 text-center min-h-[300px]">
                                 <AlertCircle size={48} className="mb-4 opacity-20" />
-                                <p className="text-[13px] font-medium">
+                                <p className="text-sm font-medium">
                                     Pilih Tahun Ajaran Sumber terlebih dahulu untuk melihat histori enrollment santri.
                                 </p>
                             </div>
@@ -447,13 +447,13 @@ const KenaikanKelasPage: React.FC = () => {
                             </div>
                         ) : filteredStudents.length === 0 ? (
                             <div className="h-full flex items-center justify-center text-slate-400 min-h-[300px]">
-                                <p className="text-[13px] font-medium">Tidak ada santri ditemukan pada filter ini.</p>
+                                <p className="text-sm font-medium">Tidak ada santri ditemukan pada filter ini.</p>
                             </div>
                         ) : (
                             <table className="w-full text-left border-collapse">
                                 <thead className="bg-white sticky top-0 z-10">
                                     <tr className="border-b border-slate-200/60 bg-slate-50/50">
-                                        <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 w-12 text-center border-r border-slate-100/80">
+                                        <th className="px-6 py-4 text-xs font-semibold text-slate-400 w-12 text-center border-r border-slate-100/80">
                                             <input
                                                 type="checkbox"
                                                 className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
@@ -464,14 +464,14 @@ const KenaikanKelasPage: React.FC = () => {
                                                 onChange={handleSelectAll}
                                             />
                                         </th>
-                                        <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80">
+                                        <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80">
                                             Nama Santri
                                         </th>
-                                        <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80">
+                                        <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80">
                                             Kelas Asal & Status Histori
                                         </th>
-                                        <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100/80">
-                                            Status Enrollment di TA Tujuan
+                                        <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100/80">
+                                            Status kelas di TA tujuan
                                         </th>
                                     </tr>
                                 </thead>
@@ -494,16 +494,16 @@ const KenaikanKelasPage: React.FC = () => {
                                                 />
                                             </td>
                                             <td className="px-6 py-3.5 border-l border-slate-100/80">
-                                                <div className="text-[14px] font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
+                                                <div className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
                                                     {s.nama}
                                                 </div>
                                                 {s.nis && (
-                                                    <div className="text-[11px] font-mono text-slate-400">NIS: {s.nis}</div>
+                                                    <div className="text-2xs font-mono text-slate-400">NIS: {s.nis}</div>
                                                 )}
                                             </td>
                                             <td className="px-6 py-3.5 border-l border-slate-100/80">
                                                 <div className="flex flex-wrap items-center gap-2">
-                                                    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold bg-slate-100 text-slate-600 tracking-widest uppercase border border-slate-200">
+                                                    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
                                                         <KelasLabel text={s.kelas} id={s.kelas_id} />{' '}
                                                         <span className="text-slate-400 ml-1 font-semibold">
                                                             (<MarhalahLabel text={s.marhalah} id={s.marhalah_id} />)
@@ -511,7 +511,7 @@ const KenaikanKelasPage: React.FC = () => {
                                                     </span>
                                                     {renderSourceEnrollmentStatusBadge(s.source_enrollment_status)}
                                                     {s.source_left_at && (
-                                                        <span className="text-[10px] font-mono text-slate-400">
+                                                        <span className="text-2xs font-mono text-slate-400">
                                                             ({s.source_left_at})
                                                         </span>
                                                     )}
@@ -519,11 +519,11 @@ const KenaikanKelasPage: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-3.5 border-l border-slate-100/80">
                                                 {targetYearClasses.some((tc) => tc.santri_id === s.id) ? (
-                                                    <span className="inline-flex items-center px-3 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-700 tracking-widest border border-emerald-200/60 uppercase">
+                                                    <span className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
                                                         Ter-Enroll ({targetYearClasses.find((tc) => tc.santri_id === s.id)?.kelas})
                                                     </span>
                                                 ) : (
-                                                    <span className="inline-flex items-center px-3 py-1 rounded-lg text-[11px] font-bold bg-rose-50 text-rose-700 tracking-widest border border-rose-200/60 uppercase">
+                                                    <span className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold bg-red-50 text-red-700 border border-red-200/60">
                                                         Belum Ter-Enroll
                                                     </span>
                                                 )}
@@ -538,7 +538,7 @@ const KenaikanKelasPage: React.FC = () => {
                     {/* Pagination & Action Footer */}
                     <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-center gap-4">
                         <div className="flex flex-wrap items-center gap-4">
-                            <span className="text-[13px] font-medium text-slate-600">
+                            <span className="text-sm font-medium text-slate-600">
                                 Terpilih: <span className="text-blue-600 font-extrabold">{selectedStudentIds.length}</span> dari{' '}
                                 <span className="font-bold">{filteredStudents.length}</span> santri
                             </span>
@@ -552,7 +552,7 @@ const KenaikanKelasPage: React.FC = () => {
                                     >
                                         <ChevronLeft size={14} />
                                     </button>
-                                    <span className="px-2 font-mono text-slate-600">
+                                    <span className="px-2 text-slate-600">
                                         Hal {currentPage} / {totalPages}
                                     </span>
                                     <button
@@ -569,7 +569,7 @@ const KenaikanKelasPage: React.FC = () => {
                         <button
                             onClick={handlePromoteClick}
                             disabled={loading || selectedStudentIds.length === 0}
-                            className="w-full sm:w-auto px-6 h-10 flex items-center justify-center bg-blue-600 text-white rounded-xl text-[13px] font-bold hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="btn btn-primary w-full sm:w-auto justify-center"
                         >
                             <ArrowRight size={16} strokeWidth={2.5} className="mr-2" />
                             Proses Kenaikan / Kelulusan
@@ -582,16 +582,16 @@ const KenaikanKelasPage: React.FC = () => {
             <Modal isOpen={confirmModalOpen} onClose={() => setConfirmModalOpen(false)} title="Proses Transisi Akademik Santri (V2)">
                 <div className="space-y-5">
                     <p className="text-slate-600 text-xs">
-                        Anda akan memproses <span className="font-bold text-slate-900">{selectedStudentIds.length} santri</span> dari Tahun Ajaran sumber. Histori kelas pada tahun ajaran lama akan tetap tersimpan utuh di <span className="font-mono">student_enrollments</span>.
+                        Anda akan memproses <span className="font-bold text-slate-900">{selectedStudentIds.length} santri</span> dari Tahun Ajaran sumber. Riwayat kelas pada tahun ajaran lama tetap tersimpan.
                     </p>
 
                     <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/80 space-y-4">
                         <div>
-                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                            <label className="block text-xs font-semibold text-slate-500 mb-2">
                                 Jenis Keputusan Akademik
                             </label>
                             <select
-                                className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-white outline-none focus:border-blue-500 text-[13px] font-semibold text-slate-800 cursor-pointer"
+                                className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-white outline-none focus:border-blue-500 text-sm font-semibold text-slate-800 cursor-pointer"
                                 value={actionType}
                                 onChange={(e) => setActionType(e.target.value as PromotionActionType)}
                             >
@@ -605,11 +605,11 @@ const KenaikanKelasPage: React.FC = () => {
                         {actionType === 'promoted' ? (
                             <>
                                 <div>
-                                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                                    <label className="block text-xs font-semibold text-slate-500 mb-2">
                                         Tahun Ajaran Tujuan
                                     </label>
                                     <select
-                                        className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-white outline-none focus:border-blue-500 text-[13px] font-semibold text-slate-800 cursor-pointer"
+                                        className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-white outline-none focus:border-blue-500 text-sm font-semibold text-slate-800 cursor-pointer"
                                         value={targetYearId}
                                         onChange={(e) => setTargetYearId(e.target.value ? Number(e.target.value) : '')}
                                     >
@@ -623,11 +623,11 @@ const KenaikanKelasPage: React.FC = () => {
                                 </div>
 
                                 <div>
-                                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                                    <label className="block text-xs font-semibold text-slate-500 mb-2">
                                         Marhalah Tujuan
                                     </label>
                                     <select
-                                        className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-white outline-none focus:border-blue-500 text-[13px] font-semibold text-slate-800 cursor-pointer"
+                                        className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-white outline-none focus:border-blue-500 text-sm font-semibold text-slate-800 cursor-pointer"
                                         value={targetMarhalah}
                                         onChange={(e) => {
                                             setTargetMarhalah(e.target.value as Marhalah);
@@ -643,12 +643,12 @@ const KenaikanKelasPage: React.FC = () => {
                                 </div>
 
                                 <div>
-                                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                                    <label className="block text-xs font-semibold text-slate-500 mb-2">
                                         Kelas Tujuan
                                     </label>
                                     <div className="flex flex-col gap-3">
                                         <select
-                                            className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-white outline-none focus:border-blue-500 text-[13px] font-semibold text-slate-800 cursor-pointer"
+                                            className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-white outline-none focus:border-blue-500 text-sm font-semibold text-slate-800 cursor-pointer"
                                             value={isCustomTargetKelas ? 'NEW_CLASS' : targetKelas}
                                             onChange={(e) => {
                                                 if (e.target.value === 'NEW_CLASS') {
@@ -674,7 +674,7 @@ const KenaikanKelasPage: React.FC = () => {
                                             <input
                                                 type="text"
                                                 placeholder="Ketik nama kelas baru..."
-                                                className="w-full border border-blue-300 rounded-xl px-4 py-2.5 bg-blue-50/50 outline-none focus:border-blue-500 text-[13px] font-semibold text-blue-900"
+                                                className="w-full border border-blue-300 rounded-xl px-4 py-2.5 bg-blue-50/50 outline-none focus:border-blue-500 text-sm font-semibold text-blue-900"
                                                 value={customTargetKelas}
                                                 onChange={(e) => setCustomTargetKelas(e.target.value)}
                                                 autoFocus
@@ -684,7 +684,7 @@ const KenaikanKelasPage: React.FC = () => {
                                 </div>
 
                                 {sourceYearId === targetYearId && sourceYearId !== '' && (
-                                    <p className="text-[12px] font-bold text-red-500 mt-1">
+                                    <p className="text-xs font-bold text-red-500 mt-1">
                                         Tahun ajaran sumber dan tujuan tidak boleh sama.
                                     </p>
                                 )}
@@ -694,13 +694,13 @@ const KenaikanKelasPage: React.FC = () => {
                                 <GraduationCap size={16} className="text-amber-700 mt-0.5 shrink-0" />
                                 <div>
                                     Enrollment santri terpilih pada Tahun Ajaran sumber akan ditandai sebagai{' '}
-                                    <span className="font-mono font-bold uppercase">{actionType}</span> dengan tanggal selesai hari ini, dan santri tidak akan di-enroll otomatis ke Tahun Ajaran baru.
+                                    <span className="font-bold uppercase">{actionType}</span> dengan tanggal selesai hari ini, dan santri tidak akan di-enroll otomatis ke Tahun Ajaran baru.
                                 </div>
                             </div>
                         )}
 
                         <div>
-                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                            <label className="block text-xs font-semibold text-slate-500 mb-1.5">
                                 Catatan Transisi Akademik (Opsional)
                             </label>
                             <input
@@ -716,7 +716,7 @@ const KenaikanKelasPage: React.FC = () => {
                     <div className="flex justify-end gap-3 pt-4 border-t border-slate-200/80">
                         <button
                             onClick={() => setConfirmModalOpen(false)}
-                            className="px-5 py-2.5 rounded-xl text-[13px] font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+                            className="px-5 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors"
                         >
                             Batal
                         </button>
@@ -730,7 +730,7 @@ const KenaikanKelasPage: React.FC = () => {
                                         (isCustomTargetKelas && !customTargetKelas.trim()) ||
                                         sourceYearId === targetYearId))
                             }
-                            className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all text-[13px] font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed min-w-[140px]"
+                            className="btn btn-primary justify-center min-w-[140px]"
                         >
                             {loading ? (
                                 <>

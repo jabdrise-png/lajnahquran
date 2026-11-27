@@ -54,12 +54,12 @@ const DaftarSetoran: React.FC<Props> = ({ rows, isAdmin, halaqahOptions, santriL
               <div className="text-sm font-semibold text-slate-800 truncate">
                 {nama(r.santri_id)} <span className="font-normal text-slate-500">· {r.skema}</span>
               </div>
-              <div className="text-sm sm:text-[12px] text-slate-600">
+              <div className="text-sm sm:text-xs text-slate-600">
                 {showDate && <>{r.tanggal} {r.waktu} · </>}{rentang(r)} · {r.jumlah_halaman} hal · K{r.kesalahan_kabir}/S{r.kesalahan_shoghir}
                 {halaqahNama(r.halaqah_id) && showDate && <> · {halaqahNama(r.halaqah_id)}</>}
               </div>
             </div>
-            <span className={`text-sm sm:text-[11px] font-bold px-2 py-0.5 rounded ${r.is_repeat ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
+            <span className={`text-sm sm:text-2xs font-bold px-2 py-0.5 rounded ${r.is_repeat ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
               {r.nilai || '-'}{r.is_repeat ? ' · Ulang' : ''}
             </span>
             <div className="flex items-center gap-1">

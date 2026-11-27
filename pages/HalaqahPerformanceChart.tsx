@@ -32,12 +32,12 @@ const PortalTooltip = ({ active, payload, label }: any) => {
                 zIndex: 999999, 
                 pointerEvents: 'none'
             }}
-            className="bg-white/95 backdrop-blur-md border border-slate-100 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] rounded-xl p-3 min-w-[150px]"
+            className="bg-white/95 backdrop-blur-md border border-slate-100 shadow-xs rounded-xl p-3 min-w-[150px]"
         >
-            <p className="font-semibold text-slate-800 mb-2 border-b border-slate-100 pb-2 text-[13px]">{label}</p>
+            <p className="font-semibold text-slate-800 mb-2 border-b border-slate-100 pb-2 text-sm">{label}</p>
             <div className="flex flex-col gap-1.5">
                 {payload.map((entry: any, index: number) => (
-                    <div key={index} className="flex items-center justify-between gap-4 text-[12px]">
+                    <div key={index} className="flex items-center justify-between gap-4 text-xs">
                         <div className="flex items-center gap-1.5">
                             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
                             <span className="text-slate-600">{entry.name === 'Performa' ? 'Performa Umum' : entry.name}</span>
@@ -490,13 +490,13 @@ export const HalaqahPerformanceChart = ({ studentProgress, halaqah, halaqahEvalu
     const evalKeys = Array.from(new Set(evaluationSettings.map((s: any) => s.category))) as string[];
 
     return (
-        <div ref={chartRef} className="rounded-[1.25rem] border border-slate-200/70 bg-white p-7 shadow-sm flex-1 relative w-full flex flex-col mb-2 mt-8">
+        <div ref={chartRef} className="rounded-2xl border border-slate-200/70 bg-white p-7 shadow-sm flex-1 relative w-full flex flex-col mb-2 mt-8">
             <div className="flex justify-between items-start mb-6">
                 <div className="flex flex-col">
-                    <h4 className="text-[15px] font-semibold text-slate-800 tracking-tight mb-1">
+                    <h4 className="text-base font-semibold text-slate-800 tracking-tight mb-1">
                         Performa Keseluruhan Halaqah
                     </h4>
-                    <p className="text-[13px] text-slate-500 font-medium">
+                    <p className="mt-1 text-sm text-slate-500">
                         Agregasi pencapaian target dan evaluasi periode terpilih
                     </p>
                 </div>
@@ -504,13 +504,13 @@ export const HalaqahPerformanceChart = ({ studentProgress, halaqah, halaqahEvalu
                     <div className="relative" ref={metricMenuRef}>
                         <button 
                             onClick={() => setIsMetricMenuOpen(!isMetricMenuOpen)}
-                            className="flex items-center gap-2 text-[13px] font-medium bg-white border border-slate-200 text-slate-700 rounded-lg px-3 py-1.5 focus:outline-none hover:bg-slate-50 transition-colors shadow-sm relative z-[101]"
+                            className="btn btn-secondary btn-sm relative"
                         >
                             <span>Pilih Metrik ({selectedMetrics.length})</span>
                             <ChevronDown size={14} className="text-slate-400" />
                         </button>
                         {isMetricMenuOpen && (
-                            <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-xl shadow-[0_8px_30px_-4px_rgba(0,0,0,0.1)] border border-slate-100 py-2 z-[9999] flex flex-col max-h-64 overflow-y-auto">
+                            <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-xl shadow-xs border border-slate-100 py-2 z-[9999] flex flex-col max-h-64 overflow-y-auto">
                                 {[
                                     { id: 'global', label: 'Mode Umum (Performa)' },
                                     { id: 'hafalan', label: 'Hafalan' },
@@ -530,7 +530,7 @@ export const HalaqahPerformanceChart = ({ studentProgress, halaqah, halaqahEvalu
                                                 setSelectedMetrics([...selectedMetrics, option.id]);
                                             }
                                         }}
-                                        className="w-full text-left px-4 py-2 text-[13px] font-medium text-slate-700 hover:bg-slate-50 flex items-center justify-between transition-colors"
+                                        className="w-full text-left px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 flex items-center justify-between transition-colors"
                                     >
                                         <span>{option.label}</span>
                                         {selectedMetrics.includes(option.id) ? (
@@ -552,10 +552,10 @@ export const HalaqahPerformanceChart = ({ studentProgress, halaqah, halaqahEvalu
                             <MoreVertical size={18} />
                         </button>
                         {isMenuOpen && (
-                            <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-[0_8px_30px_-4px_rgba(0,0,0,0.1)] border border-slate-100 py-1.5 z-50">
+                            <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-xs border border-slate-100 py-1.5 z-50">
                                 <button 
                                     onClick={handleDownload}
-                                    className="w-full text-left px-4 py-2 text-[13px] font-medium text-slate-700 hover:bg-slate-50 flex items-center transition-colors"
+                                    className="w-full text-left px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 flex items-center transition-colors"
                                 >
                                     <Download size={14} className="mr-2 text-slate-400"/> Download Chart
                                 </button>

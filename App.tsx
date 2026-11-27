@@ -263,7 +263,7 @@ const App: React.FC = () => {
           </p>
           <button
             onClick={handleLogout}
-            className="inline-flex items-center justify-center bg-white border border-slate-300 text-slate-700 font-semibold py-2 px-6 rounded-lg hover:bg-slate-50 transition-colors w-full"
+            className="btn btn-secondary justify-center w-full"
           >
             <LogOut size={16} className="mr-2" /> Keluar
           </button>

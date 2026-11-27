@@ -91,8 +91,8 @@ const IsianFormPanel: React.FC = () => {
         <input className={`${inputCls} mt-1`} value={draf.description} onChange={(e) => setDraf({ ...draf, description: e.target.value })} />
       </label>
       <div className="sm:col-span-3 flex justify-end gap-2">
-        <button type="button" onClick={() => setDraf(null)} className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-700">Batal</button>
-        <button type="button" disabled={busy} onClick={simpan} className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-50">Simpan</button>
+        <button type="button" onClick={() => setDraf(null)} className="btn btn-secondary btn-sm">Batal</button>
+        <button type="button" disabled={busy} onClick={simpan} className="btn btn-primary btn-sm">Simpan</button>
       </div>
     </div>
   );
@@ -104,7 +104,7 @@ const IsianFormPanel: React.FC = () => {
         <div key={f.id} className={`flex flex-wrap items-center gap-2 px-3 py-2 ${f.is_active ? '' : 'opacity-50'}`}>
           <div className="min-w-0 flex-1">
             <div className="text-sm font-semibold text-slate-800">{f.label}</div>
-            <div className="text-[11px] text-slate-400">
+            <div className="text-2xs text-slate-400">
               {JENIS[f.field_type as keyof typeof JENIS] || f.field_type}
               {f.field_type === 'choice' && `: ${f.options.map((o) => o.label).join(', ')}`}
               {f.legacy_ref && ' · dari aplikasi lama'}
@@ -138,7 +138,7 @@ const IsianFormPanel: React.FC = () => {
         <h3 className="text-sm font-bold text-slate-700 flex items-center gap-1.5"><Lock size={13} /> Isian sistem</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
           {sistem.map((f) => (
-            <label key={f.id} className="rounded-lg border border-slate-200 bg-white p-2 text-[11px] text-slate-500">
+            <label key={f.id} className="rounded-lg border border-slate-200 bg-white p-2 text-2xs text-slate-500">
               {f.description || f.system_key}
               <input className={`${inputCls} mt-1`} defaultValue={f.label} disabled={!isAdmin || busy}
                 onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== f.label && jalankan(() => simpanIsianForm({ ...f, label: e.target.value }), 'Nama isian diganti.')} />

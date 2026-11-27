@@ -51,7 +51,7 @@ const ResetSandiPage: React.FC = () => {
     }
   };
 
-  const input = 'block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl text-[15px] text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600';
+  const input = 'block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600';
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
@@ -60,12 +60,12 @@ const ResetSandiPage: React.FC = () => {
         <h1 className="text-xl font-bold text-slate-900">Atur ulang kata sandi</h1>
 
         {selesai ? (
-          <p className="mt-3 text-[15px] text-emerald-700 flex items-center gap-2"><CheckCircle2 size={18} /> Kata sandi tersimpan. Mengalihkan…</p>
+          <p className="mt-3 text-base text-emerald-700 flex items-center gap-2"><CheckCircle2 size={18} /> Kata sandi tersimpan. Mengalihkan…</p>
         ) : siap === 'cek' ? (
-          <p className="mt-3 text-[15px] text-slate-500">Memeriksa tautan…</p>
+          <p className="mt-3 text-base text-slate-500">Memeriksa tautan…</p>
         ) : siap === 'tidak' ? (
           <div className="mt-3 space-y-4">
-            <p className="text-[15px] text-slate-600">{galat || 'Tautan tidak berlaku atau sudah kedaluwarsa.'} Minta tautan baru dari halaman masuk.</p>
+            <p className="text-base text-slate-600">{galat || 'Tautan tidak berlaku atau sudah kedaluwarsa.'} Minta tautan baru dari halaman masuk.</p>
             <button type="button" onClick={() => navigate('/login?lupa=1')} className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold">Minta tautan baru</button>
           </div>
         ) : (

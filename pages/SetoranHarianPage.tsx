@@ -66,7 +66,7 @@ export default function SetoranHarianPage() {
         title="Setoran & Murojaah"
         description="Setoran langsung sah saat dicatat. Koreksi dan pembatalan oleh Admin dengan alasan."
         actions={mine.length > 0 && (
-          <button type="button" onClick={() => setCatat(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold">
+          <button type="button" onClick={() => setCatat(true)} className="btn btn-primary">
             <Plus size={16} /> Catat setoran
           </button>
         )}

@@ -35,7 +35,7 @@ const Section: React.FC<{ title: string; hint: string; children: React.ReactNode
   <div className="border border-slate-200 rounded-lg flex flex-col">
     <div className="p-3 border-b border-slate-200 bg-slate-50 rounded-t-lg">
       <h3 className="font-bold text-slate-800 text-sm">{title}</h3>
-      <p className="text-[11px] text-slate-500 mt-0.5">{hint}</p>
+      <p className="text-2xs text-slate-500 mt-0.5">{hint}</p>
     </div>
     <div className="p-3 space-y-2">{children}</div>
   </div>
@@ -137,7 +137,7 @@ const ReferensiLembagaPanel: React.FC = () => {
       >
         {sessionSlots.map((sl) => (
           <div key={sl.id || sl.code} className="flex flex-wrap items-center gap-3 py-1.5 border-b border-slate-100 last:border-0">
-            <span className="text-[11px] font-mono text-slate-400 w-16 truncate" title="Kode">{sl.code}</span>
+            <span className="text-2xs font-mono text-slate-400 w-16 truncate" title="Kode">{sl.code}</span>
             <input className={`${inputCls} max-w-[140px]`} defaultValue={sl.name} disabled={!isAdmin || busy}
               onBlur={(e) => e.target.value.trim() && e.target.value !== sl.name && update('session_slots', sl.id, { name: e.target.value.trim() })} />
             <select className={`${inputCls} max-w-[150px]`} value={sl.default_kind_code || ''} disabled={!isAdmin || busy}
@@ -220,11 +220,11 @@ const ReferensiLembagaPanel: React.FC = () => {
         hint="Predikat dipilih otomatis: baris pertama (urut nomor) yang batas khoto kabir & shoghirnya terpenuhi. Selebihnya masuk baris “Ulang” (Rasib): setoran diulang dan tidak menambah hafalan. Predikat setoran lama tidak berubah saat tabel diubah."
       >
         {!aturanTersimpan && (
-          <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+          <p className="text-2xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
             Tabel kelancaran lembaga belum tersimpan di database (migrasi 2026_11_28_01 belum dijalankan). Yang tampil adalah nilai bawaan.
           </p>
         )}
-        <div className="grid grid-cols-[48px_1fr_72px_72px_auto] gap-2 text-[10px] font-semibold uppercase text-slate-400 px-0.5">
+        <div className="grid grid-cols-[48px_1fr_72px_72px_auto] gap-2 text-2xs font-semibold uppercase text-slate-400 px-0.5">
           <span>Urut</span><span>Predikat</span><span>Maks kabir</span><span>Maks shoghir</span><span />
         </div>
         {[...fluencyRules].sort((a, b) => a.sort_order - b.sort_order).map((r) => {
@@ -236,7 +236,7 @@ const ReferensiLembagaPanel: React.FC = () => {
               <input className={inputCls} defaultValue={r.predicate} disabled={!edit}
                 onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== r.predicate && update('fluency_rules', r.id, { predicate: e.target.value.trim() })} />
               {r.is_repeat ? (
-                <span className="col-span-2 text-[11px] text-slate-500 italic">Selebihnya → diulang</span>
+                <span className="col-span-2 text-2xs text-slate-500 italic">Selebihnya → diulang</span>
               ) : (
                 <>
                   <input type="number" min={0} className={inputCls} defaultValue={r.max_major ?? ''} disabled={!edit}
@@ -258,7 +258,7 @@ const ReferensiLembagaPanel: React.FC = () => {
         })}
         {isAdmin && aturanTersimpan && (
           <div className="grid grid-cols-[48px_1fr_72px_72px_auto] gap-2 items-center pt-2">
-            <span className="text-[11px] text-slate-400 text-center">baru</span>
+            <span className="text-2xs text-slate-400 text-center">baru</span>
             <input className={inputCls} placeholder="Predikat baru" value={newRule.predicate}
               onChange={(e) => setNewRule({ ...newRule, predicate: e.target.value })} />
             <input type="number" min={0} className={inputCls} value={newRule.major} onChange={(e) => setNewRule({ ...newRule, major: e.target.value })} />
@@ -289,7 +289,7 @@ const ReferensiLembagaPanel: React.FC = () => {
           {(() => {
             const h = hitungPredikat(fluencyRules, uji.kabir, uji.shoghir);
             return (
-              <span className={`px-2 py-0.5 rounded-full font-semibold ${h.isRepeat ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+              <span className={`px-2 py-0.5 rounded-full font-semibold ${h.isRepeat ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
                 {h.predicate}{h.isRepeat ? ' · diulang' : ''}
               </span>
             );

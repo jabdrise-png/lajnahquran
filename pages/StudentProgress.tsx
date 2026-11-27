@@ -198,13 +198,13 @@ const StudentProgress: React.FC<StudentProgressProps> = ({
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
                 <div className="overflow-x-auto overflow-y-auto w-full max-h-[600px] relative hide-scrollbar">
                     <table className="min-w-full divide-y divide-slate-200">
-                        <thead className="bg-slate-50 sticky top-0 z-40 shadow-[0_2px_5px_rgba(0,0,0,0.05)]">
+                        <thead className="bg-slate-50 sticky top-0 z-40 shadow-xs">
                             <tr>
-                                <th rowSpan={2} className="px-3 py-4 text-center text-[11px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 border-r border-slate-200 w-[50px] min-w-[50px] max-w-[50px] sticky left-0 z-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">No</th>
-                                <th rowSpan={2} className="px-4 py-4 text-left text-[11px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 border-r border-slate-200 w-[200px] min-w-[200px] max-w-[200px] sticky left-[50px] z-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Nama Santri</th>
-                                <th rowSpan={2} className="px-4 py-4 text-center text-[11px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 border-r border-slate-200 w-[100px] min-w-[100px] max-w-[100px] sticky left-[250px] z-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Kelas</th>
+                                <th rowSpan={2} className="px-3 py-4 text-center text-xs font-semibold text-slate-500 bg-slate-50 border-r border-slate-200 w-[50px] min-w-[50px] max-w-[50px] sticky left-0 z-50 shadow-xs">No</th>
+                                <th rowSpan={2} className="px-4 py-4 text-left text-xs font-semibold text-slate-500 bg-slate-50 border-r border-slate-200 w-[200px] min-w-[200px] max-w-[200px] sticky left-[50px] z-50 shadow-xs">Nama Santri</th>
+                                <th rowSpan={2} className="px-4 py-4 text-center text-xs font-semibold text-slate-500 bg-slate-50 border-r border-slate-200 w-[100px] min-w-[100px] max-w-[100px] sticky left-[250px] z-50 shadow-xs">Kelas</th>
                                 {ALL_SCHEMES.map(scheme => (
-                                    <th key={scheme} colSpan={availableMonths.length} className="px-4 py-3 text-center text-[11px] font-bold text-white uppercase tracking-widest border-b border-r border-blue-700 bg-blue-600">
+                                    <th key={scheme} colSpan={availableMonths.length} className="px-4 py-3 text-center text-xs font-semibold text-white border-b border-r border-blue-700 bg-blue-600">
                                         {scheme}
                                     </th>
                                 ))}
@@ -212,7 +212,7 @@ const StudentProgress: React.FC<StudentProgressProps> = ({
                             <tr>
                                 {ALL_SCHEMES.map(scheme => 
                                     availableMonths.map(month => (
-                                        <th key={`${scheme}-${month}`} className="px-3 py-2 text-center text-[10px] font-bold text-slate-600 uppercase tracking-wider bg-blue-50 border-b border-r border-slate-200 whitespace-nowrap min-w-[100px]">
+                                        <th key={`${scheme}-${month}`} className="px-3 py-2 text-center text-xs font-semibold text-slate-600 bg-blue-50 border-b border-r border-slate-200 whitespace-nowrap min-w-[100px]">
                                             {formatPeriodName(month, periodeEvaluasi)}
                                         </th>
                                     ))
@@ -229,13 +229,13 @@ const StudentProgress: React.FC<StudentProgressProps> = ({
                             ) : (
                                 sortedSantri.map((s, index) => (
                                     <tr key={s.id} className="hover:bg-blue-50/30 transition-colors group">
-                                        <td className="px-3 py-3 text-center text-sm font-medium text-slate-400 bg-white group-hover:bg-blue-50 border-r border-slate-100 w-[50px] min-w-[50px] max-w-[50px] sticky left-0 z-30 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] transition-colors">{index + 1}</td>
-                                        <td className="px-4 py-3 bg-white border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] w-[200px] min-w-[200px] max-w-[200px] sticky left-[50px] z-30 group-hover:bg-blue-50 transition-colors">
+                                        <td className="px-3 py-3 text-center text-sm font-medium text-slate-400 bg-white group-hover:bg-blue-50 border-r border-slate-100 w-[50px] min-w-[50px] max-w-[50px] sticky left-0 z-30 shadow-xs transition-colors">{index + 1}</td>
+                                        <td className="px-4 py-3 bg-white border-r border-slate-100 shadow-xs w-[200px] min-w-[200px] max-w-[200px] sticky left-[50px] z-30 group-hover:bg-blue-50 transition-colors">
                                             <div className="font-bold text-slate-800 text-sm whitespace-nowrap overflow-hidden text-ellipsis">{s.nama}</div>
-                                            <div className="text-[11px] text-slate-500 overflow-hidden text-ellipsis">{s.nis || '-'}</div>
+                                            <div className="text-2xs text-slate-500 overflow-hidden text-ellipsis">{s.nis || '-'}</div>
                                         </td>
-                                        <td className="px-4 py-3 text-center border-r border-slate-100 w-[100px] min-w-[100px] max-w-[100px] sticky left-[250px] z-30 bg-white group-hover:bg-blue-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] transition-colors">
-                                            <span className="inline-flex items-center justify-center px-2 py-1 rounded text-[10px] font-bold tracking-wide bg-slate-100 text-slate-600 whitespace-nowrap">
+                                        <td className="px-4 py-3 text-center border-r border-slate-100 w-[100px] min-w-[100px] max-w-[100px] sticky left-[250px] z-30 bg-white group-hover:bg-blue-50 shadow-xs transition-colors">
+                                            <span className="inline-flex items-center justify-center px-2 py-1 rounded text-2xs font-bold tracking-wide bg-slate-100 text-slate-600 whitespace-nowrap">
                                                 <KelasLabel text={s.kelas} id={s.kelas_id} />
                                             </span>
                                         </td>

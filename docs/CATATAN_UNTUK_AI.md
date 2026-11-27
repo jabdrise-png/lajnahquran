@@ -342,6 +342,12 @@ Hook memuat `examAttempts`, `periodeUjianBulanan`, `rubrikAktif`, `pengaturanRap
 - `components/PwaKontrol.tsx` (di `App.tsx`): banner versi baru, kartu "Pasang aplikasi" (`usePasangAplikasi()`; iPhone: petunjuk), pita offline.
 - Login: "Lupa sandi?" → `resetPasswordForEmail(redirectTo: /reset-password)`; `pages/ResetSandiPage.tsx` → `auth.updateUser` (aturan `lib/sandi.ts`: ≥ 8, bukan `Mahad123!`, konfirmasi sama). Google: `signInWithOAuth({ provider: 'google' })`. `handle_new_user` (migrasi `2026_12_02_02`) hanya membuat lembaga untuk pendaftaran email dengan `mahad_name`.
 
+### 10.6 Aturan tampilan (F7b)
+
+- Baca `docs/PANDUAN_UI.md` sebelum membuat/mengubah layar. Palet `blue` = biru merek (`#1557D5`), abu = `slate`, status emerald/amber/red.
+- Kelas komponen di `index.css`: `btn btn-primary|secondary|soft|ghost|danger`, `field`, `card`, `badge badge-*`, `tabs/tab/tab-aktif`, `tabel`, `tabel-kartu` (+ `data-label`). Komponen React di `components/ui/SaaSPrimitives.tsx` memakai kelas yang sama.
+- Dilarang (dicek `tests/v2/f7b-ui.test.ts`): hex di kelas, `text-[Npx]`, `rounded-[..]`, `shadow-[..]`, indigo/sky/green/rose/gray, "Loading...", istilah teknis di layar (Enrollment, Snapshot, nama tabel).
+
 ### 10.5 Migrasi Fase 7 (urutan)
 
 `2026_12_02_01_f7_kinerja` → `_02_f7_login_google`. Panduan & pengaturan Supabase/Google: `docs/FASE_7_UJI.md`.
@@ -353,7 +359,7 @@ Hook memuat `examAttempts`, `periodeUjianBulanan`, `rubrikAktif`, `pengaturanRap
 - `npm run test` = `npm run test:v2` + suite lama (`scripts/verify-fase*.ts`).
 - `tests/v2/` memakai PGlite (PostgreSQL di memori). `tests/v2/helpers/db.ts` membangun database dari skema repo + **semua** migrasi; `seed.sql` (data uji: 1 lembaga, superadmin, admin, musammi', halaqah, 2 santri), `seed_legacy.sql` (contoh data tabel lama).
 - Helper: `as(db, userId, fn)` menjalankan kueri sebagai pengguna tertentu (RLS aktif); `expectError()`.
-- Test penting yang menjaga aturan di atas: `f2-kode-dan-peran.test.ts` (tidak ada query tabel lama / kunci app_settings lama), `migrasi-umum.test.ts` (aturan migrasi + aman diulang), `f3-database.test.ts` (aturan 6.1), `f3-lib.test.ts` (predikat layar = database, arah hafalan, dan larangan kunci sesi/validasi di kode), `f4-database.test.ts` (aturan 7.2), `f4-lib.test.ts` (adaptor Rekap Periode dan larangan tabel evaluasi lama di kode), `f5-database.test.ts` (aturan 8.2), `f5-lib.test.ts` (rumus layar = server dan larangan tabel/pengaturan ujian lama di kode), `f6-database.test.ts` (aturan 9.2), `f6-server.test.ts` (webhook & pemroses antrian), `f6-lib.test.ts` (laporan mudir & layar), `f7-database.test.ts` (setoran terakhir, handle_new_user), `f7-lib.test.ts` (tanpa CDN/xlsx, lazy, data per halaman, PWA, lupa sandi).
+- Test penting yang menjaga aturan di atas: `f2-kode-dan-peran.test.ts` (tidak ada query tabel lama / kunci app_settings lama), `migrasi-umum.test.ts` (aturan migrasi + aman diulang), `f3-database.test.ts` (aturan 6.1), `f3-lib.test.ts` (predikat layar = database, arah hafalan, dan larangan kunci sesi/validasi di kode), `f4-database.test.ts` (aturan 7.2), `f4-lib.test.ts` (adaptor Rekap Periode dan larangan tabel evaluasi lama di kode), `f5-database.test.ts` (aturan 8.2), `f5-lib.test.ts` (rumus layar = server dan larangan tabel/pengaturan ujian lama di kode), `f6-database.test.ts` (aturan 9.2), `f6-server.test.ts` (webhook & pemroses antrian), `f6-lib.test.ts` (laporan mudir & layar), `f7-database.test.ts` (setoran terakhir, handle_new_user), `f7-lib.test.ts` (tanpa CDN/xlsx, lazy, data per halaman, PWA, lupa sandi), `f7b-ui.test.ts` (aturan tampilan).
 - Bila mengubah perilaku yang diuji, perbarui test-nya dan jelaskan alasannya. Jangan menghapus test agar lulus.
 
 ---

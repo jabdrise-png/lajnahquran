@@ -203,7 +203,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         ]
       },
       { id: 'users', label: 'Akses & Undangan', icon: <ShieldCheck size={18} />, page: 'Users' },
-      { id: 'audit_lembaga', label: 'Audit & Snapshot Raport', icon: <FileCheck2 size={18} />, page: 'AuditLembaga' },
+      { id: 'audit_lembaga', label: 'Audit & Arsip Raport', icon: <FileCheck2 size={18} />, page: 'AuditLembaga' },
       { id: 'settings', label: 'Pengaturan Lembaga', icon: <Settings size={18} />, page: 'Settings' }
     );
   }
@@ -215,10 +215,10 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const renderNavItem = (item: NavItemConfig, depth: number = 0) => {
     if (item.isGroup) {
-      if (isCollapsed) return <div key={item.id} className="my-3.5 border-t border-[#E1E7EF] mx-4"></div>;
+      if (isCollapsed) return <div key={item.id} className="my-3.5 border-t border-slate-200 mx-4"></div>;
       return (
         <li key={item.id} className="px-4 mt-6 mb-2 first:mt-2">
-          <span className="text-[11px] font-bold text-[#667085] tracking-wider uppercase px-2">{item.label}</span>
+          <span className="text-xs font-semibold text-slate-500 px-2">{item.label}</span>
         </li>
       );
     }
@@ -235,12 +235,12 @@ const Sidebar: React.FC<SidebarProps> = ({
 
     const baseClasses = `flex items-center w-full ${
       isCollapsed ? 'justify-center px-2' : 'px-3.5'
-    } py-2.5 mb-1 rounded-[10px] transition-all duration-150 group relative`;
+    } py-2.5 mb-1 rounded-lg transition-all duration-150 group relative`;
     const activeClasses = isPlatformSuperadmin
-      ? 'bg-[#E7F0FF] text-[#1557D5] font-semibold shadow-2xs'
+      ? 'bg-blue-50 text-blue-600 font-semibold shadow-2xs'
       : 'bg-blue-50/90 text-blue-700 font-semibold';
     const inactiveClasses = isPlatformSuperadmin
-      ? 'text-[#667085] hover:text-[#101828] hover:bg-[#F3F6FB] font-medium'
+      ? 'text-slate-500 hover:text-slate-900 hover:bg-slate-100 font-medium'
       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 font-medium';
 
     const itemClass = `${baseClasses} ${isActive ? activeClasses : inactiveClasses}`;
@@ -249,15 +249,15 @@ const Sidebar: React.FC<SidebarProps> = ({
       return (
         <li key={item.id} className="relative">
           {isActive && !isParent && (
-            <div className="absolute -left-[9px] top-1/2 transform -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#1557D5]"></div>
+            <div className="absolute -left-[9px] top-1/2 transform -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-blue-600"></div>
           )}
           {isParent ? (
             <button
               onClick={(e) => { e.preventDefault(); toggleMenu(item.id); }}
-              className={`flex items-center justify-between w-full py-1.5 px-3 rounded-md text-[13px] transition-colors ${
+              className={`flex items-center justify-between w-full py-1.5 px-3 rounded-md text-sm transition-colors ${
                 isActive
-                  ? 'text-[#1557D5] font-semibold'
-                  : 'text-[#667085] hover:text-[#101828] hover:bg-[#F3F6FB] group'
+                  ? 'text-blue-600 font-semibold'
+                  : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100 group'
               }`}
             >
               <span className="whitespace-nowrap">{item.label}</span>
@@ -267,17 +267,17 @@ const Sidebar: React.FC<SidebarProps> = ({
             <a
               href="#"
               onClick={(e) => { e.preventDefault(); if (item.page) setPage(item.page); }}
-              className={`flex items-center py-1.5 px-3 rounded-md text-[13px] transition-colors ${
+              className={`flex items-center py-1.5 px-3 rounded-md text-sm transition-colors ${
                 isActive
-                  ? 'text-[#1557D5] font-semibold bg-[#E7F0FF]/70'
-                  : 'text-[#667085] hover:text-[#101828] hover:bg-[#F3F6FB] group'
+                  ? 'text-blue-600 font-semibold bg-blue-50/70'
+                  : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100 group'
               }`}
             >
               <span className="whitespace-nowrap">{item.label}</span>
             </a>
           )}
           {isParent && isExpanded && !isCollapsed && (
-            <ul className="mt-1 space-y-0.5 ml-4 border-l border-[#E1E7EF] pl-2 py-0.5 relative">
+            <ul className="mt-1 space-y-0.5 ml-4 border-l border-slate-200 pl-2 py-0.5 relative">
               {item.children?.map(child => renderNavItem(child, depth + 1))}
             </ul>
           )}
@@ -294,13 +294,13 @@ const Sidebar: React.FC<SidebarProps> = ({
             className={`${itemClass} justify-between outline-none`}
           >
             <div className="flex items-center">
-              <div className={`flex-shrink-0 transition-colors ${isActive ? 'text-[#1557D5]' : 'text-[#667085] group-hover:text-[#101828]'}`}>
+              <div className={`flex-shrink-0 transition-colors ${isActive ? 'text-blue-600' : 'text-slate-500 group-hover:text-slate-900'}`}>
                 {item.icon}
               </div>
-              {!isCollapsed && <span className="ml-3 text-[13.5px] whitespace-nowrap leading-none pt-px">{item.label}</span>}
+              {!isCollapsed && <span className="ml-3 text-sm whitespace-nowrap leading-none pt-px">{item.label}</span>}
             </div>
             {!isCollapsed && (
-              <div className={`transition-transform duration-200 flex-shrink-0 ${isActive ? 'text-[#1557D5]' : 'text-[#667085] group-hover:text-[#101828]'} ${isExpanded ? 'rotate-180' : ''}`}>
+              <div className={`transition-transform duration-200 flex-shrink-0 ${isActive ? 'text-blue-600' : 'text-slate-500 group-hover:text-slate-900'} ${isExpanded ? 'rotate-180' : ''}`}>
                 <ChevronDown size={14} />
               </div>
             )}
@@ -316,21 +316,21 @@ const Sidebar: React.FC<SidebarProps> = ({
             className={itemClass}
           >
             {isActive && !isCollapsed && (
-              <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-[#1557D5]" />
+              <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-blue-600" />
             )}
-            <div className={`flex-shrink-0 transition-colors relative ${isActive ? 'text-[#1557D5]' : 'text-[#667085] group-hover:text-[#101828]'}`}>
+            <div className={`flex-shrink-0 transition-colors relative ${isActive ? 'text-blue-600' : 'text-slate-500 group-hover:text-slate-900'}`}>
               {item.icon}
               {item.id === 'informasi' && hasUnread && isCollapsed && (
                 <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-500" title="Pembaruan Baru"></span>
               )}
             </div>
             {!isCollapsed && (
-              <span className="ml-3 text-[13.5px] whitespace-nowrap leading-none pt-px flex-1 truncate">
+              <span className="ml-3 text-sm whitespace-nowrap leading-none pt-px flex-1 truncate">
                 {item.label}
               </span>
             )}
             {!isCollapsed && item.badge && (
-              <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold rounded bg-amber-100 text-amber-800 border border-amber-300">
+              <span className="ml-2 px-1.5 py-0.5 text-2xs font-bold rounded bg-amber-100 text-amber-800 border border-amber-300">
                 {item.badge}
               </span>
             )}
@@ -341,7 +341,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         {isParent && isExpanded && !isCollapsed && (
-          <ul className="mt-1 space-y-0.5 ml-7 border-l border-[#E1E7EF] pl-2 py-0.5 relative">
+          <ul className="mt-1 space-y-0.5 ml-7 border-l border-slate-200 pl-2 py-0.5 relative">
             {item.children?.map(child => renderNavItem(child, depth + 1))}
           </ul>
         )}
@@ -368,7 +368,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       <aside
         aria-label="Navigasi Utama"
-        className={`print:hidden flex flex-col h-full bg-white z-40 border-r border-[#E1E7EF]
+        className={`print:hidden flex flex-col h-full bg-white z-40 border-r border-slate-200
           fixed md:relative inset-y-0 left-0
           transform transition-all duration-300 ease-in-out
           overflow-hidden shadow-xs
@@ -381,12 +381,12 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className={`flex-grow flex flex-col min-h-0 ${isCollapsed ? 'w-20' : 'w-[272px]'}`}>
           {/* Brand Header */}
           <div
-            className={`flex items-center justify-between pt-5 pb-4 border-b border-[#E1E7EF]/70 ${
+            className={`flex items-center justify-between pt-5 pb-4 border-b border-slate-200/70 ${
               isCollapsed ? 'px-2 flex-col gap-2' : 'px-5'
             }`}
           >
             <div className="flex items-center min-w-0">
-              <div className="w-10 h-10 flex-shrink-0 relative flex items-center justify-center rounded-[12px] overflow-hidden border border-[#E1E7EF] bg-[#F3F7FF] shadow-2xs">
+              <div className="w-10 h-10 flex-shrink-0 relative flex items-center justify-center rounded-xl overflow-hidden border border-slate-200 bg-blue-50 shadow-2xs">
                 <img
                   src={
                     isPlatformSuperadmin
@@ -401,11 +401,11 @@ const Sidebar: React.FC<SidebarProps> = ({
               {!isCollapsed && (
                 <div className="ml-3 truncate">
                   <div className="flex items-center gap-1.5">
-                    <h1 className="text-[15px] font-bold text-[#101828] tracking-tight leading-tight truncate">
+                    <h1 className="text-base font-bold text-slate-900 tracking-tight leading-tight truncate">
                       {isPlatformSuperadmin ? 'Lajnah Quran' : orgName || 'Lajnah Quran'}
                     </h1>
                   </div>
-                  <p className="text-[11px] text-[#667085] mt-0.5 font-medium truncate">
+                  <p className="text-2xs text-slate-500 mt-0.5 font-medium truncate">
                     {isPlatformSuperadmin
                       ? 'Platform Control Plane'
                       : 'Sistem Manajemen Tahfidz'}
@@ -416,7 +416,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
             <button
               type="button"
-              className="md:hidden p-1.5 rounded-lg text-[#667085] hover:text-[#101828] hover:bg-[#F3F6FB]"
+              className="md:hidden p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100"
               onClick={() => setOpen(false)}
               aria-label="Tutup menu navigasi"
             >
@@ -426,7 +426,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               onClick={() => setCollapsed(!isCollapsed)}
-              className="hidden md:inline-flex p-1.5 rounded-[8px] text-[#667085] hover:text-[#101828] hover:bg-[#F3F6FB] transition-colors"
+              className="hidden md:inline-flex p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
               aria-label={isCollapsed ? 'Perluas sidebar' : 'Ciutkan sidebar'}
               title={isCollapsed ? 'Perluas sidebar' : 'Ciutkan sidebar'}
             >
@@ -442,23 +442,23 @@ const Sidebar: React.FC<SidebarProps> = ({
           </nav>
 
           {/* User Profile Footer */}
-          <div className="p-3 relative border-t border-[#E1E7EF] bg-[#F8FAFC]/60" ref={profileMenuRef}>
+          <div className="p-3 relative border-t border-slate-200 bg-slate-50/60" ref={profileMenuRef}>
             <button
               type="button"
               onClick={() => setProfileMenuOpen(!isProfileMenuOpen)}
               className={`p-2 flex items-center ${
                 isCollapsed ? 'justify-center' : 'justify-between'
-              } rounded-[12px] hover:bg-white border border-transparent hover:border-[#E1E7EF] transition-all w-full focus:outline-none cursor-pointer ${
-                isProfileMenuOpen ? 'bg-white border-[#E1E7EF] shadow-2xs' : ''
+              } rounded-xl hover:bg-white border border-transparent hover:border-slate-200 transition-all w-full focus:outline-none cursor-pointer ${
+                isProfileMenuOpen ? 'bg-white border-slate-200 shadow-2xs' : ''
               }`}
             >
               <div className="flex items-center space-x-2.5 overflow-hidden">
                 {isPlatformSuperadmin && !orgLogo ? (
-                  <div className="w-8 h-8 rounded-full bg-[#1557D5] text-white flex-shrink-0 flex items-center justify-center text-xs font-bold shadow-2xs">
+                  <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex-shrink-0 flex items-center justify-center text-xs font-bold shadow-2xs">
                     {userInitials || 'SA'}
                   </div>
                 ) : (
-                  <div className="w-8 h-8 rounded-full bg-slate-100 flex-shrink-0 flex items-center justify-center text-slate-500 overflow-hidden border border-[#E1E7EF]">
+                  <div className="w-8 h-8 rounded-full bg-slate-100 flex-shrink-0 flex items-center justify-center text-slate-500 overflow-hidden border border-slate-200">
                     <img
                       src={displayLogo}
                       alt="User"
@@ -471,31 +471,31 @@ const Sidebar: React.FC<SidebarProps> = ({
                 )}
                 {!isCollapsed && (
                   <div className="flex flex-col truncate text-left">
-                    <span className="text-[13px] font-bold text-[#101828] truncate leading-tight">
+                    <span className="text-sm font-bold text-slate-900 truncate leading-tight">
                       {userName || (isPlatformSuperadmin ? 'Superadmin Platform' : 'Administrator')}
                     </span>
-                    <span className="text-[11px] text-[#667085] truncate mt-0.5 font-medium">
+                    <span className="text-2xs text-slate-500 truncate mt-0.5 font-medium">
                       {formatCanonicalRoleLabel(canonicalRole)}
                     </span>
                   </div>
                 )}
               </div>
               {!isCollapsed && (
-                <div className="text-[#667085]">
+                <div className="text-slate-500">
                   <ChevronDown size={14} />
                 </div>
               )}
             </button>
 
             {isProfileMenuOpen && (
-              <div className="absolute bottom-full left-3 right-3 mb-2 bg-white rounded-[16px] shadow-xl border border-[#E1E7EF] overflow-hidden z-50">
-                <div className="p-4 border-b border-[#E1E7EF] bg-[#F3F7FF]/60">
-                  <h3 className="text-sm font-bold text-[#101828] truncate">
+              <div className="absolute bottom-full left-3 right-3 mb-2 bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden z-50">
+                <div className="p-4 border-b border-slate-200 bg-blue-50/60">
+                  <h3 className="text-sm font-bold text-slate-900 truncate">
                     {isPlatformSuperadmin && !supportSession
                       ? 'Konsol Platform Global'
                       : orgName || 'Lajnah Quran'}
                   </h3>
-                  <p className="text-[11px] text-[#667085] font-medium mt-0.5 truncate">
+                  <p className="text-2xs text-slate-500 font-medium mt-0.5 truncate">
                     {userName || 'Administrator'} · {formatCanonicalRoleLabel(canonicalRole)}
                   </p>
                 </div>
@@ -503,7 +503,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 {(!isPlatformSuperadmin || Boolean(supportSession)) ? (
                   <div className="p-2">
                     <div className="px-3 pb-1.5 pt-2">
-                      <p className="text-[10px] text-[#667085] font-bold uppercase tracking-wider">
+                      <p className="text-xs text-slate-500 font-semibold">
                         Tahun Ajaran Aktif
                       </p>
                     </div>
@@ -513,10 +513,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                           <button
                             key={ay.id}
                             type="button"
-                            className={`w-full text-left px-3 py-2 rounded-lg text-[13px] transition-colors flex items-center justify-between group ${
+                            className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between group ${
                               selectedAcademicYear?.id === ay.id
-                                ? 'bg-[#E7F0FF] text-[#1557D5] font-bold'
-                                : 'text-[#475467] hover:bg-[#F3F6FB] font-medium'
+                                ? 'bg-blue-50 text-blue-600 font-bold'
+                                : 'text-slate-600 hover:bg-slate-100 font-medium'
                             }`}
                             onClick={() => {
                               setSelectedAcademicYear(ay);
@@ -540,7 +540,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                           </button>
                         ))
                       ) : (
-                        <div className="px-3 py-2 text-[13px] text-[#667085] text-center italic">
+                        <div className="px-3 py-2 text-sm text-slate-500 text-center italic">
                           Tidak ada data
                         </div>
                       )}
@@ -554,7 +554,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                         setPage('PlatformSupport');
                         setProfileMenuOpen(false);
                       }}
-                      className="w-full text-left px-3 py-2 rounded-lg text-[12px] font-semibold text-[#1557D5] hover:bg-[#E7F0FF]/70 flex items-center gap-2 transition-colors"
+                      className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-blue-600 hover:bg-blue-50/70 flex items-center gap-2 transition-colors"
                     >
                       <KeyRound size={14} />
                       Buka Sesi Support Tenant
@@ -565,7 +565,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                         setPage('PlatformSettings');
                         setProfileMenuOpen(false);
                       }}
-                      className="w-full text-left px-3 py-2 rounded-lg text-[12px] font-medium text-[#475467] hover:bg-[#F3F6FB] flex items-center gap-2 transition-colors"
+                      className="w-full text-left px-3 py-2 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 flex items-center gap-2 transition-colors"
                     >
                       <Settings size={14} />
                       Kebijakan Global Platform
@@ -574,14 +574,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                 )}
 
                 {onLogout && (
-                  <div className="p-2 border-t border-[#E1E7EF]">
+                  <div className="p-2 border-t border-slate-200">
                     <button
                       type="button"
                       onClick={() => {
                         onLogout();
                         setProfileMenuOpen(false);
                       }}
-                      className="w-full text-left px-3 py-2.5 rounded-lg text-[13px] flex items-center text-[#DC2626] hover:bg-[#FEF2F2] font-semibold transition-colors"
+                      className="w-full text-left px-3 py-2.5 rounded-lg text-sm flex items-center text-red-600 hover:bg-red-50 font-semibold transition-colors"
                     >
                       <LogOut size={16} className="mr-2" />
                       Keluar (Logout)

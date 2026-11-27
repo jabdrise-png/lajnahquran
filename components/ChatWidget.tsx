@@ -19,7 +19,7 @@ const ChatMessageContent: React.FC<{ content: string; isUser: boolean }> = ({ co
                 return (
                     <code
                         key={index}
-                        className={`px-1 py-0.5 rounded text-[11px] font-mono ${
+                        className={`px-1 py-0.5 rounded text-2xs font-mono ${
                             isUser ? 'bg-white/25 text-white' : 'bg-slate-200/80 text-slate-800'
                         }`}
                     >
@@ -75,7 +75,7 @@ const ChatMessageContent: React.FC<{ content: string; isUser: boolean }> = ({ co
                     return (
                         <h3
                             key={idx}
-                            className={`font-bold text-[13px] mt-2 ${
+                            className={`font-bold text-sm mt-2 ${
                                 isUser ? 'text-white' : 'text-slate-900'
                             }`}
                         >
@@ -90,7 +90,7 @@ const ChatMessageContent: React.FC<{ content: string; isUser: boolean }> = ({ co
                     return (
                         <div key={idx} className="flex items-start gap-1.5 ml-0.5 my-1">
                             <span
-                                className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold shrink-0 mt-0.5 ${
+                                className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-2xs font-bold shrink-0 mt-0.5 ${
                                     isUser ? 'bg-white/25 text-white' : 'bg-blue-100 text-blue-700'
                                 }`}
                             >
@@ -272,7 +272,7 @@ const ChatWidget: React.FC = () => {
                         {loading && (
                             <div className="flex w-full justify-start">
                                 <div className="bg-white border border-slate-200 px-3.5 py-2.5 rounded-2xl rounded-tl-none flex items-center space-x-1.5 shadow-xs">
-                                    <span className="text-[11px] text-slate-400 font-medium mr-1">Sedang merumuskan jawaban...</span>
+                                    <span className="text-2xs text-slate-400 font-medium mr-1">Sedang merumuskan jawaban...</span>
                                     <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce"></div>
                                     <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce delay-100"></div>
                                     <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce delay-200"></div>
@@ -282,7 +282,7 @@ const ChatWidget: React.FC = () => {
 
                         {/* Error Message */}
                         {error && (
-                            <div className="bg-red-50 border border-red-200 rounded-xl p-2.5 flex flex-col gap-1 text-[11px] text-red-700 shadow-xs">
+                            <div className="bg-red-50 border border-red-200 rounded-xl p-2.5 flex flex-col gap-1 text-2xs text-red-700 shadow-xs">
                                 <div className="flex items-center gap-1.5 font-semibold">
                                     <AlertCircle size={14} className="shrink-0 text-red-500" />
                                     <span>Pemberitahuan Sistem</span>

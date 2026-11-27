@@ -24,16 +24,9 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({ label, icon, children, 
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    let buttonClass = "flex items-center px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm ";
-    if (variant === 'blue') {
-        buttonClass = "inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-4 sm:px-5 text-[13px] font-bold text-white shadow-[0_2px_12px_rgba(37,99,235,0.25)] transition-all hover:bg-blue-700 hover:-translate-y-0.5 active:translate-y-0 ";
-    } else if (variant === 'primary') {
-        buttonClass += "bg-secondary text-white hover:bg-accent ";
-    } else if (variant === 'secondary') {
-        buttonClass += "bg-green-600 text-white hover:bg-green-700 ";
-    } else {
-        buttonClass += "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 ";
-    }
+    // Fase 7b: semua tombol menu memakai gaya tombol standar (sekunder), primary hanya bila diminta
+    let buttonClass = variant === 'primary' || variant === 'blue' ? 'btn btn-primary' : 'btn btn-secondary';
+    void variant;
 
     if (className) {
         buttonClass = className;
@@ -52,7 +45,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({ label, icon, children, 
             </button>
 
             {isOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                <div className="absolute right-0 mt-1.5 w-56 bg-white rounded-xl shadow-lg border border-slate-200 z-50 overflow-hidden">
                     <div className="py-1">
                         {children}
                     </div>

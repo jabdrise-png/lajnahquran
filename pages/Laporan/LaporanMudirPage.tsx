@@ -98,7 +98,7 @@ const LaporanMudirPage: React.FC = () => {
         title="Laporan Mudir"
         description="PDF rekap lembaga dari Rekap Periode: bulanan (per periode) atau semester (dengan ringkasan ujian & raport)."
         actions={<button type="button" onClick={unduh} disabled={!periodeDipakai.length}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold disabled:opacity-50"><Download size={15} /> Unduh PDF</button>}
+          className="btn btn-primary"><Download size={15} /> Unduh PDF</button>}
       />
       <div className="flex flex-wrap gap-3 items-end">
         <label className="text-xs font-semibold text-slate-600">Jenis<br />
@@ -137,12 +137,12 @@ const LaporanMudirPage: React.FC = () => {
                 ['Raport lengkap / terbit', memuatUjian ? '…' : ujian ? `${ujian.lengkap} / ${ujian.terbit}` : '-'],
               ] : []),
             ].map(([k, v]) => (
-              <div key={k} className="rounded-lg bg-slate-50 px-3 py-2"><div className="text-[11px] text-slate-500">{k}</div><div className="text-sm font-bold text-slate-800">{v}</div></div>
+              <div key={k} className="rounded-lg bg-slate-50 px-3 py-2"><div className="text-2xs text-slate-500">{k}</div><div className="text-sm font-bold text-slate-800">{v}</div></div>
             ))}
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead className="bg-slate-50 text-[11px] uppercase text-slate-500"><tr>
+              <thead className="bg-slate-50 text-2xs uppercase text-slate-500"><tr>
                 <th className="px-3 py-2 text-left">Halaqah</th><th className="px-3 py-2 text-left">Musammi'</th><th className="px-3 py-2 text-right">Santri</th>
                 <th className="px-3 py-2 text-right">Ziyadah (hal)</th><th className="px-3 py-2 text-right">Rata murojaah</th><th className="px-3 py-2 text-right">Kehadiran</th>
                 <th className="px-3 py-2 text-right">Rata total (juz)</th><th className="px-3 py-2 text-center">Form</th>

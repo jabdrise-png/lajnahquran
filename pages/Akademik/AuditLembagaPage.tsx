@@ -81,15 +81,14 @@ export const AuditLembagaPage: React.FC = () => {
   return (
     <PageShell>
       <PageHeader
-        kicker="GOVERNANCE & JEJAK AUDIT LEMBAGA"
-        title="Audit Perubahan Data & Snapshot Raport Immutable"
-        description={`Pantau seluruh aktivitas sensitif (koreksi absensi, review setoran, penerbitan target/rubrik, penutupan tahun) serta riwayat snapshot raport beku di ${orgName || 'Lembaga'}.`}
+                title="Audit Perubahan Data & Arsip Raport"
+        description={`Pantau seluruh aktivitas sensitif (koreksi absensi, review setoran, penerbitan target/rubrik, penutupan tahun) serta arsip raport yang sudah terbit di ${orgName || 'Lembaga'}.`}
         actions={
           <button
             type="button"
             onClick={loadData}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors"
+            className="btn btn-secondary btn-sm"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             Muat Ulang
@@ -105,9 +104,9 @@ export const AuditLembagaPage: React.FC = () => {
           tone="primary"
         />
         <StatCard
-          label="Snapshot Raport Diterbitkan"
+          label="Raport diterbitkan"
           value={reportCards.filter((r) => r.status === 'published').length}
-          meta="Snapshot aktif yang telah dibekukan"
+          meta="Raport terbit yang tersimpan"
           tone="success"
         />
         <StatCard
@@ -118,29 +117,21 @@ export const AuditLembagaPage: React.FC = () => {
         />
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-3">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="tabs">
           <button
             type="button"
             onClick={() => setActiveTab('audit')}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors ${
-              activeTab === 'audit'
-                ? 'bg-blue-600 text-white'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
+            className={`tab ${activeTab === 'audit' ? 'tab-aktif' : ''}`}
           >
             Log Aktivitas & Koreksi ({filteredLogs.length})
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('raport')}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors ${
-              activeTab === 'raport'
-                ? 'bg-blue-600 text-white'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
+            className={`tab ${activeTab === 'raport' ? 'tab-aktif' : ''}`}
           >
-            Snapshot Raport Immutable ({filteredReportCards.length})
+            Arsip raport ({filteredReportCards.length})
           </button>
         </div>
 
@@ -161,7 +152,7 @@ export const AuditLembagaPage: React.FC = () => {
           {filteredLogs.length === 0 ? (
             <EmptyState
               title="Belum Ada Log Audit"
-              description="Setiap perubahan nilai ujian, koreksi absensi pasca-simpan, review setoran, dan publikasi versi target/rubrik akan tercatat otomatis di tabel audit_logs."
+              description="Setiap perubahan nilai ujian, koreksi absensi pasca-simpan, review setoran, dan publikasi versi target/rubrik akan tercatat otomatis di sini."
             />
           ) : (
             <div className="overflow-x-auto">
@@ -187,7 +178,7 @@ export const AuditLembagaPage: React.FC = () => {
                       '-';
                     return (
                       <tr key={log.id} className="hover:bg-slate-50">
-                        <td className="px-5 py-3 font-mono text-slate-500 tabular-nums whitespace-nowrap">
+                        <td className="px-5 py-3 text-slate-500 tabular-nums whitespace-nowrap">
                           {log.created_at ? new Date(log.created_at).toLocaleString('id-ID') : '-'}
                         </td>
                         <td className="px-5 py-3">
@@ -221,8 +212,8 @@ export const AuditLembagaPage: React.FC = () => {
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           {filteredReportCards.length === 0 ? (
             <EmptyState
-              title="Belum Ada Snapshot Raport Diterbitkan"
-              description="Gunakan tombol 'Publish Snapshot' atau 'Publish v1' di halaman Buku Nilai & Raport untuk membekukan nilai santri ke tabel report_cards."
+              title="Belum ada raport diterbitkan"
+              description="Raport yang diterbitkan dari halaman Rekap Nilai & Raport akan tercatat di sini."
             />
           ) : (
             <div className="overflow-x-auto">
@@ -235,7 +226,7 @@ export const AuditLembagaPage: React.FC = () => {
                     <th className="px-5 py-3">Nilai Akhir & Predikat</th>
                     <th className="px-5 py-3">Status</th>
                     <th className="px-5 py-3">Catatan Amendment</th>
-                    <th className="px-5 py-3 text-right">Snapshot Beku</th>
+                    <th className="px-5 py-3 text-right">Arsip terbit</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
@@ -249,17 +240,17 @@ export const AuditLembagaPage: React.FC = () => {
                       <tr key={rc.id} className="hover:bg-slate-50">
                         <td className="px-5 py-3 font-semibold text-slate-900">
                           <div>{student?.nama || snap.santri_nama || `Santri #${sId}`}</div>
-                          <div className="text-[11px] font-normal text-slate-500">
+                          <div className="text-2xs font-normal text-slate-500">
                             {snap.marhalah || student?.marhalah || '-'} • Kelas {snap.kelas || student?.kelas || '-'}
                           </div>
                         </td>
                         <td className="px-5 py-3 font-medium text-slate-700">
                           {rc.semester_name || snap.semester || 'Ganjil'}
                         </td>
-                        <td className="px-5 py-3 font-mono font-bold text-slate-800 tabular-nums">
+                        <td className="px-5 py-3 font-bold text-slate-800 tabular-nums">
                           v{rc.version_no || 1}
                         </td>
-                        <td className="px-5 py-3 font-mono font-bold text-slate-900 tabular-nums">
+                        <td className="px-5 py-3 font-bold text-slate-900 tabular-nums">
                           {finalScore} <span className="text-slate-500 font-sans font-semibold">({predikat})</span>
                         </td>
                         <td className="px-5 py-3">
@@ -294,7 +285,7 @@ export const AuditLembagaPage: React.FC = () => {
         <Modal
           isOpen={!!selectedSnapshot}
           onClose={() => setSelectedSnapshot(null)}
-          title={`Snapshot Raport Immutable v${selectedSnapshot.version_no || 1}`}
+          title={`Arsip raport v${selectedSnapshot.version_no || 1}`}
           maxWidth="2xl"
         >
           <div className="space-y-4">
@@ -328,8 +319,8 @@ export const AuditLembagaPage: React.FC = () => {
               </div>
             </div>
             <div>
-              <div className="text-xs font-bold text-slate-700 mb-1.5">Payload Snapshot JSON (Immutable)</div>
-              <pre className="bg-slate-900 text-slate-100 p-4 rounded-xl text-[11px] font-mono overflow-x-auto max-h-80">
+              <div className="text-xs font-bold text-slate-700 mb-1.5">Data arsip (JSON)</div>
+              <pre className="bg-slate-900 text-slate-100 p-4 rounded-xl text-2xs font-mono overflow-x-auto max-h-80">
                 {JSON.stringify(selectedSnapshot.snapshot_json || {}, null, 2)}
               </pre>
             </div>
@@ -366,7 +357,7 @@ export const AuditLembagaPage: React.FC = () => {
             {selectedAuditLog.before_state && (
               <div>
                 <div className="font-bold text-slate-700 mb-1">Before State</div>
-                <pre className="bg-slate-900 text-slate-100 p-3.5 rounded-xl text-[11px] font-mono overflow-x-auto max-h-48">
+                <pre className="bg-slate-900 text-slate-100 p-3.5 rounded-xl text-2xs font-mono overflow-x-auto max-h-48">
                   {JSON.stringify(selectedAuditLog.before_state, null, 2)}
                 </pre>
               </div>
@@ -374,7 +365,7 @@ export const AuditLembagaPage: React.FC = () => {
             {(selectedAuditLog.after_state || selectedAuditLog.diff_json) && (
               <div>
                 <div className="font-bold text-slate-700 mb-1">After State / Diff</div>
-                <pre className="bg-slate-900 text-slate-100 p-3.5 rounded-xl text-[11px] font-mono overflow-x-auto max-h-60">
+                <pre className="bg-slate-900 text-slate-100 p-3.5 rounded-xl text-2xs font-mono overflow-x-auto max-h-60">
                   {JSON.stringify(selectedAuditLog.after_state || selectedAuditLog.diff_json, null, 2)}
                 </pre>
               </div>

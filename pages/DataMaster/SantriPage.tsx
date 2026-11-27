@@ -12,7 +12,7 @@ import { Marhalah, Santri } from '../../types';
 import { Plus, Trash, Upload, Download, Search, Edit, FileText, FileSpreadsheet, ChevronRight, Send, Link as LinkIcon, ListFilter, ArrowUpDown } from 'lucide-react';
 import { parseSpreadsheet, exportToExcel, exportToPDF } from '../../lib/utils';
 import { supabase } from '../../lib/supabaseClient';
-import { StatusBadge } from '../../components/ui/SaaSPrimitives';
+import { StatusBadge, LoadingState } from '../../components/ui/SaaSPrimitives';
 import { NotificationStore } from '../../lib/NotificationStore';
 
 /** Terima tanggal "2012-05-01", "01/05/2012", atau angka tanggal Excel. */
@@ -621,51 +621,45 @@ const SantriPage: React.FC = () => {
         exportToPDF('Data Santri', columns, rows, 'Data_Santri');
     };
 
-    if (loading) return <p>Loading...</p>;
+    if (loading) return <LoadingState label="Memuat data…" />;
     if (error) return <p className="text-error">{error}</p>;
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20 max-w-[1400px] font-sans">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-4 mt-2">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 sm:gap-4">
                 <div>
-                    <div className="flex items-center gap-2 mb-1.5">
-                        <StatusBadge label="IDENTITAS INDUK & ENROLLMENT TAHUNAN" tone="primary" />
-                        {selectedAcademicYear && (
-                            <StatusBadge label={`TA ${selectedAcademicYear.name}`} tone="success" />
-                        )}
-                    </div>
-                    <h1 className="text-[24px] font-extrabold text-slate-900 tracking-tight leading-none mb-2">
-                        Data Santri & Enrollment
+                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+                        Data Santri
                     </h1>
-                    <p className="text-[13px] text-slate-500 font-medium">
-                        Identitas induk santri terpisah dari penempatan kelas tahunan (`student_enrollments`). Klik nama santri untuk melihat linimasa progres & riwayat kelas.
+                    <p className="mt-1 text-sm text-slate-500">
+                        Identitas santri dan kelasnya pada tahun ajaran ini. Klik nama santri untuk melihat progres & riwayat kelas.
                     </p>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex flex-wrap items-center gap-2">
                     <input type="file" ref={fileInputRef} onChange={handleImportCSV} accept=".csv,.xlsx,.xls" className="hidden" />
                     
-                    <ActionDropdown label="Export Data" icon={<Download size={14}/>}>
-                        <button onClick={() => exportToExcel(filteredData, 'Data_Santri')} className="flex items-center w-full px-5 py-3 text-[13px] font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-left">
-                            <FileSpreadsheet size={16} className="mr-3 text-green-600"/> Export Excel
+                    <ActionDropdown label="Ekspor data" icon={<Download size={14}/>}>
+                        <button onClick={() => exportToExcel(filteredData, 'Data_Santri')} className="flex items-center w-full px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-left">
+                            <FileSpreadsheet size={16} className="mr-3 text-emerald-600"/> Export Excel
                         </button>
-                        <button onClick={handleExportPDF} className="flex items-center w-full px-5 py-3 text-[13px] font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-left border-t border-slate-100">
+                        <button onClick={handleExportPDF} className="flex items-center w-full px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-left border-t border-slate-100">
                             <FileText size={16} className="mr-3 text-red-600"/> Export PDF
                         </button>
                     </ActionDropdown>
                     
-                    <ActionDropdown label="Import Data" icon={<Upload size={14}/>}>
-                        <button onClick={() => fileInputRef.current?.click()} className="flex items-center w-full px-5 py-3 text-[13px] font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-left">
-                            <FileSpreadsheet size={16} className="mr-3 text-green-600"/> Upload File Excel/CSV
+                    <ActionDropdown label="Impor data" icon={<Upload size={14}/>}>
+                        <button onClick={() => fileInputRef.current?.click()} className="flex items-center w-full px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-left">
+                            <FileSpreadsheet size={16} className="mr-3 text-emerald-600"/> Upload File Excel/CSV
                         </button>
-                        <button onClick={handleDownloadTemplate} className="flex items-center w-full px-5 py-3 text-[13px] font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-left border-t border-slate-100">
+                        <button onClick={handleDownloadTemplate} className="flex items-center w-full px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-left border-t border-slate-100">
                             <Download size={16} className="mr-3 text-blue-600"/> Download Template
                         </button>
                     </ActionDropdown>
                     
                     <button 
                         onClick={() => openModal(null)} 
-                        className="inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-5 text-[13px] font-bold text-white shadow-[0_2px_12px_rgba(37,99,235,0.25)] transition-all hover:bg-blue-700 hover:-translate-y-0.5 gap-2"
+                        className="btn btn-primary justify-center"
                     >
                         <Plus size={16} strokeWidth={2.5}/> Tambah Data
                     </button>
@@ -676,7 +670,7 @@ const SantriPage: React.FC = () => {
             <div className={`p-4 rounded-xl border flex flex-wrap items-center justify-between gap-3 ${unenrolledCount > 0 ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-emerald-50/70 border-emerald-200 text-emerald-900'}`}>
                 <div className="flex items-center gap-3">
                     <StatusBadge
-                        label={unenrolledCount > 0 ? `${unenrolledCount} BELUM TER-ENROLL` : 'ENROLLMENT LENGKAP'}
+                        label={unenrolledCount > 0 ? `${unenrolledCount} belum punya kelas` : 'Semua sudah punya kelas'}
                         tone={unenrolledCount > 0 ? 'warning' : 'success'}
                     />
                     <span className="text-xs font-medium">
@@ -695,7 +689,7 @@ const SantriPage: React.FC = () => {
                                 : 'bg-white text-amber-900 border-amber-300 hover:bg-amber-100'
                         }`}
                     >
-                        {filterUnenrolledOnly ? 'Tampilkan Semua Santri' : 'Filter Belum Ter-enroll'}
+                        {filterUnenrolledOnly ? 'Tampilkan Semua Santri' : 'Tampilkan yang belum punya kelas'}
                     </button>
                 )}
             </div>
@@ -712,7 +706,7 @@ const SantriPage: React.FC = () => {
                                 placeholder="Cari nama / ID santri..."
                                 value={filterSearch} 
                                 onChange={e => setFilterSearch(e.target.value)} 
-                                className="w-full pl-11 pr-4 h-11 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none text-[13px] font-semibold transition-all shadow-sm placeholder:text-slate-400"
+                                className="w-full pl-11 pr-4 h-11 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none text-sm font-semibold transition-all shadow-sm placeholder:text-slate-400"
                             />
                         </div>
                         <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
@@ -721,7 +715,7 @@ const SantriPage: React.FC = () => {
                                     <select 
                                         value={filterMarhalah} 
                                         onChange={e => {setFilterMarhalah(e.target.value as any); setFilterKelas('all')}}
-                                        className="w-full sm:w-[180px] h-11 pl-4 pr-10 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none text-[13px] font-semibold text-slate-700 transition-all shadow-sm appearance-none cursor-pointer hover:border-slate-300"
+                                        className="w-full sm:w-[180px] h-11 pl-4 pr-10 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none text-sm font-semibold text-slate-700 transition-all shadow-sm appearance-none cursor-pointer hover:border-slate-300"
                                     >
                                         <option value="all">Semua Marhalah</option>
                                         {masterMarhalahs.map((m: any) => <option key={m.id} value={m.nama}>{m.nama}</option>)}
@@ -737,7 +731,7 @@ const SantriPage: React.FC = () => {
                                         value={filterKelas} 
                                         onChange={e => setFilterKelas(e.target.value)} 
                                         disabled={filterMarhalah === 'all'} 
-                                        className="w-full sm:w-[150px] h-11 pl-4 pr-10 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none text-[13px] font-semibold text-slate-700 transition-all shadow-sm appearance-none cursor-pointer disabled:bg-slate-50 disabled:text-slate-400 disabled:shadow-none hover:border-slate-300"
+                                        className="w-full sm:w-[150px] h-11 pl-4 pr-10 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none text-sm font-semibold text-slate-700 transition-all shadow-sm appearance-none cursor-pointer disabled:bg-slate-50 disabled:text-slate-400 disabled:shadow-none hover:border-slate-300"
                                     >
                                         <option value="all">Semua Kelas</option>
                                         {filterMarhalah !== 'all' && availableFilterKelas.map(k => <option key={k} value={k}>{k}</option>)}
@@ -753,7 +747,7 @@ const SantriPage: React.FC = () => {
                                     <select 
                                         value={filterStatus}
                                         onChange={e => setFilterStatus(e.target.value)}
-                                        className="w-full sm:w-[150px] h-11 pl-4 pr-10 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none text-[13px] font-semibold text-slate-700 transition-all shadow-sm appearance-none cursor-pointer hover:border-slate-300"
+                                        className="w-full sm:w-[150px] h-11 pl-4 pr-10 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none text-sm font-semibold text-slate-700 transition-all shadow-sm appearance-none cursor-pointer hover:border-slate-300"
                                     >
                                         <option value="active">Aktif</option>
                                         <option value="inactive">Tidak Aktif</option>
@@ -769,93 +763,93 @@ const SantriPage: React.FC = () => {
                 </div>
 
                 <div className="overflow-x-auto bg-white min-h-[400px] hide-scrollbar">
-                                        <table className="w-full min-w-max text-left border-collapse">
+                                        <table className="tabel-kartu w-full min-w-max text-left border-collapse">
                         <thead>
                             <tr className="bg-slate-50/50 border-b border-slate-200/60">
-                                <th className="px-5 py-3 text-[10px] md:text-[11px] font-bold tracking-widest uppercase text-slate-400 w-12 text-center">No</th>
-                                <th className="px-5 py-3 text-[10px] md:text-[11px] font-bold tracking-widest uppercase text-slate-400 w-16 text-center border-l border-slate-100"><div onClick={() => handleSort('id')} className="flex items-center justify-center gap-1.5 group cursor-pointer hover:text-slate-600 transition-colors"><span>ID</span>{getSortIcon('id')}</div></th>
-                                <th className="px-5 py-3 text-[10px] md:text-[11px] font-bold tracking-widest uppercase text-slate-400 min-w-[200px] border-l border-slate-100"><div onClick={() => handleSort('nama')} className="flex items-center justify-start gap-1.5 group cursor-pointer hover:text-slate-600 transition-colors"><span>Nama Santri</span>{getSortIcon('nama')}</div></th>
-                                <th className="px-5 py-3 text-[10px] md:text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100 min-w-[140px]"><div onClick={() => handleSort('marhalah_kelas')} className="flex items-center justify-start gap-1.5 group cursor-pointer hover:text-slate-600 transition-colors"><span>Marhalah & Kelas</span>{getSortIcon('marhalah_kelas')}</div></th>
-                                <th className="px-5 py-3 text-[10px] md:text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100 text-center w-24"><div onClick={() => handleSort('status')} className="flex items-center gap-1.5 justify-center group cursor-pointer hover:text-slate-600 transition-colors"><span>Status Santri</span>{getSortIcon('status')}</div></th>
-                                <th className="px-5 py-3 text-[10px] md:text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100 min-w-[160px]"><div onClick={() => handleSort('nama_wali')} className="flex items-center justify-start gap-1.5 group cursor-pointer hover:text-slate-600 transition-colors"><span>Nama Wali</span>{getSortIcon('nama_wali')}</div></th>
-                                <th className="px-5 py-3 text-[10px] md:text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100 min-w-[140px]"><div onClick={() => handleSort('no_hp_wali')} className="flex items-center justify-start gap-1.5 group cursor-pointer hover:text-slate-600 transition-colors"><span>No HP Wali</span>{getSortIcon('no_hp_wali')}</div></th>
-                                <th className="px-5 py-3 text-[10px] md:text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100 text-center min-w-[140px]"><div onClick={() => handleSort('telegram_chat_id')} className="flex items-center gap-1.5 justify-center group cursor-pointer hover:text-slate-600 transition-colors"><span>Telegram Wali</span>{getSortIcon('telegram_chat_id')}</div></th>
-                                <th className="px-5 py-3 text-[10px] md:text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100 text-right w-24">Aksi</th>
+                                <th className="px-5 py-3 text-xs md:text-2xs font-semibold text-slate-400 w-12 text-center">No</th>
+                                <th className="px-5 py-3 text-xs md:text-2xs font-semibold text-slate-400 w-16 text-center border-l border-slate-100"><div onClick={() => handleSort('id')} className="flex items-center justify-center gap-1.5 group cursor-pointer hover:text-slate-600 transition-colors"><span>ID</span>{getSortIcon('id')}</div></th>
+                                <th className="px-5 py-3 text-xs md:text-2xs font-semibold text-slate-400 min-w-[200px] border-l border-slate-100"><div onClick={() => handleSort('nama')} className="flex items-center justify-start gap-1.5 group cursor-pointer hover:text-slate-600 transition-colors"><span>Nama Santri</span>{getSortIcon('nama')}</div></th>
+                                <th className="px-5 py-3 text-xs md:text-2xs font-semibold text-slate-400 border-l border-slate-100 min-w-[140px]"><div onClick={() => handleSort('marhalah_kelas')} className="flex items-center justify-start gap-1.5 group cursor-pointer hover:text-slate-600 transition-colors"><span>Marhalah & Kelas</span>{getSortIcon('marhalah_kelas')}</div></th>
+                                <th className="px-5 py-3 text-xs md:text-2xs font-semibold text-slate-400 border-l border-slate-100 text-center w-24"><div onClick={() => handleSort('status')} className="flex items-center gap-1.5 justify-center group cursor-pointer hover:text-slate-600 transition-colors"><span>Status Santri</span>{getSortIcon('status')}</div></th>
+                                <th className="px-5 py-3 text-xs md:text-2xs font-semibold text-slate-400 border-l border-slate-100 min-w-[160px]"><div onClick={() => handleSort('nama_wali')} className="flex items-center justify-start gap-1.5 group cursor-pointer hover:text-slate-600 transition-colors"><span>Nama Wali</span>{getSortIcon('nama_wali')}</div></th>
+                                <th className="px-5 py-3 text-xs md:text-2xs font-semibold text-slate-400 border-l border-slate-100 min-w-[140px]"><div onClick={() => handleSort('no_hp_wali')} className="flex items-center justify-start gap-1.5 group cursor-pointer hover:text-slate-600 transition-colors"><span>No HP Wali</span>{getSortIcon('no_hp_wali')}</div></th>
+                                <th className="px-5 py-3 text-xs md:text-2xs font-semibold text-slate-400 border-l border-slate-100 text-center min-w-[140px]"><div onClick={() => handleSort('telegram_chat_id')} className="flex items-center gap-1.5 justify-center group cursor-pointer hover:text-slate-600 transition-colors"><span>Telegram Wali</span>{getSortIcon('telegram_chat_id')}</div></th>
+                                <th className="px-5 py-3 text-xs md:text-2xs font-semibold text-slate-400 border-l border-slate-100 text-right w-24">Aksi</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100/80">
                             {paginatedData.map((s, idx) => (
                                 <tr key={s.id} className="hover:bg-blue-50/30 transition-colors group">
-                                    <td className="px-6 py-4 text-[12px] font-medium text-slate-500 text-center">{(currentPage - 1) * itemsPerPage + idx + 1}</td>
-                                    <td className="px-6 py-4 border-l border-slate-100/80 text-[12px] font-medium text-slate-400 text-center group-hover:text-blue-500 transition-colors">#{s.id}</td>
+                                    <td data-label="No" className="px-6 py-4 text-xs font-medium text-slate-500 text-center">{(currentPage - 1) * itemsPerPage + idx + 1}</td>
+                                    <td data-label="ID" className="px-6 py-4 border-l border-slate-100/80 text-xs font-medium text-slate-400 text-center group-hover:text-blue-500 transition-colors">#{s.id}</td>
                                     <td className="px-6 py-4 border-l border-slate-100/80 cursor-pointer" onClick={() => openDetailTimeline(s)}>
                                         <div className="flex items-center gap-4">
-                                            <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 flex items-center justify-center shadow-sm">
-                                                <span className="text-[12px] font-extrabold text-blue-600">
+                                            <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br from-blue-50 to-blue-50 border border-blue-100 flex items-center justify-center shadow-sm">
+                                                <span className="text-xs font-extrabold text-blue-600">
                                                     {s.nama.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
                                                 </span>
                                             </div>
                                             <div>
-                                                <p className="text-[14px] font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{s.nama}</p>
+                                                <p className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{s.nama}</p>
                                                 <div className="flex items-center gap-2 mt-0.5">
-                                                    {s.kode && <span className="text-[11px] font-medium text-slate-500">NIS: {s.kode}</span>}
+                                                    {s.kode && <span className="text-2xs font-medium text-slate-500">NIS: {s.kode}</span>}
                                                     {!enrolledIdSet.has(s.id) && (
-                                                        <StatusBadge label="BELUM ENROLL TA AKTIF" tone="warning" />
+                                                        <StatusBadge label="Belum punya kelas" tone="warning" />
                                                     )}
                                                 </div>
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 border-l border-slate-100/80">
+                                    <td data-label="Marhalah & kelas" className="px-6 py-4 border-l border-slate-100/80">
                                         <div className="flex flex-col gap-1">
-                                            <span className="inline-flex self-start items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 uppercase tracking-widest"><MarhalahLabel text={s.marhalah} id={s.marhalah_id} /></span>
-                                            <span className="text-[13px] font-bold text-slate-700">Kelas <KelasLabel text={s.kelas} id={s.kelas_id} /></span>
+                                            <span className="inline-flex self-start items-center px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-600"><MarhalahLabel text={s.marhalah} id={s.marhalah_id} /></span>
+                                            <span className="text-sm font-bold text-slate-700">Kelas <KelasLabel text={s.kelas} id={s.kelas_id} /></span>
                                         </div>
                                     </td>
                                     
-                                    <td className="px-6 py-4 border-l border-slate-100/80 text-center">
-                                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${(s.status || 'active') === 'active' ? 'bg-green-100 text-green-700' : 'bg-rose-100 text-rose-700'}`}>
+                                    <td data-label="Status" className="px-6 py-4 border-l border-slate-100/80 text-center">
+                                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-2xs font-bold uppercase tracking-wider ${(s.status || 'active') === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
                                             {(s.status || 'active') === 'active' ? 'Aktif' : 'Tidak Aktif'}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 border-l border-slate-100/80">
+                                    <td data-label="Nama wali" className="px-6 py-4 border-l border-slate-100/80">
                                         {s.nama_wali ? (
-                                            <span className="text-[13px] font-bold text-slate-700">{s.nama_wali}</span>
+                                            <span className="text-sm font-bold text-slate-700">{s.nama_wali}</span>
                                         ) : (
-                                            <span className="text-[12px] italic text-slate-400 font-medium">Belum ada data</span>
+                                            <span className="text-xs italic text-slate-400 font-medium">Belum ada data</span>
                                         )}
                                     </td>
-                                    <td className="px-6 py-4 border-l border-slate-100/80">
+                                    <td data-label="No HP wali" className="px-6 py-4 border-l border-slate-100/80">
                                         {s.no_hp_wali ? (
-                                            <button onClick={(e) => { e.stopPropagation(); handleWA(s.no_hp_wali!); }} className="inline-flex items-center text-[11px] font-bold text-green-700 bg-green-50 px-2.5 py-1.5 rounded-md hover:bg-green-100 transition-colors tracking-wide border border-green-200/60 shadow-sm">
+                                            <button onClick={(e) => { e.stopPropagation(); handleWA(s.no_hp_wali!); }} className="inline-flex items-center text-2xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-md hover:bg-emerald-100 transition-colors tracking-wide border border-emerald-200/60 shadow-sm">
                                                 <Send size={12} className="mr-1.5" strokeWidth={2.5}/> {s.no_hp_wali}
                                             </button>
                                         ) : (
-                                            <span className="text-[12px] italic text-slate-400 font-medium">Belum ada data</span>
+                                            <span className="text-xs italic text-slate-400 font-medium">Belum ada data</span>
                                         )}
                                     </td>
-                                    <td className="px-6 py-4 border-l border-slate-100/80 text-center" onClick={(e) => e.stopPropagation()}>
+                                    <td data-label="Telegram" className="px-6 py-4 border-l border-slate-100/80 text-center" onClick={(e) => e.stopPropagation()}>
                                         {/* Fase 6: status tautan wali + kode santri (kelola di Notifikasi Telegram) */}
                                         {s.telegram_chat_id ? (
-                                            <span className="text-[12px] font-semibold text-emerald-700">Tertaut</span>
+                                            <span className="text-xs font-semibold text-emerald-700">Tertaut</span>
                                         ) : (
-                                            <span className="text-[12px] text-slate-400 font-medium">Belum</span>
+                                            <span className="text-xs text-slate-400 font-medium">Belum</span>
                                         )}
-                                        {(s as any).kode_telegram && <div className="text-[11px] font-mono text-slate-400 tracking-wider">{tampilKode((s as any).kode_telegram)}</div>}
+                                        {(s as any).kode_telegram && <div className="text-2xs font-mono text-slate-400 tracking-wider">{tampilKode((s as any).kode_telegram)}</div>}
                                     </td>
-                                    <td className="px-6 py-4 border-l border-slate-100/80 text-right">
+                                    <td data-label="Aksi" className="px-6 py-4 border-l border-slate-100/80 text-right">
                                         <div className="flex justify-end gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                             <button
                                                 onClick={() => openDetailTimeline(s)}
-                                                className="px-2.5 h-9 inline-flex items-center justify-center rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-200 text-[11px] font-bold transition-all shadow-sm"
-                                                title="Lihat Linimasa & Riwayat Enrollment"
+                                                className="px-2.5 h-9 inline-flex items-center justify-center rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-200 text-2xs font-bold transition-all shadow-sm"
+                                                title="Lihat riwayat kelas"
                                             >
                                                 Linimasa
                                             </button>
                                             <button onClick={() => openModal(s)} className="h-9 w-9 inline-flex items-center justify-center rounded-xl bg-slate-50 text-slate-500 hover:bg-blue-500 hover:text-white transition-all shadow-sm">
                                                 <Edit size={14} strokeWidth={2.5}/>
                                             </button>
-                                            <button onClick={() => handleDelete(s.id)} className="h-9 w-9 inline-flex items-center justify-center rounded-xl bg-slate-50 text-slate-500 hover:bg-rose-500 hover:text-white transition-all shadow-sm">
+                                            <button onClick={() => handleDelete(s.id)} className="h-9 w-9 inline-flex items-center justify-center rounded-xl bg-slate-50 text-slate-500 hover:bg-red-500 hover:text-white transition-all shadow-sm">
                                                 <Trash size={14} strokeWidth={2.5}/>
                                             </button>
                                         </div>
@@ -864,7 +858,7 @@ const SantriPage: React.FC = () => {
                             ))}
                             {paginatedData.length === 0 && (
                                 <tr>
-                                    <td colSpan={9} className="text-center py-16 text-[13px] text-slate-500 font-medium">
+                                    <td colSpan={9} className="text-center py-16 text-sm text-slate-500 font-medium">
                                         Tidak ada data yang ditemukan.
                                     </td>
                                 </tr>
@@ -876,24 +870,24 @@ const SantriPage: React.FC = () => {
                 {/* Pagination Controls */}
                 {totalPages > 1 && (
                     <div className="flex justify-between items-center bg-slate-50/50 border-t border-slate-100 p-5 px-6">
-                        <p className="text-[13px] font-medium text-slate-500">
+                        <p className="text-sm font-medium text-slate-500">
                             Menampilkan <span className="font-bold text-slate-700">{((currentPage - 1) * itemsPerPage) + 1}</span> - <span className="font-bold text-slate-700">{Math.min(currentPage * itemsPerPage, filteredData.length)}</span> dari <span className="font-bold text-slate-700">{filteredData.length}</span> data
                         </p>
                         <div className="flex gap-2">
                             <button 
                                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                 disabled={currentPage === 1}
-                                className="px-4 py-2 border border-slate-200/80 bg-white rounded-xl text-[13px] font-bold disabled:opacity-50 disabled:cursor-not-allowed text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all focus:ring-4 focus:ring-slate-100 shadow-sm"
+                                className="btn btn-secondary"
                             >
                                 Sebelumnya
                             </button>
-                            <span className="px-4 py-2 text-[13px] font-bold text-slate-700 bg-white border border-slate-200/80 rounded-xl shadow-sm flex items-center justify-center min-w-[3rem]">
+                            <span className="px-4 py-2 text-sm font-bold text-slate-700 bg-white border border-slate-200/80 rounded-xl shadow-sm flex items-center justify-center min-w-[3rem]">
                                 {currentPage} / {totalPages}
                             </span>
                             <button 
                                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                                 disabled={currentPage === totalPages}
-                                className="px-4 py-2 border border-slate-200/80 bg-white rounded-xl text-[13px] font-bold disabled:opacity-50 disabled:cursor-not-allowed text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all focus:ring-4 focus:ring-slate-100 shadow-sm"
+                                className="btn btn-secondary"
                             >
                                 Selanjutnya
                             </button>
@@ -906,25 +900,25 @@ const SantriPage: React.FC = () => {
                 <div className="space-y-5">
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">NIS <span className="text-red-500">*</span></label>
-                            <input type="text" placeholder="Masukkan NIS" className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-[13px] font-semibold text-slate-800 placeholder:text-slate-400" value={formData.kode} onChange={e => setFormData({...formData, kode: e.target.value})} />
+                            <label className="block text-xs font-semibold text-slate-500 mb-2">NIS <span className="text-red-500">*</span></label>
+                            <input type="text" placeholder="Masukkan NIS" className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-sm font-semibold text-slate-800 placeholder:text-slate-400" value={formData.kode} onChange={e => setFormData({...formData, kode: e.target.value})} />
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Nama Lengkap <span className="text-red-500">*</span></label>
-                            <input type="text" placeholder="Nama Lengkap" className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-[13px] font-semibold text-slate-800 placeholder:text-slate-400" value={formData.nama} onChange={e => setFormData({...formData, nama: e.target.value})} />
+                            <label className="block text-xs font-semibold text-slate-500 mb-2">Nama Lengkap <span className="text-red-500">*</span></label>
+                            <input type="text" placeholder="Nama Lengkap" className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-sm font-semibold text-slate-800 placeholder:text-slate-400" value={formData.nama} onChange={e => setFormData({...formData, nama: e.target.value})} />
                         </div>
                         <div className="grid grid-cols-2 gap-5">
                             <div>
-                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Tanggal Lahir</label>
-                                <input type="date" max={new Date().toISOString().slice(0, 10)} className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white text-[13px] font-semibold text-slate-800" value={formData.tanggal_lahir} onChange={e => setFormData({...formData, tanggal_lahir: e.target.value})} />
+                                <label className="block text-xs font-semibold text-slate-500 mb-2">Tanggal Lahir</label>
+                                <input type="date" max={new Date().toISOString().slice(0, 10)} className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white text-sm font-semibold text-slate-800" value={formData.tanggal_lahir} onChange={e => setFormData({...formData, tanggal_lahir: e.target.value})} />
                             </div>
                             <div>
-                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Asal</label>
-                                <input type="text" placeholder="Kota/kabupaten asal" className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white text-[13px] font-semibold text-slate-800 placeholder:text-slate-400" value={formData.asal} onChange={e => setFormData({...formData, asal: e.target.value})} />
+                                <label className="block text-xs font-semibold text-slate-500 mb-2">Asal</label>
+                                <input type="text" placeholder="Kota/kabupaten asal" className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white text-sm font-semibold text-slate-800 placeholder:text-slate-400" value={formData.asal} onChange={e => setFormData({...formData, asal: e.target.value})} />
                             </div>
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Arah Hafalan</label>
+                            <label className="block text-xs font-semibold text-slate-500 mb-2">Arah Hafalan</label>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                 {([
                                     { v: 'maju', t: 'Maju', d: 'Dari Al-Fatihah ke An-Nas' },
@@ -933,18 +927,18 @@ const SantriPage: React.FC = () => {
                                 ] as const).map(o => (
                                     <button key={o.v} type="button" onClick={() => setFormData({...formData, arah_hafalan: o.v})}
                                         className={`text-left border rounded-xl px-3 py-2 transition-all ${formData.arah_hafalan === o.v ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500/10' : 'border-slate-200 bg-slate-50 hover:bg-slate-100'}`}>
-                                        <span className="block text-[13px] font-bold text-slate-800">{o.t}</span>
-                                        <span className="block text-[11px] text-slate-500">{o.d}</span>
+                                        <span className="block text-sm font-bold text-slate-800">{o.t}</span>
+                                        <span className="block text-2xs text-slate-500">{o.d}</span>
                                     </button>
                                 ))}
                             </div>
-                            <p className="text-[11px] text-slate-400 mt-1">Dipakai untuk menebak ayat awal setoran berikutnya dan menghitung posisi hafalan. Dua arah: setiap ziyadah otomatis menambah sisi (depan/belakang) yang paling dekat.</p>
+                            <p className="text-2xs text-slate-400 mt-1">Dipakai untuk menebak ayat awal setoran berikutnya dan menghitung posisi hafalan. Dua arah: setiap ziyadah otomatis menambah sisi (depan/belakang) yang paling dekat.</p>
                         </div>
                         <div className="grid grid-cols-2 gap-5">
                             <div>
-                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Marhalah <span className="text-red-500">*</span></label>
+                                <label className="block text-xs font-semibold text-slate-500 mb-2">Marhalah <span className="text-red-500">*</span></label>
                                 <select 
-                                    className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-[13px] font-semibold text-slate-800 cursor-pointer" 
+                                    className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-sm font-semibold text-slate-800 cursor-pointer" 
                                     value={formData.marhalah} 
                                     onChange={e => {
                                         const newMarhalah = e.target.value;
@@ -966,9 +960,9 @@ const SantriPage: React.FC = () => {
                                 </select>
                             </div>
                             <div className="flex flex-col">
-                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Kelas <span className="text-red-500">*</span></label>
+                                <label className="block text-xs font-semibold text-slate-500 mb-2">Kelas <span className="text-red-500">*</span></label>
                                 <select 
-                                    className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-[13px] font-semibold text-slate-800 cursor-pointer" 
+                                    className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-sm font-semibold text-slate-800 cursor-pointer" 
                                     value={formData.kelas} 
                                     onChange={e => setFormData({...formData, kelas: e.target.value})}
                                 >
@@ -982,31 +976,31 @@ const SantriPage: React.FC = () => {
                     <div className="border-t border-slate-200/80 pt-5 space-y-4">
                         <div className="flex items-center gap-2 mb-2">
                             <div className="w-1.5 h-4 bg-emerald-500 rounded-full"></div>
-                            <p className="text-[12px] font-extrabold text-slate-700 uppercase tracking-wider">Data Wali</p>
+                            <p className="text-xs font-semibold text-slate-700">Data Wali</p>
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Nama Wali</label>
-                            <input type="text" placeholder="Nama Wali Santri" className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-[13px] font-semibold text-slate-800 placeholder:text-slate-400" value={formData.nama_wali} onChange={e => setFormData({...formData, nama_wali: e.target.value})} />
+                            <label className="block text-xs font-semibold text-slate-500 mb-2">Nama Wali</label>
+                            <input type="text" placeholder="Nama Wali Santri" className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-sm font-semibold text-slate-800 placeholder:text-slate-400" value={formData.nama_wali} onChange={e => setFormData({...formData, nama_wali: e.target.value})} />
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">No HP / WhatsApp</label>
-                            <input type="text" placeholder="08xxxxxxxxxx" className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-[13px] font-semibold text-slate-800 placeholder:text-slate-400" value={formData.no_hp_wali} onChange={e => setFormData({...formData, no_hp_wali: e.target.value})} />
+                            <label className="block text-xs font-semibold text-slate-500 mb-2">No HP / WhatsApp</label>
+                            <input type="text" placeholder="08xxxxxxxxxx" className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-sm font-semibold text-slate-800 placeholder:text-slate-400" value={formData.no_hp_wali} onChange={e => setFormData({...formData, no_hp_wali: e.target.value})} />
                         </div>
 
                         <div>
-                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Telegram Chat ID <span className="normal-case font-medium text-slate-400">(terisi otomatis saat wali mengirim kode ke bot)</span></label>
-                            <input type="text" placeholder="Contoh: 123456789" className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-[13px] font-semibold text-slate-800 placeholder:text-slate-400" value={formData.telegram_chat_id} onChange={e => setFormData({...formData, telegram_chat_id: e.target.value})} />
+                            <label className="block text-xs font-semibold text-slate-500 mb-2">Telegram Chat ID <span className="normal-case font-medium text-slate-400">(terisi otomatis saat wali mengirim kode ke bot)</span></label>
+                            <input type="text" placeholder="Contoh: 123456789" className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-sm font-semibold text-slate-800 placeholder:text-slate-400" value={formData.telegram_chat_id} onChange={e => setFormData({...formData, telegram_chat_id: e.target.value})} />
                         </div>
                     </div>
 
                     <div className="space-y-4 pt-4 border-t border-slate-100">
                         <div className="flex items-center gap-2 mb-2">
                             <div className="w-1.5 h-4 bg-orange-500 rounded-full"></div>
-                            <p className="text-[12px] font-extrabold text-slate-700 uppercase tracking-wider">Status Santri</p>
+                            <p className="text-xs font-semibold text-slate-700">Status Santri</p>
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Status <span className="text-red-500">*</span></label>
-                            <select className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-[13px] font-semibold text-slate-800 cursor-pointer appearance-none" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as any})}>
+                            <label className="block text-xs font-semibold text-slate-500 mb-2">Status <span className="text-red-500">*</span></label>
+                            <select className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-sm font-semibold text-slate-800 cursor-pointer appearance-none" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as any})}>
                                 <option value="active">Aktif</option>
                                 <option value="inactive">Tidak Aktif</option>
                             </select>
@@ -1014,8 +1008,8 @@ const SantriPage: React.FC = () => {
                     </div>
                     
                     <div className="flex justify-end pt-6 gap-3 border-t border-slate-200/80">
-                        <button onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-xl text-[13px] font-bold text-slate-600 hover:bg-slate-100 transition-colors">Batal</button>
-                        <button onClick={handleSubmit} disabled={isSubmitting} className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-[13px] font-bold hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 transition-all shadow-[0_2px_12px_rgba(37,99,235,0.25)] focus:ring-4 focus:ring-blue-500/20 flex items-center justify-center min-w-[120px]">
+                        <button onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors">Batal</button>
+                        <button onClick={handleSubmit} disabled={isSubmitting} className="btn btn-primary justify-center min-w-[120px]">
                             {isSubmitting ? (
                                 <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div> Menyimpan...</>
                             ) : 'Simpan Data'}
@@ -1049,8 +1043,8 @@ const SantriPage: React.FC = () => {
                         </div>
 
                         <div>
-                            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
-                                1. Riwayat Enrollment Tahunan V2 (student_enrollments)
+                            <h4 className="text-xs font-semibold text-slate-600 mb-2">
+                                Riwayat kelas per tahun ajaran
                             </h4>
                             <div className="border border-slate-200 rounded-lg overflow-hidden">
                                 <table className="w-full text-left border-collapse text-xs">
@@ -1058,7 +1052,7 @@ const SantriPage: React.FC = () => {
                                         <tr>
                                             <th className="px-3.5 py-2">Tahun Ajaran</th>
                                             <th className="px-3.5 py-2">Marhalah & Kelas</th>
-                                            <th className="px-3.5 py-2">Status Enrollment</th>
+                                            <th className="px-3.5 py-2">Status penempatan</th>
                                             <th className="px-3.5 py-2">Periode Efektif</th>
                                         </tr>
                                     </thead>
@@ -1087,7 +1081,7 @@ const SantriPage: React.FC = () => {
                                                             }
                                                         />
                                                     </td>
-                                                    <td className="px-3.5 py-2 font-mono text-[11px] text-slate-500">
+                                                    <td className="px-3.5 py-2 font-mono text-2xs text-slate-500">
                                                         {row.enrolled_at || '-'} {row.left_at ? `s/d ${row.left_at}` : '(Aktif)'}
                                                     </td>
                                                 </tr>
@@ -1106,12 +1100,12 @@ const SantriPage: React.FC = () => {
                         </div>
 
                         <div>
-                            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
+                            <h4 className="text-xs font-semibold text-slate-600 mb-2">
                                 2. Keanggotaan Halaqah & Ringkasan Setoran
                             </h4>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div className="p-3 rounded-lg border border-slate-200 bg-white">
-                                    <div className="text-[11px] font-semibold text-slate-500 uppercase">Halaqah Binaan</div>
+                                    <div className="text-2xs font-semibold text-slate-500 uppercase">Halaqah Binaan</div>
                                     <div className="text-xs font-bold text-slate-900 mt-1">
                                         {(halaqah || [])
                                             .filter((h) => (h.active_santri || h.santri).some((st) => st.id === detailSantri.id))
@@ -1120,7 +1114,7 @@ const SantriPage: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="p-3 rounded-lg border border-slate-200 bg-white">
-                                    <div className="text-[11px] font-semibold text-slate-500 uppercase">Transaksi Setoran Tercatat</div>
+                                    <div className="text-2xs font-semibold text-slate-500 uppercase">Transaksi Setoran Tercatat</div>
                                     <div className="text-xs font-bold text-slate-900 mt-1">
                                         {(setoranHarian || []).filter((st: any) => st.santri_id === detailSantri.id).length} kali setoran pada periode aktif
                                     </div>
@@ -1137,7 +1131,7 @@ const SantriPage: React.FC = () => {
                                     if (studentId) navigate('/app/students', { replace: true });
                                     openModal(target);
                                 }}
-                                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold"
+                                className="btn btn-primary btn-sm"
                             >
                                 Edit Santri / Penempatan Kelas
                             </button>

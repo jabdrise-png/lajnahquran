@@ -58,11 +58,11 @@ const VerifyReportPage: React.FC = () => {
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="bg-white rounded-xl border border-slate-200 p-6 sm:p-8 space-y-5">
           <div className="space-y-1.5">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-blue-700">
+            <div className="text-xs font-semibold text-blue-700">
               Verifikasi Keaslian Dokumen Akademik
             </div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-              Verifikasi Snapshot Raport Resmi
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+              Verifikasi Raport Resmi
             </h1>
             <p className="text-xs text-slate-500 leading-relaxed">
               Masukkan Kode Verifikasi Raport (contoh: <span className="font-mono">LQ-1A2B3C4D5E6F</span>) atau
@@ -94,7 +94,7 @@ const VerifyReportPage: React.FC = () => {
               <>
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-4">
                   <div>
-                    <div className="text-xs font-semibold text-slate-500">Status Integritas Snapshot</div>
+                    <div className="text-xs font-semibold text-slate-500">Status keaslian raport</div>
                     <div className="text-lg font-bold text-slate-900 mt-0.5">
                       Dokumen Raport Terverifikasi & Sah
                     </div>
@@ -111,7 +111,7 @@ const VerifyReportPage: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200/80">
-                    <div className="text-[11px] font-semibold uppercase text-slate-500">Nama Santri</div>
+                    <div className="text-2xs font-semibold uppercase text-slate-500">Nama Santri</div>
                     <div className="font-bold text-slate-900 mt-0.5">
                       {verificationResult.santri_nama || '-'}
                     </div>
@@ -121,7 +121,7 @@ const VerifyReportPage: React.FC = () => {
                   </div>
 
                   <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200/80">
-                    <div className="text-[11px] font-semibold uppercase text-slate-500">Lembaga / Ma'had</div>
+                    <div className="text-2xs font-semibold uppercase text-slate-500">Lembaga / Ma'had</div>
                     <div className="font-bold text-slate-900 mt-0.5">
                       {verificationResult.organization_name || '-'}
                     </div>
@@ -131,7 +131,7 @@ const VerifyReportPage: React.FC = () => {
                   </div>
 
                   <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200/80">
-                    <div className="text-[11px] font-semibold uppercase text-slate-500">Nilai Akhir & Predikat</div>
+                    <div className="text-2xs font-semibold uppercase text-slate-500">Nilai Akhir & Predikat</div>
                     <div className="font-mono font-bold text-slate-900 text-base mt-0.5 tabular-nums">
                       {verificationResult.final_score ?? '-'} ({verificationResult.predikat || '-'})
                     </div>
@@ -141,7 +141,7 @@ const VerifyReportPage: React.FC = () => {
                   </div>
 
                   <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200/80">
-                    <div className="text-[11px] font-semibold uppercase text-slate-500">Kode & Waktu Penerbitan</div>
+                    <div className="text-2xs font-semibold uppercase text-slate-500">Kode & Waktu Penerbitan</div>
                     <div className="font-mono font-bold text-slate-900 mt-0.5">
                       {verificationResult.verification_code || '-'}
                     </div>
@@ -154,8 +154,8 @@ const VerifyReportPage: React.FC = () => {
                 </div>
 
                 <div className="p-3.5 rounded-lg bg-slate-900 text-slate-100 space-y-1">
-                  <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    Jejak Kriptografi Snapshot (SHA-256 Immutable Hash)
+                  <div className="text-xs font-semibold text-slate-400">
+                    Sidik digital raport (SHA-256)
                   </div>
                   <div className="font-mono text-xs break-all">
                     {verificationResult.snapshot_hash || '-'}
@@ -180,10 +180,10 @@ const VerifyReportPage: React.FC = () => {
                 {verificationResult.is_superseded && (
                   <div className="mt-3 p-3.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 space-y-1.5">
                     <div className="font-semibold text-amber-900">Riwayat Catatan Perubahan (Amendment Reason):</div>
-                    <div className="text-amber-800 bg-white/70 p-2 rounded border border-amber-200/60 font-mono text-[11px]">
+                    <div className="text-amber-800 bg-white/70 p-2 rounded border border-amber-200/60 font-mono text-2xs">
                       {verificationResult.amendment_reason || 'Pembaruan data nilai/materi raport resmi.'}
                     </div>
-                    <div className="text-[11px] text-amber-700 pt-1">
+                    <div className="text-2xs text-amber-700 pt-1">
                       Dokumen versi ini sudah tidak berlaku sebagai dokumen raport aktif. Silakan gunakan QR code atau Kode Verifikasi pada dokumen terbitan terbaru.
                     </div>
                   </div>

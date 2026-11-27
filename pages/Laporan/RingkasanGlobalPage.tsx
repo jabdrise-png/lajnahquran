@@ -13,6 +13,7 @@ import { NotificationStore } from '../../lib/NotificationStore';
 import { format } from 'date-fns';
 import { PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, BarChart, Bar, Legend } from 'recharts';
 import html2canvas from 'html2canvas';
+import { LoadingState } from '../../components/ui/SaaSPrimitives';
 
 import { motion } from 'motion/react';
 import { getStatusColor } from '../../components/Chart';
@@ -586,7 +587,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
             : <ArrowDown size={12} className="ml-1.5 text-blue-500" />;
     };
 
-    if (loading) return <p>Loading...</p>;
+    if (loading) return <LoadingState label="Memuat data…" />;
     if (error) return <p className="text-red-500">{error}</p>;
 
     return (
@@ -605,7 +606,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                             </button>
                             {showTrendMenu && (
                                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-100 py-1 z-10 text-sm">
-                                    <button onClick={() => { handleDownloadImage('chart-trend', 'Tren_Kehadiran'); setShowTrendMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700">Download Gambar</button>
+                                    <button onClick={() => { handleDownloadImage('chart-trend', 'Tren_Kehadiran'); setShowTrendMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700">Unduh gambar</button>
                                     <button onClick={() => { handleOpenInNewTab('chart-trend'); setShowTrendMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700">Buka di Tab Baru</button>
                                     <div className="h-px bg-slate-100 my-1"></div>
                                     <button onClick={() => { setShowAllTrendLines(!showAllTrendLines); setShowTrendMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700">
@@ -649,7 +650,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                             </AreaChart>
                         </ResponsiveContainer>
                      </div>
-                     <div className="flex flex-wrap items-center justify-center mt-6 gap-6 text-[13px] font-medium text-slate-500">
+                     <div className="flex flex-wrap items-center justify-center mt-6 gap-6 text-sm font-medium text-slate-500">
                         {globalAttendanceStatus.map((s, idx) => (idx === 0 || idx === 3 || showAllTrendLines) && (
                             <div key={s} className="flex items-center"><div className="w-3 h-3 rounded-full mr-2" style={{backgroundColor: getStatusColor(s)}}></div>{s}</div>
                         ))}
@@ -668,7 +669,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                             </button>
                             {showPieMenu && (
                                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-100 py-1 z-10 text-sm">
-                                    <button onClick={() => { handleDownloadImage('chart-pie', 'Distribusi_Status'); setShowPieMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700">Download Gambar</button>
+                                    <button onClick={() => { handleDownloadImage('chart-pie', 'Distribusi_Status'); setShowPieMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700">Unduh gambar</button>
                                     <button onClick={() => { handleOpenInNewTab('chart-pie'); setShowPieMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700">Buka di Tab Baru</button>
                                 </div>
                             )}
@@ -702,19 +703,19 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                      </div>
 
                      <div className="grid grid-cols-2 gap-y-4 gap-x-6 mt-4 px-2">
-                         <div className="flex justify-between items-center text-[13px]">
+                         <div className="flex justify-between items-center text-sm">
                              <div className="flex items-center text-slate-500"><div className="w-2 h-2 rounded-full mr-2 bg-emerald-500"></div>Hadir</div>
                              <div className="font-semibold text-slate-800">{pieStats.hadirVal || 0}%</div>
                          </div>
-                         <div className="flex justify-between items-center text-[13px]">
+                         <div className="flex justify-between items-center text-sm">
                              <div className="flex items-center text-slate-500"><div className="w-2 h-2 rounded-full mr-2 bg-blue-500"></div>Izin</div>
                              <div className="font-semibold text-slate-800">{pieStats.izinVal || 0}%</div>
                          </div>
-                         <div className="flex justify-between items-center text-[13px]">
+                         <div className="flex justify-between items-center text-sm">
                              <div className="flex items-center text-slate-500"><div className="w-2 h-2 rounded-full mr-2 bg-amber-500"></div>Sakit</div>
                              <div className="font-semibold text-slate-800">{pieStats.sakitVal || 0}%</div>
                          </div>
-                         <div className="flex justify-between items-center text-[13px]">
+                         <div className="flex justify-between items-center text-sm">
                              <div className="flex items-center text-slate-500"><div className="w-2 h-2 rounded-full mr-2 bg-red-500"></div>Alpa</div>
                              <div className="font-semibold text-slate-800">{pieStats.alpaVal || 0}%</div>
                          </div>
@@ -735,7 +736,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                         </button>
                         {showBarMenu && (
                             <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-100 py-1 z-10 text-sm">
-                                <button onClick={() => { handleDownloadImage('chart-bar', 'Akumulasi_Per_Individu'); setShowBarMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700">Download Gambar</button>
+                                <button onClick={() => { handleDownloadImage('chart-bar', 'Akumulasi_Per_Individu'); setShowBarMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700">Unduh gambar</button>
                                 <button onClick={() => { handleOpenInNewTab('chart-bar'); setShowBarMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700">Buka di Tab Baru</button>
                             </div>
                         )}
@@ -796,15 +797,15 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                     <table className="w-full text-sm text-center whitespace-nowrap">
                         <thead>
                             <tr className="border-b border-slate-100 bg-slate-50/50">
-                                <th className="p-4 text-left font-semibold text-slate-500 text-xs tracking-wider uppercase">Marhalah</th>
-                                {showStatsKelas && <th className="p-4 text-left font-semibold text-slate-500 text-xs tracking-wider uppercase">Kelas</th>}
-                                {showStatsWaktu && <th className="p-4 text-left font-semibold text-slate-500 text-xs tracking-wider uppercase">Waktu</th>}
+                                <th className="p-4 text-left font-semibold text-slate-500 text-xs">Marhalah</th>
+                                {showStatsKelas && <th className="p-4 text-left font-semibold text-slate-500 text-xs">Kelas</th>}
+                                {showStatsWaktu && <th className="p-4 text-left font-semibold text-slate-500 text-xs">Waktu</th>}
                                 {globalAttendanceStatus?.map(status => (
-                                    <th key={status} className="p-4 font-semibold text-slate-500 text-xs tracking-wider uppercase">
+                                    <th key={status} className="p-4 font-semibold text-slate-500 text-xs">
                                         {status}
                                     </th>
                                 ))}
-                                <th className="p-4 font-semibold text-slate-800 text-xs tracking-wider uppercase">Total</th>
+                                <th className="p-4 font-semibold text-slate-800 text-xs">Total</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -845,7 +846,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                         <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={16}/>
                         <input 
                             type="text" 
-                            className="w-full border-slate-200 rounded-full text-[13px] py-2 pl-10 pr-3 focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none text-slate-700 bg-white border placeholder:text-slate-400 font-medium shadow-sm" 
+                            className="w-full border-slate-200 rounded-full text-sm py-2 pl-10 pr-3 focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none text-slate-700 bg-white border placeholder:text-slate-400 font-medium shadow-sm" 
                             placeholder="Cari nama santri..."
                             value={searchName}
                             onChange={e => setSearchName(e.target.value)}
@@ -854,18 +855,18 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                     <div className="flex items-center gap-2 w-full md:w-auto mt-4 md:mt-0 flex-wrap">
                         {selectedSantriIds.length > 0 && (
                             <>
-                                <button type="button" onClick={() => handleGeneratePreview('wa')} className="bg-[#25D366] text-white px-3 py-2 rounded-full text-[13px] hover:bg-[#128C7E] flex items-center font-bold shadow-sm transition-all" title="Kirim WhatsApp">
+                                <button type="button" onClick={() => handleGeneratePreview('wa')} className="bg-[#25D366] text-white px-3 py-2 rounded-full text-sm hover:bg-[#128C7E] flex items-center font-bold shadow-sm transition-all" title="Kirim WhatsApp">
                                     <MessageCircle size={16} />
                                 </button>
-                                <button type="button" onClick={() => handleGeneratePreview('telegram')} className="bg-sky-500 text-white px-3 py-2 rounded-full text-[13px] hover:bg-sky-600 flex items-center font-bold shadow-sm transition-all" title="Kirim Telegram">
+                                <button type="button" onClick={() => handleGeneratePreview('telegram')} className="bg-blue-500 text-white px-3 py-2 rounded-full text-sm hover:bg-blue-600 flex items-center font-bold shadow-sm transition-all" title="Kirim Telegram">
                                     <Send size={16} />
                                 </button>
-                                <span className="text-[12px] font-bold text-slate-500 mr-2">{selectedSantriIds.length} Terpilih</span>
+                                <span className="text-xs font-bold text-slate-500 mr-2">{selectedSantriIds.length} Terpilih</span>
                             </>
                         )}
                         <div className="relative">
                             <select 
-                                className="border-slate-200 text-slate-600 font-medium rounded-full text-[13px] py-2 pl-4 pr-8 bg-white w-full md:w-auto border focus:ring-2 focus:ring-blue-100 focus:outline-none focus:border-blue-500 shadow-sm appearance-none cursor-pointer"
+                                className="border-slate-200 text-slate-600 font-medium rounded-full text-sm py-2 pl-4 pr-8 bg-white w-full md:w-auto border focus:ring-2 focus:ring-blue-100 focus:outline-none focus:border-blue-500 shadow-sm appearance-none cursor-pointer"
                                 value={selectedMarhalah} 
                                 onChange={e => {setSelectedMarhalah(e.target.value as any); setSelectedKelas('all');}}
                             >
@@ -878,7 +879,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                         </div>
                         <div className="relative">
                             <select 
-                                className="border-slate-200 text-slate-600 font-medium rounded-full text-[13px] py-2 pl-4 pr-8 bg-white w-full md:w-auto border focus:ring-2 focus:ring-blue-100 focus:outline-none focus:border-blue-500 shadow-sm appearance-none cursor-pointer"
+                                className="border-slate-200 text-slate-600 font-medium rounded-full text-sm py-2 pl-4 pr-8 bg-white w-full md:w-auto border focus:ring-2 focus:ring-blue-100 focus:outline-none focus:border-blue-500 shadow-sm appearance-none cursor-pointer"
                                 value={selectedKelas} 
                                 onChange={e => setSelectedKelas(e.target.value)}
                             >
@@ -904,10 +905,10 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                         </button>
                         <button
                             onClick={() => exportToExcel(recapData, 'Rekap_Global')}
-                            className="px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
+                            className="btn btn-primary"
                         >
                             <Download size={15} />
-                            <span>Export Data</span>
+                            <span>Ekspor data</span>
                         </button>
                     </div>
                 </div>
@@ -930,7 +931,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
                             <div>
-                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Dari Tanggal</label>
+                                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Dari Tanggal</label>
                                 <input 
                                     type="date" 
                                     value={dateRange.start} 
@@ -939,7 +940,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                                 />
                             </div>
                             <div>
-                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Sampai Tanggal</label>
+                                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Sampai Tanggal</label>
                                 <input 
                                     type="date" 
                                     value={dateRange.end} 
@@ -948,7 +949,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                                 />
                             </div>
                             <div>
-                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Peran Santri</label>
+                                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Peran Santri</label>
                                 <select 
                                     value={selectedPeran} 
                                     onChange={e => setSelectedPeran(e.target.value as any)} 
@@ -959,7 +960,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Status Kehadiran</label>
+                                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Status Kehadiran</label>
                                 <select 
                                     value={selectedStatus} 
                                     onChange={e => setSelectedStatus(e.target.value as any)} 
@@ -982,28 +983,28 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                                         {selectedSantriIds.length > 0 && selectedSantriIds.length === visibleData.filter(d => d.Peran === 'Santri').length ? <CheckSquare size={16} className="text-blue-600"/> : <Square size={16}/>}
                                     </button>
                                 </th>
-                                <th className="px-6 py-4 text-[10px] md:text-[11px] font-medium tracking-widest uppercase text-slate-400 group cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleSort('Nama')}>
+                                <th className="px-6 py-4 text-xs md:text-2xs font-medium text-slate-400 group cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleSort('Nama')}>
                                     <div className="flex items-center">Nama Santri <SortIcon field="Nama"/></div>
                                 </th>
-                                <th className="px-6 py-4 text-[10px] md:text-[11px] font-medium tracking-widest uppercase text-slate-400 group cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleSort('Marhalah')}>
+                                <th className="px-6 py-4 text-xs md:text-2xs font-medium text-slate-400 group cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleSort('Marhalah')}>
                                     <div className="flex items-center">Informasi <SortIcon field="Marhalah"/></div>
                                 </th>
-                                <th className="px-6 py-4 text-[10px] md:text-[11px] font-medium tracking-widest uppercase text-slate-400 group cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleSort('Hadir')}>
+                                <th className="px-6 py-4 text-xs md:text-2xs font-medium text-slate-400 group cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleSort('Hadir')}>
                                     <div className="flex items-center justify-center">Hadir <SortIcon field="Hadir"/></div>
                                 </th>
-                                <th className="px-6 py-4 text-[10px] md:text-[11px] font-medium tracking-widest uppercase text-slate-400 group cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleSort('Izin')}>
+                                <th className="px-6 py-4 text-xs md:text-2xs font-medium text-slate-400 group cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleSort('Izin')}>
                                     <div className="flex items-center justify-center">Izin <SortIcon field="Izin"/></div>
                                 </th>
-                                <th className="px-6 py-4 text-[10px] md:text-[11px] font-medium tracking-widest uppercase text-slate-400 group cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleSort('Sakit')}>
+                                <th className="px-6 py-4 text-xs md:text-2xs font-medium text-slate-400 group cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleSort('Sakit')}>
                                     <div className="flex items-center justify-center">Sakit <SortIcon field="Sakit"/></div>
                                 </th>
-                                <th className="px-6 py-4 text-[10px] md:text-[11px] font-medium tracking-widest uppercase text-slate-400 group cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleSort('Alpa')}>
+                                <th className="px-6 py-4 text-xs md:text-2xs font-medium text-slate-400 group cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleSort('Alpa')}>
                                     <div className="flex items-center justify-center">Alpa <SortIcon field="Alpa"/></div>
                                 </th>
-                                <th className="px-6 py-4 text-[10px] md:text-[11px] font-medium tracking-widest uppercase text-slate-400 group cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleSort('Terlambat')}>
+                                <th className="px-6 py-4 text-xs md:text-2xs font-medium text-slate-400 group cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleSort('Terlambat')}>
                                     <div className="flex items-center justify-center">Telat <SortIcon field="Terlambat"/></div>
                                 </th>
-                                <th className="px-6 py-4 text-[10px] md:text-[11px] font-medium tracking-widest uppercase text-slate-900 group cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleSort('Total')}>
+                                <th className="px-6 py-4 text-xs md:text-2xs font-medium text-slate-900 group cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleSort('Total')}>
                                     <div className="flex items-center justify-center">Total <SortIcon field="Total"/></div>
                                 </th>
                             </tr>
@@ -1022,19 +1023,19 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center">
-                                            <div className="flex-shrink-0 h-10 w-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 font-bold text-[13px] border border-slate-200/80 mr-4">
+                                            <div className="flex-shrink-0 h-10 w-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 font-bold text-sm border border-slate-200/80 mr-4">
                                                 {getInitials(item.Nama)}
                                             </div>
                                             <div>
-                                                <div className="font-bold text-slate-800 text-[13px] whitespace-nowrap">{item.Nama}</div>
-                                                <div className="text-[11px] text-slate-400 font-medium mt-0.5">{item.Peran}</div>
+                                                <div className="font-bold text-slate-800 text-sm whitespace-nowrap">{item.Nama}</div>
+                                                <div className="text-2xs text-slate-400 font-medium mt-0.5">{item.Peran}</div>
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 text-slate-500 text-[13px]">
+                                    <td className="px-6 py-4 text-slate-500 text-sm">
                                         <div className="flex items-center">
-                                            {item.Kelas && <span className="bg-slate-100 text-slate-600 text-[11px] px-2 py-0.5 rounded font-bold mr-2 uppercase">{item.Kelas}</span>}
-                                            <span className="font-medium text-[13px]">{item.Marhalah}</span>
+                                            {item.Kelas && <span className="bg-slate-100 text-slate-600 text-2xs px-2 py-0.5 rounded font-bold mr-2 uppercase">{item.Kelas}</span>}
+                                            <span className="font-medium text-sm">{item.Marhalah}</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-center font-bold text-emerald-600">
@@ -1061,7 +1062,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                     </table>
                 </div>
 
-                <div className="p-4 lg:px-6 lg:py-4 bg-white flex flex-col sm:flex-row justify-between items-center gap-4 text-[13px]">
+                <div className="p-4 lg:px-6 lg:py-4 bg-white flex flex-col sm:flex-row justify-between items-center gap-4 text-sm">
                      <p className="text-slate-400 font-medium">
                          Menampilkan <span className="font-bold text-slate-700">1-{visibleData.length}</span> dari <span className="font-bold text-slate-700">{recapData.length}</span> data
                      </p>
@@ -1070,11 +1071,11 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                          <div className="flex space-x-2 items-center">
                              <button 
                                  onClick={() => setDisplayLimit(prev => prev + 50)}
-                                 className="px-3.5 py-1.5 border border-slate-200 bg-white rounded-lg text-[13px] font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors"
+                                 className="btn btn-secondary btn-sm"
                              >Load More (50)</button>
                              <button 
                                  onClick={() => setDisplayLimit(999999)}
-                                 className="px-3.5 py-1.5 border border-blue-200 bg-blue-50/50 rounded-lg text-[13px] font-bold text-blue-600 hover:bg-blue-100 transition-colors"
+                                 className="px-3.5 py-1.5 border border-blue-200 bg-blue-50/50 rounded-lg text-sm font-bold text-blue-600 hover:bg-blue-100 transition-colors"
                              >Tampilkan Semua</button>
                          </div>
                      )}
@@ -1088,7 +1089,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                     {(userProfile?.role?.toLowerCase() || '') !== 'musammi' && (
                         <button 
                             onClick={() => setIsAddModalOpen(true)}
-                            className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center hover:bg-blue-700 transition-all shadow-sm"
+                            className="btn btn-primary btn-sm"
                         >
                             <Plus size={14} className="mr-1"/> Tambah Absensi Manual
                         </button>
@@ -1103,12 +1104,12 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                                     <td className="px-4 py-3 text-slate-800">{r.date}</td>
                                     <td className="px-4 py-3">{r.waktu}</td>
                                     <td className="px-4 py-3">
-                                        <span className={`inline-flex min-w-[50px] justify-center items-center px-2.5 py-1 rounded-md text-[11px] font-bold border tabular-nums shadow-[0_1px_2px_rgba(0,0,0,0.01)] ${
+                                        <span className={`inline-flex min-w-[50px] justify-center items-center px-2.5 py-1 rounded-md text-2xs font-bold border tabular-nums shadow-xs ${
                                             r.status === 'Hadir' ? 'bg-emerald-50 text-emerald-700 border-emerald-100/50' : 
                                             r.status === 'Sakit' ? 'bg-amber-50 text-amber-700 border-amber-100/50' : 
                                             r.status === 'Izin' ? 'bg-blue-50 text-blue-700 border-blue-100/50' : 
                                             r.status === 'Terlambat' ? 'bg-orange-50 text-orange-700 border-orange-100/50' : 
-                                            'bg-rose-50 text-rose-700 border-rose-100/50'
+                                            'bg-red-50 text-red-700 border-red-100/50'
                                         }`}>{r.status}</span>
                                     </td>
                                     {(userProfile?.role?.toLowerCase() || '') !== 'musammi' && (
@@ -1176,7 +1177,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                         <button 
                             onClick={handleAddManualSubmit} 
                             disabled={isSubmitting}
-                            className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 flex items-center shadow-md disabled:opacity-50"
+                            className="btn btn-primary"
                         >
                             {isSubmitting ? 'Menyimpan...' : <><CheckCircle size={16} className="mr-2"/> Tambah Data</>}
                         </button>
@@ -1202,7 +1203,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                         </div>
                         <div className="flex justify-end pt-4 gap-3 border-t border-slate-100 mt-4">
                             <button onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 border rounded-lg text-sm font-semibold hover:bg-slate-50 border-slate-200">Batal</button>
-                            <button onClick={handleUpdate} disabled={isSubmitting} className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">{isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}</button>
+                            <button onClick={handleUpdate} disabled={isSubmitting} className="btn btn-primary">{isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}</button>
                         </div>
                     </div>
                 )}
@@ -1215,7 +1216,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                         <div className="flex items-start gap-3">
                             <AlertCircle size={18} className="text-blue-600 mt-0.5" />
                             <div>
-                                <h4 className="font-bold text-blue-900 text-[13px] mb-1">
+                                <h4 className="font-bold text-blue-900 text-sm mb-1">
                                     {messageTarget === 'wa' ? 'Kirim via WhatsApp' : 'Kirim via Telegram'}
                                 </h4>
                                 <p className="text-xs text-blue-700/80 leading-relaxed max-w-lg">
@@ -1229,7 +1230,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                         {messageTarget === 'telegram' && (
                             <button 
                                 onClick={handleSendMassTelegram}
-                                className="bg-sky-500 text-white px-5 py-2.5 rounded-xl text-[13px] font-bold shadow-sm transition-all hover:bg-sky-600 flex items-center shrink-0"
+                                className="bg-blue-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all hover:bg-blue-600 flex items-center shrink-0"
                             >
                                 <Send size={16} className="mr-2"/> Kirim Massal
                             </button>
@@ -1241,8 +1242,8 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                             <div key={idx} className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
                                 <div className="flex justify-between items-start mb-3 pb-3 border-b border-slate-100">
                                     <div>
-                                        <p className="font-bold text-slate-800 text-[14px]">{msg.name}</p>
-                                        <p className="text-[12px] font-medium text-slate-500 mt-0.5 flex items-center gap-2">
+                                        <p className="font-bold text-slate-800 text-sm">{msg.name}</p>
+                                        <p className="text-xs font-medium text-slate-500 mt-0.5 flex items-center gap-2">
                                             {messageTarget === 'wa' ? (msg.phone || 'No HP Kosong') : (msg.telegramChatId || 'Chat ID Kosong')}
                                         </p>
                                     </div>
@@ -1258,7 +1259,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                                         {messageTarget === 'wa' ? (
                                             <button 
                                                 onClick={() => sendWA(msg.phone, msg.text)}
-                                                className="bg-[#25D366] text-white px-3 py-1.5 h-8 rounded-lg text-[12px] font-bold flex items-center hover:bg-[#128C7E] transition-all"
+                                                className="bg-[#25D366] text-white px-3 py-1.5 h-8 rounded-lg text-xs font-bold flex items-center hover:bg-[#128C7E] transition-all"
                                             >
                                                 <MessageCircle size={14} className="mr-1.5"/> Kirim WA
                                             </button>
@@ -1266,18 +1267,18 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
                                             <button 
                                                 onClick={() => handleSendTelegram(msg.telegramChatId || '', msg.text)}
                                                 disabled={!msg.telegramChatId}
-                                                className="bg-sky-500 text-white px-3 py-1.5 h-8 rounded-lg text-[12px] font-bold flex items-center hover:bg-sky-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                className="bg-blue-500 text-white px-3 py-1.5 h-8 rounded-lg text-xs font-bold flex items-center hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
                                                 <Send size={14} className="mr-1.5"/> Kirim
                                             </button>
                                         )}
                                     </div>
                                 </div>
-                                <div className="bg-slate-50/50 p-4 rounded-lg text-[13px] text-slate-700 whitespace-pre-wrap font-mono border border-slate-100/50">
+                                <div className="bg-slate-50/50 p-4 rounded-lg text-sm text-slate-700 whitespace-pre-wrap border border-slate-100/50">
                                     {msg.text}
                                 </div>
                                 {messageTarget === 'telegram' && !msg.telegramChatId && (
-                                    <p className="text-red-500 text-[11px] font-bold mt-2">⚠️ Santri ini belum memiliki Chat ID Telegram (atur di profil santri).</p>
+                                    <p className="text-red-500 text-2xs font-bold mt-2">⚠️ Santri ini belum memiliki Chat ID Telegram (atur di profil santri).</p>
                                 )}
                             </div>
                         ))}

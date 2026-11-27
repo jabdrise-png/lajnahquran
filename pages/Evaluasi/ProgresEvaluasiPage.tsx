@@ -207,7 +207,7 @@ const ProgresEvaluasiPage: React.FC = () => {
         description="Rekap Periode: satu angka resmi per santri per periode. Laporan, target, dan raport membaca rekap ini."
         actions={
           <button type="button" onClick={() => navigate(`/app/evaluations?period=${periodId}`)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold">
+            className="btn btn-primary">
             <ExternalLink size={15} /> Buka Form Periode
           </button>
         }
@@ -268,7 +268,7 @@ const ProgresEvaluasiPage: React.FC = () => {
             <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 font-semibold">Belum diisi {ringkas.belum}</span>
             <span className="text-slate-500">dari {ringkas.total} halaqah</span>
             <div className="ml-auto flex gap-2">
-              <button type="button" onClick={muatStatus} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700">
+              <button type="button" onClick={muatStatus} className="btn btn-secondary btn-sm">
                 <RefreshCw size={13} /> Muat ulang
               </button>
               {isAdmin && (
@@ -282,7 +282,7 @@ const ProgresEvaluasiPage: React.FC = () => {
           {memuatStatus ? <LoadingState rows={4} /> : (
             <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
               <table className="min-w-full text-sm">
-                <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
+                <thead className="bg-slate-50 text-xs text-slate-500">
                   <tr>
                     <th className="px-3 py-2 text-left">Halaqah</th>
                     <th className="px-3 py-2 text-left">Musammi'</th>
@@ -297,7 +297,7 @@ const ProgresEvaluasiPage: React.FC = () => {
                   {status.length === 0 && <tr><td colSpan={7} className="px-3 py-6 text-center text-slate-400">Tidak ada halaqah.</td></tr>}
                   {status.map((s) => (
                     <tr key={s.halaqah_id} className="hover:bg-slate-50">
-                      <td className="px-3 py-2 font-semibold text-slate-800">{s.halaqah_nama}<div className="text-[11px] font-normal text-slate-400">{s.marhalah || ''}</div></td>
+                      <td className="px-3 py-2 font-semibold text-slate-800">{s.halaqah_nama}<div className="text-2xs font-normal text-slate-400">{s.marhalah || ''}</div></td>
                       <td className="px-3 py-2 text-slate-600">{s.musammi_nama || '-'}</td>
                       <td className="px-3 py-2 text-slate-600">{MODE_LABEL[s.recording_mode] || s.recording_mode}</td>
                       <td className="px-3 py-2"><span className={`px-2 py-0.5 rounded-full border text-xs font-semibold ${badge[s.status]}`}>{STATUS_FORM_LABEL[s.status]}</span></td>
@@ -323,13 +323,13 @@ const ProgresEvaluasiPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-500">{rekapRows.length} santri</span>
             <button type="button" onClick={ekspor} disabled={rekapRows.length === 0}
-              className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700 disabled:opacity-50">
+              className="btn btn-secondary btn-sm ml-auto">
               <Download size={13} /> Ekspor Excel
             </button>
           </div>
           <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
             <table className="min-w-full text-sm">
-              <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
+              <thead className="bg-slate-50 text-xs text-slate-500">
                 <tr>
                   <th className="px-3 py-2 text-left">Santri</th>
                   <th className="px-3 py-2 text-left">Halaqah</th>
@@ -352,7 +352,7 @@ const ProgresEvaluasiPage: React.FC = () => {
                   <tr key={r.id} className="hover:bg-slate-50">
                     <td className="px-3 py-2">
                       <button type="button" className="font-semibold text-blue-700 hover:underline text-left" onClick={() => setDetail(s)}>{s.nama}</button>
-                      <div className="text-[11px] text-slate-400">{s.kelas} · {r.sumber === 'harian' ? 'harian' : r.sumber === 'rekap' ? 'rekap' : 'data lama'}{Object.keys(r.overrides || {}).length ? ' · dikoreksi' : ''}</div>
+                      <div className="text-2xs text-slate-400">{s.kelas} · {r.sumber === 'harian' ? 'harian' : r.sumber === 'rekap' ? 'rekap' : 'data lama'}{Object.keys(r.overrides || {}).length ? ' · dikoreksi' : ''}</div>
                     </td>
                     <td className="px-3 py-2 text-slate-600">{h?.nama || '-'}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{r.ziyadah_pages ?? '-'}</td>
@@ -367,7 +367,7 @@ const ProgresEvaluasiPage: React.FC = () => {
               </tbody>
             </table>
           </div>
-          <p className="text-[11px] text-slate-400">{label.ziyadah} & {label.murojaah} dalam halaman. Total hafalan dihitung dari posisi hafalan (Mushaf Madinah 15 baris).</p>
+          <p className="text-2xs text-slate-400">{label.ziyadah} & {label.murojaah} dalam halaman. Total hafalan dihitung dari posisi hafalan (Mushaf Madinah 15 baris).</p>
         </div>
       )}
 

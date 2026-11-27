@@ -297,7 +297,7 @@ export const PengaturanEvaluasiPage: React.FC = () => {
     return (
         <div className="space-y-10 font-sans min-h-screen max-w-[1400px] mx-auto pb-16 pt-2 px-2 sm:px-4 lg:px-6">
             <div className="border-b border-slate-200 pb-5">
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight mb-1">
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
                     Pengaturan Evaluasi
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-500 font-medium">
@@ -327,7 +327,7 @@ export const PengaturanEvaluasiPage: React.FC = () => {
                             )}
                         </div>
                         <p className="text-xs text-slate-500 mt-0.5 font-medium">
-                            Setiap penyimpanan menerbitkan snapshot versi target baru (<span className="font-mono">target_plans</span>) untuk menjaga akurasi histori evaluasi.
+                            Setiap penyimpanan membuat versi target baru agar riwayat evaluasi lama tetap akurat.
                         </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2.5">
@@ -342,7 +342,7 @@ export const PengaturanEvaluasiPage: React.FC = () => {
                             type="button"
                             onClick={handleSaveTargets}
                             disabled={isSavingTargets}
-                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                            className="btn btn-primary btn-sm"
                         >
                             <Save size={15} />
                             <span>{isSavingTargets ? 'Menyimpan...' : 'Terbitkan Versi Target'}</span>
@@ -384,7 +384,7 @@ export const PengaturanEvaluasiPage: React.FC = () => {
                         }`}
                     >
                         <span>Riwayat Versi Target</span>
-                        <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-slate-100 text-slate-600 font-bold">
+                        <span className="px-1.5 py-0.5 text-2xs rounded-full bg-slate-100 text-slate-600 font-bold">
                             {targetPlansHistory.length}
                         </span>
                     </button>
@@ -393,12 +393,12 @@ export const PengaturanEvaluasiPage: React.FC = () => {
                 {targetActiveTab === 'versions' && (
                     <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
                         <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200/80 flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Riwayat Versi Target (target_plans)</span>
-                            <span className="text-[11px] text-slate-500">Semester Aktif: {activeSemester}</span>
+                            <span className="text-xs font-semibold text-slate-700">Riwayat versi target</span>
+                            <span className="text-2xs text-slate-500">Semester Aktif: {activeSemester}</span>
                         </div>
                         {targetPlansHistory.length === 0 ? (
                             <div className="p-8 text-center text-xs text-slate-400">
-                                Belum ada riwayat versi target tersimpan di tabel <span className="font-mono">target_plans</span>. Klik "Terbitkan Versi Target" untuk membuat snapshot v1.
+                                Belum ada versi target tersimpan. Klik "Terbitkan Versi Target" untuk membuat versi pertama.
                             </div>
                         ) : (
                             <div className="divide-y divide-slate-100">
@@ -416,7 +416,7 @@ export const PengaturanEvaluasiPage: React.FC = () => {
                                             </div>
                                             <p className="text-xs text-slate-500 mt-1">{plan.notes || '-'}</p>
                                         </div>
-                                        <div className="text-[11px] font-mono text-slate-400">
+                                        <div className="text-2xs font-mono text-slate-400">
                                             {plan.created_at ? format(new Date(plan.created_at), 'dd MMM yyyy HH:mm') : '-'}
                                         </div>
                                     </div>
@@ -435,7 +435,7 @@ export const PengaturanEvaluasiPage: React.FC = () => {
                                 <div key={m.id || m.nama} className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-xs">
                                     <div className="bg-slate-50/80 px-5 py-3.5 font-bold text-sm text-slate-700 border-b border-slate-200/80 flex items-center justify-between">
                                         <span className="font-bold text-slate-800">Marhalah {m.nama}</span>
-                                        <span className="text-[11px] font-semibold text-slate-500 bg-white px-2.5 py-0.5 rounded-full border border-slate-200">
+                                        <span className="text-2xs font-semibold text-slate-500 bg-white px-2.5 py-0.5 rounded-full border border-slate-200">
                                             {kelasForMarhalah.length} Kelas
                                         </span>
                                     </div>
@@ -485,7 +485,7 @@ export const PengaturanEvaluasiPage: React.FC = () => {
                                         <button 
                                             type="button" 
                                             onClick={() => handleAddMurojaahRule(m.nama)}
-                                            className="text-[11px] flex items-center gap-1 font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-xl transition-colors border border-blue-200 cursor-pointer"
+                                            className="text-2xs flex items-center gap-1 font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-xl transition-colors border border-blue-200 cursor-pointer"
                                         >
                                             <Plus size={13} /> Tambah Ambang Batas
                                         </button>
@@ -499,7 +499,7 @@ export const PengaturanEvaluasiPage: React.FC = () => {
                                             rules.map((rule, idx) => (
                                                 <div key={idx} className="flex flex-col sm:flex-row sm:items-center gap-3 bg-slate-50/70 border border-slate-200/80 p-3.5 rounded-xl">
                                                     <div className="flex-1">
-                                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">JIKA CAPAIAN HAFALAN &ge;</label>
+                                                        <label className="block text-xs font-semibold text-slate-400 mb-1">JIKA CAPAIAN HAFALAN &ge;</label>
                                                         <div className="flex items-center gap-2">
                                                             <input 
                                                                 type="number" 
@@ -513,7 +513,7 @@ export const PengaturanEvaluasiPage: React.FC = () => {
                                                     </div>
                                                     <div className="text-slate-300 hidden sm:block mt-4">&rarr;</div>
                                                     <div className="flex-1">
-                                                        <label className="block text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">TARGET MUROJAAH (BLN)</label>
+                                                        <label className="block text-xs font-semibold text-emerald-600 mb-1">TARGET MUROJAAH (BLN)</label>
                                                         <div className="flex items-center gap-2">
                                                             <input 
                                                                 type="number" 
@@ -528,7 +528,7 @@ export const PengaturanEvaluasiPage: React.FC = () => {
                                                     <button
                                                         type="button"
                                                         onClick={() => handleRemoveMurojaahRule(m.nama, idx)}
-                                                        className="sm:ml-auto p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer self-end sm:self-center mt-2 sm:mt-0"
+                                                        className="sm:ml-auto p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer self-end sm:self-center mt-2 sm:mt-0"
                                                         title="Hapus Aturan"
                                                     >
                                                         <Trash2 size={15} />

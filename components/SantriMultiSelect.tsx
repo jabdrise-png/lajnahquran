@@ -30,7 +30,7 @@ const SantriMultiSelect: React.FC<SantriMultiSelectProps> = ({
 
     return (
         <div className="space-y-2">
-            <div className="flex justify-between items-center mb-1.5"><label className="block text-xs font-bold text-slate-500 uppercase tracking-wide">{label}</label><span className="text-[11px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{selectedIds.length} terpilih</span></div>
+            <div className="flex justify-between items-center mb-1.5"><label className="block text-xs font-semibold text-slate-500">{label}</label><span className="text-2xs font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{selectedIds.length} terpilih</span></div>
             <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Search size={16} className="text-slate-400" />

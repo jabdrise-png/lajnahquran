@@ -131,29 +131,29 @@ const Header: React.FC<HeaderProps> = ({
     : searchablePages.slice(0, 8);
 
   return (
-    <header className="print:hidden bg-white/95 backdrop-blur-xs border-b border-[#E1E7EF] z-30 transition-all duration-200 relative">
+    <header className="print:hidden bg-white/95 backdrop-blur-xs border-b border-slate-200 z-30 transition-all duration-200 relative">
       <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8 gap-3 sm:gap-4">
         {/* Left: Hamburger menu + Contextual Breadcrumbs */}
         <div className="flex items-center min-w-0 flex-1 sm:flex-initial">
           <button
             type="button"
             onClick={handleMenuClick}
-            className="text-[#667085] mr-2.5 p-2 rounded-[10px] hover:bg-[#F3F6FB] hover:text-[#101828] focus:outline-none transition-colors md:hidden flex-shrink-0"
+            className="text-slate-500 mr-2.5 p-2 rounded-lg hover:bg-slate-100 hover:text-slate-900 focus:outline-none transition-colors md:hidden flex-shrink-0"
             aria-label="Toggle sidebar"
           >
             <Menu size={20} />
           </button>
 
-          <div className="flex items-center text-[13px] sm:text-[14px] min-w-0">
+          <div className="flex items-center text-sm sm:text-sm min-w-0">
             {breadcrumbs[0] && (
               <>
-                <span className="text-[#1557D5] font-semibold hidden md:inline truncate max-w-[160px] lg:max-w-none">
+                <span className="text-blue-600 font-semibold hidden md:inline truncate max-w-[160px] lg:max-w-none">
                   {breadcrumbs[0]}
                 </span>
                 <span className="mx-2 text-slate-300 hidden md:inline">/</span>
               </>
             )}
-            <span className="text-[#101828] font-bold truncate max-w-[180px] sm:max-w-[260px] md:max-w-none">
+            <span className="text-slate-900 font-bold truncate max-w-[180px] sm:max-w-[260px] md:max-w-none">
               {breadcrumbs[1] || currentPage}
             </span>
           </div>
@@ -163,11 +163,11 @@ const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center space-x-2.5 sm:space-x-3 flex-shrink-0">
           {/* Fase 2: ganti peran untuk akun dengan lebih dari satu peran */}
           {availableRoles && availableRoles.length > 1 && onSwitchRole && (
-            <label className="flex items-center gap-1.5 text-[12px] text-[#475467]" title="Ganti peran">
+            <label className="flex items-center gap-1.5 text-xs text-slate-600" title="Ganti peran">
               <span className="hidden md:inline">Masuk sebagai</span>
               <select
                 aria-label="Ganti peran"
-                className="border border-[#E1E7EF] rounded-[8px] px-2 py-1 text-[12px] font-semibold bg-white"
+                className="border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold bg-white"
                 value={normalizeRole(userRole)}
                 onChange={(e) => onSwitchRole(e.target.value)}
               >
@@ -181,7 +181,7 @@ const Header: React.FC<HeaderProps> = ({
           <div className="relative w-40 sm:w-52 md:w-64 lg:w-72 xl:w-80 group hidden sm:block transition-all" ref={searchRef}>
             <Search
               size={15}
-              className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-[#667085] group-focus-within:text-[#1557D5] transition-colors pointer-events-none"
+              className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-500 group-focus-within:text-blue-600 transition-colors pointer-events-none"
             />
             <input
               ref={searchInputRef}
@@ -190,36 +190,36 @@ const Header: React.FC<HeaderProps> = ({
               onChange={handleSearch}
               onFocus={() => setIsSearchOpen(true)}
               placeholder={isPlatformSuperadmin ? 'Cari modul platform (⌘K)...' : 'Cari fitur atau rute...'}
-              className="w-full bg-[#F8FAFC] focus:bg-white border border-[#E1E7EF] text-[#101828] placeholder:text-[#667085] text-[12px] sm:text-[13px] rounded-[10px] pl-9 pr-4 md:pr-14 py-2 outline-none focus:border-[#1557D5] focus:ring-2 focus:ring-[#2563EB]/15 transition-all font-medium"
+              className="w-full bg-slate-50 focus:bg-white border border-slate-200 text-slate-900 placeholder:text-slate-500 text-xs sm:text-sm rounded-lg pl-9 pr-4 md:pr-14 py-2 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition-all font-medium"
             />
             <div className="absolute right-2.5 top-1/2 transform -translate-y-1/2 hidden md:flex items-center gap-1 opacity-75 pointer-events-none">
-              <kbd className="border border-[#E1E7EF] bg-white rounded-[5px] px-1.5 py-0.5 text-[10px] font-mono text-[#667085] shadow-2xs leading-none">
+              <kbd className="border border-slate-200 bg-white rounded px-1.5 py-0.5 text-2xs font-mono text-slate-500 shadow-2xs leading-none">
                 ⌘K
               </kbd>
             </div>
 
             {isSearchOpen && (
-              <div className="absolute top-full right-0 w-72 sm:w-80 md:w-96 mt-2 bg-white rounded-[14px] shadow-xl border border-[#E1E7EF] max-h-80 overflow-y-auto z-50">
-                <div className="px-3.5 py-2 border-b border-[#E1E7EF] bg-[#F8FAFC] flex items-center justify-between">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#667085]">
+              <div className="absolute top-full right-0 w-72 sm:w-80 md:w-96 mt-2 bg-white rounded-xl shadow-xl border border-slate-200 max-h-80 overflow-y-auto z-50">
+                <div className="px-3.5 py-2 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-500">
                     Navigasi Cepat
                   </span>
-                  <span className="text-[11px] text-[#667085]">ESC untuk tutup</span>
+                  <span className="text-2xs text-slate-500">ESC untuk tutup</span>
                 </div>
                 {searchResults.length > 0 ? (
-                  <ul className="py-1 divide-y divide-[#F3F6FB]">
+                  <ul className="py-1 divide-y divide-slate-100">
                     {searchResults.map((result, idx) => (
                       <li key={idx}>
                         <button
                           type="button"
                           onClick={() => executeSearchNav(result.page)}
-                          className="w-full text-left px-4 py-2.5 hover:bg-[#E7F0FF]/60 transition-colors flex items-center justify-between gap-2"
+                          className="w-full text-left px-4 py-2.5 hover:bg-blue-50/60 transition-colors flex items-center justify-between gap-2"
                         >
                           <div>
-                            <div className="text-[#101828] text-[13px] font-semibold">{result.title}</div>
-                            <div className="text-[11px] text-[#667085]">{result.group}</div>
+                            <div className="text-slate-900 text-sm font-semibold">{result.title}</div>
+                            <div className="text-2xs text-slate-500">{result.group}</div>
                           </div>
-                          <span className="text-[11px] font-mono text-[#1557D5] bg-[#F3F7FF] px-2 py-0.5 rounded border border-[#BFDBFE]/60">
+                          <span className="text-2xs font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200/60">
                             {result.path}
                           </span>
                         </button>
@@ -227,7 +227,7 @@ const Header: React.FC<HeaderProps> = ({
                     ))}
                   </ul>
                 ) : (
-                  <div className="p-4 text-center text-[#667085] text-sm">Halaman tidak ditemukan</div>
+                  <div className="p-4 text-center text-slate-500 text-sm">Halaman tidak ditemukan</div>
                 )}
               </div>
             )}
@@ -238,23 +238,23 @@ const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={handleNotifClick}
-              className="relative p-2 text-[#667085] hover:text-[#101828] hover:bg-[#F3F6FB] rounded-[10px] transition-colors flex items-center justify-center border border-[#E1E7EF] bg-white"
+              className="relative p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors flex items-center justify-center border border-slate-200 bg-white"
               aria-label="Notifikasi"
             >
               <Bell size={18} />
               {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-[#DC2626] rounded-full border-2 border-white"></span>
+                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-600 rounded-full border-2 border-white"></span>
               )}
             </button>
 
             {isNotifOpen && (
-              <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white rounded-[16px] shadow-xl border border-[#E1E7EF] overflow-hidden z-50">
-                <div className="p-3.5 border-b border-[#E1E7EF] flex justify-between items-center bg-[#F8FAFC]">
-                  <h3 className="font-bold text-[#101828] text-xs sm:text-sm">Notifikasi Sistem</h3>
+              <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden z-50">
+                <div className="p-3.5 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                  <h3 className="font-bold text-slate-900 text-xs sm:text-sm">Notifikasi Sistem</h3>
                   <button
                     type="button"
                     onClick={() => NotificationStore.clearAll()}
-                    className="text-[#667085] hover:text-[#DC2626] transition-colors"
+                    className="text-slate-500 hover:text-red-600 transition-colors"
                     title="Bersihkan Semua"
                   >
                     <Trash2 size={14} />
@@ -262,22 +262,22 @@ const Header: React.FC<HeaderProps> = ({
                 </div>
                 <div className="max-h-80 overflow-y-auto">
                   {notifications.length > 0 ? (
-                    <ul className="divide-y divide-[#E1E7EF]">
+                    <ul className="divide-y divide-slate-200">
                       {notifications.map((n) => (
                         <li
                           key={n.id}
-                          className={`p-3.5 hover:bg-[#F8FAFC] transition-colors flex gap-3 ${
-                            !n.read ? 'bg-[#F3F7FF]' : ''
+                          className={`p-3.5 hover:bg-slate-50 transition-colors flex gap-3 ${
+                            !n.read ? 'bg-blue-50' : ''
                           }`}
                         >
                           <div className="flex-shrink-0 mt-0.5">
-                            {n.type === 'success' && <CheckCircle size={16} className="text-[#16A34A]" />}
-                            {n.type === 'error' && <XCircle size={16} className="text-[#DC2626]" />}
-                            {n.type === 'info' && <Info size={16} className="text-[#1557D5]" />}
+                            {n.type === 'success' && <CheckCircle size={16} className="text-emerald-600" />}
+                            {n.type === 'error' && <XCircle size={16} className="text-red-600" />}
+                            {n.type === 'info' && <Info size={16} className="text-blue-600" />}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-[13px] text-[#101828] leading-snug">{n.message}</p>
-                            <p className="text-[10px] text-[#667085] mt-1">
+                            <p className="text-sm text-slate-900 leading-snug">{n.message}</p>
+                            <p className="text-2xs text-slate-500 mt-1">
                               {formatDistanceToNow(n.timestamp, { addSuffix: true, locale: id })}
                             </p>
                           </div>
@@ -285,7 +285,7 @@ const Header: React.FC<HeaderProps> = ({
                       ))}
                     </ul>
                   ) : (
-                    <div className="p-6 text-center text-[#667085] flex flex-col items-center">
+                    <div className="p-6 text-center text-slate-500 flex flex-col items-center">
                       <Bell size={24} className="mb-2 opacity-20" />
                       <p className="text-xs sm:text-sm">Belum ada notifikasi baru</p>
                     </div>

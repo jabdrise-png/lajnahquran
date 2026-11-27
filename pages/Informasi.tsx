@@ -512,7 +512,7 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
         return (
             <div className="space-y-6">
                 {informasiList.map(info => (
-                    <Card key={info.id} className={`transition-all duration-300 ${info.is_pinned ? 'border-blue-500 shadow-md' : ''}`}>
+                    <Card key={info.id} className={`transition-all duration-300 ${info.is_pinned ? 'border-blue-500 shadow-sm' : ''}`}>
                          <div className="flex justify-between items-start -mt-6 -mx-6 mb-4 px-6 py-4 border-b border-slate-200">
                             <div>
                                 <h3 className="text-lg font-bold text-slate-800 flex items-center">
@@ -562,7 +562,7 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
                     return (
                         <div 
                             key={release.id} 
-                            className="bg-white border border-slate-200/90 rounded-xl p-5 sm:p-7 shadow-sm transition-shadow hover:shadow-md relative"
+                            className="bg-white border border-slate-200/90 rounded-xl p-5 sm:p-7 shadow-sm transition-shadow hover:shadow-sm relative"
                         >
                             {/* Header Rilis (Zero-Pill Typography) */}
                             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 border-b border-slate-100 pb-4">
@@ -623,7 +623,7 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
                                         const itemsInCat = release.items.filter(i => i.category === cat);
                                         return (
                                             <div key={cat} className="space-y-3">
-                                                <h3 className="text-xs font-bold tracking-wider uppercase text-slate-400">
+                                                <h3 className="text-xs font-semibold text-slate-400">
                                                     {cat}
                                                 </h3>
                                                 <ul className="space-y-2.5">
@@ -658,7 +658,7 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
             {/* Header Halaman & Segmented Tabs */}
             <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-800">Pusat Informasi</h1>
+                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Pusat Informasi</h1>
                     <p className="text-sm text-slate-500 mt-1">
                         Informasi pengumuman kegiatan ma'had serta riwayat pembaruan sistem aplikasi.
                     </p>
@@ -671,7 +671,7 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
                             <button 
                                 type="button"
                                 onClick={() => openModal(null)} 
-                                className="bg-blue-600 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center justify-center text-sm shadow-sm"
+                                className="btn btn-primary justify-center"
                             >
                                 <Plus size={16} className="mr-2" /> Buat Informasi Baru
                             </button>
@@ -679,7 +679,7 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
                             <button 
                                 type="button"
                                 onClick={() => openReleaseModal(null)} 
-                                className="bg-blue-600 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center justify-center text-sm shadow-sm"
+                                className="btn btn-primary justify-center"
                             >
                                 <Plus size={16} className="mr-2" /> Tambah Catatan Rilis
                             </button>
@@ -772,7 +772,7 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
                             <button 
                                 type="button" 
                                 onClick={closeModal} 
-                                className="bg-white border border-slate-300 text-slate-700 font-semibold py-2 px-4 rounded-lg hover:bg-slate-50 transition-colors"
+                                className="btn btn-secondary"
                             >
                                 Batal
                             </button>
@@ -780,7 +780,7 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
                                 type="button" 
                                 onClick={handleSubmit} 
                                 disabled={isSubmitting} 
-                                className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-slate-400"
+                                className="btn btn-primary"
                             >
                                 {isSubmitting ? 'Menyimpan...' : 'Simpan'}
                             </button>
@@ -807,7 +807,7 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
                                     value={releaseFormData.version} 
                                     onChange={(e) => setReleaseFormData(prev => ({ ...prev, version: e.target.value }))}
                                     placeholder="Contoh: v2.5.0"
-                                    className="block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 font-mono"
+                                    className="block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                                 />
                             </div>
                             <div>
@@ -866,7 +866,7 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
                         {/* POIN-POIN PERUBAHAN */}
                         <div className="pt-3 border-t border-slate-200">
                             <div className="flex items-center justify-between mb-3">
-                                <span className="text-xs font-bold tracking-wider uppercase text-slate-600">
+                                <span className="text-xs font-semibold text-slate-600">
                                     Poin-Poin Perubahan ({releaseFormData.items.length})
                                 </span>
                                 <button
@@ -929,7 +929,7 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
                             <button 
                                 type="button" 
                                 onClick={closeReleaseModal} 
-                                className="bg-white border border-slate-300 text-slate-700 font-semibold py-2 px-4 rounded-lg hover:bg-slate-50 transition-colors text-sm"
+                                className="btn btn-secondary"
                             >
                                 Batal
                             </button>
@@ -937,7 +937,7 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
                                 type="button" 
                                 onClick={handleSaveRelease} 
                                 disabled={isSavingRelease} 
-                                className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm disabled:bg-slate-400"
+                                className="btn btn-primary"
                             >
                                 {isSavingRelease ? 'Menyimpan...' : 'Simpan Catatan Rilis'}
                             </button>

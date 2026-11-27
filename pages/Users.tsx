@@ -4,7 +4,7 @@ import Modal from '../components/Modal';
 import { supabase } from '../lib/supabaseClient';
 import { Trash2, Search, Building, Plus, Edit, User, Mail, KeyRound, CheckCircle, Copy, Hash } from 'lucide-react';
 import { NotificationStore } from '../lib/NotificationStore';
-import { ConfirmDialog } from '../components/ui/SaaSPrimitives';
+import { ConfirmDialog, PageHeader } from '../components/ui/SaaSPrimitives';
 import { resolveTenantContext } from '../lib/permissions';
 import { bolehKelolaAkses } from '../lib/aksesPengguna';
 
@@ -523,13 +523,14 @@ const Users: React.FC = () => {
 
     return (
         <div className="space-y-6">
+            <PageHeader title="Akses & Undangan" description="Siapa saja yang bisa masuk ke aplikasi lembaga ini, perannya, dan undangan yang masih berjalan." />
             {lastIssuedInvite && (
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                     <div className="space-y-1">
                         <div className="font-bold text-blue-950">
                             Tautan Aktivasi Undangan Sekali Pakai ({lastIssuedInvite.email})
                         </div>
-                        <div className="font-mono text-[11px] text-blue-900 break-all">
+                        <div className="font-mono text-2xs text-blue-900 break-all">
                             {window.location.origin}{lastIssuedInvite.invitePath}
                         </div>
                         {lastIssuedInvite.temporaryPassword && (
@@ -560,7 +561,7 @@ const Users: React.FC = () => {
                 </div>
             )}
 
-            <Card title={currentUser?.role === 'super_admin' ? "Manajemen Users (Super Admin)" : "Manajemen Users"}>
+            <Card title="Daftar pengguna">
                 <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                     <p className="text-sm text-slate-500">
                         Total {users.length} pengguna terdaftar.
@@ -588,12 +589,12 @@ const Users: React.FC = () => {
                 </div>
 
                 <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left text-slate-500">
+                    <table className="tabel-kartu w-full text-sm text-left text-slate-500">
                         <thead className="text-xs text-slate-700 uppercase bg-slate-50 border-b">
                             <tr>
                                 <th className="px-6 py-3">Nama Lengkap</th>
                                 <th className="px-6 py-3">Email</th>
-                                <th className="px-6 py-3">Role / Status Grant</th>
+                                <th className="px-6 py-3">Peran / Status</th>
                                 <th className="px-6 py-3">Nama Ma'had & ID</th>
                                 <th className="px-6 py-3 text-right">Aksi</th>
                             </tr>
@@ -609,10 +610,10 @@ const Users: React.FC = () => {
                                         <td className="px-6 py-4 font-medium text-slate-900">
                                             {user.full_name || 'Tanpa Nama'}
                                         </td>
-                                        <td className="px-6 py-4 font-mono text-xs">
+                                        <td data-label="Email" className="px-6 py-4 text-xs">
                                             {user.email || '-'}
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td data-label="Peran / status" className="px-6 py-4">
                                             <div className="flex flex-wrap items-center gap-1.5">
                                                 {user.role === 'super_admin' || user.role === 'superadmin' ? (
                                                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-slate-900 text-white">
@@ -639,19 +640,19 @@ const Users: React.FC = () => {
                                                         </span>
                                                     ))}
                                                 {user.grant_status && (
-                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-2xs font-bold uppercase ${
                                                         user.grant_status === 'active'
                                                             ? 'bg-emerald-100 text-emerald-800'
                                                             : user.grant_status === 'invited'
                                                             ? 'bg-amber-100 text-amber-800'
-                                                            : 'bg-rose-100 text-rose-800'
+                                                            : 'bg-red-100 text-red-800'
                                                     }`}>
                                                         {user.grant_status}
                                                     </span>
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td data-label="Lembaga" className="px-6 py-4">
                                             {user.organizations ? (
                                                 <div>
                                                     <div className="flex items-center mb-1">
@@ -672,13 +673,13 @@ const Users: React.FC = () => {
                                                 <span className="text-red-400 italic">Tidak ada Org</span>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 text-right">
+                                        <td data-label="Aksi" className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2">
                                                 {canManageGrant(user) && (user.role === 'pending' || user.grant_status === 'invited' || user.grant_status === 'suspended' || user.grant_status === 'revoked') && (
                                                     <button 
                                                         onClick={() => handleApproveUser(user.id, user.full_name)}
-                                                        className="bg-green-600 text-white hover:bg-green-700 transition-colors p-1.5 rounded-md text-xs font-bold flex items-center mr-2 shadow-sm"
-                                                        title="Aktifkan Grant User Ini"
+                                                        className="btn btn-primary btn-sm mr-2"
+                                                        title="Aktifkan akses pengguna ini"
                                                     >
                                                         <CheckCircle size={14} className="mr-1" /> Aktifkan
                                                     </button>
@@ -724,7 +725,7 @@ const Users: React.FC = () => {
                         <>
                             <div className="grid grid-cols-1 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Email (Login)</label>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
                                     <div className="relative">
                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Mail size={16} className="text-slate-400"/></div>
                                         <input 
@@ -762,7 +763,7 @@ const Users: React.FC = () => {
                                                 name="creationType" 
                                                 checked={creationType === 'new_org'} 
                                                 onChange={() => setCreationType('new_org')} 
-                                                className="h-4 w-4 text-secondary focus:ring-secondary border-gray-300"
+                                                className="h-4 w-4 text-secondary focus:ring-secondary border-slate-300"
                                             />
                                             <span className="ml-2 text-sm text-slate-700">Buat Ma'had Baru</span>
                                         </label>
@@ -772,7 +773,7 @@ const Users: React.FC = () => {
                                                 name="creationType" 
                                                 checked={creationType === 'existing_org'} 
                                                 onChange={() => setCreationType('existing_org')} 
-                                                className="h-4 w-4 text-secondary focus:ring-secondary border-gray-300"
+                                                className="h-4 w-4 text-secondary focus:ring-secondary border-slate-300"
                                             />
                                             <span className="ml-2 text-sm text-slate-700">Pilih Ma'had Ada</span>
                                         </label>
@@ -824,8 +825,8 @@ const Users: React.FC = () => {
                     {modalMode === 'edit' && (
                         <>
                             <div className="mb-2">
-                                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Email Akun</label>
-                                <div className="p-2 bg-slate-100 rounded text-slate-600 text-sm font-mono">{formData.email}</div>
+                                <label className="block text-xs font-semibold text-slate-400 mb-1">Email Akun</label>
+                                <div className="p-2 bg-slate-100 rounded text-slate-600 text-sm">{formData.email}</div>
                             </div>
                             
                             {/* Org Name Editing is only allowed here, not switching orgs */}
@@ -888,7 +889,7 @@ const Users: React.FC = () => {
                                         </label>
                                     );
                                 })}
-                                <p className="text-[11px] text-slate-500">Satu akun boleh memegang lebih dari satu peran. Setelah login, pengguna memilih peran yang dipakai.</p>
+                                <p className="text-2xs text-slate-500">Satu akun boleh memegang lebih dari satu peran. Setelah login, pengguna memilih peran yang dipakai.</p>
                             </div>
                         ) : (
                         <select 
@@ -916,7 +917,7 @@ const Users: React.FC = () => {
                     <div className="pt-4 flex justify-end gap-2">
                         <button 
                             onClick={() => setIsModalOpen(false)}
-                            className="bg-white border border-slate-300 text-slate-700 font-semibold py-2 px-4 rounded-lg hover:bg-slate-50 transition-colors"
+                            className="btn btn-secondary"
                         >
                             Batal
                         </button>

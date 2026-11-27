@@ -409,54 +409,38 @@ const SettingsPage: React.FC = () => {
     return (
         <div className="space-y-6 pb-20">
             {/* Header */}
-            <div className="border-b border-slate-200 pb-4">
+            <div>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900 tracking-tight mb-1">
+                        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
                             Pengaturan Lembaga & Sistem
                         </h1>
                         <p className="text-sm text-slate-500">
-                            Kelola profil institusi, referensi metodologi akademik, dan integrasi server-side ber-masking.
+                            Profil lembaga, referensi akademik, dan integrasi Telegram.
                         </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <StatusBadge label="TENANT ISOLATED" tone="primary" />
-                        <StatusBadge label="SERVER-SIDE SECRETS" tone="success" />
                     </div>
                 </div>
 
                 {/* Navigasi Sub-Rute Pengaturan (/app/settings/organization | /methodology | /integrations) */}
-                <div className="flex items-center gap-2 mt-5 border-t border-slate-100 pt-3 overflow-x-auto">
+                <div className="tabs mt-4">
                     <button
                         type="button"
                         onClick={() => handleSwitchTab('organization')}
-                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${
-                            activeTab === 'organization'
-                                ? 'bg-blue-600 text-white'
-                                : 'text-slate-600 hover:bg-slate-100'
-                        }`}
+                        className={`tab ${activeTab === 'organization' ? 'tab-aktif' : ''}`}
                     >
                         Profil & Struktur Lembaga
                     </button>
                     <button
                         type="button"
                         onClick={() => handleSwitchTab('methodology')}
-                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${
-                            activeTab === 'methodology'
-                                ? 'bg-blue-600 text-white'
-                                : 'text-slate-600 hover:bg-slate-100'
-                        }`}
+                        className={`tab ${activeTab === 'methodology' ? 'tab-aktif' : ''}`}
                     >
                         Metodologi & Referensi Akademik
                     </button>
                     <button
                         type="button"
                         onClick={() => handleSwitchTab('integrations')}
-                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${
-                            activeTab === 'integrations'
-                                ? 'bg-blue-600 text-white'
-                                : 'text-slate-600 hover:bg-slate-100'
-                        }`}
+                        className={`tab ${activeTab === 'integrations' ? 'tab-aktif' : ''}`}
                     >
                         Integrasi Telegram
                     </button>
@@ -517,7 +501,7 @@ const SettingsPage: React.FC = () => {
                             <button 
                                 type="submit" 
                                 disabled={isSaving}
-                                className="bg-blue-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-blue-700 shadow-sm transition-all focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 flex items-center gap-2 text-sm"
+                                className="btn btn-primary"
                             >
                                 {isSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
                             </button>
@@ -538,7 +522,7 @@ const SettingsPage: React.FC = () => {
                         {!isAddingMarhalah && (
                             <button 
                                 onClick={() => setIsAddingMarhalah(true)}
-                                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1.5 shrink-0"
+                                className="btn btn-primary btn-sm justify-center shrink-0"
                             >
                                 <Plus size={14}/> Tambah Marhalah
                             </button>
@@ -549,15 +533,15 @@ const SettingsPage: React.FC = () => {
                         <div className="p-4 border-b border-slate-100 bg-slate-50">
                             <form onSubmit={handleAddMarhalah} className="flex gap-2">
                                 <input type="text" value={newMarhalahName} onChange={e => setNewMarhalahName(e.target.value)} placeholder="Nama Marhalah" className="flex-1 px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" required/>
-                                <button type="submit" disabled={isSaving} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-700">Simpan</button>
-                                <button type="button" onClick={() => setIsAddingMarhalah(false)} className="bg-white border border-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-50">Batal</button>
+                                <button type="submit" disabled={isSaving} className="btn btn-primary btn-sm">Simpan</button>
+                                <button type="button" onClick={() => setIsAddingMarhalah(false)} className="btn btn-secondary btn-sm">Batal</button>
                             </form>
                         </div>
                     )}
 
                     <div className="overflow-y-auto flex-1 max-h-[400px]">
                         <table className="w-full text-left text-sm text-slate-600">
-                            <thead className="bg-white border-b border-slate-100 text-slate-500 text-xs font-bold uppercase tracking-wider sticky top-0">
+                            <thead className="bg-white border-b border-slate-100 text-slate-500 text-xs font-semibold sticky top-0">
                                 <tr>
                                     <th className="px-5 py-3">ID</th>
                                     <th className="px-5 py-3">Nama Marhalah</th>
@@ -626,8 +610,8 @@ const SettingsPage: React.FC = () => {
                                     <input type="text" value={newKelasName} onChange={e => setNewKelasName(e.target.value)} placeholder="Nama Kelas (cth: 1A)" className="flex-1 px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" required/>
                                 </div>
                                 <div className="flex gap-2 justify-end">
-                                    <button type="submit" disabled={isSaving} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-700">Simpan</button>
-                                    <button type="button" onClick={() => setIsAddingKelas(false)} className="bg-white border border-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-50">Batal</button>
+                                    <button type="submit" disabled={isSaving} className="btn btn-primary btn-sm">Simpan</button>
+                                    <button type="button" onClick={() => setIsAddingKelas(false)} className="btn btn-secondary btn-sm">Batal</button>
                                 </div>
                             </form>
                         </div>
@@ -635,7 +619,7 @@ const SettingsPage: React.FC = () => {
 
                     <div className="overflow-y-auto flex-1 max-h-[400px]">
                         <table className="w-full text-left text-sm text-slate-600">
-                            <thead className="bg-white border-b border-slate-100 text-slate-500 text-xs font-bold uppercase tracking-wider sticky top-0">
+                            <thead className="bg-white border-b border-slate-100 text-slate-500 text-xs font-semibold sticky top-0">
                                 <tr>
                                     <th className="px-5 py-3">ID</th>
                                     <th className="px-5 py-3">Marhalah</th>
@@ -736,7 +720,7 @@ const SettingsPage: React.FC = () => {
                     <button 
                         onClick={handleSaveNotifikasi}
                         disabled={isSaving}
-                        className="bg-blue-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-blue-700 shadow-sm transition-all focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 flex items-center gap-2 text-sm shrink-0"
+                        className="btn btn-primary shrink-0"
                     >
                         {isSaving ? 'Menyimpan...' : 'Simpan Notifikasi'}
                     </button>
@@ -752,10 +736,10 @@ const SettingsPage: React.FC = () => {
                                 </div>
                                 {secretMetaMap.TELEGRAM_BOT_TOKEN && (
                                     <div className="flex items-center gap-2">
-                                        <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                                        <span className={`px-2 py-0.5 rounded text-2xs font-bold ${
                                             secretMetaMap.TELEGRAM_BOT_TOKEN.status === 'active'
                                                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                                : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                                : 'bg-red-50 text-red-700 border border-red-200'
                                         }`}>
                                             {secretMetaMap.TELEGRAM_BOT_TOKEN.status === 'active' ? 'Token Aktif' : 'Token Dinonaktifkan'}
                                             {' • '}Rotasi #{secretMetaMap.TELEGRAM_BOT_TOKEN.rotation_count}
@@ -764,7 +748,7 @@ const SettingsPage: React.FC = () => {
                                             type="button"
                                             disabled={isSaving}
                                             onClick={() => handleToggleSecretStatus('TELEGRAM_BOT_TOKEN', secretMetaMap.TELEGRAM_BOT_TOKEN.status)}
-                                            className="px-2.5 py-1 text-xs font-bold rounded border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"
+                                            className="btn btn-secondary btn-sm"
                                         >
                                             {secretMetaMap.TELEGRAM_BOT_TOKEN.status === 'active' ? 'Nonaktifkan Token' : 'Aktifkan Token'}
                                         </button>

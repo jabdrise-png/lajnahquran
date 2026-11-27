@@ -313,7 +313,7 @@ const KelolaTargetModal: React.FC<KelolaTargetModalProps> = ({ isOpen, onClose }
             <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 border border-slate-200 rounded-xl p-3">
                     <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-600 uppercase tracking-wider mr-1">Semester:</span>
+                        <span className="text-xs font-semibold text-slate-600 mr-1">Semester:</span>
                         {(['Ganjil', 'Genap'] as const).map(sem => (
                             <button
                                 key={sem}
@@ -332,7 +332,7 @@ const KelolaTargetModal: React.FC<KelolaTargetModalProps> = ({ isOpen, onClose }
                     <button
                         type="button"
                         onClick={handleCopyFromOtherSemester}
-                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors"
+                        className="btn btn-secondary btn-sm justify-center"
                     >
                         <Copy size={14} className="text-blue-600" />
                         Salin Target dari Semester {selectedSemester === 'Ganjil' ? 'Genap' : 'Ganjil'}
@@ -352,28 +352,28 @@ const KelolaTargetModal: React.FC<KelolaTargetModalProps> = ({ isOpen, onClose }
                         <div key={m.id || m.nama} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
                             <div className="bg-slate-100/70 px-4 py-3 font-bold text-sm text-slate-700 border-b border-slate-200 flex items-center justify-between">
                                 <span>Marhalah {m.nama}</span>
-                                <span className="text-[11px] font-semibold text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200">
+                                <span className="text-2xs font-semibold text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200">
                                     {kelasForMarhalah.length} Kelas
                                 </span>
                             </div>
                             <div className="divide-y divide-slate-100">
                                 {kelasForMarhalah.map(k => (
                                     <div key={k.id || k.nama_kelas} className="flex items-center justify-between p-4 hover:bg-slate-50/50 transition-colors pl-8 border-l-4 border-l-blue-500/40">
-                                        <div className="text-[13px] font-medium text-slate-700">Kelas: <span className="font-bold text-slate-800">{k.nama_kelas}</span></div>
+                                        <div className="text-sm font-medium text-slate-700">Kelas: <span className="font-bold text-slate-800">{k.nama_kelas}</span></div>
                                         <div className="flex items-center gap-2">
                                             <input 
                                                 type="number" step="0.5" 
                                                 value={currentGrid[m.nama]?.[k.nama_kelas]?.[type] ?? ''}
                                                 onChange={(e) => handleTargetChange(m.nama, k.nama_kelas, type, parseFloat(e.target.value) || 0)}
-                                                className="w-24 text-center text-[13px] font-bold text-slate-700 bg-white border border-slate-300 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-blue-500/20 outline-none"
+                                                className="w-24 text-center text-sm font-bold text-slate-700 bg-white border border-slate-300 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-blue-500/20 outline-none"
                                                 placeholder="0"
                                             />
-                                            <span className="text-[12px] font-bold text-slate-400">JUZ</span>
+                                            <span className="text-xs font-bold text-slate-400">JUZ</span>
                                         </div>
                                     </div>
                                 ))}
                                 {kelasForMarhalah.length === 0 && (
-                                    <div className="p-4 text-center text-slate-400 text-[12px] italic">
+                                    <div className="p-4 text-center text-slate-400 text-xs italic">
                                         Belum ada kelas yang terdaftar pada marhalah ini. Anda dapat menambahkannya melalui menu Pengaturan &gt; Master Marhalah &amp; Kelas.
                                     </div>
                                 )}
@@ -391,7 +391,7 @@ const KelolaTargetModal: React.FC<KelolaTargetModalProps> = ({ isOpen, onClose }
                 <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-white shrink-0">
                     <div>
                         <h2 className="text-lg font-bold text-slate-800">Kelola Target Santri</h2>
-                        <p className="text-[13px] text-slate-500 mt-1">Atur target capaian hafalan dan murojaah per marhalah, kelas, dan semester.</p>
+                        <p className="text-sm text-slate-500 mt-1">Atur target capaian hafalan dan murojaah per marhalah, kelas, dan semester.</p>
                     </div>
                     
                     <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"><X size={20} /></button>
@@ -399,14 +399,14 @@ const KelolaTargetModal: React.FC<KelolaTargetModalProps> = ({ isOpen, onClose }
                 
                 <div className="flex items-center px-2 bg-slate-50 border-b border-slate-100 shrink-0">
                     <button 
-                        className={`px-4 py-2.5 text-[13px] font-bold border-b-2 transition-colors ${activeTab === 'hafalan' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}
+                        className={`px-4 py-2.5 text-sm font-bold border-b-2 transition-colors ${activeTab === 'hafalan' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}
                         onClick={() => setActiveTab('hafalan')}
                     >
                         Target Hafalan
                     </button>
                     
                     <button 
-                        className={`px-4 py-2.5 text-[13px] font-bold border-b-2 transition-colors ${activeTab === 'murojaah_rules' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}
+                        className={`px-4 py-2.5 text-sm font-bold border-b-2 transition-colors ${activeTab === 'murojaah_rules' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}
                         onClick={() => setActiveTab('murojaah_rules')}
                     >
                         Target Murojaah
@@ -418,7 +418,7 @@ const KelolaTargetModal: React.FC<KelolaTargetModalProps> = ({ isOpen, onClose }
                     
                     {activeTab === 'murojaah_rules' && (
                         <div className="space-y-6">
-                            <p className="text-[13px] text-slate-500 font-medium">Tentukan target hafalan Murojaah bulanan berdasarkan ambang batas capaian hafalan santri (Juz) untuk masing-masing Marhalah.</p>
+                            <p className="text-sm text-slate-500 font-medium">Tentukan target hafalan Murojaah bulanan berdasarkan ambang batas capaian hafalan santri (Juz) untuk masing-masing Marhalah.</p>
                             {activeMarhalahs.map(m => (
                                 <div key={m.id || m.nama} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                                     <div className="bg-slate-100/70 px-4 py-3 font-bold text-sm text-slate-700 border-b border-slate-200 flex justify-between items-center">
@@ -426,48 +426,48 @@ const KelolaTargetModal: React.FC<KelolaTargetModalProps> = ({ isOpen, onClose }
                                         <button 
                                             type="button" 
                                             onClick={() => addMurojaahRule(m.nama)}
-                                            className="text-[11px] flex items-center gap-1 font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition-colors border border-blue-200"
+                                            className="text-2xs flex items-center gap-1 font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition-colors border border-blue-200"
                                         >
                                             <Plus size={12} /> Tambah Ambang Batas
                                         </button>
                                     </div>
                                     <div className="p-4 space-y-3">
                                         {(!murojaahRules[m.nama] || murojaahRules[m.nama].length === 0) ? (
-                                            <div className="text-center py-4 text-slate-400 text-[13px] font-medium border-2 border-dashed border-slate-100 rounded-xl">
+                                            <div className="text-center py-4 text-slate-400 text-sm font-medium border-2 border-dashed border-slate-100 rounded-xl">
                                                 Belum ada aturan ambang batas untuk Marhalah {m.nama}.
                                             </div>
                                         ) : (
                                             murojaahRules[m.nama].map((rule, idx) => (
                                                 <div key={idx} className="flex items-center gap-3 bg-slate-50 border border-slate-200 p-3 rounded-xl">
                                                     <div className="flex-1">
-                                                        <label className="block text-[10px] font-bold text-slate-400 mb-1">JIKA CAPAIAN HAFALAN &ge;</label>
+                                                        <label className="block text-2xs font-bold text-slate-400 mb-1">JIKA CAPAIAN HAFALAN &ge;</label>
                                                         <div className="flex items-center gap-2">
                                                             <input 
                                                                 type="number" step="0.5" 
                                                                 value={rule.min_capaian}
                                                                 onChange={(e) => updateMurojaahRule(m.nama, idx, 'min_capaian', parseFloat(e.target.value) || 0)}
-                                                                className="w-20 text-center text-[13px] font-bold text-slate-700 bg-white border border-slate-300 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-blue-500/20 outline-none"
+                                                                className="w-20 text-center text-sm font-bold text-slate-700 bg-white border border-slate-300 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-blue-500/20 outline-none"
                                                             />
-                                                            <span className="text-[12px] font-bold text-slate-400">JUZ</span>
+                                                            <span className="text-xs font-bold text-slate-400">JUZ</span>
                                                         </div>
                                                     </div>
                                                     <div className="text-slate-300 mt-4">&rarr;</div>
                                                     <div className="flex-1">
-                                                        <label className="block text-[10px] font-bold text-emerald-600 mb-1">TARGET MUROJAAH (BLN)</label>
+                                                        <label className="block text-2xs font-bold text-emerald-600 mb-1">TARGET MUROJAAH (BLN)</label>
                                                         <div className="flex items-center gap-2">
                                                             <input 
                                                                 type="number" step="0.5" 
                                                                 value={rule.target}
                                                                 onChange={(e) => updateMurojaahRule(m.nama, idx, 'target', parseFloat(e.target.value) || 0)}
-                                                                className="w-20 text-center text-[13px] font-bold text-emerald-700 bg-white border border-emerald-300 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                                                                className="w-20 text-center text-sm font-bold text-emerald-700 bg-white border border-emerald-300 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-emerald-500/20 outline-none"
                                                             />
-                                                            <span className="text-[12px] font-bold text-emerald-500">JUZ</span>
+                                                            <span className="text-xs font-bold text-emerald-500">JUZ</span>
                                                         </div>
                                                     </div>
                                                     <button 
                                                         type="button" 
                                                         onClick={() => deleteMurojaahRule(m.nama, idx)}
-                                                        className="mt-4 p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                                                        className="mt-4 p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                                                         title="Hapus ambang batas"
                                                     >
                                                         <Trash2 size={16} />
@@ -483,10 +483,10 @@ const KelolaTargetModal: React.FC<KelolaTargetModalProps> = ({ isOpen, onClose }
                 </div>
 
                 <div className="flex justify-end gap-2 p-5 border-t border-slate-100 bg-white shrink-0">
-                    <button type="button" onClick={onClose} className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-all shadow-sm">
+                    <button type="button" onClick={onClose} className="btn btn-secondary">
                         Batal
                     </button>
-                    <button onClick={handleSave} disabled={isSaving} className="px-5 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 hover:shadow-md transition-all flex items-center disabled:opacity-70 disabled:cursor-not-allowed shadow-[0_2px_10px_rgba(37,99,235,0.2)]">
+                    <button onClick={handleSave} disabled={isSaving} className="btn btn-primary">
                         {isSaving ? 'Menyimpan...' : (
                             <>
                                 <Save size={16} className="mr-2" />

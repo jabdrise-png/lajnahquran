@@ -12,6 +12,7 @@ import html2canvas from 'html2canvas';
 import { NotificationStore } from '../../lib/NotificationStore';
 import { useMintaAlasan } from '../../components/ui/AlasanDialog';
 import { hariIni } from '../../lib/sesiHalaqah';
+import { LoadingState } from '../../components/ui/SaaSPrimitives';
 
 interface TrenHistorisPageProps {
     showAdvancedFilters?: boolean;
@@ -225,7 +226,7 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
         }
     };
 
-    if (loading) return <p>Loading...</p>;
+    if (loading) return <LoadingState label="Memuat data…" />;
     if (error) return <p className="text-error">{error}</p>;
 
     return (
@@ -237,30 +238,30 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
                     <div className="bg-white p-5 sm:p-6 border-b border-slate-100 flex flex-col md:flex-row gap-4 justify-between items-start md:items-end animate-in fade-in duration-200">
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 w-full flex-1">
                             <div>
-                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Dari Tanggal</label>
+                                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Dari Tanggal</label>
                                 <input 
                                     type="date" 
                                     value={dateRange.start} 
                                     onChange={e => setDateRange(p => ({...p, start: e.target.value}))} 
-                                    className="w-full text-[13px] font-medium border border-slate-200/80 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white transition-colors"
+                                    className="w-full text-sm font-medium border border-slate-200/80 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white transition-colors"
                                 />
                             </div>
                             <div>
-                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Sampai Tanggal</label>
+                                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Sampai Tanggal</label>
                                 <input 
                                     type="date" 
                                     value={dateRange.end} 
                                     onChange={e => setDateRange(p => ({...p, end: e.target.value}))} 
-                                    className="w-full text-[13px] font-medium border border-slate-200/80 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white transition-colors"
+                                    className="w-full text-sm font-medium border border-slate-200/80 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white transition-colors"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Marhalah</label>
+                                <label className="block text-xs font-semibold text-slate-500 mb-2">Marhalah</label>
                                 <select 
                                     value={selectedMarhalah} 
                                     onChange={e => {setSelectedMarhalah(e.target.value); setSelectedKelas('all');}} 
-                                    className="w-full text-[13px] font-medium border border-slate-200/80 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white transition-colors"
+                                    className="w-full text-sm font-medium border border-slate-200/80 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white transition-colors"
                                 >
                                     <option value="all">Semua Marhalah</option>
                                     {availableMarhalah.map(m => <option key={m} value={m}>{m}</option>)}
@@ -268,11 +269,11 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
                             </div>
 
                             <div>
-                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Kelas</label>
+                                <label className="block text-xs font-semibold text-slate-500 mb-2">Kelas</label>
                                 <select 
                                     value={selectedKelas} 
                                     onChange={e => setSelectedKelas(e.target.value)} 
-                                    className="w-full text-[13px] font-medium border border-slate-200/80 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white transition-colors"
+                                    className="w-full text-sm font-medium border border-slate-200/80 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white transition-colors"
                                 >
                                     <option value="all">Semua Kelas</option>
                                     {availableKelas.map(k => <option key={k} value={k}>{k}</option>)}
@@ -280,11 +281,11 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
                             </div>
 
                             <div>
-                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Peran</label>
+                                <label className="block text-xs font-semibold text-slate-500 mb-2">Peran</label>
                                 <select 
                                     value={selectedPeran} 
                                     onChange={e => setSelectedPeran(e.target.value)} 
-                                    className="w-full text-[13px] font-medium border border-slate-200/80 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white transition-colors"
+                                    className="w-full text-sm font-medium border border-slate-200/80 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white transition-colors"
                                 >
                                     <option value="all">Semua Peran</option>
                                     <option value="Santri">Santri</option>
@@ -316,7 +317,7 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
                         </button>
                         <button 
                             onClick={() => exportToExcel(timeRecapData, 'Rekap_Waktu')}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-[12px] font-semibold flex items-center transition-colors shadow-sm"
+                            className="btn btn-primary btn-sm"
                         >
                             <Download size={15} className="mr-1.5" /> Export Data
                         </button>
@@ -328,14 +329,14 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
                     <table className="w-full text-left border-collapse min-w-[700px]">
                         <thead>
                             <tr className="bg-slate-50/50 border-b border-slate-200/80">
-                                <th className="px-5 py-3.5 sticky top-0 bg-slate-50/95 backdrop-blur-sm z-10 border-r border-slate-200/60 text-[12px] font-bold text-slate-500 uppercase tracking-wider">Tanggal</th>
-                                <th className="px-5 py-3.5 sticky top-0 bg-slate-50/95 backdrop-blur-sm z-10 border-r border-slate-200/60 text-[12px] font-bold text-slate-500 uppercase tracking-wider">Waktu</th>
+                                <th className="px-5 py-3.5 sticky top-0 bg-slate-50/95 backdrop-blur-sm z-10 border-r border-slate-200/60 text-xs font-semibold text-slate-500">Tanggal</th>
+                                <th className="px-5 py-3.5 sticky top-0 bg-slate-50/95 backdrop-blur-sm z-10 border-r border-slate-200/60 text-xs font-semibold text-slate-500">Waktu</th>
                                 {globalAttendanceStatus?.map(s => (
-                                    <th key={s} className="px-5 py-3.5 sticky top-0 bg-slate-50/95 backdrop-blur-sm z-10 text-[12px] font-bold text-slate-500 uppercase tracking-wider text-center">{s}</th>
+                                    <th key={s} className="px-5 py-3.5 sticky top-0 bg-slate-50/95 backdrop-blur-sm z-10 text-xs font-semibold text-slate-500 text-center">{s}</th>
                                 ))}
-                                <th className="px-5 py-3.5 sticky top-0 bg-slate-50/95 backdrop-blur-sm z-10 text-[12px] font-bold text-slate-700 uppercase tracking-wider text-center border-l border-slate-200/60">Total</th>
+                                <th className="px-5 py-3.5 sticky top-0 bg-slate-50/95 backdrop-blur-sm z-10 text-xs font-semibold text-slate-700 text-center border-l border-slate-200/60">Total</th>
                                 {canDeleteSession && (
-                                    <th className="px-5 py-3.5 sticky top-0 bg-slate-50/95 backdrop-blur-sm z-10 text-[12px] font-bold text-slate-500 uppercase tracking-wider text-right border-l border-slate-200/60 w-16">Aksi</th>
+                                    <th className="px-5 py-3.5 sticky top-0 bg-slate-50/95 backdrop-blur-sm z-10 text-xs font-semibold text-slate-500 text-right border-l border-slate-200/60 w-16">Aksi</th>
                                 )}
                             </tr>
                         </thead>
@@ -347,20 +348,20 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
                                     onClick={() => setSelectedSession({ date: item.date, waktu: item.waktu })}
                                     title="Klik untuk lihat detail per kelas"
                                 >
-                                    <td className="px-5 py-3 font-medium text-[13px] text-slate-800 border-r border-slate-100/60">
+                                    <td className="px-5 py-3 font-medium text-sm text-slate-800 border-r border-slate-100/60">
                                         {item.date}
                                     </td>
-                                    <td className="px-5 py-3 border-r border-slate-100/60"><span className="px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 text-[11px] font-bold uppercase tracking-wider">{item.waktu}</span></td>
+                                    <td className="px-5 py-3 border-r border-slate-100/60"><span className="px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 text-xs font-semibold">{item.waktu}</span></td>
                                     {globalAttendanceStatus?.map(s => (
-                                        <td key={s} className="px-5 py-3 text-center text-[13px] text-slate-600 font-bold">{item[s] || 0}</td>
+                                        <td key={s} className="px-5 py-3 text-center text-sm text-slate-600 font-bold">{item[s] || 0}</td>
                                     ))}
-                                    <td className="px-5 py-3 text-center text-[13px] font-extrabold text-slate-700 bg-slate-50/50 border-l border-slate-100/60">{item.Total}</td>
+                                    <td className="px-5 py-3 text-center text-sm font-extrabold text-slate-700 bg-slate-50/50 border-l border-slate-100/60">{item.Total}</td>
                                     {canDeleteSession && (
                                         <td className="px-5 py-3 text-right border-l border-slate-100/60">
                                             <div className="flex justify-end">
                                                 <button 
                                                     onClick={(e) => handleDeleteTimeRecap(e, item.date, item.waktu)} 
-                                                    className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                                    className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                                                     title={selectedPeran !== 'all' ? `Hapus Absensi ${selectedPeran} Sesi Ini` : "Hapus Sesi"}
                                                 >
                                                     <Trash size={16} strokeWidth={2.5}/>
@@ -372,7 +373,7 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
                             ))}
                             {paginatedData.length === 0 && (
                                 <tr>
-                                    <td colSpan={9} className="px-5 py-8 text-center text-[13px] font-medium text-slate-500">
+                                    <td colSpan={9} className="px-5 py-8 text-center text-sm font-medium text-slate-500">
                                         Belum ada data absensi untuk filter yang dipilih.
                                     </td>
                                 </tr>
@@ -382,19 +383,19 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
                 </div>
                 {totalPages > 1 && (
                     <div className="bg-white border-t border-slate-100 p-4 flex items-center justify-between">
-                        <span className="text-[13px] text-slate-500 font-medium">Halaman {currentPage} dari {totalPages}</span>
+                        <span className="text-sm text-slate-500 font-medium">Halaman {currentPage} dari {totalPages}</span>
                         <div className="flex items-center gap-2">
                             <button 
                                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
                                 disabled={currentPage === 1}
-                                className="px-3.5 py-1.5 border border-slate-200 rounded-lg text-[13px] font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+                                className="px-3.5 py-1.5 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
                             >
                                 Prev
                             </button>
                             <button 
                                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
                                 disabled={currentPage === totalPages || totalPages === 0}
-                                className="px-3.5 py-1.5 border border-slate-200 rounded-lg text-[13px] font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+                                className="px-3.5 py-1.5 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
                             >
                                 Next
                             </button>
@@ -404,7 +405,7 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
                                     setItemsPerPage(prev => prev === 50 ? 999999 : 50);
                                     setCurrentPage(1);
                                 }}
-                                className="px-3.5 py-1.5 border border-blue-200 bg-blue-50/50 rounded-lg text-[13px] font-bold text-blue-600 hover:bg-blue-100 transition-colors ml-1"
+                                className="px-3.5 py-1.5 border border-blue-200 bg-blue-50/50 rounded-lg text-sm font-bold text-blue-600 hover:bg-blue-100 transition-colors ml-1"
                             >
                                 {itemsPerPage === 50 ? 'Tampilkan Semua' : 'Tampilkan Sedikit'}
                             </button>
@@ -412,17 +413,17 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
                     </div>
                 )}
                 <div className="bg-slate-50/50 border-t border-slate-100 px-5 py-3">
-                    <p className="text-[12px] text-slate-500 font-medium italic">*Klik baris untuk melihat detail absensi per kelas pada sesi tersebut.</p>
+                    <p className="text-xs text-slate-500 font-medium italic">*Klik baris untuk melihat detail absensi per kelas pada sesi tersebut.</p>
                 </div>
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                 <div className="bg-slate-50/50 px-6 py-4 border-b border-slate-100/60 flex justify-between items-center relative" ref={chartMenuRef}>
-                    <h3 className="text-[14px] font-bold text-slate-800 tracking-tight">Grafik Total Absensi Per Sesi (Global)</h3>
+                    <h3 className="text-sm font-bold text-slate-800 tracking-tight">Grafik Total Absensi Per Sesi (Global)</h3>
                     <div className="relative">
                         <button onClick={() => setIsChartMenuOpen(!isChartMenuOpen)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"><MoreVertical size={16} strokeWidth={2.5}/></button>
-                        {isChartMenuOpen && <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-slate-100 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] p-1 z-20 animate-in fade-in zoom-in-95 duration-200">
-                            <button onClick={handleDownloadChart} className="w-full text-left px-3 py-2 text-[12px] font-semibold text-slate-700 hover:bg-slate-50 rounded-lg flex items-center transition-colors"><Download size={14} className="mr-2" strokeWidth={2.5}/> Download PNG</button>
+                        {isChartMenuOpen && <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-slate-100 rounded-xl shadow-xs p-1 z-20 animate-in fade-in zoom-in-95 duration-200">
+                            <button onClick={handleDownloadChart} className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-lg flex items-center transition-colors"><Download size={14} className="mr-2" strokeWidth={2.5}/> Unduh PNG</button>
                         </div>}
                     </div>
                 </div>
@@ -446,28 +447,28 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
                         <table className="w-full text-left border-collapse min-w-[500px]">
                             <thead className="bg-slate-50 uppercase text-xs sticky top-0 z-10 shadow-sm border-b border-slate-200/80">
                                 <tr>
-                                    <th className="px-5 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-widest border-r border-slate-100/60">Kelas</th>
+                                    <th className="px-5 py-3 text-xs font-semibold text-slate-500 border-r border-slate-100/60">Kelas</th>
                                     {globalAttendanceStatus?.map(s => (
-                                        <th key={s} className="px-5 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-widest text-center">{s}</th>
+                                        <th key={s} className="px-5 py-3 text-xs font-semibold text-slate-500 text-center">{s}</th>
                                     ))}
-                                    <th className="px-5 py-3 text-[11px] font-bold text-slate-700 uppercase tracking-widest text-center border-l border-slate-100/60">Total</th>
+                                    <th className="px-5 py-3 text-xs font-semibold text-slate-700 text-center border-l border-slate-100/60">Total</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 bg-white">
                                 {sessionDetailData.map((cls, idx) => (
                                     <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
-                                        <td className="px-5 py-3 font-bold text-[13px] text-slate-800 border-r border-slate-100/60"><KelasLabel text={cls.kelas} id={cls.kelas_id} /> <span className="text-[11px] font-medium text-slate-500 block"><MarhalahLabel text={cls.marhalah} id={cls.marhalah_id} /></span></td>
+                                        <td className="px-5 py-3 font-bold text-sm text-slate-800 border-r border-slate-100/60"><KelasLabel text={cls.kelas} id={cls.kelas_id} /> <span className="text-2xs font-medium text-slate-500 block"><MarhalahLabel text={cls.marhalah} id={cls.marhalah_id} /></span></td>
                                         {globalAttendanceStatus?.map(s => (
-                                            <td key={s} className="px-5 py-3 text-center text-[13px] font-bold text-slate-600">{cls[s] || 0}</td>
+                                            <td key={s} className="px-5 py-3 text-center text-sm font-bold text-slate-600">{cls[s] || 0}</td>
                                         ))}
-                                        <td className="px-5 py-3 text-center text-[13px] font-extrabold text-slate-700 bg-slate-50/50 border-l border-slate-100/60">{cls.Total}</td>
+                                        <td className="px-5 py-3 text-center text-sm font-extrabold text-slate-700 bg-slate-50/50 border-l border-slate-100/60">{cls.Total}</td>
                                     </tr>
                                 ))}
                                 {sessionDetailData.length === 0 && (
-                                    <tr><td colSpan={2 + (globalAttendanceStatus?.length || 0)} className="px-5 py-6 text-center text-[13px] font-medium text-slate-500">Tidak ada data untuk sesi ini.</td></tr>
+                                    <tr><td colSpan={2 + (globalAttendanceStatus?.length || 0)} className="px-5 py-6 text-center text-sm font-medium text-slate-500">Tidak ada data untuk sesi ini.</td></tr>
                                 )}
                             </tbody>
-                            <tfoot className="bg-slate-100/80 font-bold text-slate-800 text-[12px] uppercase tracking-wider sticky bottom-0 shadow-[0_-1px_2px_rgba(0,0,0,0.05)] border-t border-slate-200/80">
+                            <tfoot className="bg-slate-100/80 font-semibold text-slate-800 text-xs sticky bottom-0 shadow-xs border-t border-slate-200/80">
                                 <tr>
                                     <td className="px-5 py-4 border-r border-slate-200/60">Total Global</td>
                                     {globalAttendanceStatus?.map(s => (
@@ -480,7 +481,7 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
                     </div>
                 </div>
                 <div className="mt-6 flex justify-end">
-                    <button onClick={() => setSelectedSession(null)} className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-[13px] font-bold transition-all hover:-translate-y-0.5 shadow-sm">Tutup Detail</button>
+                    <button onClick={() => setSelectedSession(null)} className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-sm font-bold transition-all shadow-sm">Tutup Detail</button>
                 </div>
             </Modal>
         </div>

@@ -445,42 +445,42 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
     const sLower = status.toLowerCase();
     if (sLower === 'hadir') {
       return (
-        <span className="inline-flex items-center justify-center w-6 h-6 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-800">
+        <span className="inline-flex items-center justify-center w-6 h-6 rounded-md text-2xs font-bold bg-emerald-100 text-emerald-800">
           H
         </span>
       );
     }
     if (sLower === 'izin') {
       return (
-        <span className="inline-flex items-center justify-center w-6 h-6 rounded-md text-[11px] font-bold bg-blue-100 text-blue-800">
+        <span className="inline-flex items-center justify-center w-6 h-6 rounded-md text-2xs font-bold bg-blue-100 text-blue-800">
           I
         </span>
       );
     }
     if (sLower === 'sakit') {
       return (
-        <span className="inline-flex items-center justify-center w-6 h-6 rounded-md text-[11px] font-bold bg-amber-100 text-amber-800">
+        <span className="inline-flex items-center justify-center w-6 h-6 rounded-md text-2xs font-bold bg-amber-100 text-amber-800">
           S
         </span>
       );
     }
     if (sLower === 'alpa' || sLower === 'alpha') {
       return (
-        <span className="inline-flex items-center justify-center w-6 h-6 rounded-md text-[11px] font-bold bg-rose-100 text-rose-800">
+        <span className="inline-flex items-center justify-center w-6 h-6 rounded-md text-2xs font-bold bg-red-100 text-red-800">
           A
         </span>
       );
     }
     if (sLower === 'terlambat') {
       return (
-        <span className="inline-flex items-center justify-center w-6 h-6 rounded-md text-[11px] font-bold bg-yellow-100 text-yellow-800">
+        <span className="inline-flex items-center justify-center w-6 h-6 rounded-md text-2xs font-bold bg-yellow-100 text-yellow-800">
           T
         </span>
       );
     }
 
     return (
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded-md text-[11px] font-bold bg-slate-100 text-slate-800">
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded-md text-2xs font-bold bg-slate-100 text-slate-800">
         {status.charAt(0).toUpperCase()}
       </span>
     );
@@ -548,7 +548,7 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
             <button
               type="button"
               onClick={handlePrint}
-              className="flex items-center w-full px-4 py-2.5 text-[13px] font-medium text-slate-700 hover:bg-slate-50 text-left transition-colors"
+              className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 text-left transition-colors"
             >
               Cetak Data
             </button>
@@ -556,7 +556,7 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
               <button
                 type="button"
                 onClick={() => onNavigate('CetakBukuFisik')}
-                className="flex items-center w-full px-4 py-2.5 text-[13px] font-medium text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100 transition-colors"
+                className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100 transition-colors"
               >
                 Cetak Buku Fisik
               </button>
@@ -573,7 +573,7 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
           <div className="flex items-center gap-3">
             {orgLogo && <img src={orgLogo} alt="Logo" className="h-12 w-12 object-contain" />}
             <div>
-              <h2 className="text-lg font-bold text-slate-900 uppercase tracking-wide">
+              <h2 className="text-lg font-semibold text-slate-900">
                 {orgName || "LEMBAGA TAHFIZ AL-QUR'AN"}
               </h2>
               <p className="text-xs text-slate-700 font-medium">
@@ -581,7 +581,7 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
               </p>
             </div>
           </div>
-          <div className="text-right text-[11px] text-slate-600">
+          <div className="text-right text-2xs text-slate-600">
             <p>
               Periode:{' '}
               <span className="font-semibold text-slate-900">
@@ -598,17 +598,17 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
           FILTER BAR (Seragam dengan Input Absensi: Tanpa Judul Kolom, Tinggi h-11)
           Urutan: 1. Rentang Tanggal, 2. Marhalah, 3. Kelas, 4. Jenis Halaqah, 5. Waktu, 6. Cari Nama Santri
       ===================================================================== */}
-      <div className="relative z-40 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_1px_3px_0_rgba(0,0,0,0.02),0_4px_16px_0_rgba(0,0,0,0.02)] print:hidden space-y-3">
+      <div className="relative z-40 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs print:hidden space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-center">
           {/* 1. Tanggal Mulai */}
           <div className="col-span-1">
             <div className="relative flex items-center h-11 w-full rounded-xl border border-slate-200/90 bg-white px-3 shadow-xs hover:border-slate-300 hover:bg-slate-50 focus-within:bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
-              <span className="text-[11px] font-semibold text-slate-400 mr-2 shrink-0">Dari:</span>
+              <span className="text-2xs font-semibold text-slate-400 mr-2 shrink-0">Dari:</span>
               <input
                 type="date"
                 value={startDate}
                 onChange={e => setStartDate(e.target.value)}
-                className="w-full flex-1 min-w-0 bg-transparent text-[12px] font-semibold text-slate-700 outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
+                className="w-full flex-1 min-w-0 bg-transparent text-xs font-semibold text-slate-700 outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
                 title="Tanggal Mulai"
               />
             </div>
@@ -617,12 +617,12 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
           {/* 2. Tanggal Selesai */}
           <div className="col-span-1">
             <div className="relative flex items-center h-11 w-full rounded-xl border border-slate-200/90 bg-white px-3 shadow-xs hover:border-slate-300 hover:bg-slate-50 focus-within:bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
-              <span className="text-[11px] font-semibold text-slate-400 mr-2 shrink-0">Sampai:</span>
+              <span className="text-2xs font-semibold text-slate-400 mr-2 shrink-0">Sampai:</span>
               <input
                 type="date"
                 value={endDate}
                 onChange={e => setEndDate(e.target.value)}
-                className="w-full flex-1 min-w-0 bg-transparent text-[12px] font-semibold text-slate-700 outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
+                className="w-full flex-1 min-w-0 bg-transparent text-xs font-semibold text-slate-700 outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
                 title="Tanggal Selesai"
               />
             </div>
@@ -633,7 +633,7 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
             <select
               value={filterPeran}
               onChange={e => setFilterPeran(e.target.value)}
-              className="appearance-none h-11 w-full rounded-xl border border-slate-200/90 bg-white pl-3.5 pr-9 text-[13px] font-medium text-slate-700 shadow-xs outline-none cursor-pointer transition-colors hover:border-slate-300 hover:bg-slate-50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 truncate"
+              className="appearance-none h-11 w-full rounded-xl border border-slate-200/90 bg-white pl-3.5 pr-9 text-sm font-medium text-slate-700 shadow-xs outline-none cursor-pointer transition-colors hover:border-slate-300 hover:bg-slate-50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 truncate"
             >
               <option value="all">Semua Peran</option>
               <option value="Santri">Santri</option>
@@ -647,7 +647,7 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
             <select
               value={filterMarhalah}
               onChange={e => setFilterMarhalah(e.target.value)}
-              className="appearance-none h-11 w-full rounded-xl border border-slate-200/90 bg-white pl-3.5 pr-9 text-[13px] font-medium text-slate-700 shadow-xs outline-none cursor-pointer transition-colors hover:border-slate-300 hover:bg-slate-50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 truncate"
+              className="appearance-none h-11 w-full rounded-xl border border-slate-200/90 bg-white pl-3.5 pr-9 text-sm font-medium text-slate-700 shadow-xs outline-none cursor-pointer transition-colors hover:border-slate-300 hover:bg-slate-50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 truncate"
             >
               <option value="all">Semua Marhalah</option>
               {availableMarhalahList.map(m => (
@@ -664,7 +664,7 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
             <select
               value={filterKelas}
               onChange={e => setFilterKelas(e.target.value)}
-              className="appearance-none h-11 w-full rounded-xl border border-slate-200/90 bg-white pl-3.5 pr-9 text-[13px] font-medium text-slate-700 shadow-xs outline-none cursor-pointer transition-colors hover:border-slate-300 hover:bg-slate-50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 truncate"
+              className="appearance-none h-11 w-full rounded-xl border border-slate-200/90 bg-white pl-3.5 pr-9 text-sm font-medium text-slate-700 shadow-xs outline-none cursor-pointer transition-colors hover:border-slate-300 hover:bg-slate-50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 truncate"
             >
               <option value="all">Semua Kelas</option>
               {availableKelasList.map(k => (
@@ -681,7 +681,7 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
             <select
               value={filterJenisHalaqah}
               onChange={e => setFilterJenisHalaqah(e.target.value)}
-              className="appearance-none h-11 w-full rounded-xl border border-slate-200/90 bg-white pl-3.5 pr-9 text-[13px] font-medium text-slate-700 shadow-xs outline-none cursor-pointer transition-colors hover:border-slate-300 hover:bg-slate-50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 truncate"
+              className="appearance-none h-11 w-full rounded-xl border border-slate-200/90 bg-white pl-3.5 pr-9 text-sm font-medium text-slate-700 shadow-xs outline-none cursor-pointer transition-colors hover:border-slate-300 hover:bg-slate-50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 truncate"
             >
               <option value="all">Semua Jenis Halaqah</option>
               {availableJenisHalaqahList.map(j => (
@@ -698,7 +698,7 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
             <button
               type="button"
               onClick={() => setIsWaktuDropdownOpen(prev => !prev)}
-              className="flex h-11 w-full items-center justify-between rounded-xl border border-slate-200/90 bg-white pl-3.5 pr-9 text-[13px] font-medium text-slate-700 shadow-xs transition-colors hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-left cursor-pointer truncate"
+              className="flex h-11 w-full items-center justify-between rounded-xl border border-slate-200/90 bg-white pl-3.5 pr-9 text-sm font-medium text-slate-700 shadow-xs transition-colors hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-left cursor-pointer truncate"
             >
               <span className="truncate">
                 {selectedWaktuSessions.length === availableWaktuList.length
@@ -719,11 +719,11 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
             {isWaktuDropdownOpen && (
               <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white border border-slate-200/90 rounded-xl shadow-xl p-2 space-y-1 animate-in fade-in zoom-in-95 duration-150">
                 <div className="flex items-center justify-between pb-1.5 mb-1 border-b border-slate-100 px-1">
-                  <span className="text-[11px] font-semibold text-slate-500">Pilih Sesi Waktu</span>
+                  <span className="text-2xs font-semibold text-slate-500">Pilih Sesi Waktu</span>
                   <button
                     type="button"
                     onClick={handleSelectAllWaktu}
-                    className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
+                    className="text-2xs font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
                   >
                     {selectedWaktuSessions.length === availableWaktuList.length
                       ? 'Kosongkan'
@@ -770,7 +770,7 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
               placeholder="Cari nama..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="flex h-11 w-full rounded-xl border border-slate-200/90 bg-white pl-10 pr-4 text-[13px] font-medium text-slate-700 shadow-xs transition-all hover:border-slate-300 hover:bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 placeholder:text-slate-400"
+              className="flex h-11 w-full rounded-xl border border-slate-200/90 bg-white pl-10 pr-4 text-sm font-medium text-slate-700 shadow-xs transition-all hover:border-slate-300 hover:bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 placeholder:text-slate-400"
             />
           </div>
         </div>
@@ -803,13 +803,13 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
               <div key={`hp_${student.peran}_${student.id}_${student.halaqahId}`} className="bg-white rounded-xl border border-slate-200 p-3.5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="font-semibold text-slate-900 text-[15px] truncate">{student.nama}</div>
+                    <div className="font-semibold text-slate-900 text-base truncate">{student.nama}</div>
                     <div className="text-sm text-slate-500">{student.peran} · {student.halaqahNama}{student.kelas && student.kelas !== '-' ? ` · ${student.kelas}` : ''}</div>
                   </div>
                   <div className="text-xl font-extrabold text-slate-900 tabular-nums">{summary.percentage}%</div>
                 </div>
                 <div className="mt-2.5 grid grid-cols-5 gap-1.5 text-center text-sm">
-                  {([['Hadir', summary.h, 'text-emerald-700 bg-emerald-50'], ['Izin', summary.i, 'text-blue-700 bg-blue-50'], ['Sakit', summary.s, 'text-amber-700 bg-amber-50'], ['Alpa', summary.a, 'text-rose-700 bg-rose-50'], ['Telat', summary.t, 'text-yellow-700 bg-yellow-50']] as [string, number, string][]).map(([l, v, c]) => (
+                  {([['Hadir', summary.h, 'text-emerald-700 bg-emerald-50'], ['Izin', summary.i, 'text-blue-700 bg-blue-50'], ['Sakit', summary.s, 'text-amber-700 bg-amber-50'], ['Alpa', summary.a, 'text-red-700 bg-red-50'], ['Telat', summary.t, 'text-yellow-700 bg-yellow-50']] as [string, number, string][]).map(([l, v, c]) => (
                     <div key={l} className={`rounded-lg py-1.5 ${c}`}><div className="font-bold tabular-nums">{v}</div><div className="text-xs">{l}</div></div>
                   ))}
                 </div>
@@ -825,7 +825,7 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
                 <tr className="bg-slate-100 text-slate-700 border-b border-slate-200">
                   <th
                     rowSpan={2}
-                    className="sticky left-0 print:static print:left-auto z-20 bg-slate-100 py-3.5 px-3 text-center font-bold text-slate-700 border-r border-slate-200 w-12 min-w-[48px] max-w-[48px] text-[12px] select-none"
+                    className="sticky left-0 print:static print:left-auto z-20 bg-slate-100 py-3.5 px-3 text-center font-bold text-slate-700 border-r border-slate-200 w-12 min-w-[48px] max-w-[48px] text-xs select-none"
                   >
                     No
                   </th>
@@ -834,7 +834,7 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
                   <th
                     rowSpan={2}
                     onClick={() => handleSort('nama')}
-                    className="sticky left-12 print:static print:left-auto z-20 bg-slate-100 py-3.5 px-3.5 font-bold text-slate-800 border-r border-slate-200 min-w-[180px] text-[13px] select-none cursor-pointer hover:bg-slate-200/70 transition-colors group shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)] print:shadow-none"
+                    className="sticky left-12 print:static print:left-auto z-20 bg-slate-100 py-3.5 px-3.5 font-bold text-slate-800 border-r border-slate-200 min-w-[180px] text-sm select-none cursor-pointer hover:bg-slate-200/70 transition-colors group shadow-xs print:shadow-none"
                     title="Klik untuk menyortir nama"
                   >
                     <div className="flex items-center justify-between gap-1.5">
@@ -863,7 +863,7 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
                   <th
                     rowSpan={2}
                     onClick={() => handleSort('peran')}
-                    className="py-3.5 px-3 font-bold text-slate-800 border-r border-slate-200 w-24 text-center text-[12px] select-none cursor-pointer hover:bg-slate-200/70 transition-colors group"
+                    className="py-3.5 px-3 font-bold text-slate-800 border-r border-slate-200 w-24 text-center text-xs select-none cursor-pointer hover:bg-slate-200/70 transition-colors group"
                     title="Klik untuk menyortir peran"
                   >
                     <div className="flex items-center justify-center gap-1.5">
@@ -892,7 +892,7 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
                   <th
                     rowSpan={2}
                     onClick={() => handleSort('kelas')}
-                    className="py-3.5 px-3 font-bold text-slate-800 border-r border-slate-200 w-24 text-center text-[12px] select-none cursor-pointer hover:bg-slate-200/70 transition-colors group"
+                    className="py-3.5 px-3 font-bold text-slate-800 border-r border-slate-200 w-24 text-center text-xs select-none cursor-pointer hover:bg-slate-200/70 transition-colors group"
                     title="Klik untuk menyortir kelas"
                   >
                     <div className="flex items-center justify-center gap-1.5">
@@ -921,7 +921,7 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
                   <th
                     rowSpan={2}
                     onClick={() => handleSort('halaqah')}
-                    className="py-3.5 px-3.5 font-bold text-slate-800 border-r border-slate-200 min-w-[150px] text-[12px] select-none cursor-pointer hover:bg-slate-200/70 transition-colors group"
+                    className="py-3.5 px-3.5 font-bold text-slate-800 border-r border-slate-200 min-w-[150px] text-xs select-none cursor-pointer hover:bg-slate-200/70 transition-colors group"
                     title="Klik untuk menyortir halaqah"
                   >
                     <div className="flex items-center justify-between gap-1.5">
@@ -953,10 +953,10 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
                       colSpan={activeWaktuSessions.length}
                       className="py-2.5 px-2 text-center font-bold text-slate-800 border-r border-slate-200 whitespace-nowrap bg-slate-100"
                     >
-                      <div className="text-[12px] font-bold text-slate-800">
+                      <div className="text-xs font-bold text-slate-800">
                         {format(day, 'EEE', { locale: localeId })}
                       </div>
-                      <div className="text-[11px] font-medium text-slate-500">
+                      <div className="text-2xs font-medium text-slate-500">
                         {format(day, 'dd/MM')}
                       </div>
                     </th>
@@ -965,14 +965,14 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
                   {/* Header Ringkasan */}
                   <th
                     colSpan={6}
-                    className="py-3.5 px-3 text-center font-bold text-slate-800 bg-slate-100 text-[12px]"
+                    className="py-3.5 px-3 text-center font-bold text-slate-800 bg-slate-100 text-xs"
                   >
                     Rekapitulasi
                   </th>
                 </tr>
 
                 {/* Header Baris 2: Sub-kolom Sesi Waktu & Sub-kolom Ringkasan */}
-                <tr className="bg-slate-50 text-[11px] font-semibold text-slate-600 border-b border-slate-200">
+                <tr className="bg-slate-50 text-2xs font-semibold text-slate-600 border-b border-slate-200">
                   {daysInRange.map((_, dayIdx) =>
                     activeWaktuSessions.map((session, sIdx) => (
                       <th
@@ -986,22 +986,22 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
                   )}
 
                   {/* Sub-kolom Ringkasan */}
-                  <th className="py-2 px-1.5 text-center font-bold text-emerald-800 border-r border-slate-200 w-8 text-[11px]">
+                  <th className="py-2 px-1.5 text-center font-bold text-emerald-800 border-r border-slate-200 w-8 text-2xs">
                     H
                   </th>
-                  <th className="py-2 px-1.5 text-center font-bold text-blue-800 border-r border-slate-200 w-8 text-[11px]">
+                  <th className="py-2 px-1.5 text-center font-bold text-blue-800 border-r border-slate-200 w-8 text-2xs">
                     I
                   </th>
-                  <th className="py-2 px-1.5 text-center font-bold text-amber-800 border-r border-slate-200 w-8 text-[11px]">
+                  <th className="py-2 px-1.5 text-center font-bold text-amber-800 border-r border-slate-200 w-8 text-2xs">
                     S
                   </th>
-                  <th className="py-2 px-1.5 text-center font-bold text-rose-800 border-r border-slate-200 w-8 text-[11px]">
+                  <th className="py-2 px-1.5 text-center font-bold text-red-800 border-r border-slate-200 w-8 text-2xs">
                     A
                   </th>
-                  <th className="py-2 px-1.5 text-center font-bold text-yellow-800 border-r border-slate-200 w-8 text-[11px]">
+                  <th className="py-2 px-1.5 text-center font-bold text-yellow-800 border-r border-slate-200 w-8 text-2xs">
                     T
                   </th>
-                  <th className="py-2 px-2 text-center font-bold text-slate-800 w-12 text-[11px]">%</th>
+                  <th className="py-2 px-2 text-center font-bold text-slate-800 w-12 text-2xs">%</th>
                 </tr>
               </thead>
 
@@ -1015,19 +1015,19 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
                       className="group hover:bg-slate-50/70 transition-colors text-slate-800"
                     >
                       {/* Nomor Urut */}
-                      <td className="sticky left-0 print:static print:left-auto z-20 bg-white group-hover:bg-slate-50 py-3 px-2.5 text-center text-slate-500 border-r border-slate-100 text-[13px] w-12 min-w-[48px] max-w-[48px] transition-colors">
+                      <td className="sticky left-0 print:static print:left-auto z-20 bg-white group-hover:bg-slate-50 py-3 px-2.5 text-center text-slate-500 border-r border-slate-100 text-sm w-12 min-w-[48px] max-w-[48px] transition-colors">
                         {sIdx + 1}
                       </td>
 
                       {/* Nama */}
-                      <td className="sticky left-12 print:static print:left-auto z-20 bg-white group-hover:bg-slate-50 py-3 px-3.5 font-semibold text-slate-900 border-r border-slate-100 whitespace-nowrap text-[13px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)] print:shadow-none transition-colors">
+                      <td className="sticky left-12 print:static print:left-auto z-20 bg-white group-hover:bg-slate-50 py-3 px-3.5 font-semibold text-slate-900 border-r border-slate-100 whitespace-nowrap text-sm shadow-xs print:shadow-none transition-colors">
                         {student.nama}
                       </td>
 
                       {/* Peran */}
-                      <td className="py-3 px-2.5 text-center border-r border-slate-100 text-[12px] whitespace-nowrap">
+                      <td className="py-3 px-2.5 text-center border-r border-slate-100 text-xs whitespace-nowrap">
                         <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-2xs font-semibold ${
                             student.peran === 'Musammi'
                               ? 'bg-purple-100 text-purple-800 border border-purple-200'
                               : 'bg-blue-100 text-blue-800 border border-blue-200'
@@ -1038,12 +1038,12 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
                       </td>
 
                       {/* Kelas */}
-                      <td className="py-3 px-2.5 text-center text-slate-600 border-r border-slate-100 text-[12px] font-medium whitespace-nowrap">
+                      <td className="py-3 px-2.5 text-center text-slate-600 border-r border-slate-100 text-xs font-medium whitespace-nowrap">
                         {student.kelas}
                       </td>
 
                       {/* Halaqah */}
-                      <td className="py-3 px-3.5 text-slate-600 border-r border-slate-100 text-[12px] font-medium whitespace-nowrap">
+                      <td className="py-3 px-3.5 text-slate-600 border-r border-slate-100 text-xs font-medium whitespace-nowrap">
                         {student.halaqahNama}
                       </td>
 
@@ -1085,22 +1085,22 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
                       )}
 
                       {/* Rekapitulasi: Hadir, Izin, Sakit, Alpa, Terlambat, Persentase */}
-                      <td className="py-3 px-1.5 text-center font-bold text-emerald-700 bg-emerald-50/30 border-r border-slate-100 text-[12px]">
+                      <td className="py-3 px-1.5 text-center font-bold text-emerald-700 bg-emerald-50/30 border-r border-slate-100 text-xs">
                         {summary.h}
                       </td>
-                      <td className="py-3 px-1.5 text-center font-bold text-blue-700 bg-blue-50/30 border-r border-slate-100 text-[12px]">
+                      <td className="py-3 px-1.5 text-center font-bold text-blue-700 bg-blue-50/30 border-r border-slate-100 text-xs">
                         {summary.i}
                       </td>
-                      <td className="py-3 px-1.5 text-center font-bold text-amber-700 bg-amber-50/30 border-r border-slate-100 text-[12px]">
+                      <td className="py-3 px-1.5 text-center font-bold text-amber-700 bg-amber-50/30 border-r border-slate-100 text-xs">
                         {summary.s}
                       </td>
-                      <td className="py-3 px-1.5 text-center font-bold text-rose-700 bg-rose-50/30 border-r border-slate-100 text-[12px]">
+                      <td className="py-3 px-1.5 text-center font-bold text-red-700 bg-red-50/30 border-r border-slate-100 text-xs">
                         {summary.a}
                       </td>
-                      <td className="py-3 px-1.5 text-center font-bold text-yellow-700 bg-yellow-50/30 border-r border-slate-100 text-[12px]">
+                      <td className="py-3 px-1.5 text-center font-bold text-yellow-700 bg-yellow-50/30 border-r border-slate-100 text-xs">
                         {summary.t}
                       </td>
-                      <td className="py-3 px-2 text-center font-extrabold text-slate-900 bg-slate-50/50 text-[12px]">
+                      <td className="py-3 px-2 text-center font-extrabold text-slate-900 bg-slate-50/50 text-xs">
                         {summary.percentage}%
                       </td>
                     </tr>
@@ -1170,7 +1170,7 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Alasan Koreksi (Wajib untuk Audit Log) <span className="text-rose-500">*</span>
+                Alasan Koreksi (Wajib untuk Audit Log) <span className="text-red-500">*</span>
               </label>
               <textarea
                 rows={3}
@@ -1195,7 +1195,7 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
                 type="button"
                 disabled={!correctionTarget.reason.trim() || isSavingCorrection}
                 onClick={handleSaveCorrection}
-                className="px-4 py-2 rounded-lg bg-blue-600 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                className="btn btn-primary btn-sm"
               >
                 {isSavingCorrection ? 'Menyimpan...' : 'Simpan Koreksi & Catat Audit'}
               </button>

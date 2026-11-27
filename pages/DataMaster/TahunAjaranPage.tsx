@@ -666,7 +666,6 @@ const TahunAjaranPage: React.FC = () => {
     return (
         <PageShell>
             <PageHeader
-                kicker="FONDASI AKADEMIK & DATA KANONIKAL V2 (FASE 4)"
                 title="Tahun Ajaran, Semester & Struktur Kelas"
                 description="Kelola tahun ajaran & semester, pemeriksaan prasyarat penutupan tahun ajaran, arsip historis, serta struktur Marhalah/Kelas."
                 actions={
@@ -675,7 +674,7 @@ const TahunAjaranPage: React.FC = () => {
                             <button
                                 type="button"
                                 onClick={() => openModal(null)}
-                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors"
+                                className="btn btn-primary btn-sm"
                             >
                                 <Plus size={15} /> Tambah Tahun Ajaran
                             </button>
@@ -685,14 +684,14 @@ const TahunAjaranPage: React.FC = () => {
                                 <button
                                     type="button"
                                     onClick={() => openMarhalahModal(null)}
-                                    className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors"
+                                    className="btn btn-secondary btn-sm"
                                 >
                                     <Plus size={14} /> Tambah Marhalah
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => openKelasModal(null)}
-                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors"
+                                    className="btn btn-primary btn-sm"
                                 >
                                     <Plus size={15} /> Tambah Kelas & Wali
                                 </button>
@@ -704,14 +703,14 @@ const TahunAjaranPage: React.FC = () => {
 
             {/* Banner Mode Arsip Tahun Ajaran Lama */}
             {isArchivedView && selectedAcademicYear && (
-                <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex items-start gap-3">
-                        <Archive size={18} className="text-indigo-700 mt-0.5 shrink-0" />
+                        <Archive size={18} className="text-blue-700 mt-0.5 shrink-0" />
                         <div>
-                            <div className="text-xs font-bold uppercase tracking-wider text-indigo-900">
+                            <div className="text-xs font-semibold text-blue-900">
                                 Mode Arsip Tahun Ajaran: {selectedAcademicYear.name} ({selectedAcademicYear.active_semester})
                             </div>
-                            <p className="text-xs text-indigo-700 mt-0.5">
+                            <p className="text-xs text-blue-700 mt-0.5">
                                 Anda sedang meninjau data historis tahun ajaran arsip. Tahun ajaran operasional yang sedang aktif adalah{' '}
                                 <span className="font-bold">{activeAcademicYear?.name || '-'}</span>.
                             </p>
@@ -720,7 +719,7 @@ const TahunAjaranPage: React.FC = () => {
                     <button
                         type="button"
                         onClick={returnToActiveYear}
-                        className="px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shrink-0"
+                        className="btn btn-primary btn-sm shrink-0"
                     >
                         Kembali ke Tahun Ajaran Aktif
                     </button>
@@ -739,7 +738,7 @@ const TahunAjaranPage: React.FC = () => {
                                 : 'text-slate-600 hover:text-slate-900'
                         }`}
                     >
-                        1. Siklus Tahun Ajaran & Semester ({localAcademicYears.length})
+                        Tahun Ajaran & Semester ({localAcademicYears.length})
                     </button>
                     <button
                         type="button"
@@ -750,11 +749,8 @@ const TahunAjaranPage: React.FC = () => {
                                 : 'text-slate-600 hover:text-slate-900'
                         }`}
                     >
-                        2. Struktur Marhalah & Kelas ({masterMarhalahs?.length || 0} Marhalah • {masterKelasRelasi?.length || 0} Kelas)
+                        Marhalah & Kelas ({masterMarhalahs?.length || 0} Marhalah • {masterKelasRelasi?.length || 0} Kelas)
                     </button>
-                </div>
-                <div className="text-[11px] text-slate-500 px-2">
-                    Sesuai Arsitektur 3-Role: <span className="font-semibold text-slate-700">Wali Kelas & Musyrif</span> dikelola sebagai atribut administratif kelas/santri.
                 </div>
             </div>
 
@@ -769,7 +765,7 @@ const TahunAjaranPage: React.FC = () => {
                             <button
                                 type="button"
                                 onClick={() => openMarhalahModal(null)}
-                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold"
+                                className="btn btn-primary btn-sm"
                             >
                                 <Plus size={14} /> Buat Marhalah Pertama
                             </button>
@@ -787,7 +783,7 @@ const TahunAjaranPage: React.FC = () => {
                                                 </span>
                                                 <div>
                                                     <h3 className="text-sm font-bold text-slate-900">{m.nama}</h3>
-                                                    <p className="text-[11px] text-slate-500">
+                                                    <p className="text-2xs text-slate-500">
                                                         {classesForM.length} rombongan belajar terdaftar
                                                     </p>
                                                 </div>
@@ -822,7 +818,7 @@ const TahunAjaranPage: React.FC = () => {
                                         <div className="overflow-x-auto">
                                             <table className="w-full text-left border-collapse">
                                                 <thead>
-                                                    <tr className="border-b border-slate-200 bg-white text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                                                    <tr className="border-b border-slate-200 bg-white text-xs font-semibold text-slate-500">
                                                         <th className="px-5 py-2.5 w-16">Urutan</th>
                                                         <th className="px-5 py-2.5">Nama Kelas</th>
                                                         <th className="px-5 py-2.5">Wali Kelas (Atribut Administratif)</th>
@@ -845,7 +841,7 @@ const TahunAjaranPage: React.FC = () => {
                                                                     <span className="text-slate-400 italic">Belum diatur</span>
                                                                 )}
                                                             </td>
-                                                            <td className="px-5 py-3 text-slate-600 font-mono">
+                                                            <td className="px-5 py-3 text-slate-600">
                                                                 {k.wali_kelas_phone || '-'}
                                                             </td>
                                                             <td className="px-5 py-3 text-slate-700">
@@ -900,13 +896,13 @@ const TahunAjaranPage: React.FC = () => {
                             tone="neutral"
                         />
                         <StatCard
-                            label="Santri Ter-Enroll (TA Terpilih)"
+                            label="Santri punya kelas (TA terpilih)"
                             value={enrollmentReadiness.enrolledSantri}
                             meta={`Dari ${enrollmentReadiness.totalMasterSantri} biodata induk santri aktif`}
                             tone="success"
                         />
                         <StatCard
-                            label="Belum Memiliki Enrollment"
+                            label="Belum ditempatkan di kelas"
                             value={enrollmentReadiness.unassignedCount}
                             meta={
                                 enrollmentReadiness.unassignedCount === 0
@@ -926,11 +922,11 @@ const TahunAjaranPage: React.FC = () => {
                     {enrollmentReadiness.unassignedCount > 0 && (
                         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div>
-                                <div className="text-xs font-bold uppercase tracking-wider text-amber-800">
-                                    Peringatan Kesiapan Enrollment Tahun Ajaran ({selectedAcademicYear?.name})
+                                <div className="text-xs font-semibold text-amber-800">
+                                    Santri belum punya kelas ({selectedAcademicYear?.name})
                                 </div>
                                 <p className="text-xs text-amber-700 mt-0.5">
-                                    Terdapat <span className="font-mono font-bold">{enrollmentReadiness.unassignedCount}</span> santri aktif yang belum memiliki enrollment pada tahun ajaran ini. Sesuai keputusan arsitektur Fase 4, santri tanpa enrollment aktif tidak dimasukkan secara otomatis ke daftar operasional kelas/halaqah.
+                                    Terdapat <span className="font-bold">{enrollmentReadiness.unassignedCount}</span> santri aktif yang belum ditempatkan di kelas pada tahun ajaran ini. Santri tersebut belum muncul di daftar kelas/halaqah sampai diberi kelas.
                                 </p>
                             </div>
                         </div>
@@ -957,17 +953,17 @@ const TahunAjaranPage: React.FC = () => {
                                             <tr key={ay.id} className={`hover:bg-slate-50/70 transition-colors ${isCurrentlyViewed ? 'bg-blue-50/20' : ''}`}>
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="font-bold text-slate-900 font-mono tabular-nums">
+                                                        <span className="font-bold text-slate-900 tabular-nums">
                                                             {ay.name}
                                                         </span>
                                                         {isCurrentlyViewed && (
-                                                            <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold uppercase">
+                                                            <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-2xs font-bold uppercase">
                                                                 Sedang Ditinjau
                                                             </span>
                                                         )}
                                                     </div>
                                                     {ay.closed_at && (
-                                                        <div className="text-[11px] text-slate-500 mt-0.5 font-mono">
+                                                        <div className="text-2xs text-slate-500 mt-0.5">
                                                             Ditutup: {new Date(ay.closed_at).toLocaleDateString('id-ID')}
                                                         </div>
                                                     )}
@@ -975,11 +971,11 @@ const TahunAjaranPage: React.FC = () => {
                                                 <td className="px-6 py-4">
                                                     <div className="flex flex-wrap items-center justify-between gap-3">
                                                         <div>
-                                                            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                                                            <span className="text-xs font-semibold text-slate-800">
                                                                 Semester {ay.active_semester}
                                                             </span>
                                                             {getSemesterDateDisplay(ay) ? (
-                                                                <div className="text-xs font-mono text-slate-600 mt-0.5 tabular-nums">
+                                                                <div className="text-xs text-slate-600 mt-0.5 tabular-nums">
                                                                     {getSemesterDateDisplay(ay)}
                                                                 </div>
                                                             ) : (
@@ -993,7 +989,7 @@ const TahunAjaranPage: React.FC = () => {
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => handleToggleSemester(ay)}
-                                                                    className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 transition-colors"
+                                                                    className="btn btn-secondary btn-sm"
                                                                 >
                                                                     <RefreshCw size={12} /> Aktifkan {ay.active_semester === 'Ganjil' ? 'Genap' : 'Ganjil'}
                                                                 </button>
@@ -1018,7 +1014,7 @@ const TahunAjaranPage: React.FC = () => {
                                                             <button
                                                                 type="button"
                                                                 onClick={() => openArchivedYear(ay.id)}
-                                                                className="px-3 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors"
+                                                                className="px-3 py-1.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors"
                                                             >
                                                                 <Archive size={13} /> Buka Arsip
                                                             </button>
@@ -1094,7 +1090,7 @@ const TahunAjaranPage: React.FC = () => {
                                 type="text"
                                 required
                                 placeholder="Contoh: 2026/2027"
-                                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono text-slate-900 focus:outline-none focus:border-blue-600"
+                                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-blue-600"
                                 value={formData.name}
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                             />
@@ -1114,7 +1110,7 @@ const TahunAjaranPage: React.FC = () => {
                                 }
                             >
                                 <option value="draft">Draft (Perencanaan)</option>
-                                <option value="setup">Setup (Persiapan Enrollment & Halaqah)</option>
+                                <option value="setup">Persiapan kelas & halaqah</option>
                                 <option value="active">Active (Berjalan)</option>
                                 <option value="closing">Closing (Rekonsiliasi Akhir Tahun)</option>
                             </select>
@@ -1144,7 +1140,7 @@ const TahunAjaranPage: React.FC = () => {
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                                <label className="block text-2xs font-semibold text-slate-600 mb-1">
                                     Tanggal Mulai
                                 </label>
                                 <input
@@ -1153,11 +1149,11 @@ const TahunAjaranPage: React.FC = () => {
                                     onChange={(e) =>
                                         setFormData({ ...formData, ganjil_start_date: e.target.value })
                                     }
-                                    className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white text-xs font-mono text-slate-800"
+                                    className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white text-xs text-slate-800"
                                 />
                             </div>
                             <div>
-                                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                                <label className="block text-2xs font-semibold text-slate-600 mb-1">
                                     Tanggal Berakhir
                                 </label>
                                 <input
@@ -1166,7 +1162,7 @@ const TahunAjaranPage: React.FC = () => {
                                     onChange={(e) =>
                                         setFormData({ ...formData, ganjil_end_date: e.target.value })
                                     }
-                                    className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white text-xs font-mono text-slate-800"
+                                    className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white text-xs text-slate-800"
                                 />
                             </div>
                         </div>
@@ -1181,7 +1177,7 @@ const TahunAjaranPage: React.FC = () => {
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                                <label className="block text-2xs font-semibold text-slate-600 mb-1">
                                     Tanggal Mulai
                                 </label>
                                 <input
@@ -1190,11 +1186,11 @@ const TahunAjaranPage: React.FC = () => {
                                     onChange={(e) =>
                                         setFormData({ ...formData, genap_start_date: e.target.value })
                                     }
-                                    className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white text-xs font-mono text-slate-800"
+                                    className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white text-xs text-slate-800"
                                 />
                             </div>
                             <div>
-                                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                                <label className="block text-2xs font-semibold text-slate-600 mb-1">
                                     Tanggal Berakhir
                                 </label>
                                 <input
@@ -1203,7 +1199,7 @@ const TahunAjaranPage: React.FC = () => {
                                     onChange={(e) =>
                                         setFormData({ ...formData, genap_end_date: e.target.value })
                                     }
-                                    className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white text-xs font-mono text-slate-800"
+                                    className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white text-xs text-slate-800"
                                 />
                             </div>
                         </div>
@@ -1220,7 +1216,7 @@ const TahunAjaranPage: React.FC = () => {
                         <button
                             type="submit"
                             disabled={isSubmitting}
-                            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold disabled:opacity-50"
+                            className="btn btn-primary btn-sm"
                         >
                             {isSubmitting ? 'Menyimpan...' : 'Simpan Konfigurasi'}
                         </button>
@@ -1245,7 +1241,7 @@ const TahunAjaranPage: React.FC = () => {
                                     type="button"
                                     onClick={() => handleOpenClosingModal(closingTargetYear)}
                                     disabled={checkingReadiness}
-                                    className="text-[11px] font-semibold text-blue-600 hover:underline inline-flex items-center gap-1"
+                                    className="text-2xs font-semibold text-blue-600 hover:underline inline-flex items-center gap-1"
                                 >
                                     <RefreshCw size={11} className={checkingReadiness ? 'animate-spin' : ''} /> Periksa Ulang
                                 </button>
@@ -1275,14 +1271,14 @@ const TahunAjaranPage: React.FC = () => {
                                             )}
                                             <span className="font-medium">{item.label}</span>
                                         </div>
-                                        <span className="font-mono font-bold">
+                                        <span className="font-bold">
                                             {item.passed ? '0 (Tuntas)' : `${item.count} Belum Selesai`}
                                         </span>
                                     </div>
                                 ))}
 
                                 {!closingReadiness.can_close && (
-                                    <div className="p-2.5 rounded-lg bg-red-100/80 border border-red-300 text-[11px] text-red-900 font-medium">
+                                    <div className="p-2.5 rounded-lg bg-red-100/80 border border-red-300 text-2xs text-red-900 font-medium">
                                         Penutupan Tahun Ajaran dikunci oleh server hingga seluruh prasyarat di atas bernilai 0.
                                     </div>
                                 )}
@@ -1303,7 +1299,7 @@ const TahunAjaranPage: React.FC = () => {
                             rows={3}
                             value={closingReason}
                             onChange={(e) => setClosingReason(e.target.value)}
-                            placeholder="Contoh: Seluruh sesi, ujian, remedial, publikasi raport, dan rekonsiliasi enrollment TA telah tuntas."
+                            placeholder="Contoh: Seluruh sesi, ujian, remedial, publikasi raport, dan penempatan kelas telah tuntas."
                             className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-blue-600"
                         />
                     </div>
@@ -1324,7 +1320,7 @@ const TahunAjaranPage: React.FC = () => {
                                 !closingReason.trim() ||
                                 (closingReadiness !== null && !closingReadiness.can_close)
                             }
-                            className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold disabled:opacity-50"
+                            className="btn btn-danger btn-sm"
                         >
                             {isSubmitting ? 'Memproses Penutupan...' : 'Kunci & Tutup Tahun Ajaran'}
                         </button>
@@ -1375,7 +1371,7 @@ const TahunAjaranPage: React.FC = () => {
                         <button
                             type="submit"
                             disabled={isSubmitting}
-                            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold disabled:opacity-50"
+                            className="btn btn-primary btn-sm"
                         >
                             {isSubmitting ? 'Menyimpan...' : 'Simpan Marhalah'}
                         </button>
@@ -1426,7 +1422,7 @@ const TahunAjaranPage: React.FC = () => {
 
                     <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200 space-y-3">
                         <div className="flex items-center justify-between">
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                            <span className="text-xs font-semibold text-slate-700">
                                 Atribut Administratif Kelas (Non-Login)
                             </span>
                             <StatusBadge label="ARSITEKTUR 3-ROLE" tone="primary" />
@@ -1482,7 +1478,7 @@ const TahunAjaranPage: React.FC = () => {
                         <button
                             type="submit"
                             disabled={isSubmitting}
-                            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold disabled:opacity-50"
+                            className="btn btn-primary btn-sm"
                         >
                             {isSubmitting ? 'Menyimpan...' : 'Simpan Kelas & Atribut'}
                         </button>

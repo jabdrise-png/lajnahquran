@@ -47,7 +47,7 @@ const ModePencatatanPanel: React.FC = () => {
           <div key={h.id} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
             <div className="min-w-0 flex-1">
               <div className="text-sm font-semibold text-slate-800 truncate">{h.nama}</div>
-              <div className="text-[11px] text-slate-400 truncate">{h.musammi?.nama || '-'}</div>
+              <div className="text-2xs text-slate-400 truncate">{h.musammi?.nama || '-'}</div>
             </div>
             <div className="inline-flex rounded-lg border border-slate-300 overflow-hidden text-xs font-semibold shrink-0">
               {(['harian', 'rekap'] as const).map((m) => (

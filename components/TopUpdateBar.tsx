@@ -53,7 +53,7 @@ export const TopUpdateBar: React.FC<TopUpdateBarProps> = ({ onNavigate }) => {
     return (
         <aside 
             aria-label="Pemberitahuan Pembaruan Sistem"
-            className="print:hidden w-full bg-slate-50 border-b border-slate-200/90 text-slate-700 text-xs sm:text-[13px] select-none transition-colors z-20"
+            className="print:hidden w-full bg-slate-50 border-b border-slate-200/90 text-slate-700 text-xs sm:text-sm select-none transition-colors z-20"
         >
             <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-between gap-3">
                 {/* Bagian Kiri: Dot Badge + Judul Pembaruan */}
@@ -85,7 +85,7 @@ export const TopUpdateBar: React.FC<TopUpdateBarProps> = ({ onNavigate }) => {
                     <button
                         type="button"
                         onClick={handleViewDetail}
-                        className="text-blue-600 hover:text-blue-700 font-medium transition-colors text-xs sm:text-[13px] hover:underline flex items-center"
+                        className="text-blue-600 hover:text-blue-700 font-medium transition-colors text-xs sm:text-sm hover:underline flex items-center"
                     >
                         Lihat Catatan Pembaruan &rarr;
                     </button>

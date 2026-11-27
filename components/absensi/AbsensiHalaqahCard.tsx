@@ -177,7 +177,7 @@ const AbsensiHalaqahCard: React.FC<Props> = ({
       <header className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-slate-100">
         <button type="button" onClick={() => setOpen(!open)} className="text-left min-w-0">
           <h3 className="font-bold text-slate-800 text-sm truncate">{halaqah.nama}</h3>
-          <p className="text-sm sm:text-[11px] text-slate-500">
+          <p className="text-sm sm:text-2xs text-slate-500">
             {halaqah.marhalah} · {terisi}/{roster.length} santri terisi
             {records.length > 0 ? '' : ' · sesi belum tercatat'}
           </p>
@@ -200,10 +200,10 @@ const AbsensiHalaqahCard: React.FC<Props> = ({
                 <div className="flex items-center gap-2 min-w-0">
                   <UserCheck size={16} className="text-blue-600 shrink-0" />
                   <span className="text-sm font-semibold text-slate-800 truncate">{musammi.nama}</span>
-                  <span className="text-sm sm:text-[10px] uppercase font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5">Musammi'</span>
+                  <span className="text-sm sm:text-2xs uppercase font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5">Musammi'</span>
                 </div>
                 {musammiRecord?.markedByName && (
-                  <span className="text-sm sm:text-[11px] text-slate-400">oleh {musammiRecord.markedByName} {jam(musammiRecord.updatedAt)}</span>
+                  <span className="text-sm sm:text-2xs text-slate-400">oleh {musammiRecord.markedByName} {jam(musammiRecord.updatedAt)}</span>
                 )}
               </div>
               <StatusChips k="m" />
@@ -225,7 +225,7 @@ const AbsensiHalaqahCard: React.FC<Props> = ({
                     ))}
                   </select>
                 )}
-                {badal.on && !nilai('m') && <span className="text-sm sm:text-[11px] text-amber-700">Isi juga status musammi' utama.</span>}
+                {badal.on && !nilai('m') && <span className="text-sm sm:text-2xs text-amber-700">Isi juga status musammi' utama.</span>}
               </div>
             </div>
           ) : (
@@ -242,7 +242,7 @@ const AbsensiHalaqahCard: React.FC<Props> = ({
               <div key={s.id} className={`px-4 py-2.5 ${dirty ? 'bg-blue-50/40' : ''}`}>
                 <div className="flex items-baseline justify-between gap-2 mb-1.5">
                   <span className="text-sm font-medium text-slate-800 truncate">{s.nama}</span>
-                  <span className="text-sm sm:text-[11px] text-slate-400 shrink-0">
+                  <span className="text-sm sm:text-2xs text-slate-400 shrink-0">
                     {rec?.markedByName ? `oleh ${rec.markedByName} ${jam(rec.updatedAt)}` : s.kelas && s.kelas !== '-' ? s.kelas : ''}
                   </span>
                 </div>
@@ -251,8 +251,8 @@ const AbsensiHalaqahCard: React.FC<Props> = ({
             );
           })}
 
-          <footer className="sticky bottom-0 bg-white px-4 py-3 flex flex-wrap items-center justify-between gap-2 rounded-b-xl">
-            <span className="text-sm sm:text-[11px] text-slate-500">
+          <footer className="sticky bottom-0 bg-white pl-4 pr-20 py-3 flex flex-wrap items-center justify-between gap-2 rounded-b-xl border-t border-slate-100">
+            <span className="text-sm sm:text-2xs text-slate-500">
               {isPast ? 'Tanggal sudah lewat: perubahan catatan tersimpan = koreksi Admin dengan alasan.' : 'Perubahan hari ini bisa diperbarui Admin maupun Musammi\'.'}
             </span>
             <div className="flex items-center gap-2">
@@ -266,7 +266,7 @@ const AbsensiHalaqahCard: React.FC<Props> = ({
                 type="button"
                 disabled={saving || jumlahBerubah === 0}
                 onClick={onKlikSimpan}
-                className="inline-flex flex-1 sm:flex-none justify-center items-center gap-1.5 px-4 py-3 sm:py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold disabled:opacity-40"
+                className="btn btn-primary btn-lg flex-1 sm:flex-none justify-center"
               >
                 <Save size={15} /> {saving ? 'Menyimpan…' : `Simpan${jumlahBerubah ? ` (${jumlahBerubah})` : ''}`}
               </button>

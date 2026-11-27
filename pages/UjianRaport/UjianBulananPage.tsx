@@ -200,10 +200,10 @@ const UjianBulananPage: React.FC = () => {
         description={`Nilai akhir 0–100 dan materi juz · Semester ${semester} ${selectedAcademicYear?.name || ''} · KKM ${rubrikAktif.passing_score}`}
         actions={
           <div className="flex flex-wrap gap-2">
-            {isAdmin && <button type="button" onClick={() => setKelola(true)} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-700"><Settings2 size={15} /> Kelola ujian</button>}
-            <button type="button" onClick={ekspor} disabled={!periodId} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-700 disabled:opacity-50"><Download size={15} /> Ekspor</button>
-            <button type="button" onClick={() => fileRef.current?.click()} disabled={!periodId} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-700 disabled:opacity-50"><Upload size={15} /> Impor</button>
-            <button type="button" onClick={() => { setTemplateDraf(template); setKirimBuka(true); }} disabled={!periodId} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-700 disabled:opacity-50"><Send size={15} /> Kirim ke wali</button>
+            {isAdmin && <button type="button" onClick={() => setKelola(true)} className="btn btn-secondary"><Settings2 size={15} /> Kelola ujian</button>}
+            <button type="button" onClick={ekspor} disabled={!periodId} className="btn btn-secondary"><Download size={15} /> Ekspor</button>
+            <button type="button" onClick={() => fileRef.current?.click()} disabled={!periodId} className="btn btn-secondary"><Upload size={15} /> Impor</button>
+            <button type="button" onClick={() => { setTemplateDraf(template); setKirimBuka(true); }} disabled={!periodId} className="btn btn-secondary"><Send size={15} /> Kirim ke wali</button>
             <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={(e) => e.target.files?.[0] && impor(e.target.files[0])} />
           </div>
         }
@@ -236,7 +236,7 @@ const UjianBulananPage: React.FC = () => {
       {periodId && baris.length > 0 && (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <table className="min-w-full text-sm tabel-kartu">
-            <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="px-3 py-2 text-left">Santri</th>
                 <th className="px-3 py-2 text-left w-40">Materi (juz)</th>
@@ -257,7 +257,7 @@ const UjianBulananPage: React.FC = () => {
                   <tr key={s.id} className={d ? 'bg-blue-50/30' : ''}>
                     <td className="px-3 py-2">
                       <div className="font-semibold text-slate-800">{s.nama}</div>
-                      <div className="text-[11px] text-slate-400">{h.nama} · {s.kelas || '-'}{t ? ` · percobaan ${t.attempt_no}${t.is_remedial ? ' (remedial)' : ''}${jumlahSah(s.id) > 1 ? ` · tertinggi dari ${jumlahSah(s.id)} percobaan` : ''}` : ''}</div>
+                      <div className="text-2xs text-slate-400">{h.nama} · {s.kelas || '-'}{t ? ` · percobaan ${t.attempt_no}${t.is_remedial ? ' (remedial)' : ''}${jumlahSah(s.id) > 1 ? ` · tertinggi dari ${jumlahSah(s.id)} percobaan` : ''}` : ''}</div>
                     </td>
                     <td data-label="Materi (juz)" className="px-3 py-2">
                       {edit ? <input className={inputCls} value={d?.materi ?? t?.materi_juz ?? ''} placeholder="mis. 30" onChange={(e) => ubah(s.id, { materi: e.target.value })} />
@@ -268,7 +268,7 @@ const UjianBulananPage: React.FC = () => {
                         : <span className="font-semibold text-slate-800">{tampilNilai(t?.final_score)}</span>}
                     </td>
                     <td data-label="Predikat" className="px-3 py-2">
-                      {pred ? <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${lulus ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>{pred}{lulus === false ? ' · perlu remedial' : ''}</span> : <span className="text-slate-300">-</span>}
+                      {pred ? <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${lulus ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>{pred}{lulus === false ? ' · perlu remedial' : ''}</span> : <span className="text-slate-300">-</span>}
                     </td>
                     <td data-label="Aksi" className="px-3 py-2 text-right whitespace-nowrap">
                       {t && !d && (
@@ -292,7 +292,7 @@ const UjianBulananPage: React.FC = () => {
         <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur pl-4 pr-20 py-3 flex items-center justify-end gap-2 lg:pl-72">
           <span className="mr-auto text-xs text-slate-500 hidden sm:inline">{isiDraf.length ? `${isiDraf.length} nilai belum disimpan` : 'Isi nilai lalu Simpan'}</span>
           <button type="button" disabled={menyimpan || isiDraf.length === 0} onClick={simpan}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-50 whitespace-nowrap">
+            className="btn btn-primary whitespace-nowrap">
             <Save size={15} /> {menyimpan ? 'Menyimpan…' : 'Simpan nilai'}
           </button>
         </div>
@@ -324,9 +324,9 @@ const UjianBulananPage: React.FC = () => {
           ))}
           <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
             <input className={inputCls} placeholder={`Ujian Bulanan ke-${Math.max(0, ...periodeList.map((p) => p.ke)) + 1} (mis. Agustus)`} value={labelBaru} onChange={(e) => setLabelBaru(e.target.value)} />
-            <button type="button" onClick={tambahPeriode} className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold"><Plus size={14} /> Tambah</button>
+            <button type="button" onClick={tambahPeriode} className="btn btn-primary"><Plus size={14} /> Tambah</button>
           </div>
-          <p className="text-[11px] text-slate-400">Ujian bulanan yang sudah berisi nilai tidak bisa dihapus.</p>
+          <p className="text-2xs text-slate-400">Ujian bulanan yang sudah berisi nilai tidak bisa dihapus.</p>
         </div>
       </Modal>
 
@@ -336,7 +336,7 @@ const UjianBulananPage: React.FC = () => {
           <textarea rows={9} className={`${inputCls} font-mono text-xs`} value={templateDraf} onChange={(e) => setTemplateDraf(e.target.value)} />
           <div className="flex justify-end gap-2">
             <button type="button" onClick={() => setKirimBuka(false)} className="px-4 py-2 rounded-lg border border-slate-300 font-semibold text-slate-700">Batal</button>
-            <button type="button" disabled={mengirim || siapKirim.length === 0} onClick={kirim} className="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold disabled:opacity-50">{mengirim ? 'Mengirim…' : `Kirim ${siapKirim.length} pesan`}</button>
+            <button type="button" disabled={mengirim || siapKirim.length === 0} onClick={kirim} className="btn btn-primary">{mengirim ? 'Mengirim…' : `Kirim ${siapKirim.length} pesan`}</button>
           </div>
         </div>
       </Modal>

@@ -1,0 +1,10 @@
+FASE 7b — RAPIKAN UI/UX (cabang: fase-7b-ui, dari main 06821e0)
+
+Cara pasang kode:
+- Salin isi ZIP ini ke root repo (timpa semua), commit, push. Tidak ada berkas yang dihapus.
+- Tanpa migrasi database, tanpa paket baru.
+
+Setelah deploy:
+- Cek beberapa layar di HP & komputer (Dasbor, Sesi Halaqah, Setoran, Ujian, Data Santri, Halaqah,
+  Musammi', Pengaturan, Akses & Undangan).
+- Aturan desain untuk pengembangan berikutnya: docs/PANDUAN_UI.md

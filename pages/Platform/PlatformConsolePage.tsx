@@ -2155,7 +2155,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 type="button"
                 disabled={isCheckingHealth}
                 onClick={() => runHealthDiagnostics()}
-                className="px-4 py-2 rounded-[10px] bg-[#1557D5] hover:bg-[#1E40AF] text-white text-xs font-semibold transition-colors whitespace-nowrap shadow-xs disabled:opacity-50"
+                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-800 text-white text-xs font-semibold transition-colors whitespace-nowrap shadow-xs disabled:opacity-50"
               >
                 {isCheckingHealth ? 'Memeriksa...' : 'Jalankan health check'}
               </button>
@@ -2175,7 +2175,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                   });
                   setSupportModalOpen(true);
                 }}
-                className="px-4 py-2 rounded-[10px] bg-[#1557D5] hover:bg-[#1E40AF] text-white text-xs font-semibold transition-colors whitespace-nowrap shadow-xs"
+                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-800 text-white text-xs font-semibold transition-colors whitespace-nowrap shadow-xs"
               >
                 Mulai support session
               </button>
@@ -2194,10 +2194,10 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                   });
                   setInviteAccountModalOpen(true);
                 }}
-                className={`px-3.5 py-2 rounded-[10px] text-xs font-semibold transition-colors whitespace-nowrap ${
+                className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
                   tab === 'accounts'
-                    ? 'bg-[#1557D5] hover:bg-[#1E40AF] text-white shadow-xs'
-                    : 'border border-[#BFDBFE] bg-[#E7F0FF] hover:bg-[#DBEAFE] text-[#1557D5]'
+                    ? 'bg-blue-600 hover:bg-blue-800 text-white shadow-xs'
+                    : 'border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-600'
                 }`}
               >
                 Undang akun
@@ -2215,7 +2215,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                   }));
                   setProvisionModalOpen(true);
                 }}
-                className="px-4 py-2 rounded-[10px] bg-[#1557D5] hover:bg-[#1E40AF] text-white text-xs font-semibold transition-colors whitespace-nowrap shadow-xs"
+                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-800 text-white text-xs font-semibold transition-colors whitespace-nowrap shadow-xs"
               >
                 Provision tenant
               </button>
@@ -2225,20 +2225,20 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
       />
 
       {lastIssuedInviteInfo && (
-        <div className="bg-[#F3F7FF] border border-[#BFDBFE] rounded-[16px] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-2xs">
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-2xs">
           <div className="space-y-1">
-            <div className="font-bold text-[#101828]">
+            <div className="font-bold text-slate-900">
               Tautan Undangan Sekali Pakai Diterbitkan ({lastIssuedInviteInfo.email} ·{' '}
               {lastIssuedInviteInfo.role.toUpperCase()})
             </div>
-            <div className="font-mono text-[11px] text-[#1557D5] break-all">
+            <div className="font-mono text-2xs text-blue-600 break-all">
               {window.location.origin}
               {lastIssuedInviteInfo.invitePath}
             </div>
             {lastIssuedInviteInfo.temporaryPassword && (
-              <div className="text-[#475467]">
+              <div className="text-slate-600">
                 Kode Verifikasi Undangan:{' '}
-                <span className="font-mono font-bold text-[#101828]">
+                <span className="font-mono font-bold text-slate-900">
                   {lastIssuedInviteInfo.temporaryPassword}
                 </span>
               </div>
@@ -2253,14 +2253,14 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 );
                 NotificationStore.addNotification('Tautan undangan disalin ke clipboard.', 'info');
               }}
-              className="px-3.5 py-1.5 rounded-[8px] bg-[#1557D5] hover:bg-[#1E40AF] text-white font-semibold"
+              className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-800 text-white font-semibold"
             >
               Salin Tautan /invite
             </button>
             <button
               type="button"
               onClick={() => setLastIssuedInviteInfo(null)}
-              className="px-2.5 py-1.5 rounded-[8px] border border-[#BFDBFE] text-[#1557D5] hover:bg-[#E7F0FF] font-semibold"
+              className="px-2.5 py-1.5 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 font-semibold"
             >
               Tutup
             </button>
@@ -2376,11 +2376,11 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
 
         return (
           <div className="space-y-6">
-            <div className="bg-white rounded-[16px] border border-[#E1E7EF] p-5 sm:p-6 shadow-2xs">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-[#E1E7EF]">
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-2xs">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-slate-200">
                 <div>
                   <div className="flex flex-wrap items-center gap-2.5">
-                    <h2 className="text-xl font-bold text-[#101828]">{selectedTenant.name}</h2>
+                    <h2 className="text-xl font-bold text-slate-900">{selectedTenant.name}</h2>
                     <StatusBadge
                       label={selectedTenant.status.toUpperCase()}
                       tone={statusTone(selectedTenant.status)}
@@ -2395,10 +2395,10 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                       tone={tenantReadyCount === 4 ? 'success' : 'warning'}
                     />
                   </div>
-                  <p className="text-xs font-mono text-[#667085] mt-1.5">
+                  <p className="text-xs font-mono text-slate-500 mt-1.5">
                     ID: {selectedTenant.id} · Slug: {selectedTenant.slug} · Zona Waktu:{' '}
                     {selectedTenant.timezone} · Tahun Ajaran Aktif:{' '}
-                    <span className="font-semibold text-[#101828]">
+                    <span className="font-semibold text-slate-900">
                       {selectedTenant.activeAcademicYearName || 'Belum diatur'}
                     </span>
                   </p>
@@ -2408,7 +2408,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                   <button
                     type="button"
                     onClick={closeTenantDetail}
-                    className="px-3.5 py-2 rounded-[10px] border border-[#E1E7EF] text-xs font-semibold text-[#344054] hover:bg-[#F3F6FB] transition-colors"
+                    className="px-3.5 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
                   >
                     ← Kembali ke Daftar Tenant
                   </button>
@@ -2420,10 +2420,10 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                         isTenantSuspended ? 'active' : 'suspended'
                       )
                     }
-                    className={`px-3.5 py-2 rounded-[10px] text-xs font-semibold border transition-colors ${
+                    className={`px-3.5 py-2 rounded-lg text-xs font-semibold border transition-colors ${
                       isTenantSuspended
-                        ? 'bg-[#ECFDF3] border-[#BBF7D0] text-[#15803D] hover:bg-emerald-100'
-                        : 'bg-[#FEF2F2] border-[#FECACA] text-[#B91C1C] hover:bg-red-100'
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+                        : 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
                     }`}
                   >
                     {isTenantSuspended ? 'Pulihkan (Restore) Tenant' : 'Suspend Tenant'}
@@ -2440,7 +2440,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                       });
                       setSupportModalOpen(true);
                     }}
-                    className="px-3.5 py-2 rounded-[10px] bg-[#1557D5] hover:bg-[#1E40AF] text-white text-xs font-semibold transition-colors shadow-2xs"
+                    className="px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-800 text-white text-xs font-semibold transition-colors shadow-2xs"
                   >
                     Buka Support Session
                   </button>
@@ -2450,12 +2450,12 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               {/* Ringkasan Struktur, Kuota & Kontrol Siklus Hidup Tenant */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-5">
                 {/* Kolom 1: Kesiapan Setup Operasional (setup_state) */}
-                <div className="border border-[#E1E7EF] rounded-[14px] p-4 space-y-3 bg-[#F8FAFC]/50">
+                <div className="border border-slate-200 rounded-xl p-4 space-y-3 bg-slate-50/50">
                   <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#667085]">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
                       Checklist Kesiapan Setup
                     </h3>
-                    <span className="text-xs font-mono font-bold text-[#1557D5]">
+                    <span className="text-xs font-mono font-bold text-blue-600">
                       {tenantReadyPct}%
                     </span>
                   </div>
@@ -2490,11 +2490,11 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                     ].map((chk, idx) => (
                       <div
                         key={idx}
-                        className="flex items-center justify-between py-1.5 border-b border-[#E1E7EF]/70 last:border-none"
+                        className="flex items-center justify-between py-1.5 border-b border-slate-200/70 last:border-none"
                       >
-                        <span className="text-[#344054] font-medium">{chk.label}</span>
+                        <span className="text-slate-700 font-medium">{chk.label}</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-[#667085] font-mono">{chk.meta}</span>
+                          <span className="text-slate-500 font-mono">{chk.meta}</span>
                           <StatusBadge
                             label={chk.done ? 'SIAP' : 'BELUM'}
                             tone={chk.done ? 'success' : 'warning'}
@@ -2506,9 +2506,9 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 </div>
 
                 {/* Kolom 2: Pemakaian Kuota & Kapasitas Tenant */}
-                <div className="border border-[#E1E7EF] rounded-[14px] p-4 space-y-3.5 bg-[#F8FAFC]/50">
+                <div className="border border-slate-200 rounded-xl p-4 space-y-3.5 bg-slate-50/50">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#667085]">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
                       Kapasitas & Kuota Paket ({tenantPlan.name})
                     </h3>
                   </div>
@@ -2531,15 +2531,15 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                     unit="halaqah"
                   />
                   <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
-                    <div className="p-2.5 bg-white rounded-[10px] border border-[#E1E7EF]">
-                      <span className="text-[#667085] block text-[11px]">Admin Lembaga</span>
-                      <span className="font-mono font-bold text-sm text-[#101828]">
+                    <div className="p-2.5 bg-white rounded-lg border border-slate-200">
+                      <span className="text-slate-500 block text-2xs">Admin Lembaga</span>
+                      <span className="font-mono font-bold text-sm text-slate-900">
                         {selectedTenant.adminCount} Akun
                       </span>
                     </div>
-                    <div className="p-2.5 bg-white rounded-[10px] border border-[#E1E7EF]">
-                      <span className="text-[#667085] block text-[11px]">Tahun Ajaran</span>
-                      <span className="font-mono font-bold text-sm text-[#101828]">
+                    <div className="p-2.5 bg-white rounded-lg border border-slate-200">
+                      <span className="text-slate-500 block text-2xs">Tahun Ajaran</span>
+                      <span className="font-mono font-bold text-sm text-slate-900">
                         {selectedTenant.academicYearCount} Periode
                       </span>
                     </div>
@@ -2547,9 +2547,9 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 </div>
 
                 {/* Kolom 3: Governance Status & Paket Layanan */}
-                <div className="border border-[#E1E7EF] rounded-[14px] p-4 space-y-4 bg-[#F8FAFC]/50">
+                <div className="border border-slate-200 rounded-xl p-4 space-y-4 bg-slate-50/50">
                   <div>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#667085] mb-2">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
                       Kontrol Siklus Hidup Tenant (Teraudit)
                     </h3>
                     <div className="flex flex-wrap gap-2">
@@ -2559,12 +2559,12 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                           type="button"
                           disabled={selectedTenant.status === st}
                           onClick={() => handleUpdateTenantLifecycle(selectedTenant, st)}
-                          className={`px-3 py-1.5 rounded-[8px] text-xs font-semibold border transition-colors ${
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
                             selectedTenant.status === st
-                              ? 'bg-[#1557D5] text-white border-[#1557D5] cursor-default'
+                              ? 'bg-blue-600 text-white border-blue-600 cursor-default'
                               : st === 'suspended' || st === 'archived'
-                              ? 'bg-white border-[#FECACA] text-[#B91C1C] hover:bg-[#FEF2F2]'
-                              : 'bg-white border-[#E1E7EF] text-[#344054] hover:bg-[#F3F6FB]'
+                              ? 'bg-white border-red-200 text-red-700 hover:bg-red-50'
+                              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
                           }`}
                         >
                           {st.toUpperCase()}
@@ -2573,8 +2573,8 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-[#E1E7EF]">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#667085] mb-2">
+                  <div className="pt-3 border-t border-slate-200">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
                       Paket & Entitlements Tenant
                     </h3>
                     <div className="flex flex-wrap gap-2">
@@ -2584,10 +2584,10 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                           type="button"
                           disabled={selectedTenant.plan_id === pl}
                           onClick={() => handleUpdateTenantPlan(selectedTenant, pl)}
-                          className={`px-3 py-1.5 rounded-[8px] text-xs font-semibold border transition-colors ${
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
                             selectedTenant.plan_id === pl
-                              ? 'bg-[#1557D5] text-white border-[#1557D5] cursor-default'
-                              : 'bg-white border-[#E1E7EF] text-[#344054] hover:bg-[#F3F6FB]'
+                              ? 'bg-blue-600 text-white border-blue-600 cursor-default'
+                              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
                           }`}
                         >
                           {pl.toUpperCase()}
@@ -2602,13 +2602,13 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
             {/* Grid 2 Kolom: Daftar Tim (Admin & Musammi) dan Aktivitas Terbaru Tenant */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Daftar Akun Pengguna Khusus Tenant Ini (2 Kolom) */}
-              <div className="lg:col-span-2 bg-white rounded-[16px] border border-[#E1E7EF] shadow-2xs overflow-hidden">
-                <div className="p-4 sm:px-6 border-b border-[#E1E7EF] flex flex-wrap items-center justify-between gap-3">
+              <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+                <div className="p-4 sm:px-6 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-base font-bold text-[#101828]">
+                    <h3 className="text-base font-bold text-slate-900">
                       Tim Lembaga: Admin & Musammi ({selectedTenant.name})
                     </h3>
-                    <p className="text-xs text-[#667085] mt-0.5">
+                    <p className="text-xs text-slate-500 mt-0.5">
                       Daftar access grants yang terikat langsung ke organisasi ini.
                     </p>
                   </div>
@@ -2624,14 +2624,14 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                       });
                       setInviteAccountModalOpen(true);
                     }}
-                    className="px-3.5 py-2 rounded-[10px] bg-[#1557D5] hover:bg-[#1E40AF] text-white text-xs font-semibold transition-colors"
+                    className="px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-800 text-white text-xs font-semibold transition-colors"
                   >
                     + Undang Admin / Musammi
                   </button>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
-                    <thead className="bg-[#F8FAFC] border-b border-[#E1E7EF] text-xs font-semibold text-[#475467]">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
                       <tr>
                         <th className="px-5 py-3">Nama Pengguna</th>
                         <th className="px-5 py-3">Role Kanonikal</th>
@@ -2639,10 +2639,10 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                         <th className="px-5 py-3 text-right">Tindakan</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#E1E7EF]">
+                    <tbody className="divide-y divide-slate-200">
                       {accounts.filter((a) => a.organizationId === selectedTenant.id).length === 0 ? (
                         <tr>
-                          <td colSpan={4} className="px-6 py-8 text-center text-xs text-[#667085]">
+                          <td colSpan={4} className="px-6 py-8 text-center text-xs text-slate-500">
                             Belum ada akun Admin atau Musammi terdaftar pada tenant ini.
                           </td>
                         </tr>
@@ -2650,10 +2650,10 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                         accounts
                           .filter((a) => a.organizationId === selectedTenant.id)
                           .map((acc) => (
-                            <tr key={acc.id} className="hover:bg-[#F3F7FF]/50">
+                            <tr key={acc.id} className="hover:bg-blue-50/50">
                               <td className="px-5 py-3.5">
-                                <div className="font-semibold text-[#101828]">{acc.fullName}</div>
-                                <div className="text-[11px] font-mono text-[#667085]">
+                                <div className="font-semibold text-slate-900">{acc.fullName}</div>
+                                <div className="text-2xs font-mono text-slate-500">
                                   ID: {acc.userId.slice(0, 8)}...
                                 </div>
                               </td>
@@ -2676,7 +2676,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                     type="button"
                                     hidden={isOwnAccount(acc)}
                                     onClick={() => handleToggleAccountStatus(acc)}
-                                    className="px-3 py-1 rounded-[8px] border border-[#E1E7EF] hover:bg-[#F3F6FB] text-xs font-semibold text-[#344054]"
+                                    className="px-3 py-1 rounded-lg border border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-700"
                                   >
                                     {acc.status === 'suspended' || acc.status === 'revoked'
                                       ? 'Aktifkan'
@@ -2687,7 +2687,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                       type="button"
                                       hidden={isOwnAccount(acc)}
                                     onClick={() => handleRevokeAccountAccess(acc)}
-                                      className="px-3 py-1 rounded-[8px] border border-[#FECACA] hover:bg-[#FEF2F2] text-xs font-semibold text-[#B91C1C]"
+                                      className="px-3 py-1 rounded-lg border border-red-200 hover:bg-red-50 text-xs font-semibold text-red-700"
                                     >
                                       Revoke
                                     </button>
@@ -2703,26 +2703,26 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               </div>
 
               {/* Aktivitas Terbaru Khusus Tenant Ini */}
-              <div className="bg-white rounded-[16px] border border-[#E1E7EF] shadow-2xs overflow-hidden flex flex-col">
-                <div className="p-4 sm:px-5 border-b border-[#E1E7EF]">
-                  <h3 className="text-base font-bold text-[#101828]">Aktivitas Terbaru Tenant</h3>
-                  <p className="text-xs text-[#667085] mt-0.5">
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col">
+                <div className="p-4 sm:px-5 border-b border-slate-200">
+                  <h3 className="text-base font-bold text-slate-900">Aktivitas Terbaru Tenant</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
                     Jejak audit perubahan status, paket, dan akses pada lembaga ini.
                   </p>
                 </div>
-                <div className="divide-y divide-[#E1E7EF] flex-1">
+                <div className="divide-y divide-slate-200 flex-1">
                   {tenantAuditLogs.length === 0 ? (
-                    <div className="p-6 text-center text-xs text-[#667085]">
+                    <div className="p-6 text-center text-xs text-slate-500">
                       Belum ada rekaman audit log spesifik untuk tenant ini.
                     </div>
                   ) : (
                     tenantAuditLogs.slice(0, 6).map((log) => (
-                      <div key={log.id} className="p-4 space-y-1.5 hover:bg-[#F8FAFC]">
+                      <div key={log.id} className="p-4 space-y-1.5 hover:bg-slate-50">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-mono text-xs font-bold text-[#1557D5] truncate">
+                          <span className="font-mono text-xs font-bold text-blue-600 truncate">
                             {log.action}
                           </span>
-                          <span className="text-[11px] font-mono text-[#667085] shrink-0">
+                          <span className="text-2xs font-mono text-slate-500 shrink-0">
                             {new Date(log.created_at).toLocaleDateString('id-ID', {
                               day: '2-digit',
                               month: 'short',
@@ -2731,17 +2731,17 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                             })}
                           </span>
                         </div>
-                        <p className="text-xs text-[#344054] line-clamp-2">
+                        <p className="text-xs text-slate-700 line-clamp-2">
                           {log.reason || `Sumber daya: ${log.resource_type}`}
                         </p>
                         <div className="flex items-center justify-between pt-1">
-                          <span className="text-[11px] text-[#667085] uppercase font-semibold">
+                          <span className="text-2xs text-slate-500 uppercase font-semibold">
                             Aktor: {log.actor_role || 'superadmin'}
                           </span>
                           <button
                             type="button"
                             onClick={() => setSelectedAuditLog(log)}
-                            className="text-[11px] font-semibold text-[#1557D5] hover:underline"
+                            className="text-2xs font-semibold text-blue-600 hover:underline"
                           >
                             Lihat Payload
                           </button>
@@ -2762,13 +2762,13 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
       {!selectedTenant && tab === 'dashboard' && (
         <div className="space-y-6">
           {/* 1A. Kesiapan Operasional Tenant */}
-          <div className="bg-white rounded-[16px] border border-[#E1E7EF] shadow-2xs overflow-hidden">
-            <div className="p-5 sm:px-6 border-b border-[#E1E7EF] flex flex-wrap items-center justify-between gap-3">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+            <div className="p-5 sm:px-6 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-base sm:text-lg font-bold text-[#101828]">
+                <h2 className="text-base sm:text-lg font-bold text-slate-900">
                   Kesiapan Operasional Tenant
                 </h2>
-                <p className="text-xs text-[#667085] mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   Indikator kelengkapan setup nyata (Tahun Ajaran Aktif, Admin, Musammi, dan Halaqah)
                   untuk setiap organisasi.
                 </p>
@@ -2776,14 +2776,14 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               <button
                 type="button"
                 onClick={() => navigateToSection('tenants', '/platform/tenants')}
-                className="px-3.5 py-2 rounded-[10px] border border-[#E1E7EF] text-xs font-semibold text-[#344054] hover:bg-[#F3F6FB] transition-colors"
+                className="px-3.5 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
               >
                 Kelola Semua Tenant ({tenants.length})
               </button>
             </div>
 
             {loading ? (
-              <div className="p-6 text-center text-xs text-[#667085]">
+              <div className="p-6 text-center text-xs text-slate-500">
                 Memuat data kesiapan tenant dari database...
               </div>
             ) : tenants.length === 0 ? (
@@ -2798,7 +2798,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 {/* Desktop Table */}
                 <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-left text-sm">
-                    <thead className="bg-[#F8FAFC] border-b border-[#E1E7EF] text-xs font-semibold text-[#475467]">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
                       <tr>
                         <th className="px-6 py-3.5">Nama Organisasi</th>
                         <th className="px-6 py-3.5">Status</th>
@@ -2809,7 +2809,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                         <th className="px-6 py-3.5 text-right">Tindakan</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#E1E7EF]">
+                    <tbody className="divide-y divide-slate-200">
                       {tenants.slice(0, 10).map((t) => {
                         const readyCount = [
                           t.setupState.hasActiveAcademicYear,
@@ -2819,23 +2819,23 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                         ].filter(Boolean).length;
                         const readyPct = Math.round((readyCount / 4) * 100);
                         return (
-                          <tr key={t.id} className="hover:bg-[#F3F7FF]/50 transition-colors">
+                          <tr key={t.id} className="hover:bg-blue-50/50 transition-colors">
                             <td className="px-6 py-3.5">
                               <button
                                 type="button"
                                 onClick={() => openTenantDetail(t.id)}
-                                className="font-semibold text-[#101828] hover:text-[#1557D5] text-left transition-colors"
+                                className="font-semibold text-slate-900 hover:text-blue-600 text-left transition-colors"
                               >
                                 {t.name}
                               </button>
-                              <div className="text-xs font-mono text-[#667085] mt-0.5">
+                              <div className="text-xs font-mono text-slate-500 mt-0.5">
                                 {t.slug} ·{' '}
                                 {t.activeAcademicYearName ? (
-                                  <span className="text-[#344054] font-sans">
+                                  <span className="text-slate-700 font-sans">
                                     TA {t.activeAcademicYearName}
                                   </span>
                                 ) : (
-                                  <span className="text-[#B45309] font-sans font-medium">
+                                  <span className="text-amber-700 font-sans font-medium">
                                     Belum ada TA Aktif
                                   </span>
                                 )}
@@ -2848,13 +2848,13 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                 dot
                               />
                             </td>
-                            <td className="px-6 py-3.5 text-right font-mono tabular-nums font-semibold text-[#101828]">
+                            <td className="px-6 py-3.5 text-right font-mono tabular-nums font-semibold text-slate-900">
                               {t.adminCount}
                             </td>
-                            <td className="px-6 py-3.5 text-right font-mono tabular-nums font-semibold text-[#101828]">
+                            <td className="px-6 py-3.5 text-right font-mono tabular-nums font-semibold text-slate-900">
                               {t.musammiCount}
                             </td>
-                            <td className="px-6 py-3.5 text-right font-mono tabular-nums font-semibold text-[#101828]">
+                            <td className="px-6 py-3.5 text-right font-mono tabular-nums font-semibold text-slate-900">
                               {t.santriCount}
                             </td>
                             <td className="px-6 py-3.5">
@@ -2870,7 +2870,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                         : 'danger'
                                     }
                                   />
-                                  <span className="font-mono font-semibold text-[#475467] tabular-nums">
+                                  <span className="font-mono font-semibold text-slate-600 tabular-nums">
                                     {readyPct}%
                                   </span>
                                 </div>
@@ -2893,7 +2893,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => openTenantDetail(t.id)}
-                                  className="px-3 py-1.5 rounded-[8px] border border-[#E1E7EF] bg-white hover:bg-[#F3F6FB] text-xs font-semibold text-[#344054] transition-colors"
+                                  className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700 transition-colors"
                                 >
                                   Detail
                                 </button>
@@ -2909,7 +2909,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                     });
                                     setSupportModalOpen(true);
                                   }}
-                                  className="px-3 py-1.5 rounded-[8px] bg-[#E7F0FF] hover:bg-[#DBEAFE] text-[#1557D5] text-xs font-semibold transition-colors"
+                                  className="px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-semibold transition-colors"
                                 >
                                   Support
                                 </button>
@@ -2923,7 +2923,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 </div>
 
                 {/* Mobile Cards (<768px) */}
-                <div className="md:hidden divide-y divide-[#E1E7EF]">
+                <div className="md:hidden divide-y divide-slate-200">
                   {tenants.slice(0, 10).map((t) => {
                     const readyCount = [
                       t.setupState.hasActiveAcademicYear,
@@ -2936,8 +2936,8 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                       <div key={t.id} className="p-4 space-y-3">
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <div className="font-bold text-[#101828]">{t.name}</div>
-                            <div className="text-xs font-mono text-[#667085]">{t.slug}</div>
+                            <div className="font-bold text-slate-900">{t.name}</div>
+                            <div className="text-xs font-mono text-slate-500">{t.slug}</div>
                           </div>
                           <StatusBadge
                             label={(t.status || 'active').toUpperCase()}
@@ -2945,32 +2945,32 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                             dot
                           />
                         </div>
-                        <div className="grid grid-cols-3 gap-2 text-center bg-[#F8FAFC] p-2.5 rounded-[10px] border border-[#E1E7EF]">
+                        <div className="grid grid-cols-3 gap-2 text-center bg-slate-50 p-2.5 rounded-lg border border-slate-200">
                           <div>
-                            <div className="text-[11px] text-[#667085]">Admin</div>
-                            <div className="font-mono font-bold text-xs text-[#101828]">
+                            <div className="text-2xs text-slate-500">Admin</div>
+                            <div className="font-mono font-bold text-xs text-slate-900">
                               {t.adminCount}
                             </div>
                           </div>
                           <div>
-                            <div className="text-[11px] text-[#667085]">Musammi</div>
-                            <div className="font-mono font-bold text-xs text-[#101828]">
+                            <div className="text-2xs text-slate-500">Musammi</div>
+                            <div className="font-mono font-bold text-xs text-slate-900">
                               {t.musammiCount}
                             </div>
                           </div>
                           <div>
-                            <div className="text-[11px] text-[#667085]">Santri</div>
-                            <div className="font-mono font-bold text-xs text-[#101828]">
+                            <div className="text-2xs text-slate-500">Santri</div>
+                            <div className="font-mono font-bold text-xs text-slate-900">
                               {t.santriCount}
                             </div>
                           </div>
                         </div>
                         <div className="space-y-1">
                           <div className="flex items-center justify-between text-xs">
-                            <span className="text-[#475467] font-medium">
+                            <span className="text-slate-600 font-medium">
                               Readiness: {readyCount}/4 tahap
                             </span>
-                            <span className="font-mono font-semibold text-[#1557D5]">
+                            <span className="font-mono font-semibold text-blue-600">
                               {readyPct}%
                             </span>
                           </div>
@@ -2985,7 +2985,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                           <button
                             type="button"
                             onClick={() => openTenantDetail(t.id)}
-                            className="px-3 py-1.5 rounded-[8px] border border-[#E1E7EF] text-xs font-semibold text-[#344054]"
+                            className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700"
                           >
                             Detail
                           </button>
@@ -3001,7 +3001,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                               });
                               setSupportModalOpen(true);
                             }}
-                            className="px-3 py-1.5 rounded-[8px] bg-[#E7F0FF] text-[#1557D5] text-xs font-semibold"
+                            className="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 text-xs font-semibold"
                           >
                             Support
                           </button>
@@ -3017,11 +3017,11 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
           {/* 1B. Fokus Hari Ini & Aktivitas Terbaru (2 Kolom) */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Fokus Hari Ini (5 Kolom) */}
-            <div className="lg:col-span-5 bg-white rounded-[16px] border border-[#E1E7EF] shadow-2xs overflow-hidden flex flex-col">
-              <div className="p-5 border-b border-[#E1E7EF] flex items-center justify-between gap-2">
+            <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col">
+              <div className="p-5 border-b border-slate-200 flex items-center justify-between gap-2">
                 <div>
-                  <h2 className="text-base font-bold text-[#101828]">Fokus Hari Ini</h2>
-                  <p className="text-xs text-[#667085] mt-0.5">
+                  <h2 className="text-base font-bold text-slate-900">Fokus Hari Ini</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
                     Item operasional nyata yang memerlukan perhatian Superadmin.
                   </p>
                 </div>
@@ -3033,15 +3033,15 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
 
               <div className="p-4 space-y-3 flex-1">
                 {loading ? (
-                  <p className="text-xs text-[#667085] text-center py-6">
+                  <p className="text-xs text-slate-500 text-center py-6">
                     Menganalisis kesiapan sistem...
                   </p>
                 ) : focusTodayItems.length === 0 ? (
-                  <div className="p-6 rounded-[12px] bg-[#ECFDF3]/60 border border-[#BBF7D0] text-center space-y-1">
-                    <div className="text-sm font-bold text-[#15803D]">
+                  <div className="p-6 rounded-xl bg-emerald-50/60 border border-emerald-200 text-center space-y-1">
+                    <div className="text-sm font-bold text-emerald-700">
                       Tidak Ada Peringatan Operasional
                     </div>
-                    <p className="text-xs text-[#166534] leading-relaxed">
+                    <p className="text-xs text-emerald-800 leading-relaxed">
                       Seluruh tenant yang terdaftar telah melengkapi setup dasar, kuota dalam batas
                       aman, dan diagnostik sistem berstatus normal.
                     </p>
@@ -3050,21 +3050,21 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                   focusTodayItems.map((item) => (
                     <div
                       key={item.id}
-                      className="p-3.5 rounded-[12px] bg-[#F8FAFC] border border-[#E1E7EF] space-y-2 hover:border-[#CBD5E1] transition-colors"
+                      className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2 hover:border-slate-300 transition-colors"
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <span className="text-xs sm:text-sm font-bold text-[#101828] leading-snug">
+                        <span className="text-xs sm:text-sm font-bold text-slate-900 leading-snug">
                           {item.title}
                         </span>
                         <StatusBadge label={item.badgeLabel} tone={item.tone} />
                       </div>
-                      <p className="text-xs text-[#667085] leading-relaxed">{item.detail}</p>
+                      <p className="text-xs text-slate-500 leading-relaxed">{item.detail}</p>
                       {item.actionLabel && item.onAction && (
                         <div className="pt-1 flex justify-end">
                           <button
                             type="button"
                             onClick={item.onAction}
-                            className="text-xs font-semibold text-[#1557D5] hover:text-[#1E40AF] hover:underline"
+                            className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline"
                           >
                             {item.actionLabel} →
                           </button>
@@ -3077,35 +3077,35 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
             </div>
 
             {/* Aktivitas Terbaru dari Audit Log Produksi (7 Kolom) */}
-            <div className="lg:col-span-7 bg-white rounded-[16px] border border-[#E1E7EF] shadow-2xs overflow-hidden flex flex-col">
-              <div className="p-5 border-b border-[#E1E7EF] flex flex-wrap items-center justify-between gap-2">
+            <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col">
+              <div className="p-5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <h2 className="text-base font-bold text-[#101828]">Aktivitas Terbaru</h2>
-                  <p className="text-xs text-[#667085] mt-0.5">
+                  <h2 className="text-base font-bold text-slate-900">Aktivitas Terbaru</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
                     Rekaman langsung dari tabel audit_logs produksi lintas organisasi.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => navigateToSection('audit', '/platform/audit')}
-                  className="px-3 py-1.5 rounded-[8px] border border-[#E1E7EF] text-xs font-semibold text-[#344054] hover:bg-[#F3F6FB]"
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100"
                 >
                   Lihat Semua Audit Log
                 </button>
               </div>
 
               {loading ? (
-                <div className="p-6 text-center text-xs text-[#667085]">
+                <div className="p-6 text-center text-xs text-slate-500">
                   Memuat riwayat aktivitas...
                 </div>
               ) : auditLogs.length === 0 ? (
-                <div className="p-8 text-center text-xs text-[#667085]">
+                <div className="p-8 text-center text-xs text-slate-500">
                   Belum ada rekaman aktivitas di tabel audit_logs.
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs sm:text-sm">
-                    <thead className="bg-[#F8FAFC] border-b border-[#E1E7EF] text-xs font-semibold text-[#475467]">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
                       <tr>
                         <th className="px-4 py-3">Waktu</th>
                         <th className="px-4 py-3">Aktor</th>
@@ -3114,15 +3114,15 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                         <th className="px-4 py-3 text-right">Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#E1E7EF]">
+                    <tbody className="divide-y divide-slate-200">
                       {auditLogs.slice(0, 8).map((log) => {
                         const isFailureAction =
                           log.action.includes('failed') ||
                           log.action.includes('revoked') ||
                           log.action.includes('suspended');
                         return (
-                          <tr key={log.id} className="hover:bg-[#F3F7FF]/50">
-                            <td className="px-4 py-3 font-mono text-xs text-[#667085] whitespace-nowrap tabular-nums">
+                          <tr key={log.id} className="hover:bg-blue-50/50">
+                            <td className="px-4 py-3 font-mono text-xs text-slate-500 whitespace-nowrap tabular-nums">
                               {new Date(log.created_at).toLocaleString('id-ID', {
                                 day: '2-digit',
                                 month: 'short',
@@ -3140,17 +3140,17 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                               <button
                                 type="button"
                                 onClick={() => setSelectedAuditLog(log)}
-                                className="font-mono text-xs font-semibold text-[#101828] hover:text-[#1557D5] text-left"
+                                className="font-mono text-xs font-semibold text-slate-900 hover:text-blue-600 text-left"
                               >
                                 {log.action}
                               </button>
                               {log.reason && (
-                                <div className="text-[11px] text-[#667085] truncate max-w-[220px]">
+                                <div className="text-2xs text-slate-500 truncate max-w-[220px]">
                                   {log.reason}
                                 </div>
                               )}
                             </td>
-                            <td className="px-4 py-3 text-xs font-medium text-[#344054]">
+                            <td className="px-4 py-3 text-xs font-medium text-slate-700">
                               {log.organization_name || 'Platform Global'}
                             </td>
                             <td className="px-4 py-3 text-right">
@@ -3189,14 +3189,14 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 value={searchTenant}
                 onChange={(e) => setSearchTenant(e.target.value)}
                 placeholder="Cari nama ma'had atau slug..."
-                className="w-full border border-[#E1E7EF] rounded-[10px] px-3.5 py-2 text-xs text-[#101828] focus:outline-none focus:border-[#1557D5] bg-white"
+                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 bg-white"
               />
             </FormField>
             <FormField label="Lifecycle / Status">
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="w-full border border-[#E1E7EF] rounded-[10px] px-3.5 py-2 text-xs font-medium text-[#344054] bg-white focus:outline-none focus:border-[#1557D5]"
+                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-600"
               >
                 <option value="all">Semua Status</option>
                 <option value="provisioning">PROVISIONING</option>
@@ -3211,7 +3211,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               <select
                 value={filterPlan}
                 onChange={(e) => setFilterPlan(e.target.value)}
-                className="w-full border border-[#E1E7EF] rounded-[10px] px-3.5 py-2 text-xs font-medium text-[#344054] bg-white focus:outline-none focus:border-[#1557D5]"
+                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-600"
               >
                 <option value="all">Semua Paket</option>
                 <option value="trial">Trial</option>
@@ -3221,13 +3221,13 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
             </FormField>
           </FilterBar>
 
-          <div className="bg-white rounded-[16px] border border-[#E1E7EF] shadow-2xs overflow-hidden">
-            <div className="p-5 border-b border-[#E1E7EF] flex flex-wrap items-center justify-between gap-2">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+            <div className="p-5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h2 className="text-base font-bold text-[#101828]">
+                <h2 className="text-base font-bold text-slate-900">
                   Direktori Organisasi & Tenant
                 </h2>
-                <p className="text-xs text-[#667085] mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   Daftar seluruh lembaga pengguna Lajnah Quran beserta status lifecycle, paket, dan kesiapan operasionalnya.
                 </p>
               </div>
@@ -3237,7 +3237,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               />
             </div>
             {loading ? (
-              <div className="p-8 text-center text-xs text-[#667085]">
+              <div className="p-8 text-center text-xs text-slate-500">
                 Memuat data organisasi...
               </div>
             ) : filteredTenants.length === 0 ? (
@@ -3256,7 +3256,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 {/* Desktop Tenant Table */}
                 <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-left text-sm">
-                    <thead className="bg-[#F8FAFC] border-b border-[#E1E7EF] text-xs font-semibold text-[#475467]">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
                       <tr>
                         <th className="px-6 py-3.5">Lembaga</th>
                         <th className="px-6 py-3.5">Paket</th>
@@ -3266,22 +3266,22 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                         <th className="px-6 py-3.5 text-right">Tindakan</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#E1E7EF]">
+                    <tbody className="divide-y divide-slate-200">
                       {filteredTenants.map((t) => {
                         const planDef = getPlanEntitlement(t.plan_id);
                         const isSuspended =
                           t.status === 'suspended' || t.status === 'archived';
                         return (
-                          <tr key={t.id} className="hover:bg-[#F3F7FF]/50 transition-colors">
+                          <tr key={t.id} className="hover:bg-blue-50/50 transition-colors">
                             <td className="px-6 py-4">
                               <button
                                 type="button"
                                 onClick={() => openTenantDetail(t.id)}
-                                className="font-bold text-[#101828] hover:text-[#1557D5] text-left transition-colors"
+                                className="font-bold text-slate-900 hover:text-blue-600 text-left transition-colors"
                               >
                                 {t.name}
                               </button>
-                              <div className="text-xs font-mono text-[#667085] mt-0.5">
+                              <div className="text-xs font-mono text-slate-500 mt-0.5">
                                 {t.slug} · {t.timezone || 'Asia/Jakarta'}
                               </div>
                             </td>
@@ -3290,15 +3290,15 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                 label={(t.plan_id || 'standard').toUpperCase()}
                                 tone="primary"
                               />
-                              <div className="text-[11px] text-[#667085] mt-1">
+                              <div className="text-2xs text-slate-500 mt-1">
                                 Maks. {planDef.maxStudents} santri
                               </div>
                             </td>
-                            <td className="px-6 py-4 text-xs text-[#344054]">
-                              <div className="font-semibold text-[#101828] font-mono tabular-nums">
+                            <td className="px-6 py-4 text-xs text-slate-700">
+                              <div className="font-semibold text-slate-900 font-mono tabular-nums">
                                 {t.adminCount} Admin
                               </div>
-                              <div className="text-[#667085] font-mono tabular-nums mt-0.5">
+                              <div className="text-slate-500 font-mono tabular-nums mt-0.5">
                                 {t.musammiCount} Musammi
                               </div>
                             </td>
@@ -3321,7 +3321,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => openTenantDetail(t.id)}
-                                  className="px-3 py-1.5 rounded-[8px] border border-[#E1E7EF] bg-white hover:bg-[#F3F6FB] text-xs font-semibold text-[#344054] transition-colors"
+                                  className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700 transition-colors"
                                 >
                                   Detail
                                 </button>
@@ -3333,10 +3333,10 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                       isSuspended ? 'active' : 'suspended'
                                     )
                                   }
-                                  className={`px-3 py-1.5 rounded-[8px] text-xs font-semibold border transition-colors ${
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
                                     isSuspended
-                                      ? 'border-[#BBF7D0] bg-[#ECFDF3] text-[#15803D] hover:bg-emerald-100'
-                                      : 'border-[#FECACA] bg-white text-[#B91C1C] hover:bg-[#FEF2F2]'
+                                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                                      : 'border-red-200 bg-white text-red-700 hover:bg-red-50'
                                   }`}
                                 >
                                   {isSuspended ? 'Restore' : 'Suspend'}
@@ -3353,7 +3353,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                     });
                                     setSupportModalOpen(true);
                                   }}
-                                  className="px-3 py-1.5 rounded-[8px] bg-[#1557D5] hover:bg-[#1E40AF] text-xs font-semibold text-white whitespace-nowrap transition-colors"
+                                  className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-800 text-xs font-semibold text-white whitespace-nowrap transition-colors"
                                 >
                                   Support
                                 </button>
@@ -3367,7 +3367,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 </div>
 
                 {/* Mobile Tenant Cards (<768px) */}
-                <div className="md:hidden divide-y divide-[#E1E7EF]">
+                <div className="md:hidden divide-y divide-slate-200">
                   {filteredTenants.map((t) => {
                     const planDef = getPlanEntitlement(t.plan_id);
                     const isSuspended =
@@ -3379,11 +3379,11 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                             <button
                               type="button"
                               onClick={() => openTenantDetail(t.id)}
-                              className="font-bold text-[#101828] text-left"
+                              className="font-bold text-slate-900 text-left"
                             >
                               {t.name}
                             </button>
-                            <div className="text-xs font-mono text-[#667085]">
+                            <div className="text-xs font-mono text-slate-500">
                               {t.slug} · {t.timezone || 'Asia/Jakarta'}
                             </div>
                           </div>
@@ -3400,22 +3400,22 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-2 text-center bg-[#F8FAFC] p-2.5 rounded-[10px] border border-[#E1E7EF]">
+                        <div className="grid grid-cols-3 gap-2 text-center bg-slate-50 p-2.5 rounded-lg border border-slate-200">
                           <div>
-                            <div className="text-[11px] text-[#667085]">Admin</div>
-                            <div className="font-mono font-bold text-xs text-[#101828]">
+                            <div className="text-2xs text-slate-500">Admin</div>
+                            <div className="font-mono font-bold text-xs text-slate-900">
                               {t.adminCount}
                             </div>
                           </div>
                           <div>
-                            <div className="text-[11px] text-[#667085]">Musammi</div>
-                            <div className="font-mono font-bold text-xs text-[#101828]">
+                            <div className="text-2xs text-slate-500">Musammi</div>
+                            <div className="font-mono font-bold text-xs text-slate-900">
                               {t.musammiCount}
                             </div>
                           </div>
                           <div>
-                            <div className="text-[11px] text-[#667085]">Santri</div>
-                            <div className="font-mono font-bold text-xs text-[#101828]">
+                            <div className="text-2xs text-slate-500">Santri</div>
+                            <div className="font-mono font-bold text-xs text-slate-900">
                               {t.santriCount}
                             </div>
                           </div>
@@ -3431,7 +3431,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                           <button
                             type="button"
                             onClick={() => openTenantDetail(t.id)}
-                            className="px-3 py-1.5 rounded-[8px] border border-[#E1E7EF] text-xs font-semibold text-[#344054]"
+                            className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700"
                           >
                             Detail
                           </button>
@@ -3443,10 +3443,10 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                 isSuspended ? 'active' : 'suspended'
                               )
                             }
-                            className={`px-3 py-1.5 rounded-[8px] text-xs font-semibold border ${
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${
                               isSuspended
-                                ? 'border-[#BBF7D0] bg-[#ECFDF3] text-[#15803D]'
-                                : 'border-[#FECACA] bg-white text-[#B91C1C]'
+                                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                : 'border-red-200 bg-white text-red-700'
                             }`}
                           >
                             {isSuspended ? 'Restore' : 'Suspend'}
@@ -3463,7 +3463,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                               });
                               setSupportModalOpen(true);
                             }}
-                            className="px-3 py-1.5 rounded-[8px] bg-[#1557D5] text-white text-xs font-semibold"
+                            className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold"
                           >
                             Support
                           </button>
@@ -3497,14 +3497,14 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 value={searchAccount}
                 onChange={(e) => setSearchAccount(e.target.value)}
                 placeholder="Cari nama, email, atau organisasi..."
-                className="w-full border border-[#E1E7EF] rounded-[10px] px-3.5 py-2 text-xs text-[#101828] focus:outline-none focus:border-[#1557D5] bg-white"
+                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 bg-white"
               />
             </FormField>
             <FormField label="Organisasi / Scope Tenant">
               <select
                 value={filterAccountOrg}
                 onChange={(e) => setFilterAccountOrg(e.target.value)}
-                className="w-full border border-[#E1E7EF] rounded-[10px] px-3.5 py-2 text-xs font-medium text-[#344054] bg-white focus:outline-none focus:border-[#1557D5]"
+                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-600"
               >
                 <option value="all">Semua Organisasi</option>
                 <option value="platform_global">Platform Global (Superadmin)</option>
@@ -3519,7 +3519,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               <select
                 value={filterAccountRole}
                 onChange={(e) => setFilterAccountRole(e.target.value)}
-                className="w-full border border-[#E1E7EF] rounded-[10px] px-3.5 py-2 text-xs font-medium text-[#344054] bg-white focus:outline-none focus:border-[#1557D5]"
+                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-600"
               >
                 <option value="all">Semua Role</option>
                 <option value="superadmin">Superadmin</option>
@@ -3531,7 +3531,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               <select
                 value={filterAccountStatus}
                 onChange={(e) => setFilterAccountStatus(e.target.value)}
-                className="w-full border border-[#E1E7EF] rounded-[10px] px-3.5 py-2 text-xs font-medium text-[#344054] bg-white focus:outline-none focus:border-[#1557D5]"
+                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-600"
               >
                 <option value="all">Semua Status</option>
                 <option value="active">ACTIVE</option>
@@ -3543,13 +3543,13 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
             </FormField>
           </FilterBar>
 
-          <div className="bg-white rounded-[16px] border border-[#E1E7EF] shadow-2xs overflow-hidden">
-            <div className="p-5 border-b border-[#E1E7EF] flex flex-wrap items-center justify-between gap-3">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+            <div className="p-5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-base font-bold text-[#101828]">
+                <h2 className="text-base font-bold text-slate-900">
                   Direktori Akun & Access Grants Lintas Lembaga
                 </h2>
-                <p className="text-xs text-[#667085] mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   Otorisasi dibatasi tegas pada 3 role kanonikal (Superadmin, Admin, Musammi) dengan
                   isolasi scope per organisasi.
                 </p>
@@ -3572,7 +3572,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                     });
                     setInviteAccountModalOpen(true);
                   }}
-                  className="px-4 py-2 rounded-[10px] bg-[#1557D5] hover:bg-[#1E40AF] text-white text-xs font-semibold transition-colors shadow-xs"
+                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-800 text-white text-xs font-semibold transition-colors shadow-xs"
                 >
                   Undang akun
                 </button>
@@ -3580,7 +3580,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
             </div>
 
             {loading ? (
-              <div className="p-8 text-center text-xs text-[#667085]">
+              <div className="p-8 text-center text-xs text-slate-500">
                 Memuat direktori akun dan access grants...
               </div>
             ) : filteredAccounts.length === 0 ? (
@@ -3600,7 +3600,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 {/* Desktop Accounts Table */}
                 <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-left text-sm">
-                    <thead className="bg-[#F8FAFC] border-b border-[#E1E7EF] text-xs font-semibold text-[#475467]">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
                       <tr>
                         <th className="px-6 py-3.5">Identitas</th>
                         <th className="px-6 py-3.5">Organisasi</th>
@@ -3609,29 +3609,29 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                         <th className="px-6 py-3.5 text-right">Tindakan</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#E1E7EF]">
+                    <tbody className="divide-y divide-slate-200">
                       {filteredAccounts.map((acc) => {
                         const isSuspendedOrRevoked =
                           acc.status === 'suspended' || acc.status === 'revoked';
                         return (
-                          <tr key={acc.id} className="hover:bg-[#F3F7FF]/50 transition-colors">
+                          <tr key={acc.id} className="hover:bg-blue-50/50 transition-colors">
                             <td className="px-6 py-4">
                               <button
                                 type="button"
                                 onClick={() => setSelectedAccountDetail(acc)}
-                                className="font-bold text-[#101828] hover:text-[#1557D5] text-left transition-colors"
+                                className="font-bold text-slate-900 hover:text-blue-600 text-left transition-colors"
                               >
                                 {acc.fullName}
                               </button>
-                              <div className="text-xs text-[#667085] mt-0.5 font-mono">
+                              <div className="text-xs text-slate-500 mt-0.5 font-mono">
                                 {acc.email ? acc.email : `ID: ${acc.userId.slice(0, 12)}...`}
                               </div>
                             </td>
                             <td className="px-6 py-4">
-                              <div className="text-xs font-semibold text-[#101828]">
+                              <div className="text-xs font-semibold text-slate-900">
                                 {acc.organizationName}
                               </div>
-                              <div className="text-[11px] text-[#667085] mt-0.5">
+                              <div className="text-2xs text-slate-500 mt-0.5">
                                 {acc.organizationId
                                   ? `Tenant Scope (${acc.organizationId.slice(0, 8)})`
                                   : 'Platform Scope (Global)'}
@@ -3657,7 +3657,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                   dot
                                 />
                                 {acc.createdAt && (
-                                  <span className="text-[11px] font-mono text-[#667085] tabular-nums">
+                                  <span className="text-2xs font-mono text-slate-500 tabular-nums">
                                     Terdaftar{' '}
                                     {new Date(acc.createdAt).toLocaleDateString('id-ID', {
                                       day: '2-digit',
@@ -3673,7 +3673,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => setSelectedAccountDetail(acc)}
-                                  className="px-3 py-1.5 rounded-[8px] border border-[#E1E7EF] bg-white hover:bg-[#F3F6FB] text-xs font-semibold text-[#344054] transition-colors"
+                                  className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700 transition-colors"
                                 >
                                   Detail
                                 </button>
@@ -3681,10 +3681,10 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                   type="button"
                                   hidden={isOwnAccount(acc)}
                                     onClick={() => handleToggleAccountStatus(acc)}
-                                  className={`px-3 py-1.5 rounded-[8px] border text-xs font-semibold transition-colors ${
+                                  className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
                                     isSuspendedOrRevoked
-                                      ? 'border-[#BBF7D0] bg-[#ECFDF3] text-[#15803D] hover:bg-emerald-100'
-                                      : 'border-[#FECACA] bg-white text-[#B91C1C] hover:bg-[#FEF2F2]'
+                                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                                      : 'border-red-200 bg-white text-red-700 hover:bg-red-50'
                                   }`}
                                 >
                                   {isSuspendedOrRevoked ? 'Restore' : 'Suspend'}
@@ -3694,7 +3694,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                     type="button"
                                     hidden={isOwnAccount(acc)}
                                     onClick={() => handleRevokeAccountAccess(acc)}
-                                    className="px-3 py-1.5 rounded-[8px] border border-[#FECACA] bg-[#FEF2F2] hover:bg-red-100 text-[#B91C1C] text-xs font-semibold transition-colors"
+                                    className="px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold transition-colors"
                                   >
                                     {acc.status === 'invited' ? 'Batalkan Undangan' : 'Revoke'}
                                   </button>
@@ -3709,7 +3709,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 </div>
 
                 {/* Mobile Account Cards (<768px) */}
-                <div className="md:hidden divide-y divide-[#E1E7EF]">
+                <div className="md:hidden divide-y divide-slate-200">
                   {filteredAccounts.map((acc) => {
                     const isSuspendedOrRevoked =
                       acc.status === 'suspended' || acc.status === 'revoked';
@@ -3720,11 +3720,11 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                             <button
                               type="button"
                               onClick={() => setSelectedAccountDetail(acc)}
-                              className="font-bold text-[#101828] text-left"
+                              className="font-bold text-slate-900 text-left"
                             >
                               {acc.fullName}
                             </button>
-                            <div className="text-xs font-mono text-[#667085]">
+                            <div className="text-xs font-mono text-slate-500">
                               {acc.email || `ID: ${acc.userId.slice(0, 10)}...`}
                             </div>
                           </div>
@@ -3734,8 +3734,8 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                             dot
                           />
                         </div>
-                        <div className="flex flex-wrap items-center justify-between gap-2 bg-[#F8FAFC] p-2.5 rounded-[10px] border border-[#E1E7EF] text-xs">
-                          <span className="font-semibold text-[#344054]">
+                        <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs">
+                          <span className="font-semibold text-slate-700">
                             {acc.organizationName}
                           </span>
                           <StatusBadge
@@ -3753,7 +3753,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                           <button
                             type="button"
                             onClick={() => setSelectedAccountDetail(acc)}
-                            className="px-3 py-1.5 rounded-[8px] border border-[#E1E7EF] text-xs font-semibold text-[#344054]"
+                            className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700"
                           >
                             Detail
                           </button>
@@ -3761,10 +3761,10 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                             type="button"
                             hidden={isOwnAccount(acc)}
                                     onClick={() => handleToggleAccountStatus(acc)}
-                            className={`px-3 py-1.5 rounded-[8px] border text-xs font-semibold ${
+                            className={`px-3 py-1.5 rounded-lg border text-xs font-semibold ${
                               isSuspendedOrRevoked
-                                ? 'border-[#BBF7D0] bg-[#ECFDF3] text-[#15803D]'
-                                : 'border-[#FECACA] bg-white text-[#B91C1C]'
+                                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                : 'border-red-200 bg-white text-red-700'
                             }`}
                           >
                             {isSuspendedOrRevoked ? 'Restore' : 'Suspend'}
@@ -3774,7 +3774,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                               type="button"
                               hidden={isOwnAccount(acc)}
                                     onClick={() => handleRevokeAccountAccess(acc)}
-                              className="px-3 py-1.5 rounded-[8px] border border-[#FECACA] bg-[#FEF2F2] text-[#B91C1C] text-xs font-semibold"
+                              className="px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-700 text-xs font-semibold"
                             >
                               {acc.status === 'invited' ? 'Batalkan Undangan' : 'Revoke'}
                             </button>
@@ -3805,10 +3805,10 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               return (
                 <div
                   key={plan.id}
-                  className={`bg-white rounded-[16px] border p-6 flex flex-col justify-between space-y-5 shadow-2xs ${
+                  className={`bg-white rounded-2xl border p-6 flex flex-col justify-between space-y-5 shadow-2xs ${
                     isStandard
-                      ? 'border-[#93C5FD] ring-1 ring-[#1557D5]/15'
-                      : 'border-[#E1E7EF]'
+                      ? 'border-blue-300 ring-1 ring-blue-600/15'
+                      : 'border-slate-200'
                   }`}
                 >
                   <div className="space-y-4">
@@ -3823,45 +3823,45 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                             : 'warning'
                         }
                       />
-                      <span className="px-2.5 py-1 rounded-md bg-[#F3F6FB] border border-[#E1E7EF] text-xs font-mono font-semibold text-[#344054] tabular-nums">
+                      <span className="px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200 text-xs font-mono font-semibold text-slate-700 tabular-nums">
                         {countOnPlan} Tenant Terdaftar
                       </span>
                     </div>
 
                     <div>
-                      <h3 className="text-lg font-bold text-[#101828]">{plan.name}</h3>
-                      <p className="text-xs text-[#667085] mt-1 leading-relaxed">{plan.tagline}</p>
+                      <h3 className="text-lg font-bold text-slate-900">{plan.name}</h3>
+                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">{plan.tagline}</p>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2.5 pt-3 border-t border-[#E1E7EF] text-center">
-                      <div className="p-2.5 bg-[#F8FAFC] rounded-[12px] border border-[#E1E7EF]">
-                        <div className="text-[11px] font-medium text-[#667085]">Quota Santri</div>
-                        <div className="text-base font-bold font-mono tabular-nums text-[#101828] mt-0.5">
+                    <div className="grid grid-cols-3 gap-2.5 pt-3 border-t border-slate-200 text-center">
+                      <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                        <div className="text-2xs font-medium text-slate-500">Quota Santri</div>
+                        <div className="text-base font-bold font-mono tabular-nums text-slate-900 mt-0.5">
                           {plan.maxStudents.toLocaleString('id-ID')}
                         </div>
                       </div>
-                      <div className="p-2.5 bg-[#F8FAFC] rounded-[12px] border border-[#E1E7EF]">
-                        <div className="text-[11px] font-medium text-[#667085]">Quota Musammi</div>
-                        <div className="text-base font-bold font-mono tabular-nums text-[#101828] mt-0.5">
+                      <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                        <div className="text-2xs font-medium text-slate-500">Quota Musammi</div>
+                        <div className="text-base font-bold font-mono tabular-nums text-slate-900 mt-0.5">
                           {plan.maxMusammi.toLocaleString('id-ID')}
                         </div>
                       </div>
-                      <div className="p-2.5 bg-[#F8FAFC] rounded-[12px] border border-[#E1E7EF]">
-                        <div className="text-[11px] font-medium text-[#667085]">Retensi Audit</div>
-                        <div className="text-base font-bold font-mono tabular-nums text-[#101828] mt-0.5">
+                      <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                        <div className="text-2xs font-medium text-slate-500">Retensi Audit</div>
+                        <div className="text-base font-bold font-mono tabular-nums text-slate-900 mt-0.5">
                           {plan.auditRetentionDays} hr
                         </div>
                       </div>
                     </div>
 
                     <div className="pt-2 space-y-2">
-                      <div className="text-xs font-semibold text-[#344054]">
+                      <div className="text-xs font-semibold text-slate-700">
                         Fitur & Kapabilitas Paket:
                       </div>
-                      <ul className="space-y-2 text-xs text-[#475467]">
+                      <ul className="space-y-2 text-xs text-slate-600">
                         {plan.features.map((feat, i) => (
                           <li key={i} className="flex items-start gap-2">
-                            <span className="w-4 h-4 rounded-full bg-[#E7F0FF] text-[#1557D5] flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
+                            <span className="w-4 h-4 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-2xs font-bold shrink-0 mt-0.5">
                               ✓
                             </span>
                             <span className="leading-relaxed">{feat}</span>
@@ -3871,9 +3871,9 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-[#E1E7EF] flex items-center justify-between text-xs text-[#667085]">
+                  <div className="pt-3 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
                     <span>Quota Halaqah</span>
-                    <span className="font-mono font-semibold text-[#101828] tabular-nums">
+                    <span className="font-mono font-semibold text-slate-900 tabular-nums">
                       Maks. {plan.maxHalaqah} halaqah aktif
                     </span>
                   </div>
@@ -3883,13 +3883,13 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
           </div>
 
           {/* 4B. Quota Usage & Penetapan Paket per Tenant */}
-          <div className="bg-white rounded-[16px] border border-[#E1E7EF] shadow-2xs overflow-hidden">
-            <div className="p-5 border-b border-[#E1E7EF] flex flex-wrap items-center justify-between gap-3">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+            <div className="p-5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-base font-bold text-[#101828]">
+                <h2 className="text-base font-bold text-slate-900">
                   Pemakaian Kuota & Penetapan Paket per Tenant
                 </h2>
-                <p className="text-xs text-[#667085] mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   Pantau pemakaian aktual santri dan musammi terhadap kuota paket. Perubahan paket
                   hanya memodifikasi assignment lembaga dan wajib dikonfirmasi oleh server.
                 </p>
@@ -3906,7 +3906,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               <>
                 <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-left text-sm">
-                    <thead className="bg-[#F8FAFC] border-b border-[#E1E7EF] text-xs font-semibold text-[#475467]">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
                       <tr>
                         <th className="px-6 py-3.5">Nama Tenant</th>
                         <th className="px-6 py-3.5">Paket Saat Ini</th>
@@ -3915,20 +3915,20 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                         <th className="px-6 py-3.5 text-right">Aksi Ubah Paket</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#E1E7EF]">
+                    <tbody className="divide-y divide-slate-200">
                       {tenants.map((t) => {
                         const planDef = getPlanEntitlement(t.plan_id);
                         return (
-                          <tr key={t.id} className="hover:bg-[#F3F7FF]/50 transition-colors">
+                          <tr key={t.id} className="hover:bg-blue-50/50 transition-colors">
                             <td className="px-6 py-4">
                               <button
                                 type="button"
                                 onClick={() => openTenantDetail(t.id)}
-                                className="font-bold text-[#101828] hover:text-[#1557D5] text-left"
+                                className="font-bold text-slate-900 hover:text-blue-600 text-left"
                               >
                                 {t.name}
                               </button>
-                              <div className="text-xs font-mono text-[#667085] mt-0.5">
+                              <div className="text-xs font-mono text-slate-500 mt-0.5">
                                 {t.slug}
                               </div>
                             </td>
@@ -3943,7 +3943,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                                     : 'warning'
                                 }
                               />
-                              <div className="text-[11px] text-[#667085] mt-1">
+                              <div className="text-2xs text-slate-500 mt-1">
                                 Retensi audit {planDef.auditRetentionDays} hari
                               </div>
                             </td>
@@ -3965,7 +3965,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleUpdateTenantPlan(t)}
-                                className="px-3.5 py-1.5 rounded-[8px] border border-[#BFDBFE] bg-[#E7F0FF] hover:bg-[#DBEAFE] text-[#1557D5] text-xs font-semibold transition-colors"
+                                className="px-3.5 py-1.5 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-semibold transition-colors"
                               >
                                 Ubah Paket
                               </button>
@@ -3978,15 +3978,15 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 </div>
 
                 {/* Mobile Quota Cards (<768px) */}
-                <div className="md:hidden divide-y divide-[#E1E7EF]">
+                <div className="md:hidden divide-y divide-slate-200">
                   {tenants.map((t) => {
                     const planDef = getPlanEntitlement(t.plan_id);
                     return (
                       <div key={t.id} className="p-4 space-y-3">
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <div className="font-bold text-[#101828]">{t.name}</div>
-                            <div className="text-xs font-mono text-[#667085]">{t.slug}</div>
+                            <div className="font-bold text-slate-900">{t.name}</div>
+                            <div className="text-xs font-mono text-slate-500">{t.slug}</div>
                           </div>
                           <StatusBadge label={planDef.id.toUpperCase()} tone="primary" />
                         </div>
@@ -4004,7 +4004,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                           <button
                             type="button"
                             onClick={() => handleUpdateTenantPlan(t)}
-                            className="px-3.5 py-1.5 rounded-[8px] bg-[#E7F0FF] text-[#1557D5] text-xs font-semibold"
+                            className="px-3.5 py-1.5 rounded-lg bg-blue-50 text-blue-600 text-xs font-semibold"
                           >
                             Ubah Paket
                           </button>
@@ -4056,15 +4056,15 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
 
           {/* 5B. Active Support Session Banner / Panel */}
           {(activeSupportSession || activeDbSupportSessions.length > 0) && (
-            <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-[16px] p-5 space-y-4 shadow-2xs">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#FDE68A] pb-3">
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 space-y-4 shadow-2xs">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 pb-3">
                 <div className="flex items-center gap-2">
                   <StatusBadge label="ACTIVE SUPPORT SESSION (BREAK-GLASS)" tone="warning" dot />
-                  <span className="text-xs font-semibold text-[#92400E]">
+                  <span className="text-xs font-semibold text-amber-800">
                     Seluruh pembacaan & tindakan dalam sesi ini dicatat ke Audit Log
                   </span>
                 </div>
-                <span className="text-xs font-mono font-bold text-[#B45309] tabular-nums">
+                <span className="text-xs font-mono font-bold text-amber-700 tabular-nums">
                   {activeSupportSession
                     ? formatRemainingTime(activeSupportSession.expiresAt)
                     : activeDbSupportSessions[0]
@@ -4076,14 +4076,14 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               {activeSupportSession ? (
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 flex-1 text-xs">
-                    <div className="p-3 rounded-[12px] bg-white/90 border border-[#FDE68A]">
-                      <div className="text-[#92400E] font-medium">Nama Tenant</div>
-                      <div className="text-sm font-bold text-[#101828] mt-0.5">
+                    <div className="p-3 rounded-xl bg-white/90 border border-amber-200">
+                      <div className="text-amber-800 font-medium">Nama Tenant</div>
+                      <div className="text-sm font-bold text-slate-900 mt-0.5">
                         {activeSupportSession.organizationName}
                       </div>
                     </div>
-                    <div className="p-3 rounded-[12px] bg-white/90 border border-[#FDE68A]">
-                      <div className="text-[#92400E] font-medium">Mode Akses</div>
+                    <div className="p-3 rounded-xl bg-white/90 border border-amber-200">
+                      <div className="text-amber-800 font-medium">Mode Akses</div>
                       <div className="mt-1">
                         <StatusBadge
                           label={
@@ -4095,16 +4095,16 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                         />
                       </div>
                     </div>
-                    <div className="p-3 rounded-[12px] bg-white/90 border border-[#FDE68A]">
-                      <div className="text-[#92400E] font-medium">Waktu Mulai & Berakhir</div>
-                      <div className="font-mono font-semibold text-[#101828] mt-0.5 tabular-nums">
+                    <div className="p-3 rounded-xl bg-white/90 border border-amber-200">
+                      <div className="text-amber-800 font-medium">Waktu Mulai & Berakhir</div>
+                      <div className="font-mono font-semibold text-slate-900 mt-0.5 tabular-nums">
                         {new Date(activeSupportSession.startedAt).toLocaleTimeString('id-ID')} —{' '}
                         {new Date(activeSupportSession.expiresAt).toLocaleTimeString('id-ID')}
                       </div>
                     </div>
-                    <div className="p-3 rounded-[12px] bg-white/90 border border-[#FDE68A]">
-                      <div className="text-[#92400E] font-medium">Alasan Operasional</div>
-                      <div className="font-semibold text-[#101828] mt-0.5 line-clamp-2">
+                    <div className="p-3 rounded-xl bg-white/90 border border-amber-200">
+                      <div className="text-amber-800 font-medium">Alasan Operasional</div>
+                      <div className="font-semibold text-slate-900 mt-0.5 line-clamp-2">
                         {activeSupportSession.reason}
                       </div>
                     </div>
@@ -4114,7 +4114,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                     <button
                       type="button"
                       onClick={() => navigate('/app/dashboard')}
-                      className="px-4 py-2 rounded-[10px] bg-[#1557D5] hover:bg-[#1E40AF] text-white text-xs font-semibold transition-colors"
+                      className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-800 text-white text-xs font-semibold transition-colors"
                     >
                       Buka Ruang Kerja Tenant
                     </button>
@@ -4131,7 +4131,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                           expires_at: activeSupportSession.expiresAt,
                         })
                       }
-                      className="px-4 py-2 rounded-[10px] bg-[#DC2626] hover:bg-[#B91C1C] text-white text-xs font-semibold transition-colors"
+                      className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition-colors"
                     >
                       Akhiri Sesi
                     </button>
@@ -4141,11 +4141,11 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 activeDbSupportSessions.map((s) => (
                   <div
                     key={s.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/90 p-3.5 rounded-[12px] border border-[#FDE68A]"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/90 p-3.5 rounded-xl border border-amber-200"
                   >
                     <div className="space-y-1 text-xs">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-[#101828]">
+                        <span className="font-bold text-sm text-slate-900">
                           {s.organization_name}
                         </span>
                         <StatusBadge
@@ -4153,8 +4153,8 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                           tone={s.mode === 'read_write' ? 'danger' : 'warning'}
                         />
                       </div>
-                      <div className="text-[#475467]">
-                        Alasan: <span className="font-semibold text-[#101828]">{s.reason}</span> ·
+                      <div className="text-slate-600">
+                        Alasan: <span className="font-semibold text-slate-900">{s.reason}</span> ·
                         Mulai: {new Date(s.started_at).toLocaleTimeString('id-ID')} · Berakhir:{' '}
                         {new Date(s.expires_at).toLocaleTimeString('id-ID')} (
                         {formatRemainingTime(s.expires_at)})
@@ -4163,7 +4163,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                     <button
                       type="button"
                       onClick={() => handleRevokeSupportSession(s)}
-                      className="px-3.5 py-2 rounded-[10px] bg-[#DC2626] hover:bg-[#B91C1C] text-white text-xs font-semibold shrink-0"
+                      className="px-3.5 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shrink-0"
                     >
                       Akhiri Sesi
                     </button>
@@ -4186,7 +4186,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               <select
                 value={filterSupportTenant}
                 onChange={(e) => setFilterSupportTenant(e.target.value)}
-                className="w-full border border-[#E1E7EF] rounded-[10px] px-3.5 py-2 text-xs font-medium text-[#344054] bg-white focus:outline-none focus:border-[#1557D5]"
+                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-600"
               >
                 <option value="all">Semua Lembaga</option>
                 {tenants.map((t) => (
@@ -4200,7 +4200,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               <select
                 value={filterSupportMode}
                 onChange={(e) => setFilterSupportMode(e.target.value)}
-                className="w-full border border-[#E1E7EF] rounded-[10px] px-3.5 py-2 text-xs font-medium text-[#344054] bg-white focus:outline-none focus:border-[#1557D5]"
+                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-600"
               >
                 <option value="all">Semua Mode</option>
                 <option value="read_only">Read-Only</option>
@@ -4211,7 +4211,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               <select
                 value={filterSupportStatus}
                 onChange={(e) => setFilterSupportStatus(e.target.value)}
-                className="w-full border border-[#E1E7EF] rounded-[10px] px-3.5 py-2 text-xs font-medium text-[#344054] bg-white focus:outline-none focus:border-[#1557D5]"
+                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-600"
               >
                 <option value="all">Semua Status</option>
                 <option value="active">AKTIF</option>
@@ -4224,19 +4224,19 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 type="date"
                 value={filterSupportDate}
                 onChange={(e) => setFilterSupportDate(e.target.value)}
-                className="w-full border border-[#E1E7EF] rounded-[10px] px-3.5 py-2 text-xs text-[#101828] bg-white focus:outline-none focus:border-[#1557D5]"
+                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs text-slate-900 bg-white focus:outline-none focus:border-blue-600"
               />
             </FormField>
           </FilterBar>
 
           {/* 5D. Tabel Riwayat Support Access */}
-          <div className="bg-white rounded-[16px] border border-[#E1E7EF] shadow-2xs overflow-hidden">
-            <div className="p-5 border-b border-[#E1E7EF] flex flex-wrap items-center justify-between gap-3">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+            <div className="p-5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-base font-bold text-[#101828]">
+                <h2 className="text-base font-bold text-slate-900">
                   Riwayat Support Access (Break-Glass Audit Ledger)
                 </h2>
-                <p className="text-xs text-[#667085] mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   Catatan permanen seluruh sesi bantuan lintas tenant beserta durasi, mode akses,
                   alasan operasional, dan status penghentian.
                 </p>
@@ -4255,7 +4255,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                   });
                   setSupportModalOpen(true);
                 }}
-                className="px-4 py-2 rounded-[10px] bg-[#1557D5] hover:bg-[#1E40AF] text-white text-xs font-semibold transition-colors shadow-xs"
+                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-800 text-white text-xs font-semibold transition-colors shadow-xs"
               >
                 Mulai support session
               </button>
@@ -4282,7 +4282,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-[#F8FAFC] border-b border-[#E1E7EF] text-xs font-semibold text-[#475467]">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
                     <tr>
                       <th className="px-5 py-3.5">Tenant</th>
                       <th className="px-5 py-3.5">Waktu</th>
@@ -4294,7 +4294,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                       <th className="px-5 py-3.5 text-right">Tindakan</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#E1E7EF]">
+                  <tbody className="divide-y divide-slate-200">
                     {filteredSupportSessions.map((s) => {
                       const isEnded = Boolean(s.ended_at);
                       const isExpired = !isEnded && new Date(s.expires_at).getTime() <= nowTick;
@@ -4307,13 +4307,13 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                         )
                       );
                       return (
-                        <tr key={s.id} className="hover:bg-[#F3F7FF]/50 transition-colors">
-                          <td className="px-5 py-4 font-bold text-[#101828]">
+                        <tr key={s.id} className="hover:bg-blue-50/50 transition-colors">
+                          <td className="px-5 py-4 font-bold text-slate-900">
                             {s.organization_name}
                           </td>
-                          <td className="px-5 py-4 font-mono text-xs text-[#475467] tabular-nums whitespace-nowrap">
+                          <td className="px-5 py-4 font-mono text-xs text-slate-600 tabular-nums whitespace-nowrap">
                             <div>Mulai: {new Date(s.started_at).toLocaleString('id-ID')}</div>
-                            <div className="text-[#667085]">
+                            <div className="text-slate-500">
                               Batas: {new Date(s.expires_at).toLocaleString('id-ID')}
                             </div>
                           </td>
@@ -4325,13 +4325,13 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                               tone={s.mode === 'read_write' ? 'warning' : 'neutral'}
                             />
                           </td>
-                          <td className="px-5 py-4 text-xs text-[#344054] max-w-xs">
+                          <td className="px-5 py-4 text-xs text-slate-700 max-w-xs">
                             {s.reason}
                           </td>
-                          <td className="px-5 py-4 font-mono text-xs font-semibold text-[#101828] tabular-nums">
+                          <td className="px-5 py-4 font-mono text-xs font-semibold text-slate-900 tabular-nums">
                             {durationMins} menit
                             {isActive && (
-                              <div className="text-[11px] text-[#B45309] font-normal mt-0.5">
+                              <div className="text-2xs text-amber-700 font-normal mt-0.5">
                                 {formatRemainingTime(s.expires_at)}
                               </div>
                             )}
@@ -4351,10 +4351,10 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                               dot={isActive}
                             />
                           </td>
-                          <td className="px-5 py-4 text-xs text-[#475467]">
-                            <span className="font-semibold text-[#101828]">Superadmin</span>
+                          <td className="px-5 py-4 text-xs text-slate-600">
+                            <span className="font-semibold text-slate-900">Superadmin</span>
                             {s.actor_id && (
-                              <div className="font-mono text-[11px] text-[#667085]">
+                              <div className="font-mono text-2xs text-slate-500">
                                 {String(s.actor_id).slice(0, 8)}...
                               </div>
                             )}
@@ -4364,12 +4364,12 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleRevokeSupportSession(s)}
-                                className="px-3 py-1.5 rounded-[8px] border border-[#FECACA] bg-[#FEF2F2] hover:bg-red-100 text-[#B91C1C] text-xs font-semibold transition-colors"
+                                className="px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold transition-colors"
                               >
                                 Akhiri Sesi
                               </button>
                             ) : (
-                              <span className="text-xs text-[#667085] font-mono">Selesai</span>
+                              <span className="text-xs text-slate-500 font-mono">Selesai</span>
                             )}
                           </td>
                         </tr>
@@ -4445,20 +4445,20 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
           {healthCheckError && (
             <div
               role="alert"
-              className="rounded-[16px] border border-[#FECACA] bg-[#FEF2F2] p-4 text-xs font-medium text-[#B91C1C]"
+              className="rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-medium text-red-700"
             >
               Gagal menyelesaikan diagnostik kesehatan sistem: {healthCheckError}
             </div>
           )}
 
           {/* 6B. System Health Monitor */}
-          <div className="bg-white rounded-[16px] border border-[#E1E7EF] shadow-2xs overflow-hidden">
-            <div className="p-5 border-b border-[#E1E7EF] flex flex-wrap items-center justify-between gap-3">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+            <div className="p-5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-base font-bold text-[#101828]">
+                <h2 className="text-base font-bold text-slate-900">
                   System Health Monitor & Kesiapan Infrastruktur
                 </h2>
-                <p className="text-xs text-[#667085] mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   Pemeriksaan aktual koneksi database/PostgREST, kesiapan skema otorisasi 3-role,
                   audit logging, dan endpoint Serverless API (/api/health).
                 </p>
@@ -4467,34 +4467,34 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 type="button"
                 disabled={isCheckingHealth}
                 onClick={runHealthDiagnostics}
-                className="px-4 py-2 rounded-[10px] bg-[#1557D5] hover:bg-[#1E40AF] text-white text-xs font-semibold transition-colors disabled:opacity-50 shadow-xs"
+                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-800 text-white text-xs font-semibold transition-colors disabled:opacity-50 shadow-xs"
               >
                 {isCheckingHealth ? 'Memeriksa...' : 'Jalankan health check'}
               </button>
             </div>
-            <div className="divide-y divide-[#E1E7EF]">
+            <div className="divide-y divide-slate-200">
               {healthChecks.map((hc) => (
                 <div
                   key={hc.key}
-                  className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#F3F7FF]/40 transition-colors"
+                  className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-blue-50/40 transition-colors"
                 >
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="px-2 py-0.5 rounded bg-[#F3F6FB] border border-[#E1E7EF] text-[11px] font-mono font-semibold text-[#475467] uppercase">
+                      <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-2xs font-mono font-semibold text-slate-600 uppercase">
                         {hc.category}
                       </span>
-                      <span className="text-sm font-bold text-[#101828]">{hc.label}</span>
+                      <span className="text-sm font-bold text-slate-900">{hc.label}</span>
                     </div>
-                    <p className="text-xs text-[#667085]">{hc.detail}</p>
+                    <p className="text-xs text-slate-500">{hc.detail}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-3 shrink-0">
                     {hc.checkedAt && (
-                      <span className="font-mono text-[11px] text-[#667085] tabular-nums">
+                      <span className="font-mono text-2xs text-slate-500 tabular-nums">
                         Diperiksa {new Date(hc.checkedAt).toLocaleTimeString('id-ID')}
                       </span>
                     )}
                     {hc.latencyMs !== undefined && (
-                      <span className="px-2.5 py-0.5 rounded bg-[#F8FAFC] border border-[#E1E7EF] font-mono text-xs font-semibold text-[#344054] tabular-nums">
+                      <span className="px-2.5 py-0.5 rounded bg-slate-50 border border-slate-200 font-mono text-xs font-semibold text-slate-700 tabular-nums">
                         {hc.latencyMs} ms
                       </span>
                     )}
@@ -4537,14 +4537,14 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 value={searchAudit}
                 onChange={(e) => setSearchAudit(e.target.value)}
                 placeholder="Cari action, resource, atau alasan..."
-                className="w-full border border-[#E1E7EF] rounded-[10px] px-3.5 py-2 text-xs text-[#101828] focus:outline-none focus:border-[#1557D5] bg-white"
+                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 bg-white"
               />
             </FormField>
             <FormField label="Filter Tenant">
               <select
                 value={filterAuditTenant}
                 onChange={(e) => setFilterAuditTenant(e.target.value)}
-                className="w-full border border-[#E1E7EF] rounded-[10px] px-3.5 py-2 text-xs font-medium text-[#344054] bg-white focus:outline-none focus:border-[#1557D5]"
+                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-600"
               >
                 <option value="all">Semua Tenant</option>
                 <option value="platform_global">Platform Global</option>
@@ -4559,7 +4559,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               <select
                 value={filterAuditRole}
                 onChange={(e) => setFilterAuditRole(e.target.value)}
-                className="w-full border border-[#E1E7EF] rounded-[10px] px-3.5 py-2 text-xs font-medium text-[#344054] bg-white focus:outline-none focus:border-[#1557D5]"
+                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-600"
               >
                 <option value="all">Semua Role</option>
                 <option value="superadmin">SUPERADMIN</option>
@@ -4571,7 +4571,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               <select
                 value={filterAuditAction}
                 onChange={(e) => setFilterAuditAction(e.target.value)}
-                className="w-full border border-[#E1E7EF] rounded-[10px] px-3.5 py-2 text-xs font-medium text-[#344054] bg-white focus:outline-none focus:border-[#1557D5]"
+                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-600"
               >
                 <option value="all">Semua Action</option>
                 {availableAuditActions.map((act) => (
@@ -4586,16 +4586,16 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 type="date"
                 value={filterAuditDate}
                 onChange={(e) => setFilterAuditDate(e.target.value)}
-                className="w-full border border-[#E1E7EF] rounded-[10px] px-3.5 py-2 text-xs text-[#101828] bg-white focus:outline-none focus:border-[#1557D5]"
+                className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-xs text-slate-900 bg-white focus:outline-none focus:border-blue-600"
               />
             </FormField>
           </FilterBar>
 
-          <div className="bg-white rounded-[16px] border border-[#E1E7EF] shadow-2xs overflow-hidden">
-            <div className="p-5 border-b border-[#E1E7EF] flex flex-wrap items-center justify-between gap-2">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+            <div className="p-5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h2 className="text-base font-bold text-[#101828]">Audit Events Platform Global</h2>
-                <p className="text-xs text-[#667085] mt-0.5">
+                <h2 className="text-base font-bold text-slate-900">Audit Events Platform Global</h2>
+                <p className="text-xs text-slate-500 mt-0.5">
                   Jejak perubahan konfigurasi tenant, pemberian access grants, sesi bantuan
                   break-glass, dan kebijakan global.
                 </p>
@@ -4621,7 +4621,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-[#F8FAFC] border-b border-[#E1E7EF] text-xs font-semibold text-[#475467]">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
                     <tr>
                       <th className="px-5 py-3.5">Waktu</th>
                       <th className="px-5 py-3.5">Tenant</th>
@@ -4633,16 +4633,16 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                       <th className="px-5 py-3.5 text-right">Detail</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#E1E7EF]">
+                  <tbody className="divide-y divide-slate-200">
                     {filteredAuditLogs.map((log) => (
-                      <tr key={log.id} className="hover:bg-[#F3F7FF]/50 transition-colors">
-                        <td className="px-5 py-3.5 font-mono text-xs text-[#475467] tabular-nums whitespace-nowrap">
+                      <tr key={log.id} className="hover:bg-blue-50/50 transition-colors">
+                        <td className="px-5 py-3.5 font-mono text-xs text-slate-600 tabular-nums whitespace-nowrap">
                           {new Date(log.created_at).toLocaleString('id-ID')}
                         </td>
-                        <td className="px-5 py-3.5 text-xs font-semibold text-[#101828]">
+                        <td className="px-5 py-3.5 text-xs font-semibold text-slate-900">
                           {log.organization_name || 'Platform Global'}
                         </td>
-                        <td className="px-5 py-3.5 font-mono text-xs text-[#667085]">
+                        <td className="px-5 py-3.5 font-mono text-xs text-slate-500">
                           {log.actor_id ? `${String(log.actor_id).slice(0, 8)}...` : 'system'}
                         </td>
                         <td className="px-5 py-3.5">
@@ -4657,21 +4657,21 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                             }
                           />
                         </td>
-                        <td className="px-5 py-3.5 font-mono text-xs font-bold text-[#101828]">
+                        <td className="px-5 py-3.5 font-mono text-xs font-bold text-slate-900">
                           {log.action}
                         </td>
-                        <td className="px-5 py-3.5 font-mono text-xs text-[#475467]">
+                        <td className="px-5 py-3.5 font-mono text-xs text-slate-600">
                           {log.resource_type}
                           {log.resource_id ? ` (${String(log.resource_id).slice(0, 8)})` : ''}
                         </td>
-                        <td className="px-5 py-3.5 text-xs text-[#475467] max-w-xs truncate">
+                        <td className="px-5 py-3.5 text-xs text-slate-600 max-w-xs truncate">
                           {log.reason || '-'}
                         </td>
                         <td className="px-5 py-3.5 text-right">
                           <button
                             type="button"
                             onClick={() => setSelectedAuditLog(log)}
-                            className="px-3 py-1.5 rounded-[8px] border border-[#E1E7EF] bg-white hover:bg-[#F3F6FB] text-xs font-semibold text-[#344054] transition-colors"
+                            className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700 transition-colors"
                           >
                             Detail JSON
                           </button>
@@ -4693,14 +4693,14 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <form
             onSubmit={handleSavePlatformSettings}
-            className="lg:col-span-2 bg-white rounded-[16px] border border-[#E1E7EF] p-6 space-y-6 shadow-2xs"
+            className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 space-y-6 shadow-2xs"
           >
-            <div className="border-b border-[#E1E7EF] pb-4 flex flex-wrap items-center justify-between gap-2">
+            <div className="border-b border-slate-200 pb-4 flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h2 className="text-base font-bold text-[#101828]">
+                <h2 className="text-base font-bold text-slate-900">
                   Kebijakan Global Support, Provisioning & Governance Akun
                 </h2>
-                <p className="text-xs text-[#667085] mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   Perubahan hanya berlaku sebagai nilai default platform dan dicatat ke Audit Log
                   setelah dikonfirmasi oleh server.
                 </p>
@@ -4715,10 +4715,10 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
             {settingsFeedback && (
               <div
                 role="alert"
-                className={`rounded-[12px] border p-3.5 text-xs font-medium leading-relaxed ${
+                className={`rounded-xl border p-3.5 text-xs font-medium leading-relaxed ${
                   settingsFeedback.type === 'success'
-                    ? 'border-[#BBF7D0] bg-[#ECFDF3] text-[#15803D]'
-                    : 'border-[#FECACA] bg-[#FEF2F2] text-[#B91C1C]'
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : 'border-red-200 bg-red-50 text-red-700'
                 }`}
               >
                 {settingsFeedback.message}
@@ -4726,10 +4726,10 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
             )}
 
             {/* Kelompok 1: Support Defaults */}
-            <div className="p-4 rounded-[12px] bg-[#F8FAFC] border border-[#E1E7EF] space-y-4">
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-4">
               <div>
-                <h3 className="text-sm font-bold text-[#101828]">1. Support Defaults</h3>
-                <p className="text-xs text-[#667085] mt-0.5">
+                <h3 className="text-sm font-bold text-slate-900">1. Support Defaults</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
                   Parameter keamanan default ketika Superadmin memulai sesi bantuan Break-Glass.
                 </p>
               </div>
@@ -4747,7 +4747,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                         defaultSupportDurationMinutes: Number(e.target.value),
                       });
                     }}
-                    className="w-full h-10 border border-[#E1E7EF] rounded-[10px] px-3 text-sm text-[#101828] bg-white focus:outline-none focus:border-[#1557D5]"
+                    className="w-full h-10 border border-slate-200 rounded-lg px-3 text-sm text-slate-900 bg-white focus:outline-none focus:border-blue-600"
                   >
                     <option value={15}>15 Menit</option>
                     <option value={30}>30 Menit (Standar ISO 27017)</option>
@@ -4768,7 +4768,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                         defaultSupportMode: e.target.value as 'read_only' | 'read_write',
                       });
                     }}
-                    className="w-full h-10 border border-[#E1E7EF] rounded-[10px] px-3 text-sm text-[#101828] bg-white focus:outline-none focus:border-[#1557D5]"
+                    className="w-full h-10 border border-slate-200 rounded-lg px-3 text-sm text-slate-900 bg-white focus:outline-none focus:border-blue-600"
                   >
                     <option value="read_only">Read-Only (Default Aman)</option>
                     <option value="read_write">Controlled-Write (Koreksi Darurat)</option>
@@ -4778,10 +4778,10 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
             </div>
 
             {/* Kelompok 2: Tenant Provisioning */}
-            <div className="p-4 rounded-[12px] bg-[#F8FAFC] border border-[#E1E7EF] space-y-4">
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-4">
               <div>
-                <h3 className="text-sm font-bold text-[#101828]">2. Tenant Provisioning</h3>
-                <p className="text-xs text-[#667085] mt-0.5">
+                <h3 className="text-sm font-bold text-slate-900">2. Tenant Provisioning</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
                   Konfigurasi paket awal dan zona waktu saat membuat organisasi baru.
                 </p>
               </div>
@@ -4799,7 +4799,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                         defaultTenantPlan: e.target.value as 'trial' | 'standard' | 'enterprise',
                       });
                     }}
-                    className="w-full h-10 border border-[#E1E7EF] rounded-[10px] px-3 text-sm text-[#101828] bg-white focus:outline-none focus:border-[#1557D5]"
+                    className="w-full h-10 border border-slate-200 rounded-lg px-3 text-sm text-slate-900 bg-white focus:outline-none focus:border-blue-600"
                   >
                     <option value="trial">Trial / Evaluasi</option>
                     <option value="standard">Standard Ma&apos;had</option>
@@ -4817,7 +4817,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                       setSettingsFeedback(null);
                       setPlatformConfig({ ...platformConfig, defaultTimezone: e.target.value });
                     }}
-                    className="w-full h-10 border border-[#E1E7EF] rounded-[10px] px-3 text-sm text-[#101828] bg-white focus:outline-none focus:border-[#1557D5]"
+                    className="w-full h-10 border border-slate-200 rounded-lg px-3 text-sm text-slate-900 bg-white focus:outline-none focus:border-blue-600"
                   >
                     <option value="Asia/Jakarta">Asia/Jakarta (WIB)</option>
                     <option value="Asia/Makassar">Asia/Makassar (WITA)</option>
@@ -4828,14 +4828,14 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
             </div>
 
             {/* Kelompok 3: Account Governance */}
-            <div className="p-4 rounded-[12px] bg-[#F8FAFC] border border-[#E1E7EF] space-y-3">
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
               <div>
-                <h3 className="text-sm font-bold text-[#101828]">3. Account Governance</h3>
-                <p className="text-xs text-[#667085] mt-0.5">
+                <h3 className="text-sm font-bold text-slate-900">3. Account Governance</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
                   Kebijakan tata kelola undangan akun dan pembatasan akses lintas tenant.
                 </p>
               </div>
-              <label className="flex items-start gap-3 text-xs font-semibold text-[#101828] cursor-pointer pt-1">
+              <label className="flex items-start gap-3 text-xs font-semibold text-slate-900 cursor-pointer pt-1">
                 <input
                   type="checkbox"
                   checked={platformConfig.inviteOnlyMode}
@@ -4843,13 +4843,13 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                     setSettingsFeedback(null);
                     setPlatformConfig({ ...platformConfig, inviteOnlyMode: e.target.checked });
                   }}
-                  className="mt-0.5 rounded border-[#CBD5E1] text-[#1557D5] focus:ring-[#2563EB]"
+                  className="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
                 />
                 <div className="space-y-0.5">
                   <div>
                     Wajibkan Kebijakan Undangan Terverifikasi Server-Side (One-Time Token)
                   </div>
-                  <p className="font-normal text-[#667085] leading-relaxed">
+                  <p className="font-normal text-slate-500 leading-relaxed">
                     Memblokir pembuatan akun tanpa organisasi/grant sah dan mewajibkan aktivasi
                     melalui token undangan kriptografis sekali pakai (`/invite`).
                   </p>
@@ -4857,7 +4857,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               </label>
             </div>
 
-            <div className="pt-4 border-t border-[#E1E7EF] flex flex-wrap items-center justify-between gap-3">
+            <div className="pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
               <button
                 type="button"
                 disabled={!isSettingsDirty || isSavingSettings}
@@ -4865,14 +4865,14 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                   setPlatformConfig(savedPlatformConfig);
                   setSettingsFeedback(null);
                 }}
-                className="px-4 py-2 rounded-[10px] border border-[#E1E7EF] bg-white hover:bg-[#F3F6FB] text-xs font-semibold text-[#344054] disabled:opacity-40 transition-colors"
+                className="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700 disabled:opacity-40 transition-colors"
               >
                 Reset Perubahan
               </button>
               <button
                 type="submit"
                 disabled={!isSettingsDirty || isSavingSettings}
-                className="px-5 py-2 rounded-[10px] bg-[#1557D5] hover:bg-[#1E40AF] text-white text-xs font-semibold disabled:opacity-50 transition-colors shadow-xs"
+                className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-800 text-white text-xs font-semibold disabled:opacity-50 transition-colors shadow-xs"
               >
                 {isSavingSettings ? 'Menyimpan ke Server...' : 'Simpan Kebijakan Platform'}
               </button>
@@ -4881,13 +4881,13 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
 
           {/* Website Editor Entry Card */}
           <div className="space-y-4">
-            <div className="bg-white rounded-[16px] border border-[#E1E7EF] p-6 flex flex-col justify-between space-y-5 shadow-2xs">
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 flex flex-col justify-between space-y-5 shadow-2xs">
               <div className="space-y-3">
                 <StatusBadge label="WEBSITE EDITOR · CMS PUBLIK" tone="primary" />
-                <h3 className="text-base font-bold text-[#101828]">
+                <h3 className="text-base font-bold text-slate-900">
                   Editor Landing Page & Dokumentasi Publik
                 </h3>
-                <p className="text-xs text-[#667085] leading-relaxed">
+                <p className="text-xs text-slate-500 leading-relaxed">
                   Kelola konten halaman depan publik (`/`), narasi fitur unggulan platform, dan
                   dokumentasi layanan di ruang kerja terpisah (`/platform/cms`) tanpa menyentuh
                   konfigurasi operasional tenant.
@@ -4916,15 +4916,15 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                   if (onNavigate) onNavigate('WebsiteEditor');
                   else navigate('/platform/cms');
                 }}
-                className="w-full py-2.5 px-4 rounded-[10px] bg-[#1557D5] hover:bg-[#1E40AF] text-white text-xs font-semibold transition-colors shadow-xs"
+                className="w-full py-2.5 px-4 rounded-lg bg-blue-600 hover:bg-blue-800 text-white text-xs font-semibold transition-colors shadow-xs"
               >
                 Buka Website Editor (/platform/cms)
               </button>
             </div>
 
-            <div className="bg-[#F3F7FF] rounded-[16px] border border-[#BFDBFE] p-5 space-y-2 text-xs">
-              <div className="font-bold text-[#1557D5]">Jaminan Keamanan Pengaturan</div>
-              <p className="text-[#475467] leading-relaxed">
+            <div className="bg-blue-50 rounded-2xl border border-blue-200 p-5 space-y-2 text-xs">
+              <div className="font-bold text-blue-600">Jaminan Keamanan Pengaturan</div>
+              <p className="text-slate-600 leading-relaxed">
                 Halaman ini hanya dapat diakses oleh <span className="font-semibold">Superadmin</span>.
                 Kredensial rahasia (seperti bot token Telegram/WhatsApp atau service role key)
                 tidak pernah diekspos ke browser dan dikelola secara terisolasi di server.
@@ -4946,13 +4946,13 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
         {selectedAccountDetail && (
           <div className="space-y-6 text-xs">
             {/* 1. Identity & Scope */}
-            <div className="p-4 rounded-[12px] bg-[#F8FAFC] border border-[#E1E7EF] space-y-3">
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <div className="text-sm font-bold text-[#101828]">
+                  <div className="text-sm font-bold text-slate-900">
                     {selectedAccountDetail.fullName}
                   </div>
-                  <div className="font-mono text-[#667085] mt-0.5">
+                  <div className="font-mono text-slate-500 mt-0.5">
                     {selectedAccountDetail.email || 'Email belum tersinkronisasi'}
                   </div>
                 </div>
@@ -4963,15 +4963,15 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-[#E1E7EF]">
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200">
                 <div>
-                  <div className="text-[#667085]">User ID</div>
-                  <div className="font-mono font-semibold text-[#101828] break-all mt-0.5">
+                  <div className="text-slate-500">User ID</div>
+                  <div className="font-mono font-semibold text-slate-900 break-all mt-0.5">
                     {selectedAccountDetail.userId}
                   </div>
                 </div>
                 <div>
-                  <div className="text-[#667085]">Role Kanonikal</div>
+                  <div className="text-slate-500">Role Kanonikal</div>
                   <div className="mt-1">
                     <StatusBadge
                       label={formatCanonicalRoleLabel(selectedAccountDetail.role)}
@@ -4986,8 +4986,8 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                   </div>
                 </div>
                 <div className="col-span-2">
-                  <div className="text-[#667085]">Scope Organisasi / Tenant</div>
-                  <div className="font-semibold text-[#101828] mt-0.5">
+                  <div className="text-slate-500">Scope Organisasi / Tenant</div>
+                  <div className="font-semibold text-slate-900 mt-0.5">
                     {selectedAccountDetail.organizationName}
                   </div>
                 </div>
@@ -4996,15 +4996,15 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
 
             {/* 2. Daftar Access Grants */}
             <div className="space-y-2.5">
-              <h4 className="text-xs font-bold text-[#101828] uppercase tracking-wider">
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                 Access Grants Terdaftar
               </h4>
-              <div className="divide-y divide-[#E1E7EF] rounded-[12px] border border-[#E1E7EF] bg-white overflow-hidden">
+              <div className="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white overflow-hidden">
                 {(selectedAccountDetail.allGrants || []).map((g) => (
                   <div key={g.id} className="p-3.5 flex items-center justify-between gap-2">
                     <div className="space-y-0.5">
-                      <div className="font-semibold text-[#101828]">{g.organizationName}</div>
-                      <div className="font-mono text-[11px] text-[#667085]">
+                      <div className="font-semibold text-slate-900">{g.organizationName}</div>
+                      <div className="font-mono text-2xs text-slate-500">
                         Grant ID: {String(g.id).slice(0, 12)}...
                       </div>
                     </div>
@@ -5031,25 +5031,25 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
 
             {/* 3. Informasi Undangan Bila Tersedia */}
             {selectedAccountDetail.invitationInfo && (
-              <div className="p-4 rounded-[12px] bg-[#F3F7FF] border border-[#BFDBFE] space-y-2">
+              <div className="p-4 rounded-xl bg-blue-50 border border-blue-200 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-[#1557D5]">Informasi Undangan Server-Side</span>
+                  <span className="font-bold text-blue-600">Informasi Undangan Server-Side</span>
                   <StatusBadge
                     label={selectedAccountDetail.invitationInfo.status.toUpperCase()}
                     tone={statusTone(selectedAccountDetail.invitationInfo.status)}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-[#475467]">
+                <div className="grid grid-cols-2 gap-2 text-slate-600">
                   <div>
                     Email Tujuan:{' '}
-                    <span className="font-mono font-semibold text-[#101828]">
+                    <span className="font-mono font-semibold text-slate-900">
                       {selectedAccountDetail.invitationInfo.email}
                     </span>
                   </div>
                   {selectedAccountDetail.invitationInfo.expiresAt && (
                     <div>
                       Kedaluwarsa:{' '}
-                      <span className="font-mono font-semibold text-[#101828]">
+                      <span className="font-mono font-semibold text-slate-900">
                         {new Date(
                           selectedAccountDetail.invitationInfo.expiresAt
                         ).toLocaleString('id-ID')}
@@ -5062,7 +5062,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
 
             {/* 4. Riwayat Aktivitas Keamanan Akun */}
             <div className="space-y-2.5">
-              <h4 className="text-xs font-bold text-[#101828] uppercase tracking-wider">
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                 Riwayat Aktivitas Keamanan
               </h4>
               {(() => {
@@ -5074,22 +5074,22 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 );
                 if (accountLogs.length === 0) {
                   return (
-                    <div className="p-4 rounded-[12px] bg-[#F8FAFC] border border-[#E1E7EF] text-[#667085] text-center">
+                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 text-center">
                       Belum ada rekaman aktivitas keamanan spesifik untuk akun ini di audit_logs.
                     </div>
                   );
                 }
                 return (
-                  <div className="divide-y divide-[#E1E7EF] rounded-[12px] border border-[#E1E7EF] bg-white">
+                  <div className="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white">
                     {accountLogs.slice(0, 6).map((l) => (
                       <div key={l.id} className="p-3 space-y-1">
                         <div className="flex items-center justify-between">
-                          <span className="font-mono font-bold text-[#101828]">{l.action}</span>
-                          <span className="font-mono text-[11px] text-[#667085]">
+                          <span className="font-mono font-bold text-slate-900">{l.action}</span>
+                          <span className="font-mono text-2xs text-slate-500">
                             {new Date(l.created_at).toLocaleString('id-ID')}
                           </span>
                         </div>
-                        {l.reason && <div className="text-[#667085]">Alasan: {l.reason}</div>}
+                        {l.reason && <div className="text-slate-500">Alasan: {l.reason}</div>}
                       </div>
                     ))}
                   </div>
@@ -5098,15 +5098,15 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
             </div>
 
             {/* 5. Kontrol Tindakan Akun */}
-            <div className="pt-4 border-t border-[#E1E7EF] flex flex-wrap items-center justify-end gap-2">
+            <div className="pt-4 border-t border-slate-200 flex flex-wrap items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => handleToggleAccountStatus(selectedAccountDetail)}
-                className={`px-3.5 py-2 rounded-[10px] border text-xs font-semibold ${
+                className={`px-3.5 py-2 rounded-lg border text-xs font-semibold ${
                   selectedAccountDetail.status === 'suspended' ||
                   selectedAccountDetail.status === 'revoked'
-                    ? 'border-[#BBF7D0] bg-[#ECFDF3] text-[#15803D]'
-                    : 'border-[#FECACA] bg-white text-[#B91C1C]'
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : 'border-red-200 bg-white text-red-700'
                 }`}
               >
                 {selectedAccountDetail.status === 'suspended' ||
@@ -5118,7 +5118,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 <button
                   type="button"
                   onClick={() => handleRevokeAccountAccess(selectedAccountDetail)}
-                  className="px-3.5 py-2 rounded-[10px] bg-[#DC2626] hover:bg-[#B91C1C] text-white text-xs font-semibold"
+                  className="px-3.5 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold"
                 >
                   {selectedAccountDetail.status === 'invited'
                     ? 'Batalkan Undangan'
@@ -5164,19 +5164,19 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="p-3.5 rounded-[12px] bg-[#F8FAFC] border border-[#E1E7EF]">
-                    <div className="text-[#667085] font-medium">Paket Saat Ini</div>
-                    <div className="text-sm font-bold text-[#101828] mt-1">
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                    <div className="text-slate-500 font-medium">Paket Saat Ini</div>
+                    <div className="text-sm font-bold text-slate-900 mt-1">
                       {currentPlanDef.name}
                     </div>
-                    <div className="font-mono text-[11px] text-[#475467] mt-1">
+                    <div className="font-mono text-2xs text-slate-600 mt-1">
                       Kuota: {currentPlanDef.maxStudents} Santri · {currentPlanDef.maxMusammi}{' '}
                       Musammi
                     </div>
                   </div>
 
-                  <div className="p-3.5 rounded-[12px] bg-[#F3F7FF] border border-[#BFDBFE]">
-                    <label className="block text-[#1557D5] font-bold mb-1">
+                  <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200">
+                    <label className="block text-blue-600 font-bold mb-1">
                       Pilih Paket Baru <span className="text-red-600">*</span>
                     </label>
                     <select
@@ -5188,7 +5188,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                           error: null,
                         })
                       }
-                      className="w-full h-9 border border-[#93C5FD] rounded-lg px-2.5 text-xs font-semibold text-[#101828] bg-white"
+                      className="w-full h-9 border border-blue-300 rounded-lg px-2.5 text-xs font-semibold text-slate-900 bg-white"
                     >
                       <option value="trial">TRIAL ({SAAS_PLANS[0].maxStudents} Santri)</option>
                       <option value="standard">
@@ -5202,24 +5202,24 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 </div>
 
                 {/* Perbandingan Perubahan Kuota */}
-                <div className="p-3.5 rounded-[12px] border border-[#E1E7EF] bg-white space-y-2">
-                  <div className="font-bold text-[#101828]">Perbandingan Perubahan Kuota</div>
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-white space-y-2">
+                  <div className="font-bold text-slate-900">Perbandingan Perubahan Kuota</div>
                   <div className="grid grid-cols-3 gap-2 text-center pt-1">
-                    <div className="p-2 rounded bg-[#F8FAFC]">
-                      <div className="text-[11px] text-[#667085]">Quota Santri</div>
-                      <div className="font-mono font-bold text-[#101828] mt-0.5">
+                    <div className="p-2 rounded bg-slate-50">
+                      <div className="text-2xs text-slate-500">Quota Santri</div>
+                      <div className="font-mono font-bold text-slate-900 mt-0.5">
                         {currentPlanDef.maxStudents} → {nextPlanDef.maxStudents}
                       </div>
                     </div>
-                    <div className="p-2 rounded bg-[#F8FAFC]">
-                      <div className="text-[11px] text-[#667085]">Quota Musammi</div>
-                      <div className="font-mono font-bold text-[#101828] mt-0.5">
+                    <div className="p-2 rounded bg-slate-50">
+                      <div className="text-2xs text-slate-500">Quota Musammi</div>
+                      <div className="font-mono font-bold text-slate-900 mt-0.5">
                         {currentPlanDef.maxMusammi} → {nextPlanDef.maxMusammi}
                       </div>
                     </div>
-                    <div className="p-2 rounded bg-[#F8FAFC]">
-                      <div className="text-[11px] text-[#667085]">Retensi Audit</div>
-                      <div className="font-mono font-bold text-[#101828] mt-0.5">
+                    <div className="p-2 rounded bg-slate-50">
+                      <div className="text-2xs text-slate-500">Retensi Audit</div>
+                      <div className="font-mono font-bold text-slate-900 mt-0.5">
                         {currentPlanDef.auditRetentionDays}hr → {nextPlanDef.auditRetentionDays}hr
                       </div>
                     </div>
@@ -5228,10 +5228,10 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
 
                 {/* Dampak Perubahan */}
                 <div
-                  className={`p-3.5 rounded-[12px] border leading-relaxed ${
+                  className={`p-3.5 rounded-xl border leading-relaxed ${
                     exceedsStudents || exceedsMusammi
-                      ? 'bg-[#FFFBEB] border-[#FDE68A] text-[#92400E]'
-                      : 'bg-[#F8FAFC] border-[#E1E7EF] text-[#475467]'
+                      ? 'bg-amber-50 border-amber-200 text-amber-800'
+                      : 'bg-slate-50 border-slate-200 text-slate-600'
                   }`}
                 >
                   <div className="font-bold mb-0.5">Dampak Perubahan Paket:</div>
@@ -5254,7 +5254,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-[#344054] mb-1">
+                  <label className="block font-semibold text-slate-700 mb-1">
                     Alasan Perubahan Paket (Wajib untuk Audit Log){' '}
                     <span className="text-red-600">*</span>
                   </label>
@@ -5270,22 +5270,22 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                       })
                     }
                     placeholder="Contoh: Upgrade kapasitas tahun ajaran baru sesuai persetujuan yayasan..."
-                    className="w-full border border-[#E1E7EF] rounded-[10px] px-3 py-2 text-xs text-[#101828] focus:outline-none focus:border-[#1557D5]"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
                   />
                 </div>
 
-                <div className="flex justify-end gap-2 pt-3 border-t border-[#E1E7EF]">
+                <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
                   <button
                     type="button"
                     onClick={() => setPlanChangeModal(null)}
-                    className="px-4 py-2 rounded-[10px] border border-[#E1E7EF] text-xs font-semibold text-[#344054] hover:bg-[#F3F6FB]"
+                    className="px-4 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100"
                   >
                     Batal
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting || planChangeModal.tenant.plan_id === planChangeModal.nextPlan}
-                    className="px-4 py-2 rounded-[10px] bg-[#1557D5] hover:bg-[#1E40AF] text-white text-xs font-semibold disabled:opacity-50"
+                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-800 text-white text-xs font-semibold disabled:opacity-50"
                   >
                     {isSubmitting
                       ? 'Menyimpan ke Server...'
@@ -5358,7 +5358,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 }
                 className="w-full h-10 border border-slate-300 rounded-xl px-3 text-sm font-mono text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
               />
-              <p className="mt-1 text-[11px] text-slate-500">
+              <p className="mt-1 text-2xs text-slate-500">
                 Huruf kecil, angka, tanda hubung (-).
               </p>
             </div>
@@ -5400,7 +5400,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               <h4 className="text-xs font-bold text-slate-900">
                 Undangan Admin Lembaga Pertama (Wajib)
               </h4>
-              <p className="text-[11px] text-slate-500 mt-0.5">
+              <p className="text-2xs text-slate-500 mt-0.5">
                 Sistem akan menerbitkan access grant role{' '}
                 <span className="font-mono font-semibold text-slate-700">admin</span> dan token
                 undangan sekali pakai.
@@ -5501,7 +5501,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-[#344054] mb-1.5">
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
               Nama Lengkap Pengguna <span className="text-red-600">*</span>
             </label>
             <input
@@ -5513,12 +5513,12 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 setInviteAccountForm({ ...inviteAccountForm, fullName: e.target.value });
               }}
               placeholder="Contoh: Ustadz Ibrahim"
-              className="w-full h-10 border border-[#E1E7EF] rounded-[10px] px-3.5 text-sm text-[#101828] bg-white focus:outline-none focus:border-[#1557D5]"
+              className="w-full h-10 border border-slate-200 rounded-lg px-3.5 text-sm text-slate-900 bg-white focus:outline-none focus:border-blue-600"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-[#344054] mb-1.5">
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
               Alamat Email Login <span className="text-red-600">*</span>
             </label>
             <input
@@ -5530,13 +5530,13 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 setInviteAccountForm({ ...inviteAccountForm, email: e.target.value });
               }}
               placeholder="nama@lembaga.id"
-              className="w-full h-10 border border-[#E1E7EF] rounded-[10px] px-3.5 text-sm text-[#101828] bg-white focus:outline-none focus:border-[#1557D5]"
+              className="w-full h-10 border border-slate-200 rounded-lg px-3.5 text-sm text-slate-900 bg-white focus:outline-none focus:border-blue-600"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-[#344054] mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Role Kanonikal (3-Role) <span className="text-red-600">*</span>
               </label>
               <select
@@ -5548,7 +5548,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                     role: e.target.value as 'superadmin' | 'admin' | 'musammi',
                   });
                 }}
-                className="w-full h-10 border border-[#E1E7EF] rounded-[10px] px-3 text-sm text-[#101828] bg-white focus:outline-none focus:border-[#1557D5]"
+                className="w-full h-10 border border-slate-200 rounded-lg px-3 text-sm text-slate-900 bg-white focus:outline-none focus:border-blue-600"
               >
                 <option value="admin">Admin</option>
                 <option value="musammi">Musammi</option>
@@ -5558,7 +5558,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
 
             {inviteAccountForm.role !== 'superadmin' ? (
               <div>
-                <label className="block text-xs font-semibold text-[#344054] mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Organisasi / Tenant Target <span className="text-red-600">*</span>
                 </label>
                 <select
@@ -5571,7 +5571,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                       targetOrganizationId: e.target.value,
                     });
                   }}
-                  className="w-full h-10 border border-[#E1E7EF] rounded-[10px] px-3 text-sm text-[#101828] bg-white focus:outline-none focus:border-[#1557D5]"
+                  className="w-full h-10 border border-slate-200 rounded-lg px-3 text-sm text-slate-900 bg-white focus:outline-none focus:border-blue-600"
                 >
                   <option value="">-- Pilih Lembaga --</option>
                   {tenants.map((t) => (
@@ -5583,18 +5583,18 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               </div>
             ) : (
               <div>
-                <label className="block text-xs font-semibold text-[#344054] mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Scope Otorisasi
                 </label>
-                <div className="h-10 px-3 rounded-[10px] bg-[#F8FAFC] border border-[#E1E7EF] flex items-center text-xs font-semibold text-[#475467]">
+                <div className="h-10 px-3 rounded-lg bg-slate-50 border border-slate-200 flex items-center text-xs font-semibold text-slate-600">
                   Platform Global (Lintas Tenant)
                 </div>
               </div>
             )}
           </div>
 
-          <div className="p-3.5 rounded-[12px] bg-[#F3F7FF] border border-[#BFDBFE] text-xs text-[#344054] space-y-1 leading-relaxed">
-            <div className="font-bold text-[#1557D5]">Informasi Akses & Keamanan Undangan</div>
+          <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 text-xs text-slate-700 space-y-1 leading-relaxed">
+            <div className="font-bold text-blue-600">Informasi Akses & Keamanan Undangan</div>
             <p>
               Sistem tidak membuat akun dengan password default statis. Server (`/api/invitations`)
               akan menerbitkan grant berstatus <span className="font-mono font-semibold">invited</span>{' '}
@@ -5602,21 +5602,21 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
             </p>
           </div>
 
-          <div className="flex justify-end gap-2 pt-3 border-t border-[#E1E7EF]">
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
             <button
               type="button"
               onClick={() => {
                 setInviteError(null);
                 setInviteAccountModalOpen(false);
               }}
-              className="px-4 py-2 rounded-[10px] border border-[#E1E7EF] text-xs font-semibold text-[#344054] hover:bg-[#F3F6FB]"
+              className="px-4 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100"
             >
               Batal
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 rounded-[10px] bg-[#1557D5] hover:bg-[#1E40AF] text-white text-xs font-semibold disabled:opacity-50"
+              className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-800 text-white text-xs font-semibold disabled:opacity-50"
             >
               {isSubmitting ? 'Menerbitkan Undangan...' : 'Kirim Undangan Server-Side'}
             </button>
@@ -5651,7 +5651,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
 
           {!selectedTenantForSupport ? (
             <div>
-              <label className="block text-xs font-semibold text-[#344054] mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Tenant Target <span className="text-red-600">*</span>
               </label>
               <select
@@ -5661,7 +5661,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                   setSupportError(null);
                   setSupportForm({ ...supportForm, organizationId: e.target.value });
                 }}
-                className="w-full h-10 border border-[#E1E7EF] rounded-[10px] px-3 text-sm text-[#101828] bg-white focus:outline-none focus:border-[#1557D5]"
+                className="w-full h-10 border border-slate-200 rounded-lg px-3 text-sm text-slate-900 bg-white focus:outline-none focus:border-blue-600"
               >
                 <option value="">-- Pilih Lembaga Target --</option>
                 {tenants.map((t) => (
@@ -5672,15 +5672,15 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               </select>
             </div>
           ) : (
-            <div className="p-3 rounded-[10px] bg-[#F8FAFC] border border-[#E1E7EF] flex items-center justify-between text-xs">
-              <span className="text-[#667085] font-medium">Target Lembaga:</span>
-              <span className="font-bold text-[#101828]">{selectedTenantForSupport.name}</span>
+            <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
+              <span className="text-slate-500 font-medium">Target Lembaga:</span>
+              <span className="font-bold text-slate-900">{selectedTenantForSupport.name}</span>
             </div>
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-[#344054] mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Mode Akses <span className="text-red-600">*</span>
               </label>
               <select
@@ -5692,14 +5692,14 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                     mode: e.target.value as 'read_only' | 'read_write',
                   });
                 }}
-                className="w-full h-10 border border-[#E1E7EF] rounded-[10px] px-3 text-sm text-[#101828] bg-white focus:outline-none focus:border-[#1557D5]"
+                className="w-full h-10 border border-slate-200 rounded-lg px-3 text-sm text-slate-900 bg-white focus:outline-none focus:border-blue-600"
               >
                 <option value="read_only">Read-Only (Observasi Aman)</option>
                 <option value="read_write">Controlled-Write (Koreksi Darurat)</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-[#344054] mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Durasi Sesi <span className="text-red-600">*</span>
               </label>
               <select
@@ -5708,7 +5708,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                   setSupportError(null);
                   setSupportForm({ ...supportForm, durationMinutes: Number(e.target.value) });
                 }}
-                className="w-full h-10 border border-[#E1E7EF] rounded-[10px] px-3 text-sm text-[#101828] bg-white focus:outline-none focus:border-[#1557D5]"
+                className="w-full h-10 border border-slate-200 rounded-lg px-3 text-sm text-slate-900 bg-white focus:outline-none focus:border-blue-600"
               >
                 <option value={15}>15 Menit</option>
                 <option value={30}>30 Menit (Standar)</option>
@@ -5719,7 +5719,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
 
           {/* Peringatan Konsekuensi Berdasarkan Mode */}
           {supportForm.mode === 'read_write' ? (
-            <div className="p-3.5 rounded-[12px] bg-[#FEF2F2] border border-[#FECACA] text-xs text-[#991B1B] space-y-1 leading-relaxed">
+            <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-800 space-y-1 leading-relaxed">
               <div className="font-bold">
                 Peringatan Tingkat Tinggi: Mode Controlled-Write (Read & Write)
               </div>
@@ -5730,7 +5730,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
               </p>
             </div>
           ) : (
-            <div className="p-3.5 rounded-[12px] bg-[#FFFBEB] border border-[#FDE68A] text-xs text-[#92400E] leading-relaxed">
+            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 leading-relaxed">
               <span className="font-bold">Mode Read-Only:</span> Anda hanya dapat menginspeksi
               konfigurasi dan data tenant tanpa dapat mengubah data akademik, nilai, atau raport.
             </div>
@@ -5738,10 +5738,10 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-semibold text-[#344054]">
+              <label className="block text-xs font-semibold text-slate-700">
                 Alasan Operasional / Nomor Tiket <span className="text-red-600">*</span>
               </label>
-              <span className="text-[11px] font-mono text-[#667085]">
+              <span className="text-2xs font-mono text-slate-500">
                 Min. {Math.max(5, platformConfig.minSupportReasonChars || 10)} karakter (
                 {supportForm.reason.trim().length} diisi)
               </span>
@@ -5755,11 +5755,11 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 setSupportForm({ ...supportForm, reason: e.target.value });
               }}
               placeholder="Tuliskan nomor tiket bantuan dan alasan teknis pembukaan sesi support..."
-              className="w-full border border-[#E1E7EF] rounded-[10px] px-3.5 py-2 text-sm text-[#101828] focus:outline-none focus:border-[#1557D5]"
+              className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:border-blue-600"
             />
           </div>
 
-          <label className="flex items-start gap-2.5 p-3 rounded-[10px] bg-[#F8FAFC] border border-[#E1E7EF] text-xs text-[#344054] cursor-pointer">
+          <label className="flex items-start gap-2.5 p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-700 cursor-pointer">
             <input
               type="checkbox"
               checked={supportAcknowledge}
@@ -5767,16 +5767,16 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 setSupportError(null);
                 setSupportAcknowledge(e.target.checked);
               }}
-              className="mt-0.5 rounded border-[#CBD5E1] text-[#1557D5]"
+              className="mt-0.5 rounded border-slate-300 text-blue-600"
             />
             <span className="leading-relaxed">
-              <strong className="text-[#101828]">Acknowledgement:</strong> Saya menyatakan sesi
+              <strong className="text-slate-900">Acknowledgement:</strong> Saya menyatakan sesi
               support ini memiliki otorisasi operasional yang sah, terikat ke scope tenant yang
               dipilih, otomatis berakhir sesuai durasi, dan seluruh aktivitas diaudit.
             </span>
           </label>
 
-          <div className="flex justify-end gap-2 pt-3 border-t border-[#E1E7EF]">
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
             <button
               type="button"
               onClick={() => {
@@ -5784,14 +5784,14 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                 setSupportAcknowledge(false);
                 setSupportModalOpen(false);
               }}
-              className="px-4 py-2 rounded-[10px] border border-[#E1E7EF] text-xs font-semibold text-[#344054] hover:bg-[#F3F6FB]"
+              className="px-4 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100"
             >
               Batal
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 rounded-[10px] bg-[#1557D5] hover:bg-[#1E40AF] text-white text-xs font-semibold disabled:opacity-50"
+              className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-800 text-white text-xs font-semibold disabled:opacity-50"
             >
               {isSubmitting ? 'Mengotorisasi Sesi...' : 'Mulai Support Session'}
             </button>
@@ -5829,22 +5829,22 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
 
             return (
               <div className="space-y-4 text-xs">
-                <div className="grid grid-cols-2 gap-2.5 p-3.5 bg-[#F8FAFC] rounded-[12px] border border-[#E1E7EF]">
+                <div className="grid grid-cols-2 gap-2.5 p-3.5 bg-slate-50 rounded-xl border border-slate-200">
                   <div>
-                    <span className="text-[#667085]">Waktu Event:</span>
-                    <div className="font-mono font-semibold text-[#101828] mt-0.5">
+                    <span className="text-slate-500">Waktu Event:</span>
+                    <div className="font-mono font-semibold text-slate-900 mt-0.5">
                       {new Date(selectedAuditLog.created_at).toLocaleString('id-ID')}
                     </div>
                   </div>
                   <div>
-                    <span className="text-[#667085]">Tenant Scope:</span>
-                    <div className="font-semibold text-[#101828] mt-0.5">
+                    <span className="text-slate-500">Tenant Scope:</span>
+                    <div className="font-semibold text-slate-900 mt-0.5">
                       {selectedAuditLog.organization_name || 'Platform Global'}
                     </div>
                   </div>
                   <div>
-                    <span className="text-[#667085]">Aktor & Role:</span>
-                    <div className="font-mono font-semibold text-[#101828] mt-0.5">
+                    <span className="text-slate-500">Aktor & Role:</span>
+                    <div className="font-mono font-semibold text-slate-900 mt-0.5">
                       {(selectedAuditLog.actor_role || 'system').toUpperCase()}{' '}
                       {selectedAuditLog.actor_id
                         ? `(${String(selectedAuditLog.actor_id).slice(0, 8)}...)`
@@ -5852,24 +5852,24 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                     </div>
                   </div>
                   <div>
-                    <span className="text-[#667085]">Resource Target:</span>
-                    <div className="font-mono font-semibold text-[#101828] mt-0.5">
+                    <span className="text-slate-500">Resource Target:</span>
+                    <div className="font-mono font-semibold text-slate-900 mt-0.5">
                       {selectedAuditLog.resource_type}{' '}
                       {selectedAuditLog.resource_id
                         ? `(${String(selectedAuditLog.resource_id).slice(0, 8)})`
                         : ''}
                     </div>
                   </div>
-                  <div className="col-span-2 pt-1 border-t border-[#E1E7EF]">
-                    <span className="text-[#667085]">Alasan (Reason):</span>{' '}
-                    <span className="font-semibold text-[#101828]">
+                  <div className="col-span-2 pt-1 border-t border-slate-200">
+                    <span className="text-slate-500">Alasan (Reason):</span>{' '}
+                    <span className="font-semibold text-slate-900">
                       {selectedAuditLog.reason || '-'}
                     </span>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-[#344054]">
+                  <span className="font-bold text-slate-700">
                     State Perubahan & Payload JSON (Monospace)
                   </span>
                   <button
@@ -5881,7 +5881,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                         'info'
                       );
                     }}
-                    className="px-3 py-1 rounded-[8px] border border-[#BFDBFE] bg-[#E7F0FF] hover:bg-[#DBEAFE] text-[#1557D5] text-xs font-semibold transition-colors"
+                    className="px-3 py-1 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-semibold transition-colors"
                   >
                     Salin JSON
                   </button>
@@ -5889,14 +5889,14 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <div className="font-semibold text-[#475467] mb-1">Before State:</div>
-                    <pre className="p-3 bg-slate-900 text-slate-100 rounded-[10px] overflow-auto max-h-60 font-mono text-[11px] leading-relaxed">
+                    <div className="font-semibold text-slate-600 mb-1">Before State:</div>
+                    <pre className="p-3 bg-slate-900 text-slate-100 rounded-lg overflow-auto max-h-60 font-mono text-2xs leading-relaxed">
                       {JSON.stringify(safeBefore, null, 2)}
                     </pre>
                   </div>
                   <div>
-                    <div className="font-semibold text-[#475467] mb-1">After State:</div>
-                    <pre className="p-3 bg-slate-900 text-emerald-300 rounded-[10px] overflow-auto max-h-60 font-mono text-[11px] leading-relaxed">
+                    <div className="font-semibold text-slate-600 mb-1">After State:</div>
+                    <pre className="p-3 bg-slate-900 text-emerald-300 rounded-lg overflow-auto max-h-60 font-mono text-2xs leading-relaxed">
                       {JSON.stringify(safeAfter, null, 2)}
                     </pre>
                   </div>

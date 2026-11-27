@@ -46,10 +46,10 @@ const ChartWithDownload: React.FC<{
     };
 
     return (
-        <div ref={chartRef} className="rounded-2xl border border-slate-200/60 bg-white shadow-[0_1px_3px_0_rgba(0,0,0,0.02),0_4px_16px_0_rgba(0,0,0,0.02)] overflow-hidden flex flex-col relative w-full mb-2">
+        <div ref={chartRef} className="rounded-2xl border border-slate-200/60 bg-white shadow-xs overflow-hidden flex flex-col relative w-full mb-2">
             <div className="p-5 border-b border-slate-200/60 bg-slate-50/30 flex justify-between items-start">
                 <div className="flex flex-col">
-                    <h3 className="text-[15px] font-bold text-slate-900 tracking-tight">
+                    <h3 className="text-base font-bold text-slate-900 tracking-tight">
                         {title}
                         {subtitle && <span className="text-slate-400 font-medium ml-1">({subtitle})</span>}
                     </h3>
@@ -62,7 +62,7 @@ const ChartWithDownload: React.FC<{
                         <MoreVertical size={18} />
                     </button>
                     {isMenuOpen && (
-                        <div className="absolute right-0 top-8 w-48 bg-white rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.08)] border border-slate-200/80 z-50 py-1.5 text-[13px] font-medium animate-in fade-in zoom-in-95 duration-100 overflow-hidden">
+                        <div className="absolute right-0 top-8 w-48 bg-white rounded-xl shadow-xs border border-slate-200/80 z-50 py-1.5 text-sm font-medium animate-in fade-in zoom-in-95 duration-100 overflow-hidden">
                             <button onClick={handleDownload} className="flex items-center w-full px-4 py-2 text-left hover:bg-slate-50 text-slate-700 transition-colors">
                                 <Download size={14} className="mr-2.5 text-blue-500"/> Download Chart
                             </button>
@@ -183,15 +183,15 @@ const ComposedProgressChart: React.FC<{
     const displayUnit = displayMode === 'persentase' ? '%' : (showDailyAverage ? baseUnit + '/hari' : baseUnit);
 
     return (
-        <div ref={chartRef} className="rounded-[1.25rem] border border-slate-200/70 bg-white p-7 shadow-sm flex-1 relative w-full flex flex-col mb-2">
+        <div ref={chartRef} className="rounded-2xl border border-slate-200/70 bg-white p-7 shadow-sm flex-1 relative w-full flex flex-col mb-2">
             <div className="flex justify-between items-start mb-6">
                 <div className="flex flex-col">
-                    <h4 className="text-[15px] font-semibold text-slate-800 tracking-tight mb-1">
+                    <h4 className="text-base font-semibold text-slate-800 tracking-tight mb-1">
                         {displayMode === 'persentase' 
                             ? `Persentase Pencapaian Target ${title.replace('Rata-Rata ', '')}` 
                             : (showDailyAverage ? `Rata-Rata ${title.replace('Rata-Rata ', '')} (Per Hari)` : `Jumlah Rata-Rata ${title.replace('Rata-Rata ', '')}`)}
                     </h4>
-                    <p className="text-[13px] text-slate-500 font-medium">
+                    <p className="mt-1 text-sm text-slate-500">
                         {subtitlePrefix ? `${subtitlePrefix} (${displayMode === 'persentase' ? '%' : (showDailyAverage ? baseUnit + '/hari' : baseUnit)})` : `Semua marhalah (${displayMode === 'persentase' ? '%' : (showDailyAverage ? baseUnit + '/hari' : baseUnit)})`}
                     </p>
                 </div>
@@ -205,7 +205,7 @@ const ComposedProgressChart: React.FC<{
                             <MoreVertical size={18} />
                         </button>
                         {isMenuOpen && (
-                            <div className="absolute right-0 top-8 w-48 bg-white rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.08)] border border-slate-200/80 z-50 py-1.5 text-[13px] font-medium animate-in fade-in zoom-in-95 duration-100 overflow-hidden">
+                            <div className="absolute right-0 top-8 w-48 bg-white rounded-xl shadow-xs border border-slate-200/80 z-50 py-1.5 text-sm font-medium animate-in fade-in zoom-in-95 duration-100 overflow-hidden">
                                 <button onClick={handleDownload} className="flex items-center w-full px-4 py-2 text-left hover:bg-slate-50 text-slate-700 transition-colors">
                                     <Download size={14} className="mr-2.5 text-blue-500"/> Download Chart
                                 </button>
@@ -397,7 +397,7 @@ const UnifiedProgressIndexChart: React.FC<UnifiedProgressIndexChartProps> = ({
             <div className="bg-white rounded-2xl p-4 shadow-xl border border-slate-200/80 text-xs min-w-[260px] z-50 animate-in fade-in zoom-in-95 duration-100">
                 <div className="font-extrabold text-slate-900 border-b border-slate-100 pb-2 mb-2.5 text-sm flex items-center justify-between">
                     <span>{label}</span>
-                    <span className="text-[11px] font-semibold text-slate-400">Indeks Capaian</span>
+                    <span className="text-2xs font-semibold text-slate-400">Indeks Capaian</span>
                 </div>
                 <div className="space-y-2">
                     {payload
@@ -431,7 +431,7 @@ const UnifiedProgressIndexChart: React.FC<UnifiedProgressIndexChartProps> = ({
                                             {p.value !== null && p.value !== undefined ? `${p.value}%` : '-'}
                                         </span>
                                         {realValueStr && (
-                                            <span className="text-[11px] text-slate-500 font-medium ml-1.5">
+                                            <span className="text-2xs text-slate-500 font-medium ml-1.5">
                                                 {realValueStr}
                                             </span>
                                         )}
@@ -445,15 +445,15 @@ const UnifiedProgressIndexChart: React.FC<UnifiedProgressIndexChartProps> = ({
     };
 
     return (
-        <div ref={chartRef} className="rounded-[1.25rem] border border-slate-200/70 bg-white p-6 sm:p-7 shadow-sm flex-1 relative w-full flex flex-col mb-2">
+        <div ref={chartRef} className="rounded-2xl border border-slate-200/70 bg-white p-6 sm:p-7 shadow-sm flex-1 relative w-full flex flex-col mb-2">
             {/* Header */}
             <div className="flex justify-between items-start mb-6">
                 <div className="flex flex-col">
-                    <h4 className="text-[15px] font-semibold text-slate-800 tracking-tight mb-1">
+                    <h4 className="text-base font-semibold text-slate-800 tracking-tight mb-1">
                         Grafik Indeks Perkembangan & Capaian Terpadu
                     </h4>
                     {subtitlePrefix && (
-                        <p className="text-[13px] text-slate-500 font-medium">
+                        <p className="mt-1 text-sm text-slate-500">
                             {subtitlePrefix}
                         </p>
                     )}
@@ -464,15 +464,15 @@ const UnifiedProgressIndexChart: React.FC<UnifiedProgressIndexChartProps> = ({
                         <button 
                             type="button"
                             onClick={() => setIsMetricMenuOpen(!isMetricMenuOpen)}
-                            className="flex items-center gap-2 text-[13px] font-medium bg-white border border-slate-200 text-slate-700 rounded-lg px-3 py-1.5 focus:outline-none hover:bg-slate-50 transition-colors shadow-xs relative cursor-pointer"
+                            className="btn btn-secondary btn-sm relative"
                         >
                             <span>Pilih Metrik ({activeCount})</span>
                             <ChevronDown size={14} className="text-slate-400" />
                         </button>
                         {isMetricMenuOpen && (
-                            <div className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl shadow-[0_8px_30px_-4px_rgba(0,0,0,0.12)] border border-slate-100 py-2 z-[9999] flex flex-col max-h-72 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
+                            <div className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl shadow-xs border border-slate-100 py-2 z-[9999] flex flex-col max-h-72 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
                                 <div className="flex items-center justify-between px-3.5 py-1.5 mb-1 border-b border-slate-100 text-xs">
-                                    <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Filter Metrik</span>
+                                    <span className="font-semibold text-slate-400 text-xs">Pilih metrik</span>
                                     <button
                                         type="button"
                                         onClick={toggleAll}
@@ -488,11 +488,11 @@ const UnifiedProgressIndexChart: React.FC<UnifiedProgressIndexChartProps> = ({
                                             key={m.id}
                                             type="button"
                                             onClick={() => toggleMetric(m.id)}
-                                            className="w-full text-left px-3.5 py-2 text-[13px] font-semibold hover:bg-slate-50 flex items-center justify-between transition-colors cursor-pointer"
+                                            className="w-full text-left px-3.5 py-2 text-sm font-semibold hover:bg-slate-50 flex items-center justify-between transition-colors cursor-pointer"
                                             style={{ color: isChecked ? m.color : '#94a3b8' }}
                                         >
                                             <div className="flex items-center gap-2">
-                                                <span className="w-3 h-3 rounded-[3px] flex-shrink-0 shadow-2xs" style={{ backgroundColor: isChecked ? m.color : '#cbd5e1' }} />
+                                                <span className="w-3 h-3 rounded-sm flex-shrink-0 shadow-2xs" style={{ backgroundColor: isChecked ? m.color : '#cbd5e1' }} />
                                                 <span>{m.label}</span>
                                             </div>
                                             {isChecked ? (
@@ -518,11 +518,11 @@ const UnifiedProgressIndexChart: React.FC<UnifiedProgressIndexChartProps> = ({
                             <MoreVertical size={18} />
                         </button>
                         {isMenuOpen && (
-                            <div className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-xl shadow-[0_8px_30px_-4px_rgba(0,0,0,0.1)] border border-slate-100 py-1.5 z-50">
+                            <div className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-xl shadow-xs border border-slate-100 py-1.5 z-50">
                                 <button 
                                     type="button"
                                     onClick={handleDownload}
-                                    className="w-full text-left px-4 py-2 text-[13px] font-medium text-slate-700 hover:bg-slate-50 flex items-center transition-colors cursor-pointer"
+                                    className="w-full text-left px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 flex items-center transition-colors cursor-pointer"
                                 >
                                     <Download size={14} className="mr-2 text-slate-400"/> Download Chart
                                 </button>
@@ -608,14 +608,14 @@ const UnifiedProgressIndexChart: React.FC<UnifiedProgressIndexChartProps> = ({
                             key={m.id}
                             type="button"
                             onClick={() => toggleMetric(m.id)}
-                            className={`inline-flex items-center gap-1.5 text-[11px] font-semibold transition-all cursor-pointer select-none ${
+                            className={`inline-flex items-center gap-1.5 text-2xs font-semibold transition-all cursor-pointer select-none ${
                                 isActive ? 'hover:opacity-80' : 'line-through opacity-40 hover:opacity-60'
                             }`}
                             style={{ color: isActive ? m.color : '#94a3b8' }}
                             title={`Klik untuk ${isActive ? 'sembunyikan' : 'tampilkan'} ${m.label}`}
                         >
                             <span 
-                                className="w-2.5 h-2.5 rounded-[2px] transition-transform flex-shrink-0 shadow-2xs" 
+                                className="w-2.5 h-2.5 rounded-sm transition-transform flex-shrink-0 shadow-2xs" 
                                 style={{ backgroundColor: isActive ? m.color : '#cbd5e1' }}
                             />
                             <span>{m.label}</span>
@@ -623,7 +623,7 @@ const UnifiedProgressIndexChart: React.FC<UnifiedProgressIndexChartProps> = ({
                     );
                 })}
                 {/* Target line indicator */}
-                <div className="inline-flex items-center gap-1.5 text-[11px] text-slate-400 font-medium select-none ml-1">
+                <div className="inline-flex items-center gap-1.5 text-2xs text-slate-400 font-medium select-none ml-1">
                     <span className="w-3.5 h-0.5 border-b-[1.5px] border-dashed border-slate-300" />
                     <span>Target (100%)</span>
                 </div>
@@ -1295,7 +1295,7 @@ const StatistikPerkembangan: React.FC<StatistikPerkembanganProps> = ({
                                     </div>
                                     <div className="flex flex-wrap justify-center gap-3 mt-4 flex-shrink-0">
                                         {(chart.options as string[]).map((opt: string) => (
-                                            <div key={opt} className="flex items-center text-[12px] font-semibold text-slate-600">
+                                            <div key={opt} className="flex items-center text-xs font-semibold text-slate-600">
                                                 <span className="w-2.5 h-2.5 rounded hover:scale-110 transition-transform mr-2 shadow-sm" style={{ backgroundColor: getOptionColor(chart.categoryKey, opt, chart.options as string[]) }}></span>
                                                 {opt}
                                             </div>
@@ -1305,7 +1305,7 @@ const StatistikPerkembangan: React.FC<StatistikPerkembanganProps> = ({
                             ) : (
                                 <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2">
                                     <PieChartIcon size={32} className="text-slate-200" strokeWidth={1.5} />
-                                    <p className="text-[13px] font-medium">Tidak ada data evaluasi</p>
+                                    <p className="text-sm font-medium">Tidak ada data evaluasi</p>
                                 </div>
                             )}
                         </ChartWithDownload>
@@ -1326,7 +1326,7 @@ const StatistikPerkembangan: React.FC<StatistikPerkembanganProps> = ({
                             ) : (
                                 <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2">
                                     <BarChart2 size={32} className="text-slate-200" strokeWidth={1.5} />
-                                    <p className="text-[13px] font-medium">Tidak ada data evaluasi</p>
+                                    <p className="text-sm font-medium">Tidak ada data evaluasi</p>
                                 </div>
                             )}
                         </ChartWithDownload>
@@ -1336,7 +1336,7 @@ const StatistikPerkembangan: React.FC<StatistikPerkembanganProps> = ({
                 {/* HALAQAH EVALUATION CHARTS */}
                 {halaqahChartsData.length > 0 && (
                     <div className="pt-8 mt-8 border-t border-slate-200/60">
-                        <h3 className="text-[18px] font-extrabold text-slate-800 mb-6 flex items-center"><PieChartIcon size={20} className="mr-2 text-indigo-500" strokeWidth={2.5}/> Statistik Evaluasi Halaqah</h3>
+                        <h3 className="text-lg font-extrabold text-slate-800 mb-6 flex items-center"><PieChartIcon size={20} className="mr-2 text-blue-500" strokeWidth={2.5}/> Statistik Evaluasi Halaqah</h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             {halaqahChartsData.map((chart, idx) => (
                                 <ChartWithDownload key={`halaqah-${idx}`} title={chart.title} height="300px">
@@ -1354,7 +1354,7 @@ const StatistikPerkembangan: React.FC<StatistikPerkembanganProps> = ({
                                             </div>
                                             <div className="flex flex-wrap justify-center gap-2.5 mt-4 flex-shrink-0">
                                                 {(chart.options as string[]).map((opt: string) => (
-                                                    <div key={opt} className="flex items-center text-[11px] font-semibold text-slate-600">
+                                                    <div key={opt} className="flex items-center text-2xs font-semibold text-slate-600">
                                                         <span className="w-2 h-2 rounded hover:scale-110 transition-transform mr-1.5 shadow-sm" style={{ backgroundColor: getOptionColor(chart.categoryKey, opt, chart.options as string[], chart.optionColors) }}></span>
                                                         {opt}
                                                     </div>
@@ -1364,7 +1364,7 @@ const StatistikPerkembangan: React.FC<StatistikPerkembanganProps> = ({
                                     ) : (
                                         <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2">
                                             <PieChartIcon size={28} className="text-slate-200" strokeWidth={1.5} />
-                                            <p className="text-[12px] font-medium">Tidak ada data</p>
+                                            <p className="text-xs font-medium">Tidak ada data</p>
                                         </div>
                                     )}
                                 </ChartWithDownload>

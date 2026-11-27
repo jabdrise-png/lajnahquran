@@ -76,14 +76,14 @@ export const GlobalPinnedBanner: React.FC<GlobalPinnedBannerProps> = ({ onNaviga
     if (activeInfo.length === 0 && !isMissingDates) return null;
 
     return (
-        <div className="flex flex-col w-full z-40 shadow-md print:hidden">
+        <div className="flex flex-col w-full z-40 shadow-sm print:hidden">
             {isMissingDates && (
                 <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 py-3 sm:px-6 lg:px-8 bg-amber-500 text-white border-b border-amber-600 gap-4">
                     <div className="flex items-start md:items-center min-w-0 flex-1">
                         <AlertCircle className="w-5 h-5 mr-3 mt-0.5 md:mt-0 flex-shrink-0 text-amber-100" />
                         <div className="pr-2">
-                            <span className="font-bold mr-2 text-[14px]">Tanggal Semester Belum Diatur</span>
-                            <span className="text-amber-100 text-[13px] hidden md:inline">
+                            <span className="font-bold mr-2 text-sm">Tanggal Semester Belum Diatur</span>
+                            <span className="text-amber-100 text-sm hidden md:inline">
                                 Admin perlu mengatur <strong>Tanggal Mulai</strong> dan <strong>Tanggal Selesai</strong> semester agar data absensi dan laporan dapat ditampilkan.
                             </span>
                         </div>
@@ -92,7 +92,7 @@ export const GlobalPinnedBanner: React.FC<GlobalPinnedBannerProps> = ({ onNaviga
                         <div className="flex items-center space-x-2 flex-shrink-0 w-full sm:w-auto mt-3 sm:mt-0">
                             <button 
                                 onClick={() => onNavigate('TahunAjaran')}
-                                className="w-full sm:w-auto px-4 py-1.5 bg-white text-amber-600 hover:bg-amber-50 text-[13px] font-bold rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2"
+                                className="w-full sm:w-auto px-4 py-1.5 bg-white text-amber-600 hover:bg-amber-50 text-sm font-bold rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2"
                             >
                                 <Calendar size={14} />
                                 Isi Sekarang

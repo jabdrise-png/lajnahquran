@@ -173,8 +173,8 @@ const UjianSemesterPage: React.FC = () => {
         description={`Khoto per juz → nilai otomatis (nilai awal ${rubrikAktif.initial_score} − kabir×${rubrikAktif.deduction_major} − shoghir×${rubrikAktif.deduction_minor}, minimum ${rubrikAktif.min_score}) · KKM ${rubrikAktif.passing_score} · Semester ${semester}`}
         actions={
           <div className="flex gap-2">
-            <button type="button" onClick={ekspor} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-700"><Download size={15} /> Ekspor</button>
-            <button type="button" onClick={() => fileRef.current?.click()} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-700"><Upload size={15} /> Impor</button>
+            <button type="button" onClick={ekspor} className="btn btn-secondary"><Download size={15} /> Ekspor</button>
+            <button type="button" onClick={() => fileRef.current?.click()} className="btn btn-secondary"><Upload size={15} /> Impor</button>
             <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={(e) => e.target.files?.[0] && impor(e.target.files[0])} />
           </div>
         }
@@ -202,7 +202,7 @@ const UjianSemesterPage: React.FC = () => {
       {tab !== 'catatan' && tampil.length > 0 && (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <table className="min-w-full text-sm tabel-kartu">
-            <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr><th className="px-3 py-2 text-left">Santri</th><th className="px-3 py-2 text-left">Materi (juz)</th><th className="px-3 py-2 text-right">Nilai</th><th className="px-3 py-2 text-left">Predikat</th><th className="px-3 py-2 text-right">Aksi</th></tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -211,10 +211,10 @@ const UjianSemesterPage: React.FC = () => {
                 return (
                   <tr key={s.id}>
                     <td className="px-3 py-2"><div className="font-semibold text-slate-800">{s.nama}</div>
-                      <div className="text-[11px] text-slate-400">{h.nama} · {s.kelas || '-'}{t ? ` · percobaan ${t.attempt_no}${t.is_remedial ? ' (remedial)' : ''}${jumlahSah(s.id) > 1 ? ` · tertinggi dari ${jumlahSah(s.id)} percobaan` : ''}` : ''}{t?.source === 'migrasi' ? ' · data lama' : ''}</div></td>
+                      <div className="text-2xs text-slate-400">{h.nama} · {s.kelas || '-'}{t ? ` · percobaan ${t.attempt_no}${t.is_remedial ? ' (remedial)' : ''}${jumlahSah(s.id) > 1 ? ` · tertinggi dari ${jumlahSah(s.id)} percobaan` : ''}` : ''}{t?.source === 'migrasi' ? ' · data lama' : ''}</div></td>
                     <td data-label="Materi (juz)" className="px-3 py-2 text-slate-600">{t?.materi_juz || '-'}</td>
                     <td data-label="Nilai" className="px-3 py-2 text-right font-semibold tabular-nums">{tampilNilai(t?.final_score)}</td>
-                    <td data-label="Predikat" className="px-3 py-2">{t ? <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${t.passed === false ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}>{t.predikat}{t.passed === false ? ' · perlu remedial' : ''}</span> : <span className="text-slate-300">-</span>}</td>
+                    <td data-label="Predikat" className="px-3 py-2">{t ? <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${t.passed === false ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>{t.predikat}{t.passed === false ? ' · perlu remedial' : ''}</span> : <span className="text-slate-300">-</span>}</td>
                     <td data-label="Aksi" className="px-3 py-2 text-right whitespace-nowrap">
                       {!t && <button type="button" className="text-xs font-semibold text-blue-700" onClick={() => buka(s, 'baru')}>Input nilai</button>}
                       {t && <button type="button" className="text-xs font-semibold text-blue-700 mr-3 inline-flex items-center gap-1" onClick={() => buka(s, 'remedial')}><RotateCcw size={12} /> Remedial</button>}
@@ -239,7 +239,7 @@ const UjianSemesterPage: React.FC = () => {
             </label>
           ))}
           <div className="flex justify-end">
-            <button type="button" disabled={Object.keys(catatanDraf).length === 0} onClick={simpanCatatanMassal} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-50"><Save size={15} /> Simpan catatan</button>
+            <button type="button" disabled={Object.keys(catatanDraf).length === 0} onClick={simpanCatatanMassal} className="btn btn-primary"><Save size={15} /> Simpan catatan</button>
           </div>
         </div>
       )}
@@ -253,7 +253,7 @@ const UjianSemesterPage: React.FC = () => {
             {daftarJuz.length > 0 && (
               <div className="rounded-lg border border-slate-200 overflow-hidden">
                 <table className="min-w-full text-sm tabel-kartu">
-                  <thead className="bg-slate-50 text-[11px] uppercase text-slate-500"><tr><th className="px-3 py-1.5 text-left">Juz</th><th className="px-3 py-1.5 text-left">Kabir</th><th className="px-3 py-1.5 text-left">Shoghir</th><th className="px-3 py-1.5 text-left" title="Kosongkan untuk memakai hitungan rubrik">Nilai custom</th><th className="px-3 py-1.5 text-right">Nilai</th></tr></thead>
+                  <thead className="bg-slate-50 text-2xs uppercase text-slate-500"><tr><th className="px-3 py-1.5 text-left">Juz</th><th className="px-3 py-1.5 text-left">Kabir</th><th className="px-3 py-1.5 text-left">Shoghir</th><th className="px-3 py-1.5 text-left" title="Kosongkan untuk memakai hitungan rubrik">Nilai custom</th><th className="px-3 py-1.5 text-right">Nilai</th></tr></thead>
                   <tbody className="divide-y divide-slate-100">
                     {daftarJuz.map((j) => (
                       <tr key={j}>
@@ -266,7 +266,7 @@ const UjianSemesterPage: React.FC = () => {
                         <td data-label="Nilai custom" className="px-3 py-1.5"><input type="number" min={0} max={100} step="any" inputMode="decimal" className={`${inputCls.replace('w-full', 'w-24')}`}
                           value={form.juz[j]?.custom ?? ''} placeholder="otomatis"
                           onChange={(e) => setForm({ ...form, juz: { ...form.juz, [j]: { kabir: form.juz[j]?.kabir ?? '', shoghir: form.juz[j]?.shoghir ?? '', custom: e.target.value } } })} /></td>
-                        <td data-label="Nilai" className="px-3 py-1.5 text-right tabular-nums">{tampilNilai(nilaiJuzInput(rubrikAktif, juzIsi.find((x) => x.juz === j) || { juz: j, kabir: 0, shoghir: 0 }))}{(form.juz[j]?.custom ?? '').trim() !== '' && <span className="ml-1 text-[10px] text-amber-700">custom</span>}</td>
+                        <td data-label="Nilai" className="px-3 py-1.5 text-right tabular-nums">{tampilNilai(nilaiJuzInput(rubrikAktif, juzIsi.find((x) => x.juz === j) || { juz: j, kabir: 0, shoghir: 0 }))}{(form.juz[j]?.custom ?? '').trim() !== '' && <span className="ml-1 text-2xs text-amber-700">custom</span>}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -282,7 +282,7 @@ const UjianSemesterPage: React.FC = () => {
             </label>
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setForm(null)} className="px-4 py-2 rounded-lg border border-slate-300 font-semibold text-slate-700">Batal</button>
-              <button type="button" disabled={menyimpan} onClick={simpan} className="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold disabled:opacity-50">{menyimpan ? 'Menyimpan…' : 'Simpan'}</button>
+              <button type="button" disabled={menyimpan} onClick={simpan} className="btn btn-primary">{menyimpan ? 'Menyimpan…' : 'Simpan'}</button>
             </div>
           </div>
         )}

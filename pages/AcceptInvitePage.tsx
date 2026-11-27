@@ -283,7 +283,7 @@ export const AcceptInvitePage: React.FC = () => {
                   ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
                   : tokenState === 'expired'
                   ? 'bg-amber-50 border-amber-200 text-amber-900'
-                  : 'bg-rose-50 border-rose-200 text-rose-900'
+                  : 'bg-red-50 border-red-200 text-red-900'
               }`}
             >
               <div className="flex items-start gap-3">
@@ -293,11 +293,11 @@ export const AcceptInvitePage: React.FC = () => {
                       ? 'fa-check-circle text-emerald-600'
                       : tokenState === 'expired'
                       ? 'fa-clock text-amber-600'
-                      : 'fa-ban text-rose-600'
+                      : 'fa-ban text-red-600'
                   } text-base mt-0.5`}
                 ></i>
                 <div className="text-xs space-y-1.5">
-                  <p className="font-bold uppercase tracking-wider">
+                  <p className="font-semibold">
                     {tokenState === 'accepted' && 'Undangan Sudah Digunakan (Sekali Pakai)'}
                     {tokenState === 'expired' && 'Undangan Kedaluwarsa (Expired)'}
                     {tokenState === 'revoked' && 'Undangan Dibatalkan (Revoked)'}
@@ -308,8 +308,8 @@ export const AcceptInvitePage: React.FC = () => {
                       'Tautan undangan ini tidak dapat digunakan untuk mengaktifkan akun.'}
                   </p>
                   {inspectedInvite?.email && (
-                    <p className="text-[11px] opacity-80">
-                      Target: <span className="font-mono font-semibold">{inspectedInvite.email}</span>
+                    <p className="text-2xs opacity-80">
+                      Target: <span className="font-semibold">{inspectedInvite.email}</span>
                       {inspectedInvite.organization_name
                         ? ` • ${inspectedInvite.organization_name}`
                         : ''}
@@ -334,7 +334,7 @@ export const AcceptInvitePage: React.FC = () => {
                 <div className="mb-5 p-3.5 rounded-xl bg-blue-50/80 border border-blue-200/80 text-xs text-slate-700 space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-blue-900">Detail Undangan Resmi</span>
-                    <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-bold text-[10px] uppercase">
+                    <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-bold text-2xs uppercase">
                       {formatCanonicalRoleLabel(inspectedInvite.role)}
                     </span>
                   </div>
@@ -364,9 +364,9 @@ export const AcceptInvitePage: React.FC = () => {
                   </p>
                   <p className="leading-relaxed">
                     Anda sedang login sebagai{' '}
-                    <span className="font-mono font-bold">{sessionEmail}</span>, sedangkan undangan
+                    <span className="font-bold">{sessionEmail}</span>, sedangkan undangan
                     ini ditujukan khusus untuk{' '}
-                    <span className="font-mono font-bold">{targetInvitedEmail}</span>. Anda tidak
+                    <span className="font-bold">{targetInvitedEmail}</span>. Anda tidak
                     dapat mengaktifkan undangan ini menggunakan akun lain.
                   </p>
                   <button
@@ -382,7 +382,7 @@ export const AcceptInvitePage: React.FC = () => {
 
               <form onSubmit={handleActivate} className="space-y-4">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Alamat Email Undangan
                   </label>
                   <input
@@ -392,13 +392,13 @@ export const AcceptInvitePage: React.FC = () => {
                     disabled={hasActiveSession || Boolean(inspectedInvite?.email) || Boolean(emailParam)}
                     required
                     placeholder="nama@lembaga.id"
-                    className="w-full px-3.5 py-2.5 text-xs border border-slate-300 rounded-xl bg-white disabled:bg-slate-100 text-slate-800 font-mono focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                    className="w-full px-3.5 py-2.5 text-xs border border-slate-300 rounded-xl bg-white disabled:bg-slate-100 text-slate-800 focus:ring-2 focus:ring-blue-600 focus:outline-none"
                   />
                 </div>
 
                 {!hasActiveSession && (
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
                       Kode Verifikasi / Sandi Sementara Undangan
                     </label>
                     <input
@@ -413,7 +413,7 @@ export const AcceptInvitePage: React.FC = () => {
                 )}
 
                 <div className="pt-2 border-t border-slate-100">
-                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Kata Sandi Baru (Minimal 8 Karakter)
                   </label>
                   <input
@@ -428,7 +428,7 @@ export const AcceptInvitePage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Konfirmasi Kata Sandi Baru
                   </label>
                   <input

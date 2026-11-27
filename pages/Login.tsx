@@ -129,7 +129,7 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
     <div className="min-h-screen bg-white flex selection:bg-blue-100 selection:text-blue-900">
       
       {/* Left Column - Form */}
-      <div className="flex-1 flex flex-col justify-center px-6 py-12 lg:flex-none lg:w-1/2 xl:w-[45%] lg:px-16 xl:px-24 border-r border-slate-100 shadow-[4px_0_24px_rgba(0,0,0,0.01)] z-10 overflow-y-auto relative">
+      <div className="flex-1 flex flex-col justify-center px-6 py-12 lg:flex-none lg:w-1/2 xl:w-[45%] lg:px-16 xl:px-24 border-r border-slate-100 shadow-xs z-10 overflow-y-auto relative">
         
           {/* Back Button */}
           {onBack && (
@@ -153,36 +153,36 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
                     className="w-16 h-16 object-contain"
                 />
             </div>
-            <span className="text-[20px] font-bold tracking-tight text-slate-900">{publishedConfig.theme.appName || 'Lajnah Quran'}</span>
+            <span className="text-xl font-bold tracking-tight text-slate-900">{publishedConfig.theme.appName || 'Lajnah Quran'}</span>
           </div>
 
           <div className="text-center">
             <h2 className="text-2xl font-bold tracking-tight text-slate-900">
               {mode === 'login' ? 'Selamat datang kembali' : mode === 'lupa' ? 'Lupa kata sandi' : 'Pendaftaran Admin'}
             </h2>
-            <p className="mt-2 text-[14px] text-slate-500 mb-8">
+            <p className="mt-2 text-sm text-slate-500 mb-8">
               {mode === 'login' ? 'Silakan masukkan detail akun Anda untuk melanjutkan.' : mode === 'lupa' ? 'Atur ulang kata sandi lewat email.' : 'Lengkapi data di bawah ini untuk membuat akun baru.'}
             </p>
           </div>
 
           {message && (
-              <div className={`mb-6 p-3 rounded-lg text-xs font-medium border flex items-start ${message.type === 'error' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-green-50 text-green-700 border-green-100'}`}>
+              <div className={`mb-6 p-3 rounded-lg text-xs font-medium border flex items-start ${message.type === 'error' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-emerald-50 text-emerald-700 border-emerald-100'}`}>
                   {message.text}
               </div>
           )}
 
           {mode === 'lupa' ? (
             <form className="space-y-4" onSubmit={handleLupa}>
-              <p className="text-[14px] text-slate-600">Masukkan email akun Anda. Kami kirim tautan untuk membuat kata sandi baru.</p>
+              <p className="text-sm text-slate-600">Masukkan email akun Anda. Kami kirim tautan untuk membuat kata sandi baru.</p>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none"><Mail className="h-[18px] w-[18px] text-slate-400" /></div>
                 <input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nama@pesantren.com"
-                  className="block w-full pl-10 pr-3 py-3 border border-slate-200/80 rounded-xl text-[14px] text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 bg-white" />
+                  className="block w-full pl-10 pr-3 py-3 border border-slate-200/80 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 bg-white" />
               </div>
-              <button type="submit" disabled={loading} className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[14px] font-semibold disabled:opacity-70">
+              <button type="submit" disabled={loading} className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold disabled:opacity-70">
                 {loading ? 'Mengirim…' : 'Kirim tautan atur ulang'}
               </button>
-              <button type="button" onClick={() => { setMode('login'); setMessage(null); }} className="w-full py-2 text-[13px] font-medium text-slate-600 inline-flex items-center justify-center gap-1.5">
+              <button type="button" onClick={() => { setMode('login'); setMessage(null); }} className="w-full py-2 text-sm font-medium text-slate-600 inline-flex items-center justify-center gap-1.5">
                 <ArrowLeft size={14} /> Kembali ke halaman masuk
               </button>
             </form>
@@ -190,7 +190,7 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
             <div className="animate-in fade-in slide-in-from-right duration-300">
               <form className="space-y-4" onSubmit={handleLogin}>
                 <div>
-                  <label htmlFor="email" className="block text-[13px] font-medium text-slate-700 mb-1.5">
+                  <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1.5">
                     Alamat Email
                   </label>
                   <div className="relative">
@@ -205,7 +205,7 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="block w-full pl-10 pr-3 py-2.5 border border-slate-200/80 rounded-xl text-[13px] text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 bg-white transition-all shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] hover:border-slate-300"
+                      className="block w-full pl-10 pr-3 py-2.5 border border-slate-200/80 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 bg-white transition-all shadow-xs hover:border-slate-300"
                       placeholder="admin@pesantren.com"
                     />
                   </div>
@@ -213,10 +213,10 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
 
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label htmlFor="password" className="block text-[13px] font-medium text-slate-700">
+                    <label htmlFor="password" className="block text-sm font-medium text-slate-700">
                       Kata Sandi
                     </label>
-                    <button type="button" onClick={() => { setMode('lupa'); setMessage(null); }} className="text-[13px] font-medium text-blue-600 hover:text-blue-700 transition-colors py-1">
+                    <button type="button" onClick={() => { setMode('lupa'); setMessage(null); }} className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors py-1">
                       Lupa sandi?
                     </button>
                   </div>
@@ -232,7 +232,7 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="block w-full pl-10 pr-3 py-2.5 border border-slate-200/80 rounded-xl text-[13px] text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 bg-white transition-all shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] hover:border-slate-300"
+                      className="block w-full pl-10 pr-3 py-2.5 border border-slate-200/80 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 bg-white transition-all shadow-xs hover:border-slate-300"
                       placeholder="••••••••"
                     />
                   </div>
@@ -245,7 +245,7 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
                     type="checkbox"
                     className="h-4 w-4 text-blue-600 focus:ring-blue-600/20 border-slate-300 rounded cursor-pointer transition-colors"
                   />
-                  <label htmlFor="remember-me" className="ml-2 block text-[13px] text-slate-600 cursor-pointer select-none">
+                  <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-600 cursor-pointer select-none">
                     Ingat saya selama 30 hari
                   </label>
                 </div> */}
@@ -254,7 +254,7 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-xl shadow-[0_2px_12px_rgba(37,99,235,0.25)] text-[14px] font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                    className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-xl shadow-xs text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 transition-all disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                   >
                     {loading ? (
                         <span className="flex items-center">
@@ -269,18 +269,18 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
               <div className="mt-6">
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200/60" /></div>
-                  <div className="relative flex justify-center text-[12px]"><span className="px-3 bg-white text-slate-400">atau</span></div>
+                  <div className="relative flex justify-center text-xs"><span className="px-3 bg-white text-slate-400">atau</span></div>
                 </div>
                 <button type="button" onClick={handleGoogle}
-                  className="mt-4 w-full inline-flex justify-center items-center gap-2.5 py-2.5 px-4 border border-slate-200 rounded-xl bg-white text-[14px] font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+                  className="mt-4 w-full inline-flex justify-center items-center gap-2.5 py-2.5 px-4 border border-slate-200 rounded-xl bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
                   <svg viewBox="0 0 48 48" className="w-[18px] h-[18px]" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>
                   Masuk dengan Google
                 </button>
-                <p className="mt-2 text-center text-[12px] text-slate-400">Gunakan akun Google dengan email yang sama seperti undangan lembaga.</p>
+                <p className="mt-2 text-center text-xs text-slate-400">Gunakan akun Google dengan email yang sama seperti undangan lembaga.</p>
               </div>
               
               <div className="mt-8 text-center border-t border-slate-100 pt-6">
-                <p className="text-[13px] text-slate-500">
+                <p className="text-sm text-slate-500">
                   Belum memiliki akun? <button onClick={() => { setMode('register'); setMessage(null); }} className="font-medium text-blue-600 hover:text-blue-700 transition-colors">Daftar sekarang</button>
                 </p>
               </div>
@@ -289,7 +289,7 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
             <div className="animate-in fade-in slide-in-from-left duration-300">
               <form className="space-y-4" onSubmit={handleRegister}>
                 <div>
-                    <label className="block text-[13px] font-medium text-slate-700 mb-1.5">Tipe Pendaftaran</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Tipe Pendaftaran</label>
                     <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
                             {regType === 'create' ? <Building className="h-[18px] w-[18px] text-slate-400" /> : <Network className="h-[18px] w-[18px] text-slate-400" />}
@@ -297,7 +297,7 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
                         <select 
                             value={regType}
                             onChange={(e) => setRegType(e.target.value as 'create' | 'join')}
-                            className="block w-full rounded-xl border border-slate-200/80 py-2.5 pl-10 pr-8 text-[13px] text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 bg-white appearance-none hover:border-slate-300 transition-all shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]"
+                            className="block w-full rounded-xl border border-slate-200/80 py-2.5 pl-10 pr-8 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 bg-white appearance-none hover:border-slate-300 transition-all shadow-xs"
                         >
                             <option value="create">Daftar Ma'had Baru</option>
                             <option value="join">Gabung Ma'had (Sudah Ada)</option>
@@ -309,13 +309,13 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
                 </div>
 
                 <div>
-                    <label className="block text-[13px] font-medium text-slate-700 mb-1.5">Nama Lengkap</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Nama Lengkap</label>
                     <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none"><User className="h-[18px] w-[18px] text-slate-400" /></div>
                         <input
                             type="text"
                             required
-                            className="block w-full pl-10 pr-3 py-2.5 border border-slate-200/80 rounded-xl text-[13px] text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 bg-white transition-all shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] hover:border-slate-300"
+                            className="block w-full pl-10 pr-3 py-2.5 border border-slate-200/80 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 bg-white transition-all shadow-xs hover:border-slate-300"
                             placeholder="Nama Lengkap Admin"
                             value={fullName}
                             onChange={(e) => setFullName(e.target.value)}
@@ -326,12 +326,12 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
                 {/* Conditional Input based on Type */}
                 {regType === 'create' ? (
                     <div>
-                        <label className="block text-[13px] font-medium text-slate-700 mb-1.5">Nama Ma'had</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1.5">Nama Ma'had</label>
                         <div className="relative">
                             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none"><Building className="h-[18px] w-[18px] text-slate-400" /></div>
                             <input
                                 type="text"
-                                className="block w-full pl-10 pr-3 py-2.5 border border-slate-200/80 rounded-xl text-[13px] text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 bg-white transition-all shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] hover:border-slate-300"
+                                className="block w-full pl-10 pr-3 py-2.5 border border-slate-200/80 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 bg-white transition-all shadow-xs hover:border-slate-300"
                                 placeholder="Nama Ma'had Baru"
                                 value={mahadName}
                                 onChange={(e) => setMahadName(e.target.value)}
@@ -340,12 +340,12 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
                     </div>
                 ) : (
                     <div>
-                        <label className="block text-[13px] font-medium text-slate-700 mb-1.5">ID Organisasi</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1.5">ID Organisasi</label>
                         <div className="relative">
                             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none"><ClipboardCopy className="h-[18px] w-[18px] text-slate-400" /></div>
                             <input
                                 type="text"
-                                className="block w-full pl-10 pr-3 py-2.5 border border-slate-200/80 rounded-xl text-[13px] text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 bg-white transition-all shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] hover:border-slate-300 font-mono"
+                                className="block w-full pl-10 pr-3 py-2.5 border border-slate-200/80 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 bg-white transition-all shadow-xs hover:border-slate-300"
                                 placeholder="ID Organisasi (Minta ke Admin)"
                                 value={orgId}
                                 onChange={(e) => setOrgId(e.target.value)}
@@ -355,13 +355,13 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
                 )}
 
                 <div>
-                    <label className="block text-[13px] font-medium text-slate-700 mb-1.5">Alamat Email</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Alamat Email</label>
                     <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none"><Mail className="h-[18px] w-[18px] text-slate-400" /></div>
                         <input
                             type="email"
                             required
-                            className="block w-full pl-10 pr-3 py-2.5 border border-slate-200/80 rounded-xl text-[13px] text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 bg-white transition-all shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] hover:border-slate-300"
+                            className="block w-full pl-10 pr-3 py-2.5 border border-slate-200/80 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 bg-white transition-all shadow-xs hover:border-slate-300"
                             placeholder="Email Login"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
@@ -369,13 +369,13 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
                     </div>
                 </div>
                 <div>
-                    <label className="block text-[13px] font-medium text-slate-700 mb-1.5">Kata Sandi</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Kata Sandi</label>
                     <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none"><KeyRound className="h-[18px] w-[18px] text-slate-400" /></div>
                         <input
                             type="password"
                             required
-                            className="block w-full pl-10 pr-3 py-2.5 border border-slate-200/80 rounded-xl text-[13px] text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 bg-white transition-all shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] hover:border-slate-300"
+                            className="block w-full pl-10 pr-3 py-2.5 border border-slate-200/80 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 bg-white transition-all shadow-xs hover:border-slate-300"
                             placeholder="Password (Min. 6 karakter)"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
@@ -387,17 +387,17 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-xl shadow-[0_2px_12px_rgba(37,99,235,0.25)] text-[14px] font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-600 transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                        className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-xl shadow-xs text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-600 transition-all disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                     >
                         {loading ? 'Mendaftarkan...' : 'Daftar Akun'}
                     </button>
-                    <p className="text-[11px] text-slate-400 mt-4 text-center leading-relaxed px-4">
+                    <p className="text-2xs text-slate-400 mt-4 text-center leading-relaxed px-4">
                         *Akun baru memerlukan persetujuan Super Admin sebelum bisa digunakan. Pastikan data yang dimasukkan benar.
                     </p>
                 </div>
                 
                 <div className="mt-8 text-center border-t border-slate-100 pt-6">
-                  <p className="text-[13px] text-slate-500">
+                  <p className="text-sm text-slate-500">
                     Sudah memiliki akun? <button type="button" onClick={() => { setMode('login'); setMessage(null); }} className="font-medium text-blue-600 hover:text-blue-700 transition-colors">Masuk sekarang</button>
                   </p>
                 </div>
@@ -425,7 +425,7 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
         <div className="relative z-10 w-full max-w-[560px] p-12">
           {publishedConfig.loginPage?.systemStatusText && (
             <div className="mb-12">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-400/20 text-blue-300 text-[12px] font-medium backdrop-blur-md">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-400/20 text-blue-300 text-xs font-medium backdrop-blur-md">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
@@ -437,7 +437,7 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
 
           <Quote className="w-10 h-10 text-blue-400/40 mb-6" />
           
-          <h3 className="text-2xl xl:text-[28px] font-semibold tracking-tight text-white leading-[1.4] mb-8">
+          <h3 className="text-2xl xl:text-3xl font-semibold tracking-tight text-white leading-[1.4] mb-8">
             {publishedConfig.loginPage?.quoteText || '"Platform ini mengubah total cara kami mengelola progres hafalan santri. Sangat intuitif, cepat, dan laporannya luar biasa rapi. Benar-benar memangkas jam kerja admin."'}
           </h3>
           
@@ -450,8 +450,8 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
               />
             </div>
             <div>
-              <div className="text-[14px] font-semibold text-white">{publishedConfig.loginPage?.authorName || 'Ust. Ahmad Fatih'}</div>
-              <div className="text-[13px] text-slate-400">{publishedConfig.loginPage?.authorRole || 'Kepala Tahfidz, PPTQ Al-Ikhlas'}</div>
+              <div className="text-sm font-semibold text-white">{publishedConfig.loginPage?.authorName || 'Ust. Ahmad Fatih'}</div>
+              <div className="text-sm text-slate-400">{publishedConfig.loginPage?.authorRole || 'Kepala Tahfidz, PPTQ Al-Ikhlas'}</div>
             </div>
           </div>
           
@@ -460,7 +460,7 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
               {publishedConfig.loginPage.stats.map((stat, idx) => (
                 <div key={idx}>
                   <div className="text-2xl font-bold text-white mb-1">{stat.value}</div>
-                  <div className="text-[12px] text-slate-400 font-medium">{stat.label}</div>
+                  <div className="text-xs text-slate-400 font-medium">{stat.label}</div>
                 </div>
               ))}
             </div>

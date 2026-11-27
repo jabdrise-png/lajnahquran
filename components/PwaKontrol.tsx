@@ -103,7 +103,7 @@ const PwaKontrol: React.FC = () => {
           <div className="flex items-start gap-3">
             <img src="/icons/icon-192.png" alt="" className="w-10 h-10 rounded-lg shrink-0" />
             <div className="flex-1 min-w-0">
-              <div className="font-semibold text-slate-900 text-[15px]">Pasang Lajnah Quran</div>
+              <div className="font-semibold text-slate-900 text-base">Pasang Lajnah Quran</div>
               {petunjukIos ? (
                 <p className="text-sm text-slate-600 mt-0.5">
                   Di Safari, ketuk <Share size={14} className="inline -mt-0.5" /> <b>Bagikan</b> lalu pilih <b>Tambah ke Layar Utama</b>.

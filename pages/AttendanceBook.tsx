@@ -10,6 +10,7 @@ import { addDays, format } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { NotificationStore } from '../lib/NotificationStore';
+import { LoadingState } from '../components/ui/SaaSPrimitives';
 
 interface AttendanceBookProps {
     onNavigate?: (page: any) => void;
@@ -418,7 +419,7 @@ const AttendanceBook: React.FC<AttendanceBookProps> = ({ onNavigate }) => {
         }
     };
 
-    if (loading) return <p>Loading data...</p>;
+    if (loading) return <LoadingState label="Memuat data…" />;
     if (error) return <p className="text-error">Error: {error}</p>;
 
     return (
@@ -524,7 +525,7 @@ const AttendanceBook: React.FC<AttendanceBookProps> = ({ onNavigate }) => {
                     <button 
                         onClick={handleDownloadPDF} 
                         disabled={filteredHalaqah.length === 0}
-                        className="bg-secondary text-white font-bold py-2.5 px-6 rounded-lg hover:bg-accent transition-colors flex items-center shadow-md disabled:bg-slate-400 disabled:cursor-not-allowed"
+                        className="bg-secondary text-white font-bold py-2.5 px-6 rounded-lg hover:bg-accent transition-colors flex items-center shadow-sm disabled:bg-slate-400 disabled:cursor-not-allowed"
                     >
                         <Printer size={20} className="mr-2" />
                         Download PDF
@@ -535,7 +536,7 @@ const AttendanceBook: React.FC<AttendanceBookProps> = ({ onNavigate }) => {
             {/* Live Preview Section */}
             <div className="bg-slate-200 p-4 rounded-xl border border-slate-300">
                 <div className="flex justify-between items-center mb-2">
-                    <h3 className="font-bold text-slate-700">Live Preview</h3>
+                    <h3 className="font-bold text-slate-700">Pratinjau</h3>
                     {!previewUrl && <span className="text-sm text-slate-500 italic">Menyiapkan preview...</span>}
                 </div>
                 <div className="w-full h-[750px] bg-white rounded shadow-lg overflow-hidden relative">

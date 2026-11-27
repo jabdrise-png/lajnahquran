@@ -203,7 +203,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
     const result: Array<{
       date: string;
       name: string;
-      percentage: number;
+      percentage: number | null;
       total: number;
       hadir: number;
     }> = [];
@@ -214,7 +214,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
       const label = daysCount <= 7 ? format(d, 'eee', { locale: localeId }) : format(d, 'd/M');
 
       const dayRecords = (attendance || []).filter((a) => a.date === str);
-      let pct = 0;
+      // Fase 7b: hari tanpa absensi = kosong (bukan 0%), agar grafik tidak menukik palsu
+      let pct: number | null = null;
       let hadirCount = 0;
 
       if (dayRecords.length > 0) {
@@ -632,7 +633,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
   // Loading & Error States
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#F3F6FB]">
+      <div className="flex h-screen items-center justify-center bg-slate-100">
         <div className="text-center p-8 bg-white rounded-2xl shadow-sm border border-slate-200">
           <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-xs font-semibold text-slate-700">Memuat dashboard operasional...</p>
@@ -643,7 +644,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
 
   if (error) {
     return (
-      <div className="p-8 text-center bg-rose-50 rounded-2xl border border-rose-200 text-rose-700 text-xs font-semibold">
+      <div className="p-8 text-center bg-red-50 rounded-2xl border border-red-200 text-red-700 text-xs font-semibold">
         Terjadi kendala saat memuat data: {error}
       </div>
     );
@@ -654,12 +655,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
       {/* =====================================================================
           HEADER ATAS (Greeting + Tanggal + Action Buttons)
       ===================================================================== */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#E1E7EF]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#101828]">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
             Assalamualaikum, {userProfile?.name || 'Ustadz'}
           </h1>
-          <p className="text-xs sm:text-sm text-[#667085] mt-0.5 capitalize">
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5 capitalize">
             {format(new Date(), 'EEEE, dd MMMM yyyy', { locale: localeId })}
           </p>
         </div>
@@ -667,15 +668,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
           <button
             type="button"
             onClick={() => navigate('/app/attendance-book')}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] border border-[#E1E7EF] bg-white hover:bg-[#F3F6FB] text-xs font-semibold text-[#344054] shadow-2xs transition-colors"
+            className="btn btn-secondary btn-sm"
           >
-            <BookOpen size={14} className="text-[#667085]" />
+            <BookOpen size={14} className="text-slate-500" />
             Buku Absensi
           </button>
           <button
             type="button"
             onClick={() => navigate('/app/sessions')}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[10px] bg-[#1557D5] hover:bg-[#1E40AF] text-white text-xs font-semibold shadow-xs transition-colors"
+            className="btn btn-primary btn-sm"
           >
             Buka Ruang Sesi →
           </button>
@@ -685,55 +686,55 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
       {/* =====================================================================
           ROW 1: 4 KARTU KPI RINGKAS & TINGGI DIPERPENDEK
       ===================================================================== */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {/* KPI 1: Total Santri */}
-        <div className="bg-white rounded-[14px] border border-[#E1E7EF] p-4 shadow-2xs flex flex-col justify-between">
-          <span className="text-[11px] font-semibold text-[#667085] uppercase tracking-wider">
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs flex flex-col justify-between">
+          <span className="text-xs font-semibold text-slate-500">
             Total Santri
           </span>
-          <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-[#101828] tabular-nums">
+          <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 tabular-nums">
             {totalSantriAktif}
           </div>
-          <div className="mt-1 text-[11px] text-[#667085]">
+          <div className="mt-1 text-2xs text-slate-500">
             santri aktif terdaftar
           </div>
         </div>
 
         {/* KPI 2: Total Musammi' */}
-        <div className="bg-white rounded-[14px] border border-[#E1E7EF] p-4 shadow-2xs flex flex-col justify-between">
-          <span className="text-[11px] font-semibold text-[#667085] uppercase tracking-wider">
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs flex flex-col justify-between">
+          <span className="text-xs font-semibold text-slate-500">
             Total Musammi'
           </span>
-          <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-[#101828] tabular-nums">
+          <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 tabular-nums">
             {totalMusammi}
           </div>
-          <div className="mt-1 text-[11px] text-[#667085]">
+          <div className="mt-1 text-2xs text-slate-500">
             pengampu halaqah aktif
           </div>
         </div>
 
         {/* KPI 3: Total Halaqah */}
-        <div className="bg-white rounded-[14px] border border-[#E1E7EF] p-4 shadow-2xs flex flex-col justify-between">
-          <span className="text-[11px] font-semibold text-[#667085] uppercase tracking-wider">
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs flex flex-col justify-between">
+          <span className="text-xs font-semibold text-slate-500">
             Total Halaqah
           </span>
-          <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-[#101828] tabular-nums">
+          <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 tabular-nums">
             {totalHalaqahAktif}
           </div>
-          <div className="mt-1 text-[11px] text-[#667085]">
+          <div className="mt-1 text-2xs text-slate-500">
             kelompok halaqah berjalan
           </div>
         </div>
 
         {/* KPI 4: Sesi Berjalan (Murni Angka & per hari ini, tanpa jadwal sholat) */}
-        <div className="bg-white rounded-[14px] border border-[#E1E7EF] p-4 shadow-2xs flex flex-col justify-between">
-          <span className="text-[11px] font-semibold text-[#667085] uppercase tracking-wider">
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs flex flex-col justify-between">
+          <span className="text-xs font-semibold text-slate-500">
             Sesi Berjalan
           </span>
-          <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-[#101828] tabular-nums">
+          <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 tabular-nums">
             {sessionKpi.completed} / {sessionKpi.total}
           </div>
-          <div className="mt-1 text-[11px] text-[#667085]">
+          <div className="mt-1 text-2xs text-slate-500">
             per hari ini
           </div>
         </div>
@@ -744,24 +745,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
       ===================================================================== */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Kiri (65% / 8 Kolom): Tren Persentase 30 Hari Terakhir */}
-        <div className="lg:col-span-8 bg-white rounded-[16px] border border-[#E1E7EF] p-5 shadow-2xs flex flex-col justify-between">
+        <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs flex flex-col justify-between">
           <div className="flex flex-wrap items-center justify-between gap-2 pb-4">
             <div>
-              <h2 className="text-sm sm:text-base font-bold text-[#101828]">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900">
                 Tren Persentase (30 Hari Terakhir)
               </h2>
-              <p className="text-xs text-[#667085] mt-0.5">Persentase kehadiran harian santri</p>
+              <p className="text-xs text-slate-500 mt-0.5">Persentase kehadiran harian santri</p>
             </div>
-            <div className="inline-flex rounded-[8px] bg-[#F3F6FB] p-0.5 border border-[#E1E7EF]">
+            <div className="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200">
               {(['7', '30', '90'] as const).map((r) => (
                 <button
                   key={r}
                   type="button"
                   onClick={() => setTrendRange(r)}
-                  className={`px-3 py-1 rounded-[6px] text-xs font-semibold transition-colors ${
+                  className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${
                     trendRange === r
-                      ? 'bg-white text-[#1557D5] shadow-2xs'
-                      : 'text-[#667085] hover:text-[#101828]'
+                      ? 'bg-white text-blue-600 shadow-2xs'
+                      : 'text-slate-500 hover:text-slate-900'
                   }`}
                 >
                   {r} hari
@@ -771,7 +772,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
           </div>
 
           <div className="h-[220px] w-full pt-2">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <ComposedChart
                 data={lineTrendData}
                 margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
@@ -827,17 +828,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
         </div>
 
         {/* Kanan (35% / 4 Kolom): Card Hal-Hal Mendesak Perlu Tindakan */}
-        <div className="lg:col-span-4 bg-white rounded-[16px] border border-[#E1E7EF] p-5 shadow-2xs flex flex-col justify-between">
+        <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between pb-3 border-b border-[#E1E7EF]">
-              <h2 className="text-sm sm:text-base font-bold text-[#101828]">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900">
                 Hal-Hal Mendesak Perlu Tindakan
               </h2>
-              <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-800 text-[11px] font-bold flex items-center justify-center">
+              <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-800 text-2xs font-bold flex items-center justify-center">
                 {actionItems.length}
               </span>
             </div>
-            <p className="text-xs text-[#667085] mt-1.5 mb-3">
+            <p className="text-xs text-slate-500 mt-1.5 mb-3">
               Diurutkan dari prioritas operasional lembaga
             </p>
 
@@ -845,14 +846,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
               {actionItems.map((item) => (
                 <div
                   key={item.id}
-                  className="p-3 rounded-[12px] bg-[#F8FAFC] border border-[#E1E7EF] flex items-center justify-between gap-3 hover:border-[#CBD5E1] transition-colors"
+                  className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3 hover:border-slate-300 transition-colors"
                 >
                   <div className="min-w-0 space-y-1">
                     <div className="flex items-center gap-2">
                       <span
-                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
+                        className={`px-1.5 py-0.5 rounded text-2xs font-bold uppercase ${
                           item.level === 'mendesak'
-                            ? 'bg-rose-100 text-rose-800'
+                            ? 'bg-red-100 text-red-800'
                             : item.level === 'hari_ini'
                             ? 'bg-amber-100 text-amber-800'
                             : 'bg-blue-100 text-blue-800'
@@ -861,13 +862,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
                         {item.levelLabel}
                       </span>
                     </div>
-                    <div className="text-xs font-bold text-[#101828] truncate">{item.title}</div>
-                    <div className="text-[11px] text-[#667085] truncate">{item.subtitle}</div>
+                    <div className="text-xs font-bold text-slate-900 truncate">{item.title}</div>
+                    <div className="text-2xs text-slate-500 truncate">{item.subtitle}</div>
                   </div>
                   <button
                     type="button"
                     onClick={item.onAction}
-                    className="px-3 py-1.5 rounded-[8px] border border-[#E1E7EF] bg-white hover:bg-[#F3F6FB] text-xs font-semibold text-[#101828] transition-colors shrink-0 shadow-2xs"
+                    className="btn btn-secondary btn-sm shrink-0"
                   >
                     {item.actionLabel}
                   </button>
@@ -883,16 +884,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
       ===================================================================== */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Kiri (50%): Stacked Bar Kehadiran Minggu Ini */}
-        <div className="bg-white rounded-[16px] border border-[#E1E7EF] p-5 shadow-2xs flex flex-col justify-between">
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs flex flex-col justify-between">
           <div className="pb-3">
-            <h2 className="text-sm sm:text-base font-bold text-[#101828]">
+            <h2 className="text-sm sm:text-base font-bold text-slate-900">
               Tren Kehadiran Seminggu Terakhir
             </h2>
-            <p className="text-xs text-[#667085] mt-0.5">Distribusi status per hari (Senin – Ahad)</p>
+            <p className="text-xs text-slate-500 mt-0.5">Distribusi status per hari (Senin – Ahad)</p>
           </div>
 
           <div className="h-[240px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <BarChart
                 data={stackedWeeklyData}
                 margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
@@ -941,20 +942,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
         </div>
 
         {/* Kanan (50%): Tren Perkembangan Hafalan dan Materi */}
-        <div className="bg-white rounded-[16px] border border-[#E1E7EF] p-5 shadow-2xs flex flex-col justify-between">
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs flex flex-col justify-between">
           <div className="flex flex-wrap items-center justify-between gap-2 pb-3">
             <div>
-              <h2 className="text-sm sm:text-base font-bold text-[#101828]">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900">
                 Tren Perkembangan Hafalan dan Materi
               </h2>
-              <p className="text-xs text-[#667085] mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Rata-rata halaman/juz per santri per periode evaluasi
               </p>
             </div>
             <select
               value={progressScheme}
               onChange={(e) => setProgressScheme(e.target.value)}
-              className="border border-[#E1E7EF] rounded-[8px] px-2.5 py-1 text-xs font-semibold text-[#344054] bg-white focus:outline-none focus:border-[#1557D5]"
+              className="border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-700 bg-white focus:outline-none focus:border-blue-600"
             >
               <option value="Total Hafalan">Total hafalan</option>
               <option value="Ziyadah">Ziyadah</option>
@@ -963,7 +964,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
           </div>
 
           <div className="h-[240px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <ComposedChart
                 data={hafalanTrendData}
                 margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
@@ -1021,32 +1022,32 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
       ===================================================================== */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Kiri (65% / 8 Kolom): SECTION SANTRI-SANTRI PERLU PERHATIAN */}
-        <div className="lg:col-span-8 bg-white rounded-[16px] border border-[#E1E7EF] p-5 shadow-2xs flex flex-col justify-between">
+        <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs flex flex-col justify-between">
           <div>
-            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#E1E7EF]">
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200">
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-sm sm:text-base font-bold text-[#101828]">
+                  <h2 className="text-sm sm:text-base font-bold text-slate-900">
                     Santri-Santri Perlu Perhatian
                   </h2>
                   <span
-                    className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                    className={`px-2 py-0.5 rounded-full text-2xs font-bold ${
                       santriPerluPerhatian.totalNeedingAttention > 0
-                        ? 'bg-rose-100 text-rose-800'
+                        ? 'bg-red-100 text-red-800'
                         : 'bg-emerald-100 text-emerald-800'
                     }`}
                   >
                     {santriPerluPerhatian.totalNeedingAttention} Santri
                   </span>
                 </div>
-                <p className="text-xs text-[#667085] mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   Menampilkan santri-santri yang banyak alfa dan terlambatnya
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => navigate('/app/attendance-book')}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-[#1557D5] hover:text-[#1E40AF] transition-colors"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
               >
                 Buku Absensi Lengkap
                 <ChevronRight size={14} />
@@ -1059,10 +1060,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
                 <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3">
                   <CheckCircle2 size={24} />
                 </div>
-                <h3 className="text-sm font-bold text-[#101828]">
+                <h3 className="text-sm font-bold text-slate-900">
                   Tidak ada santri dengan catatan alpa atau terlambat
                 </h3>
-                <p className="text-xs text-[#667085] mt-1 max-w-md mx-auto">
+                <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
                   Alhamdulillah, seluruh santri aktif memiliki catatan kehadiran tertib dan tidak memiliki catatan alpa atau keterlambatan berulang.
                 </p>
               </div>
@@ -1070,7 +1071,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
               <div className="overflow-x-auto mt-3">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="border-b border-[#E1E7EF] text-[#667085] text-[11px] font-semibold">
+                    <tr className="border-b border-slate-200 text-slate-500 text-2xs font-semibold">
                       <th className="py-2.5 px-3">Santri</th>
                       <th className="py-2.5 px-2">Halaqah & Pengampu</th>
                       <th className="py-2.5 px-2 text-center">Akumulasi Alpa</th>
@@ -1081,29 +1082,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
                       <th className="py-2.5 px-2 text-right">Tindakan</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#E1E7EF]">
+                  <tbody className="divide-y divide-slate-200">
                     {santriPerluPerhatian.items.map((s) => (
                       <tr
                         key={s.id}
-                        className="hover:bg-[#F3F7FF]/50 transition-colors group"
+                        className="hover:bg-blue-50/50 transition-colors group"
                       >
                         <td className="py-3 px-3">
-                          <div className="font-semibold text-[#101828]">{s.nama}</div>
-                          <div className="text-[11px] text-[#667085]">
+                          <div className="font-semibold text-slate-900">{s.nama}</div>
+                          <div className="text-2xs text-slate-500">
                             NIS: {s.nis} · Kelas {s.kelas}
                           </div>
                         </td>
                         <td className="py-3 px-2">
-                          <div className="font-medium text-[#344054]">{s.halaqahNama}</div>
-                          <div className="text-[11px] text-[#667085]">{s.musammiNama}</div>
+                          <div className="font-medium text-slate-700">{s.halaqahNama}</div>
+                          <div className="text-2xs text-slate-500">{s.musammiNama}</div>
                         </td>
                         <td className="py-3 px-2 text-center">
                           {s.alpa > 0 ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800">
                               {s.alpa} Alpa
                             </span>
                           ) : (
-                            <span className="text-[#667085] font-normal">0</span>
+                            <span className="text-slate-500 font-normal">0</span>
                           )}
                         </td>
                         <td className="py-3 px-2 text-center">
@@ -1112,21 +1113,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
                               {s.terlambat}x
                             </span>
                           ) : (
-                            <span className="text-[#667085] font-normal">0</span>
+                            <span className="text-slate-500 font-normal">0</span>
                           )}
                         </td>
                         <td className="py-3 px-2 text-center">
-                          <span className="text-[11px] text-[#475467] font-medium">
+                          <span className="text-2xs text-slate-600 font-medium">
                             {s.izin} Izin · {s.sakit} Sakit
                           </span>
                         </td>
                         <td className="py-3 px-2 text-center">
-                          <div className="font-semibold text-[#101828]">{s.attRate}%</div>
-                          <div className="w-16 bg-[#E1E7EF] rounded-full h-1.5 mx-auto mt-1 overflow-hidden">
+                          <div className="font-semibold text-slate-900">{s.attRate}%</div>
+                          <div className="w-16 bg-slate-200 rounded-full h-1.5 mx-auto mt-1 overflow-hidden">
                             <div
                               className={`h-1.5 rounded-full ${
                                 s.attRate < 75
-                                  ? 'bg-rose-500'
+                                  ? 'bg-red-500'
                                   : s.attRate < 90
                                   ? 'bg-amber-500'
                                   : 'bg-emerald-500'
@@ -1137,9 +1138,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
                         </td>
                         <td className="py-3 px-3">
                           <span
-                            className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${
+                            className={`inline-block px-2 py-0.5 rounded text-2xs font-semibold ${
                               s.urgency === 'kritis'
-                                ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                ? 'bg-red-50 text-red-700 border border-red-200'
                                 : s.urgency === 'waspada'
                                 ? 'bg-amber-50 text-amber-700 border border-amber-200'
                                 : 'bg-slate-50 text-slate-700 border border-slate-200'
@@ -1154,10 +1155,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
                             onClick={() =>
                               navigate(`/app/attendance-book?search=${encodeURIComponent(s.nama)}`)
                             }
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[6px] border border-[#E1E7EF] bg-white hover:bg-[#F3F6FB] text-[11px] font-semibold text-[#344054] shadow-2xs transition-colors whitespace-nowrap"
+                            className="btn btn-secondary btn-sm whitespace-nowrap"
                           >
                             Riwayat
-                            <ExternalLink size={12} className="text-[#667085]" />
+                            <ExternalLink size={12} className="text-slate-500" />
                           </button>
                         </td>
                       </tr>
@@ -1168,10 +1169,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
             )}
 
             {/* Catatan Kaki */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-3 mt-3 border-t border-[#E1E7EF] text-[11px] text-[#667085]">
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-3 mt-3 border-t border-slate-200 text-2xs text-slate-500">
               <div className="flex items-center gap-3">
                 <span className="inline-flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-rose-500" />
+                  <span className="w-2 h-2 rounded-full bg-red-500" />
                   Kritis: ≥ 3 Alpa (Peringatan Wali)
                 </span>
                 <span className="inline-flex items-center gap-1">
@@ -1186,7 +1187,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
               <button
                 type="button"
                 onClick={() => navigate('/app/rekap-absensi')}
-                className="text-xs font-semibold text-[#1557D5] hover:text-[#1E40AF] transition-colors"
+                className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
               >
                 ➔ Buka Rekap Absensi Global
               </button>
@@ -1195,49 +1196,49 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
         </div>
 
         {/* Kanan (35% / 4 Kolom): Statistik Kehadiran */}
-        <div className="lg:col-span-4 bg-white rounded-[16px] border border-[#E1E7EF] p-5 shadow-2xs flex flex-col justify-between">
+        <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs flex flex-col justify-between">
           <div>
-            <div className="pb-3 border-b border-[#E1E7EF]">
-              <h2 className="text-sm sm:text-base font-bold text-[#101828]">Statistik Kehadiran</h2>
-              <p className="text-xs text-[#667085] mt-0.5">
+            <div className="pb-3 border-b border-slate-200">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900">Statistik Kehadiran</h2>
+              <p className="text-xs text-slate-500 mt-0.5">
                 Ketercapaian presensi lembaga dan per marhalah
               </p>
             </div>
 
             {/* Ringkasan Keseluruhan Lembaga */}
-            <div className="p-3.5 rounded-[12px] bg-[#F8FAFC] border border-[#E1E7EF] mt-3 mb-3">
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 mt-3 mb-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[#667085]">Tingkat Kehadiran Global{!riwayatTermuat && ' (14 hari terakhir)'}</span>
-                <span className="text-base font-extrabold text-[#1557D5] tabular-nums">
+                <span className="text-xs font-semibold text-slate-500">Tingkat Kehadiran Global{!riwayatTermuat && ' (14 hari terakhir)'}</span>
+                <span className="text-base font-extrabold text-blue-600 tabular-nums">
                   {overallAttendanceStats.rate}%
                 </span>
               </div>
-              <div className="w-full bg-[#E1E7EF] rounded-full h-2 mt-2 overflow-hidden">
+              <div className="w-full bg-slate-200 rounded-full h-2 mt-2 overflow-hidden">
                 <div
-                  className="bg-[#1557D5] h-2 rounded-full transition-all duration-300"
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${overallAttendanceStats.rate}%` }}
                 />
               </div>
-              <div className="grid grid-cols-5 gap-1 text-center mt-3 pt-2.5 border-t border-[#E1E7EF] text-[10px]">
+              <div className="grid grid-cols-5 gap-1 text-center mt-3 pt-2.5 border-t border-slate-200 text-2xs">
                 <div>
-                  <div className="font-bold text-[#101828]">{overallAttendanceStats.hadir}</div>
-                  <div className="text-[#667085]">Hadir</div>
+                  <div className="font-bold text-slate-900">{overallAttendanceStats.hadir}</div>
+                  <div className="text-slate-500">Hadir</div>
                 </div>
                 <div>
                   <div className="font-bold text-amber-600">{overallAttendanceStats.terlambat}</div>
-                  <div className="text-[#667085]">Terlambat</div>
+                  <div className="text-slate-500">Terlambat</div>
                 </div>
                 <div>
                   <div className="font-bold text-blue-600">{overallAttendanceStats.izin}</div>
-                  <div className="text-[#667085]">Izin</div>
+                  <div className="text-slate-500">Izin</div>
                 </div>
                 <div>
                   <div className="font-bold text-orange-600">{overallAttendanceStats.sakit}</div>
-                  <div className="text-[#667085]">Sakit</div>
+                  <div className="text-slate-500">Sakit</div>
                 </div>
                 <div>
-                  <div className="font-bold text-rose-600">{overallAttendanceStats.alpa}</div>
-                  <div className="text-[#667085]">Alpa</div>
+                  <div className="font-bold text-red-600">{overallAttendanceStats.alpa}</div>
+                  <div className="text-slate-500">Alpa</div>
                 </div>
               </div>
             </div>
@@ -1250,14 +1251,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
                 onChange={(e) =>
                   setMarhalahDateRange({ ...marhalahDateRange, startDate: e.target.value })
                 }
-                className="border border-[#E1E7EF] rounded-[8px] px-2 py-1.5 text-xs text-[#101828] bg-white focus:outline-none focus:border-[#1557D5]"
+                className="border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-900 bg-white focus:outline-none focus:border-blue-600"
               />
               <select
                 value={marhalahDateRange.waktu}
                 onChange={(e) =>
                   setMarhalahDateRange({ ...marhalahDateRange, waktu: e.target.value })
                 }
-                className="border border-[#E1E7EF] rounded-[8px] px-2 py-1.5 text-xs font-medium text-[#344054] bg-white focus:outline-none focus:border-[#1557D5]"
+                className="border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-600"
               >
                 <option value="all">Semua Waktu</option>
                 <option value="Shubuh">Shubuh</option>
@@ -1272,25 +1273,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
               {marhalahStats.map((item) => (
                 <div
                   key={item.marhalah}
-                  className="p-3 rounded-[12px] bg-[#F8FAFC] border border-[#E1E7EF] space-y-2"
+                  className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2"
                 >
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-[#101828]">{item.marhalah}</span>
-                    <span className="font-mono font-bold text-[#1557D5]">
+                    <span className="font-bold text-slate-900">{item.marhalah}</span>
+                    <span className="font-bold text-blue-600">
                       {item.percentage}%
                     </span>
                   </div>
 
                   {/* Horizontal Bar */}
-                  <div className="w-full bg-[#E1E7EF] rounded-full h-2 overflow-hidden">
+                  <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
                     <div
-                      className="bg-[#1557D5] h-2 rounded-full transition-all duration-300"
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${item.percentage}%` }}
                     />
                   </div>
 
                   {/* Breakdown Singkat */}
-                  <div className="flex items-center justify-between text-[11px] text-[#667085]">
+                  <div className="flex items-center justify-between text-2xs text-slate-500">
                     <span>
                       Hadir: <b>{item.hadir}</b>
                     </span>

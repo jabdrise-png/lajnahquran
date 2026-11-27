@@ -37,7 +37,7 @@ interface Props {
 
 const Stepper: React.FC<{ label: string; value: number; onChange: (n: number) => void }> = ({ label, value, onChange }) => (
   <div className="flex-1">
-    <div className="text-sm sm:text-[11px] font-semibold text-slate-600 mb-1">{label}</div>
+    <div className="text-sm sm:text-2xs font-semibold text-slate-600 mb-1">{label}</div>
     <div className="flex items-center border border-slate-300 rounded-lg overflow-hidden bg-white">
       <button type="button" aria-label={`Kurangi ${label}`} onClick={() => onChange(Math.max(0, value - 1))} className="px-3 py-2.5 text-slate-600 active:bg-slate-100"><Minus size={16} /></button>
       <input type="number" inputMode="numeric" min={0} value={value} onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
@@ -229,8 +229,8 @@ const FormSetoranRingkas: React.FC<Props> = ({ halaqahOptions, initialHalaqahId,
                 <button key={s.id} type="button" disabled={!boleh} onClick={() => setSantriId(Number(s.id))}
                   title={!boleh ? `Tercatat ${st}: tidak bisa setor` : undefined} className={chip(santriId === Number(s.id), !boleh)}>
                   {s.nama}
-                  {st && <span className="ml-1 text-sm sm:text-[10px] font-normal opacity-80">({findStatus(attendanceStatuses, st)?.name || st})</span>}
-                  {n > 0 && <span className="ml-1 text-sm sm:text-[10px] font-bold">✓{n}</span>}
+                  {st && <span className="ml-1 text-sm sm:text-2xs font-normal opacity-80">({findStatus(attendanceStatuses, st)?.name || st})</span>}
+                  {n > 0 && <span className="ml-1 text-sm sm:text-2xs font-bold">✓{n}</span>}
                 </button>
               );
             })}
@@ -264,7 +264,7 @@ const FormSetoranRingkas: React.FC<Props> = ({ halaqahOptions, initialHalaqahId,
                 <span className="inline-flex rounded-lg border border-slate-300 overflow-hidden" role="group" aria-label="Sisi hafalan">
                   {([['maju', 'Depan'], ['mundur', 'Belakang']] as const).map(([v, t]) => (
                     <button key={v} type="button" onClick={() => { sisiPilihan.current = v; setSisi(v); setSisiKunci((k) => k + 1); }}
-                      className={`px-2.5 py-0.5 text-sm sm:text-[11px] font-semibold ${arah === v ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}>{t}</button>
+                      className={`px-2.5 py-0.5 text-sm sm:text-2xs font-semibold ${arah === v ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}>{t}</button>
                   ))}
                 </span>
               ) : <span className="font-normal text-slate-400">{labelArah(arahData === 'dua_arah' ? 'dua_arah' : arah)}</span>}
@@ -310,7 +310,7 @@ const FormSetoranRingkas: React.FC<Props> = ({ halaqahOptions, initialHalaqahId,
             type="button"
             disabled={saving || !santriBolehSetor || !slot}
             onClick={() => simpan()}
-            className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-base font-bold disabled:opacity-40"
+            className="btn btn-primary btn-lg w-full justify-center"
           >
             <Save size={18} /> {saving ? 'Menyimpan…' : isEdit ? 'Simpan koreksi' : 'Simpan setoran'}
           </button>

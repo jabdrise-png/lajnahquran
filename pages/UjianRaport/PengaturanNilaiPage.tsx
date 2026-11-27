@@ -100,7 +100,7 @@ const PengaturanNilaiPage: React.FC = () => {
       <PageHeader title="Pengaturan Nilai" description={`Rubrik ujian, bobot raport, tanda tangan Ketua Lajnah, dan penguji · Semester ${semester} ${selectedAcademicYear?.name || ''}`} />
 
       <Kartu judul="Rubrik Penilaian Ujian" ket={`Versi aktif: v${rubrikAktif.version_no ?? '-'} ${rubrikAktif.name ? `· ${rubrikAktif.name}` : ''}. Nilai juz = nilai awal − kabir × pengurang kabir − shoghir × pengurang shoghir (tidak di bawah nilai minimum).`}
-        aksi={<button type="button" disabled={simpanRubrikBusy} onClick={simpanRubrik} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-50"><Save size={15} /> Simpan rubrik</button>}>
+        aksi={<button type="button" disabled={simpanRubrikBusy} onClick={simpanRubrik} className="btn btn-primary"><Save size={15} /> Simpan rubrik</button>}>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {([['initial_score', 'Nilai awal / juz'], ['deduction_major', 'Pengurang kabir'], ['deduction_minor', 'Pengurang shoghir'], ['min_score', 'Nilai minimum / juz'], ['passing_score', 'KKM (lulus)']] as const).map(([k, l]) => (
             <label key={k} className="text-xs font-semibold text-slate-600">{l}
@@ -137,7 +137,7 @@ const PengaturanNilaiPage: React.FC = () => {
       </Kartu>
 
       <Kartu judul="Raport" ket="Raport per semester terdiri dari 3 komponen dengan bobot total 100%. Raport tidak bisa terbit bila komponen berbobot > 0 masih kosong."
-        aksi={<button type="button" disabled={simpanRaportBusy || Boolean(errBobot)} onClick={simpanRaport} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-50"><Save size={15} /> Simpan raport</button>}>
+        aksi={<button type="button" disabled={simpanRaportBusy || Boolean(errBobot)} onClick={simpanRaport} className="btn btn-primary"><Save size={15} /> Simpan raport</button>}>
         <div className="grid grid-cols-3 gap-3 max-w-xl">
           {([['bobot_semester', 'Ujian semester (%)'], ['bobot_bulanan', 'Rata-rata ujian bulanan (%)'], ['bobot_kehadiran', 'Kehadiran (%)']] as const).map(([k, l]) => (
             <label key={k} className="text-xs font-semibold text-slate-600">{l}
@@ -145,7 +145,7 @@ const PengaturanNilaiPage: React.FC = () => {
             </label>
           ))}
         </div>
-        <p className={`text-xs ${errBobot ? 'text-rose-700' : 'text-emerald-700'}`}>{errBobot || `Total ${Number(raport.bobot_semester) + Number(raport.bobot_bulanan) + Number(raport.bobot_kehadiran)}% ✓`}</p>
+        <p className={`text-xs ${errBobot ? 'text-red-700' : 'text-emerald-700'}`}>{errBobot || `Total ${Number(raport.bobot_semester) + Number(raport.bobot_bulanan) + Number(raport.bobot_kehadiran)}% ✓`}</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <label className="text-xs font-semibold text-slate-600">Nama Ketua Lajnah
             <input className={`${inputCls} mt-1`} value={raport.ketua_lajnah_nama || ''} onChange={(e) => setRaport({ ...raport, ketua_lajnah_nama: e.target.value })} />
@@ -166,8 +166,8 @@ const PengaturanNilaiPage: React.FC = () => {
               <Upload size={15} /> Unggah tanda tangan
               <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => e.target.files?.[0] && unggahTtd(e.target.files[0])} />
             </label>
-            {raport.ttd_image && <button type="button" className="block text-xs font-semibold text-rose-600" onClick={() => setRaport({ ...raport, ttd_image: null })}>Hapus tanda tangan</button>}
-            <p className="text-[11px] text-slate-400 max-w-xs">PNG latar transparan, maks. 280 KB. Tanda tangan tersimpan di server lembaga (bukan di perangkat ini) dan hanya tercetak pada raport yang sudah terbit.</p>
+            {raport.ttd_image && <button type="button" className="block text-xs font-semibold text-red-600" onClick={() => setRaport({ ...raport, ttd_image: null })}>Hapus tanda tangan</button>}
+            <p className="text-2xs text-slate-400 max-w-xs">PNG latar transparan, maks. 280 KB. Tanda tangan tersimpan di server lembaga (bukan di perangkat ini) dan hanya tercetak pada raport yang sudah terbit.</p>
           </div>
         </div>
       </Kartu>
@@ -191,7 +191,7 @@ const PengaturanNilaiPage: React.FC = () => {
               <option value="semua">Bulanan & semester</option><option value="bulanan">Bulanan saja</option><option value="semester">Semester saja</option>
             </select>
           </label>
-          <button type="button" disabled={!penguji.halaqah || !penguji.musammi} className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-50"
+          <button type="button" disabled={!penguji.halaqah || !penguji.musammi} className="btn btn-primary justify-center"
             onClick={async () => {
               try { await tambahPenguji(Number(penguji.halaqah), Number(penguji.musammi), penguji.jenis); setPenguji({ halaqah: '', musammi: '', jenis: 'semua' }); NotificationStore.addNotification('Penguji ditambahkan.', 'success'); }
               catch (e) { tampilkanError(e, 'Gagal menambah penguji'); }

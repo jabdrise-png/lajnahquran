@@ -214,11 +214,11 @@ const RekapNilaiPage: React.FC = () => {
           description={`Semester ${semester} ${selectedAcademicYear?.name || ''} · Bobot: ujian semester ${bobot.bobot_semester}% · ujian bulanan ${bobot.bobot_bulanan}% · kehadiran ${bobot.bobot_kehadiran}%`}
           actions={
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={muat} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-700"><RefreshCw size={15} /> Muat ulang</button>
-              <button type="button" onClick={ekspor} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-700"><Download size={15} /> Ekspor</button>
-              <button type="button" onClick={() => setPratinjau(true)} disabled={!pilih.size} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-700 disabled:opacity-50"><Eye size={15} /> Pratinjau ({pilih.size})</button>
-              <button type="button" onClick={cetak} disabled={!pilih.size} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-700 disabled:opacity-50"><Printer size={15} /> Cetak ({pilih.size})</button>
-              {isAdmin && <button type="button" onClick={terbitkanPilihan} disabled={!pilih.size || Boolean(proses)} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold disabled:opacity-50"><FileCheck2 size={15} /> Terbitkan ({pilih.size})</button>}
+              <button type="button" onClick={muat} className="btn btn-secondary"><RefreshCw size={15} /> Muat ulang</button>
+              <button type="button" onClick={ekspor} className="btn btn-secondary"><Download size={15} /> Ekspor</button>
+              <button type="button" onClick={() => setPratinjau(true)} disabled={!pilih.size} className="btn btn-secondary"><Eye size={15} /> Pratinjau ({pilih.size})</button>
+              <button type="button" onClick={cetak} disabled={!pilih.size} className="btn btn-secondary"><Printer size={15} /> Cetak ({pilih.size})</button>
+              {isAdmin && <button type="button" onClick={terbitkanPilihan} disabled={!pilih.size || Boolean(proses)} className="btn btn-primary"><FileCheck2 size={15} /> Terbitkan ({pilih.size})</button>}
             </div>
           }
         />
@@ -263,7 +263,7 @@ const RekapNilaiPage: React.FC = () => {
         ) : (
           <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
             <table className="min-w-full text-sm tabel-kartu">
-              <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
+              <thead className="bg-slate-50 text-xs text-slate-500">
                 <tr>
                   <th className="px-3 py-2 w-8"><input type="checkbox" checked={semuaTerpilih} onChange={() => setPilih(semuaTerpilih ? new Set() : new Set(baris.map(({ s }) => s.id)))} /></th>
                   <th className="px-3 py-2 text-left">Santri</th>
@@ -279,14 +279,14 @@ const RekapNilaiPage: React.FC = () => {
                 {baris.map(({ s, k, rc, berubah }) => (
                   <tr key={s.id} className={pilih.has(s.id) ? 'bg-blue-50/40' : ''}>
                     <td className="px-3 py-2"><input type="checkbox" checked={pilih.has(s.id)} onChange={() => setPilih((p) => { const n = new Set(p); n.has(s.id) ? n.delete(s.id) : n.add(s.id); return n; })} /></td>
-                    <td className="px-3 py-2"><div className="font-semibold text-slate-800">{s.nama}</div><div className="text-[11px] text-slate-400">{s.kelas || '-'} · {halaqahSantri.get(s.id) || '-'}</div></td>
-                    <td data-label="Semester" className="px-3 py-2 text-right tabular-nums">{tampilNilai(k.semester?.nilai)}{k.semester?.is_remedial ? <span className="text-[10px] text-slate-400"> R</span> : null}</td>
-                    <td data-label="Bulanan" className="px-3 py-2 text-right tabular-nums">{k.bobot.bulanan > 0 ? tampilNilai(k.bulanan.rata_rata) : '-'}<div className="text-[10px] text-slate-400">{k.bulanan.jumlah_nilai}/{k.bulanan.jumlah_ujian}</div></td>
+                    <td className="px-3 py-2"><div className="font-semibold text-slate-800">{s.nama}</div><div className="text-2xs text-slate-400">{s.kelas || '-'} · {halaqahSantri.get(s.id) || '-'}</div></td>
+                    <td data-label="Semester" className="px-3 py-2 text-right tabular-nums">{tampilNilai(k.semester?.nilai)}{k.semester?.is_remedial ? <span className="text-2xs text-slate-400"> R</span> : null}</td>
+                    <td data-label="Bulanan" className="px-3 py-2 text-right tabular-nums">{k.bobot.bulanan > 0 ? tampilNilai(k.bulanan.rata_rata) : '-'}<div className="text-2xs text-slate-400">{k.bulanan.jumlah_nilai}/{k.bulanan.jumlah_ujian}</div></td>
                     <td data-label="Hadir" className="px-3 py-2 text-right tabular-nums">{k.kehadiran.persen !== null ? `${tampilNilai(k.kehadiran.persen)}%` : '-'}</td>
-                    <td data-label="Nilai akhir" className="px-3 py-2 text-right"><b className="tabular-nums">{tampilNilai(k.nilai_akhir)}</b>{k.predikat && <div className="text-[11px] text-slate-500">{k.predikat}</div>}</td>
+                    <td data-label="Nilai akhir" className="px-3 py-2 text-right"><b className="tabular-nums">{tampilNilai(k.nilai_akhir)}</b>{k.predikat && <div className="text-2xs text-slate-500">{k.predikat}</div>}</td>
                     <td data-label="Kelengkapan" className="px-3 py-2 text-xs">
                       {k.lengkap ? <span className="inline-flex items-center gap-1 text-emerald-700"><CheckCircle2 size={13} /> Lengkap</span>
-                        : <ul className="text-rose-700 list-disc pl-4">{k.kekurangan.map((x) => <li key={x}>{x}</li>)}</ul>}
+                        : <ul className="text-red-700 list-disc pl-4">{k.kekurangan.map((x) => <li key={x}>{x}</li>)}</ul>}
                       {k.peringatan.length > 0 && <div className="text-amber-700 mt-0.5">{k.peringatan.join('; ')}</div>}
                     </td>
                     <td data-label="Raport" className="px-3 py-2 text-xs whitespace-nowrap">
@@ -318,7 +318,7 @@ const RekapNilaiPage: React.FC = () => {
       {pratinjau && createPortal(
         <div className="fixed inset-0 z-[999999] bg-slate-800/90 overflow-y-auto p-4 sm:p-8 print:hidden">
           <div className="fixed top-4 right-4 z-[1000000] flex gap-2">
-            <button type="button" onClick={() => { setPratinjau(false); setTimeout(cetak, 100); }} className="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold shadow-lg inline-flex items-center gap-1.5"><Printer size={16} /> Cetak</button>
+            <button type="button" onClick={() => { setPratinjau(false); setTimeout(cetak, 100); }} className="btn btn-primary"><Printer size={16} /> Cetak</button>
             <button type="button" onClick={() => setPratinjau(false)} className="bg-white text-slate-700 px-4 py-2 rounded-lg font-bold shadow-lg">Tutup</button>
           </div>
           <div className="flex flex-col gap-8 items-center mt-12">

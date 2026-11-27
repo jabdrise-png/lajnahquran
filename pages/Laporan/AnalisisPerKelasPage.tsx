@@ -10,6 +10,7 @@ import { ALL_ATTENDANCE_STATUS } from '../../constants';
 import { Marhalah, AttendanceStatus } from '../../types';
 import { Download, Send, CheckSquare, Square, BarChart2, AlertCircle, Copy, Filter, MoreVertical, ArrowUpDown, ArrowUp, ArrowDown, Check, Loader2 } from 'lucide-react';
 import html2canvas from 'html2canvas';
+import { LoadingState } from '../../components/ui/SaaSPrimitives';
 
 const WhatsAppIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -301,7 +302,7 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
             : <ArrowDown size={12} className="ml-1.5 text-blue-500" />;
     };
 
-    if (loading) return <p>Loading...</p>;
+    if (loading) return <LoadingState label="Memuat data…" />;
     if (error) return <p className="text-error">{error}</p>;
 
     return (
@@ -312,29 +313,29 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
                     <div className="bg-white p-5 sm:p-6 border-b border-slate-100 flex flex-col md:flex-row gap-4 justify-between items-start md:items-end animate-in fade-in duration-200">
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full md:w-auto flex-1">
                             <div>
-                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Dari Tanggal</label>
+                                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Dari Tanggal</label>
                                 <input 
                                     type="date" 
                                     value={dateRange.start} 
                                     onChange={e => setDateRange(p => ({...p, start: e.target.value}))} 
-                                    className="w-full border border-slate-200 bg-white rounded-xl text-[13px] py-2 px-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none text-slate-700 font-medium"
+                                    className="w-full border border-slate-200 bg-white rounded-xl text-sm py-2 px-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none text-slate-700 font-medium"
                                 />
                             </div>
                             <div>
-                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Sampai Tanggal</label>
+                                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Sampai Tanggal</label>
                                 <input 
                                     type="date" 
                                     value={dateRange.end} 
                                     onChange={e => setDateRange(p => ({...p, end: e.target.value}))} 
-                                    className="w-full border border-slate-200 bg-white rounded-xl text-[13px] py-2 px-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none text-slate-700 font-medium"
+                                    className="w-full border border-slate-200 bg-white rounded-xl text-sm py-2 px-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none text-slate-700 font-medium"
                                 />
                             </div>
                             <div>
-                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Filter Marhalah</label>
+                                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Marhalah</label>
                                 <select 
                                     value={selectedMarhalah} 
                                     onChange={e => setSelectedMarhalah(e.target.value as any)} 
-                                    className="w-full border border-slate-200 bg-white rounded-xl text-[13px] py-2 px-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none text-slate-700 font-medium cursor-pointer"
+                                    className="w-full border border-slate-200 bg-white rounded-xl text-sm py-2 px-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none text-slate-700 font-medium cursor-pointer"
                                 >
                                     <option value="all">Semua Marhalah</option>
                                     {globalMarhalahs.map(m => <option key={m} value={m}>{m}</option>)}
@@ -365,7 +366,7 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
                         </button>
                         <button 
                             onClick={() => exportToExcel(classRecapData, 'Rekap_Kelas')}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-[12px] font-semibold flex items-center transition-colors shadow-sm"
+                            className="btn btn-primary btn-sm"
                         >
                             <Download size={15} className="mr-1.5" /> Export Data
                         </button>
@@ -373,7 +374,7 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
                             <button 
                                 onClick={() => handleGenerateWAReports(true)} 
                                 disabled={isGenerating} 
-                                className="w-full sm:w-auto bg-[#25D366] hover:bg-[#20bd5a] active:scale-[0.98] disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-4 py-2 rounded-xl text-[12px] font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                                className="w-full sm:w-auto bg-[#25D366] hover:bg-[#20bd5a] active:scale-[0.98] disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all"
                                 title="Buka preview & kirim laporan WhatsApp"
                             >
                                 {isGenerating ? (
@@ -400,15 +401,15 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
                                         {selectedClassKeys.length > 0 ? <CheckSquare size={18} className="text-blue-600"/> : <Square size={18} className="text-slate-400"/>}
                                     </button>
                                 </th>
-                                <th className="px-5 py-3.5 sticky top-0 left-[48px] bg-slate-50/95 backdrop-blur-sm z-20 min-w-[200px] border-r border-slate-200/60 text-[12px] font-bold text-slate-500 uppercase tracking-wider group cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('Kelas')}>
+                                <th className="px-5 py-3.5 sticky top-0 left-[48px] bg-slate-50/95 backdrop-blur-sm z-20 min-w-[200px] border-r border-slate-200/60 text-xs font-semibold text-slate-500 group cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('Kelas')}>
                                     <div className="flex items-center">Kelas <SortIcon field="Kelas"/></div>
                                 </th>
                                 {globalAttendanceStatus?.map(s => (
-                                    <th key={s} className="px-5 py-3.5 sticky top-0 bg-slate-50/95 backdrop-blur-sm z-10 text-[12px] font-bold text-slate-500 uppercase tracking-wider text-center group cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort(s)}>
+                                    <th key={s} className="px-5 py-3.5 sticky top-0 bg-slate-50/95 backdrop-blur-sm z-10 text-xs font-semibold text-slate-500 text-center group cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort(s)}>
                                         <div className="flex items-center justify-center">{s} <SortIcon field={s}/></div>
                                     </th>
                                 ))}
-                                <th className="px-5 py-3.5 sticky top-0 bg-slate-50/95 backdrop-blur-sm z-10 text-[12px] font-bold text-slate-500 uppercase tracking-wider text-center group cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('PersenKehadiran')}>
+                                <th className="px-5 py-3.5 sticky top-0 bg-slate-50/95 backdrop-blur-sm z-10 text-xs font-semibold text-slate-500 text-center group cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('PersenKehadiran')}>
                                     <div className="flex items-center justify-center">% Hadir <SortIcon field="PersenKehadiran"/></div>
                                 </th>
                             </tr>
@@ -423,22 +424,22 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
                                     </td>
                                     <td className="px-5 py-3 sticky left-[48px] bg-white group-hover:bg-slate-50/95 backdrop-blur-sm z-10 border-r border-slate-100/60 transition-colors min-w-[200px]">
                                         <div className="flex flex-col gap-0.5">
-                                            <span className="font-bold text-[13px] text-slate-800 group-hover:text-blue-600 transition-colors">{item.Kelas}</span>
-                                            <span className="text-[11px] font-medium text-slate-500">{item.Marhalah}</span>
+                                            <span className="font-bold text-sm text-slate-800 group-hover:text-blue-600 transition-colors">{item.Kelas}</span>
+                                            <span className="text-2xs font-medium text-slate-500">{item.Marhalah}</span>
                                         </div>
                                     </td>
                                     {globalAttendanceStatus?.map(s => {
                                          const val = item[s] || 0;
                                          return (
-                                            <td key={s} className="px-5 py-3 text-center text-[13px] font-bold text-slate-600">{val}</td>
+                                            <td key={s} className="px-5 py-3 text-center text-sm font-bold text-slate-600">{val}</td>
                                          )
                                     })}
-                                    <td className="px-5 py-3 text-center text-[13px] font-extrabold text-slate-700 bg-slate-50/50">{item.PersenKehadiran}</td>
+                                    <td className="px-5 py-3 text-center text-sm font-extrabold text-slate-700 bg-slate-50/50">{item.PersenKehadiran}</td>
                                 </tr>
                             ))}
                             {classRecapData.length === 0 && (
                                 <tr>
-                                    <td colSpan={7} className="px-5 py-8 text-center text-[13px] font-medium text-slate-500">
+                                    <td colSpan={7} className="px-5 py-8 text-center text-sm font-medium text-slate-500">
                                         Belum ada data absensi untuk filter yang dipilih.
                                     </td>
                                 </tr>
@@ -450,11 +451,11 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
 
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                 <div className="bg-slate-50/50 px-6 py-4 border-b border-slate-100/60 flex justify-between items-center relative" ref={chartMenuRef}>
-                    <h3 className="text-[14px] font-bold text-slate-800 tracking-tight">Grafik Kehadiran Per Kelas</h3>
+                    <h3 className="text-sm font-bold text-slate-800 tracking-tight">Grafik Kehadiran Per Kelas</h3>
                     <div className="relative">
                         <button onClick={() => setIsChartMenuOpen(!isChartMenuOpen)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"><MoreVertical size={16} strokeWidth={2.5}/></button>
-                        {isChartMenuOpen && <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-slate-100 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] p-1 z-20 animate-in fade-in zoom-in-95 duration-200">
-                            <button onClick={handleDownloadMainChart} className="w-full text-left px-3 py-2 text-[12px] font-semibold text-slate-700 hover:bg-slate-50 rounded-lg flex items-center transition-colors"><Download size={14} className="mr-2" strokeWidth={2.5}/> Download PNG</button>
+                        {isChartMenuOpen && <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-slate-100 rounded-xl shadow-xs p-1 z-20 animate-in fade-in zoom-in-95 duration-200">
+                            <button onClick={handleDownloadMainChart} className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-lg flex items-center transition-colors"><Download size={14} className="mr-2" strokeWidth={2.5}/> Unduh PNG</button>
                         </div>}
                     </div>
                 </div>
@@ -522,12 +523,12 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
                                 <div className="flex-1 space-y-3">
                                     <div className="flex flex-wrap items-center justify-between gap-2">
                                         <div className="text-xs font-semibold text-slate-700">
-                                            <span className="text-slate-500 font-normal">Wali Kelas:</span> {report.phone ? <span className="font-mono text-slate-800 font-bold ml-1">{report.phone}</span> : <span className="text-amber-600 italic ml-1">No HP belum ada</span>}
+                                            <span className="text-slate-500 font-normal">Wali Kelas:</span> {report.phone ? <span className="text-slate-800 font-bold ml-1">{report.phone}</span> : <span className="text-amber-600 italic ml-1">No HP belum ada</span>}
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <button 
                                                 onClick={() => handleCopyImage(report.image, key)} 
-                                                className="bg-white border border-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 flex items-center gap-1.5 hover:bg-slate-50 hover:border-slate-300 transition-colors shadow-xs"
+                                                className="btn btn-secondary btn-sm"
                                                 title="Salin gambar grafik ke clipboard"
                                             >
                                                 {copiedKey === key ? (
@@ -562,7 +563,7 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
                     <button 
                         onClick={() => setIsPreviewModalOpen(false)} 
                         disabled={isMassSending}
-                        className="w-full sm:w-auto bg-white border border-slate-200 px-4 py-2 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                        className="btn btn-secondary btn-sm w-full sm:w-auto"
                     >
                         Tutup
                     </button>

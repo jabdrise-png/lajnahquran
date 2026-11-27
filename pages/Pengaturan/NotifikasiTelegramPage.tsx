@@ -73,13 +73,13 @@ const EditorTemplate: React.FC<{
         <div className="space-y-2">
           {children}
           <label className="block text-xs font-semibold text-slate-600">Template pesan
-            <textarea ref={ref} rows={9} className={`${inputCls} mt-1 font-mono text-[12px]`} value={template} maxLength={2000}
+            <textarea ref={ref} rows={9} className={`${inputCls} mt-1 font-mono text-xs`} value={template} maxLength={2000}
               onChange={(e) => onTemplate(e.target.value)} />
           </label>
           <div className="flex flex-wrap gap-1">
             {VARIABEL[jenis].map((v) => (
               <button key={v.nama} type="button" title={v.ket} onClick={() => sisipkan(v.nama)}
-                className="px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 text-[11px] font-mono text-slate-600 hover:bg-blue-50 hover:border-blue-200">{`{${v.nama}}`}</button>
+                className="px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 text-2xs font-mono text-slate-600 hover:bg-blue-50 hover:border-blue-200">{`{${v.nama}}`}</button>
             ))}
           </div>
           {asing.length > 0 && <p className="text-xs text-amber-700">Variabel tidak dikenal (akan tampil apa adanya): {asing.map((a) => `{${a}}`).join(', ')}</p>}
@@ -89,8 +89,8 @@ const EditorTemplate: React.FC<{
         </div>
         <div>
           <div className="text-xs font-semibold text-slate-600 mb-1">Pratinjau (contoh data)</div>
-          <div className="rounded-xl bg-[#e6ebee] p-3 min-h-[10rem]">
-            <div className="max-w-sm rounded-lg bg-white px-3 py-2 text-[13px] text-slate-800 whitespace-pre-wrap shadow-sm">
+          <div className="rounded-xl bg-slate-200 p-3 min-h-[10rem]">
+            <div className="max-w-sm rounded-lg bg-white px-3 py-2 text-sm text-slate-800 whitespace-pre-wrap shadow-sm">
               {renderTemplate(template, contohVariabel(jenis))}
             </div>
           </div>
@@ -367,13 +367,13 @@ const NotifikasiTelegramPage: React.FC = () => {
           {baris.length === 0 ? <EmptyState title="Tidak ada santri" description="Tidak ada santri aktif yang cocok dengan filter." /> : (
             <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead className="bg-slate-50 text-[11px] uppercase text-slate-500"><tr>
+                <thead className="bg-slate-50 text-2xs uppercase text-slate-500"><tr>
                   <th className="px-4 py-2 text-left">Santri</th><th className="px-4 py-2 text-left">Kode</th><th className="px-4 py-2 text-left">Telegram wali</th><th className="px-4 py-2 text-right">Aksi</th>
                 </tr></thead>
                 <tbody className="divide-y divide-slate-100">
                   {baris.slice(0, 400).map((s) => (
                     <tr key={s.id}>
-                      <td className="px-4 py-2"><div className="font-semibold text-slate-800">{s.nama}</div><div className="text-[11px] text-slate-400">{s.kode || '-'} · {halaqahSantri.get(Number(s.id)) || s.kelas || '-'}</div></td>
+                      <td className="px-4 py-2"><div className="font-semibold text-slate-800">{s.nama}</div><div className="text-2xs text-slate-400">{s.kode || '-'} · {halaqahSantri.get(Number(s.id)) || s.kelas || '-'}</div></td>
                       <td className="px-4 py-2 font-mono tracking-wider text-slate-700">{tampilKode(s.kode_telegram)}</td>
                       <td className="px-4 py-2">{s.telegram_chat_id
                         ? <span className="inline-flex items-center gap-1 text-emerald-700 text-xs font-semibold"><CheckCircle2 size={14} /> Tertaut{s.telegram_linked_at ? ` · ${new Date(s.telegram_linked_at).toLocaleDateString('id-ID')}` : ''}</span>
@@ -396,7 +396,7 @@ const NotifikasiTelegramPage: React.FC = () => {
               <div className="w-full max-w-lg rounded-2xl bg-white p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between"><h3 className="font-bold text-slate-900">Undangan wali · {undangan.nama}</h3>
                   <button type="button" onClick={() => setUndangan(null)} className="text-slate-400 hover:text-slate-700"><XCircle size={18} /></button></div>
-                <textarea readOnly rows={9} className={`${inputCls} text-[13px]`} value={undangan.teks} onFocus={(e) => e.target.select()} />
+                <textarea readOnly rows={9} className={`${inputCls} text-sm`} value={undangan.teks} onFocus={(e) => e.target.select()} />
                 <div className="flex justify-end gap-2">
                   <a className={btn} target="_blank" rel="noreferrer" href={`https://wa.me/?text=${encodeURIComponent(undangan.teks)}`}>Bagikan via WhatsApp</a>
                   <button type="button" className={btnUtama} onClick={() => salin(undangan.teks, 'Pesan undangan disalin.')}><Copy size={14} /> Salin</button>
@@ -430,7 +430,7 @@ const NotifikasiTelegramPage: React.FC = () => {
             : (
               <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto">
                 <table className="min-w-full text-sm">
-                  <thead className="bg-slate-50 text-[11px] uppercase text-slate-500"><tr>
+                  <thead className="bg-slate-50 text-2xs uppercase text-slate-500"><tr>
                     <th className="px-4 py-2 text-left">Waktu</th><th className="px-4 py-2 text-left">Santri</th><th className="px-4 py-2 text-left">Jenis</th>
                     <th className="px-4 py-2 text-left">Status</th><th className="px-4 py-2 text-left">Keterangan</th><th className="px-4 py-2 text-right">Aksi</th>
                   </tr></thead>
@@ -440,7 +440,7 @@ const NotifikasiTelegramPage: React.FC = () => {
                         <td className="px-4 py-2 text-xs text-slate-500 whitespace-nowrap">{new Date(q.created_at).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}</td>
                         <td className="px-4 py-2 font-semibold text-slate-800">{namaSantri(q.santri_id)}</td>
                         <td className="px-4 py-2 text-xs">{JENIS_LABEL[q.jenis] || q.jenis}</td>
-                        <td className="px-4 py-2"><span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${STATUS_LABEL[q.status]?.c || ''}`}>{STATUS_LABEL[q.status]?.t || q.status}</span></td>
+                        <td className="px-4 py-2"><span className={`text-2xs font-semibold px-2 py-0.5 rounded-full border ${STATUS_LABEL[q.status]?.c || ''}`}>{STATUS_LABEL[q.status]?.t || q.status}</span></td>
                         <td className="px-4 py-2 text-xs text-slate-500 max-w-xs truncate">
                           {q.status === 'terkirim' && q.sent_at ? `Terkirim ${new Date(q.sent_at).toLocaleTimeString('id-ID', { timeStyle: 'short' })}` : q.last_error ? `${terjemahGalat(q.last_error)}${q.attempts ? ` (percobaan ${q.attempts})` : ''}` : ''}
                         </td>

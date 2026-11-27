@@ -208,7 +208,7 @@ const SesiHalaqahPage: React.FC = () => {
             <div key={p.santri.id} className="px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-1">
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-semibold text-slate-800">{p.santri.nama}</div>
-                <div className="text-sm sm:text-[11px] text-slate-500">{labelArah((p.santri as any).arah_hafalan)} · posisi terakhir: {p.posisi}</div>
+                <div className="text-sm sm:text-2xs text-slate-500">{labelArah((p.santri as any).arah_hafalan)} · posisi terakhir: {p.posisi}</div>
               </div>
               <div className="text-sm sm:text-xs text-slate-700">Ziyadah <b>{p.ziyadah}</b> hal</div>
               <div className="text-sm sm:text-xs text-slate-700">Murojaah <b>{p.murojaah}</b> hal</div>

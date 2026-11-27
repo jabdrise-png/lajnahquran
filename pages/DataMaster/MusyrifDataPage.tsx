@@ -8,7 +8,7 @@ import { Marhalah } from '../../types';
 import { Plus, Trash, Download, Edit, Upload, FileSpreadsheet, FileText, Search, ChevronRight } from 'lucide-react';
 import { parseSpreadsheet, exportToExcel, exportToPDF } from '../../lib/utils';
 import { supabase } from '../../lib/supabaseClient';
-import { StatusBadge } from '../../components/ui/SaaSPrimitives';
+import { StatusBadge, LoadingState } from '../../components/ui/SaaSPrimitives';
 import { NotificationStore } from '../../lib/NotificationStore';
 
 export interface Musyrif {
@@ -131,7 +131,7 @@ const MusyrifDataPage: React.FC = () => {
         await fetchMusyrif();
         if (fetchData) await fetchData();
         setIsModalOpen(false);
-        NotificationStore.addNotification("Atribut Musyrif berhasil disimpan dan disinkronkan ke struktur marhalah/kelas.", "success");
+        NotificationStore.addNotification("Data musyrif berhasil disimpan dan disinkronkan ke struktur marhalah/kelas.", "success");
     };
 
     const handleDelete = async (id: number) => {
@@ -139,7 +139,7 @@ const MusyrifDataPage: React.FC = () => {
         if (!orgId) return;
         await (supabase as any).from('musyrifs').delete().eq('id', id).eq('organization_id', orgId);
         fetchMusyrif();
-        NotificationStore.addNotification("Atribut Musyrif berhasil dihapus.", "info");
+        NotificationStore.addNotification("Data musyrif berhasil dihapus.", "info");
     };
 
     // Import/Export
@@ -190,41 +190,38 @@ const MusyrifDataPage: React.FC = () => {
         exportToPDF("Data Musyrif", columns, rows, "Data_Musyrif");
     };
 
-    if (loading) return <p>Loading...</p>;
+    if (loading) return <LoadingState label="Memuat data…" />;
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20 max-w-[1400px] font-sans">
             <input type="file" ref={fileInputRef} onChange={handleImportCSV} accept=".csv,.xlsx,.xls" className="hidden" />
 
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 mt-2">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 sm:gap-4">
                 <div>
-                    <div className="flex items-center gap-2 mb-1.5">
-                        <StatusBadge label="ATRIBUT ADMINISTRATIF ASRAMA/MARHALAH (NON-LOGIN)" tone="primary" />
-                    </div>
-                    <h1 className="text-[24px] font-extrabold text-slate-900 tracking-tight leading-none mb-2">
-                        Atribut Musyrif Pembina
+                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+                        Musyrif Pembina
                     </h1>
-                    <p className="text-[13px] text-slate-500 font-medium">
-                        Sesuai Arsitektur 3-Role (Superadmin, Admin, Musammi), Musyrif dikelola sebagai atribut teks administratif pendamping marhalah/santri.
+                    <p className="mt-1 text-sm text-slate-500">
+                        Nama musyrif pendamping per marhalah/santri (hanya data, bukan akun login).
                     </p>
                 </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 justify-end mt-2 md:-mt-20 z-10 relative pointer-events-none">
-                <div className="pointer-events-auto flex flex-col sm:flex-row gap-3">
-                    <ActionDropdown label="Import Data" icon={<Upload size={16}/>}>
+            <div className="flex justify-end">
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                    <ActionDropdown label="Impor data" icon={<Upload size={16}/>}>
                         <button onClick={() => fileInputRef.current?.click()} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left">
-                            <FileSpreadsheet size={14} className="mr-2 text-green-600"/> Upload File Excel/CSV
+                            <FileSpreadsheet size={14} className="mr-2 text-emerald-600"/> Upload File Excel/CSV
                         </button>
                         <button onClick={handleDownloadTemplate} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100">
                             <Download size={14} className="mr-2 text-blue-600"/> Download Template
                         </button>
                     </ActionDropdown>
 
-                    <ActionDropdown label="Export Data" icon={<Download size={16}/>}>
+                    <ActionDropdown label="Ekspor data" icon={<Download size={16}/>}>
                         <button onClick={() => exportToExcel(musyrifList, 'Data_Musyrif')} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left">
-                            <FileSpreadsheet size={14} className="mr-2 text-green-600"/> Export Excel
+                            <FileSpreadsheet size={14} className="mr-2 text-emerald-600"/> Export Excel
                         </button>
                         <button onClick={handleExportPDF} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100">
                             <FileText size={14} className="mr-2 text-red-600"/> Export PDF
@@ -233,7 +230,7 @@ const MusyrifDataPage: React.FC = () => {
                     
                     <button 
                         onClick={() => openModal(null)} 
-                        className="inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-5 text-[13px] font-bold text-white shadow-[0_2px_12px_rgba(37,99,235,0.25)] transition-all hover:bg-blue-700 hover:-translate-y-0.5 gap-2"
+                        className="btn btn-primary justify-center"
                     >
                         <Plus size={16} strokeWidth={2.5}/> Tambah Baru
                     </button>
@@ -244,7 +241,7 @@ const MusyrifDataPage: React.FC = () => {
                 {/* Filters */}
                 <div className="p-5 border-b border-slate-100 bg-slate-50/30 flex flex-col md:flex-row gap-4">
                     <div className="w-full md:w-1/2">
-                        <label className="block text-[12px] font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Cari Nama</label>
+                        <label className="block text-xs font-semibold text-slate-500 mb-1.5">Cari Nama</label>
                         <div className="relative">
                             <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"/>
                             <input 
@@ -252,16 +249,16 @@ const MusyrifDataPage: React.FC = () => {
                                 placeholder="Ketik nama musyrif..." 
                                 value={search} 
                                 onChange={e => setSearch(e.target.value)} 
-                                className="w-full h-10 pl-10 pr-4 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none text-[13px] transition-all shadow-[0_1px_2px_rgba(0,0,0,0.02)] placeholder:text-slate-400" 
+                                className="w-full h-10 pl-10 pr-4 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none text-sm transition-all shadow-xs placeholder:text-slate-400" 
                             />
                         </div>
                     </div>
                     <div className="w-full md:w-1/2">
-                        <label className="block text-[12px] font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Filter Marhalah</label>
+                        <label className="block text-xs font-semibold text-slate-500 mb-1.5">Marhalah</label>
                         <select 
                             value={filterMarhalah} 
                             onChange={e => setFilterMarhalah(e.target.value)} 
-                            className="w-full h-10 px-4 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none text-[13px] font-medium transition-all shadow-[0_1px_2px_rgba(0,0,0,0.02)] cursor-pointer"
+                            className="w-full h-10 px-4 bg-white border border-slate-200/80 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none text-sm font-medium transition-all shadow-xs cursor-pointer"
                         >
                             <option value="all">Semua Marhalah</option>
                             {masterMarhalahs?.map((m: any) => <option key={m.id} value={m.nama}>{m.nama}</option>) || globalMarhalahs.map((m: any) => <option key={m} value={m}>{m}</option>)}
@@ -270,31 +267,31 @@ const MusyrifDataPage: React.FC = () => {
                 </div>
 
                 <div className="flex-1 overflow-auto p-0 min-h-[300px]">
-                    <table className="w-full text-left border-collapse">
+                    <table className="tabel-kartu w-full text-left border-collapse">
                         <thead className="bg-white sticky top-0 z-10">
                             <tr className="border-b border-slate-200/60 bg-slate-50/50">
-                                <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400">Nama Musyrif</th>
-                                <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100">Marhalah (Yang Diampu)</th>
-                                <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100">No HP</th>
-                                <th className="px-6 py-4 text-[11px] font-bold tracking-widest uppercase text-slate-400 border-l border-slate-100 text-right">Aksi</th>
+                                <th className="px-6 py-4 text-xs font-semibold text-slate-400">Nama Musyrif</th>
+                                <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100">Marhalah (Yang Diampu)</th>
+                                <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100">No HP</th>
+                                <th className="px-6 py-4 text-xs font-semibold text-slate-400 border-l border-slate-100 text-right">Aksi</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100/80">
                             {paginatedData.map(w => (
                                 <tr key={w.id} className="hover:bg-blue-50/30 transition-colors group">
-                                    <td className="px-6 py-4 text-[14px] font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{w.nama}</td>
-                                    <td className="px-6 py-4 border-l border-slate-100/80 text-[13px] font-bold text-slate-600 uppercase tracking-widest">
-                                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200/60">
+                                    <td className="px-6 py-4 text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{w.nama}</td>
+                                    <td data-label="Marhalah" className="px-6 py-4 border-l border-slate-100/80 text-sm font-semibold text-slate-600">
+                                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-2xs font-bold bg-amber-50 text-amber-700 border border-amber-200/60">
                                             <MarhalahLabel text={w.marhalah} id={(w as any).marhalah_id} />
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 border-l border-slate-100/80 text-[13px] font-medium text-slate-600">{w.no_hp || '-'}</td>
-                                    <td className="px-6 py-4 border-l border-slate-100/80 text-right">
+                                    <td data-label="No HP" className="px-6 py-4 border-l border-slate-100/80 text-sm font-medium text-slate-600">{w.no_hp || '-'}</td>
+                                    <td data-label="Aksi" className="px-6 py-4 border-l border-slate-100/80 text-right">
                                         <div className="flex items-center justify-end gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                                             <button onClick={() => openModal(w)} className="h-9 w-9 inline-flex items-center justify-center rounded-xl bg-slate-50 text-slate-500 hover:bg-blue-500 hover:text-white transition-all shadow-sm">
                                                 <Edit size={14} strokeWidth={2.5}/>
                                             </button>
-                                            <button onClick={() => handleDelete(w.id)} className="h-9 w-9 inline-flex items-center justify-center rounded-xl bg-slate-50 text-slate-500 hover:bg-rose-500 hover:text-white transition-all shadow-sm">
+                                            <button onClick={() => handleDelete(w.id)} className="h-9 w-9 inline-flex items-center justify-center rounded-xl bg-slate-50 text-slate-500 hover:bg-red-500 hover:text-white transition-all shadow-sm">
                                                 <Trash size={14} strokeWidth={2.5}/>
                                             </button>
                                         </div>
@@ -306,7 +303,7 @@ const MusyrifDataPage: React.FC = () => {
                                     <td colSpan={5} className="py-16 text-center">
                                         <div className="flex flex-col items-center justify-center text-slate-400">
                                             <Search size={48} className="mb-4 opacity-20" />
-                                            <p className="text-[13px] font-medium">Tidak ada data musyrif ditemukan.</p>
+                                            <p className="text-sm font-medium">Tidak ada data musyrif ditemukan.</p>
                                         </div>
                                     </td>
                                 </tr>
@@ -318,24 +315,24 @@ const MusyrifDataPage: React.FC = () => {
                 {/* Pagination Controls */}
                 {totalPages > 1 && (
                     <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-center gap-4">
-                        <span className="text-[12px] font-medium text-slate-500">
+                        <span className="text-xs font-medium text-slate-500">
                             Menampilkan <span className="font-bold text-slate-700">{((currentPage - 1) * itemsPerPage) + 1}</span> - <span className="font-bold text-slate-700">{Math.min(currentPage * itemsPerPage, filteredData.length)}</span> dari <span className="font-bold text-slate-700">{filteredData.length}</span> data
                         </span>
                         <div className="flex items-center gap-2">
                             <button 
                                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                 disabled={currentPage === 1}
-                                className="h-8 px-3 rounded-lg border border-slate-200 bg-white text-[12px] font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                className="btn btn-secondary btn-sm"
                             >
                                 Sebelumnya
                             </button>
-                            <span className="text-[12px] font-semibold text-slate-600 min-w-[80px] text-center">
+                            <span className="text-xs font-semibold text-slate-600 min-w-[80px] text-center">
                                 {currentPage} / {totalPages}
                             </span>
                             <button 
                                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                                 disabled={currentPage === totalPages}
-                                className="h-8 px-3 rounded-lg border border-slate-200 bg-white text-[12px] font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                className="btn btn-secondary btn-sm"
                             >
                                 Selanjutnya
                             </button>
@@ -347,22 +344,22 @@ const MusyrifDataPage: React.FC = () => {
             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingMusyrif ? "Edit Musyrif" : "Tambah Musyrif"}>
                 <div className="space-y-5 mt-2">
                     <div>
-                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Nama <span className="text-red-500">*</span></label>
-                        <input type="text" placeholder="Masukkan nama musyrif..." className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-[13px] font-semibold text-slate-800 placeholder:text-slate-400" value={formData.nama} onChange={e => setFormData({...formData, nama: e.target.value})} />
+                        <label className="block text-xs font-semibold text-slate-500 mb-2">Nama <span className="text-red-500">*</span></label>
+                        <input type="text" placeholder="Masukkan nama musyrif..." className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-sm font-semibold text-slate-800 placeholder:text-slate-400" value={formData.nama} onChange={e => setFormData({...formData, nama: e.target.value})} />
                     </div>
                     <div>
-                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">No HP</label>
-                        <input type="text" placeholder="Contoh: 08123456789" className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-[13px] font-semibold text-slate-800 placeholder:text-slate-400" value={formData.no_hp} onChange={e => setFormData({...formData, no_hp: e.target.value})} />
+                        <label className="block text-xs font-semibold text-slate-500 mb-2">No HP</label>
+                        <input type="text" placeholder="Contoh: 08123456789" className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-sm font-semibold text-slate-800 placeholder:text-slate-400" value={formData.no_hp} onChange={e => setFormData({...formData, no_hp: e.target.value})} />
                     </div>
                     <div>
-                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Marhalah yang Diampu <span className="text-red-500">*</span></label>
-                        <select className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-[13px] font-semibold text-slate-800 cursor-pointer" value={formData.marhalah} onChange={e => setFormData({...formData, marhalah: e.target.value})}>
+                        <label className="block text-xs font-semibold text-slate-500 mb-2">Marhalah yang Diampu <span className="text-red-500">*</span></label>
+                        <select className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-sm font-semibold text-slate-800 cursor-pointer" value={formData.marhalah} onChange={e => setFormData({...formData, marhalah: e.target.value})}>
                             {masterMarhalahs?.map((m: any) => <option key={m.id} value={m.nama}>{m.nama}</option>) || globalMarhalahs.map((m: any) => <option key={m} value={m}>{m}</option>)}
                         </select>
                     </div>
                     <div className="flex justify-end gap-3 pt-6 border-t border-slate-200/80">
-                        <button onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-xl text-[13px] font-bold text-slate-600 hover:bg-slate-100 transition-colors">Batal</button>
-                        <button onClick={handleSubmit} className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-[13px] font-bold hover:bg-blue-700 active:bg-blue-800 transition-all shadow-[0_2px_12px_rgba(37,99,235,0.25)] focus:ring-4 focus:ring-blue-500/20 flex items-center justify-center min-w-[120px]">Simpan Data</button>
+                        <button onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors">Batal</button>
+                        <button onClick={handleSubmit} className="btn btn-primary justify-center min-w-[120px]">Simpan Data</button>
                     </div>
                 </div>
             </Modal>
