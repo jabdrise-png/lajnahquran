@@ -1,0 +1,18 @@
+FASE 8 (BAGIAN 1) — BISNIS, PRIVASI & TAHUN AJARAN (cabang: fase-8-bisnis, dari main 2e22f69)
+
+Cara pasang kode:
+- Salin isi ZIP ini ke root repo (timpa semua), lalu HAPUS berkas berikut (tidak dipakai lagi),
+  commit, push:
+    pages/HalaqahData.tsx
+    pages/Reports.tsx
+    components/KelolaTargetModal.tsx
+    components/QuranHafalanInput.tsx
+    hooks/useMockData.ts
+
+Urutan:
+1. Cadangan database.
+2. Supabase SQL Editor, satu file per kali:
+   2026_12_03_01_f8_bisnis.sql -> 2026_12_03_02_f8_tahun_ditutup.sql
+3. Deploy.
+4. Superadmin > Pendaftaran & Langganan > Paket: isi harga paket.
+5. Uji manual: docs/FASE_8_UJI.md bagian 2.

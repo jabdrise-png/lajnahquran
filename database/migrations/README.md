@@ -53,6 +53,8 @@ contoh: 2026_12_01_01_fix_recitation_revisions_action_check.sql
 | `2026_12_01_02_f6_telegram_fungsi.sql` | F6 (penautan wali, antrian + retry, pesan setoran / progres periode / kehadiran mingguan terjadwal, RPC Admin) | belum |
 | `2026_12_02_01_f7_kinerja.sql` | F7 (rpc_setoran_terakhir untuk muat awal 14 hari, indeks setoran terakhir & keanggotaan halaqah) | belum |
 | `2026_12_02_02_f7_login_google.sql` | F7 (handle_new_user: pengguna Google/OAuth yang belum diundang tidak lagi membuat lembaga "Ma'had Baru") | belum |
+| `2026_12_03_01_f8_bisnis.sql` | F8 (paket & harga diatur Superadmin, pembayaran transfer manual + status langganan, antrean pendaftaran lembaga) | belum |
+| `2026_12_03_02_f8_tahun_ditutup.sql` | F8 (tahun ajaran Ditutup = data operasional terkunci; Admin bisa membuka kembali) | belum |
 
 ## Pemeriksaan sebelum migrasi
 

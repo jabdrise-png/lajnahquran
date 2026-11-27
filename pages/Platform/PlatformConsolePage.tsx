@@ -27,6 +27,7 @@ import {
 import Modal from '../../components/Modal';
 import { NotificationStore } from '../../lib/NotificationStore';
 import type { Page } from '../../types';
+import BisnisPanel from './BisnisPanel';
 
 export type PlatformSection =
   | 'dashboard'
@@ -279,6 +280,12 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
 
   // Data States
   const [tenants, setTenants] = useState<TenantItem[]>([]);
+  // Fase 8: paket dari tabel platform_plans (diatur di tab Bisnis)
+  const [paketDb, setPaketDb] = useState<Array<{ id: string; nama: string; batas_santri: number | null; aktif: boolean }>>([]);
+  useEffect(() => {
+    (supabase as any).from('platform_plans').select('id,nama,batas_santri,aktif').order('urutan')
+      .then(({ data }: any) => setPaketDb(data || []));
+  }, []);
   const [accounts, setAccounts] = useState<PlatformAccountItem[]>([]);
   const [supportSessions, setSupportSessions] = useState<SupportSessionItem[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
@@ -1989,7 +1996,10 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
 
   const getPlanEntitlement = (planId?: string): SaaSPlanDefinition => {
     const clean = (planId || 'standard').toLowerCase();
-    return SAAS_PLANS.find((p) => p.id === clean) || SAAS_PLANS[1];
+    const dasar = SAAS_PLANS.find((p) => p.id === clean) || SAAS_PLANS[1];
+    const db = paketDb.find((p) => p.id === clean);
+    // batas santri dari paket di database; 0 = tanpa batas (tidak dihitung sebagai kuota)
+    return db ? { ...dasar, id: db.id, name: db.nama, maxStudents: db.batas_santri ?? 0, maxMusammi: 0 } : dasar;
   };
 
   const formatRemainingTime = (expiresAtIso: string): string => {
@@ -2120,7 +2130,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
     : tab === 'accounts'
     ? 'Tiga role. Scope yang tetap tegas.'
     : tab === 'plans'
-    ? 'Kapasitas terukur untuk setiap skala lembaga.'
+    ? 'Pendaftaran & Langganan'
     : tab === 'support'
     ? 'Bantuan terkontrol, bukan akses permanen.'
     : tab === 'audit'
@@ -2136,7 +2146,7 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
     : tab === 'accounts'
     ? 'Kelola identitas dan access grants lintas tenant tanpa memperluas model otorisasi yang sudah ditetapkan.'
     : tab === 'plans'
-    ? 'Standarisasi kuota santri, musammi, dan retensi audit lintas lembaga sesuai definisi paket sistem produksi.'
+    ? 'Setujui pendaftaran lembaga baru, catat pembayaran transfer, dan atur paket (batas santri & harga).'
     : tab === 'support'
     ? 'Setiap sesi support memiliki alasan, scope, batas waktu, dan jejak audit untuk menjaga kepercayaan tenant.'
     : tab === 'audit'
@@ -3790,234 +3800,8 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
         </div>
       )}
 
-      {/* =====================================================================
-          SECTION 4: PAKET & ENTITLEMENTS SAAS (/platform/plans)
-         ===================================================================== */}
-      {!selectedTenant && tab === 'plans' && (
-        <div className="space-y-6">
-          {/* 4A. Package Comparison Cards */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            {SAAS_PLANS.map((plan) => {
-              const countOnPlan = tenants.filter(
-                (t) => (t.plan_id || 'standard').toLowerCase() === plan.id
-              ).length;
-              const isStandard = plan.id === 'standard';
-              return (
-                <div
-                  key={plan.id}
-                  className={`bg-white rounded-2xl border p-6 flex flex-col justify-between space-y-5 shadow-2xs ${
-                    isStandard
-                      ? 'border-blue-300 ring-1 ring-blue-600/15'
-                      : 'border-slate-200'
-                  }`}
-                >
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <StatusBadge
-                        label={plan.id.toUpperCase()}
-                        tone={
-                          plan.id === 'enterprise'
-                            ? 'primary'
-                            : plan.id === 'standard'
-                            ? 'success'
-                            : 'warning'
-                        }
-                      />
-                      <span className="px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200 text-xs font-mono font-semibold text-slate-700 tabular-nums">
-                        {countOnPlan} Tenant Terdaftar
-                      </span>
-                    </div>
-
-                    <div>
-                      <h3 className="text-lg font-bold text-slate-900">{plan.name}</h3>
-                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">{plan.tagline}</p>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-2.5 pt-3 border-t border-slate-200 text-center">
-                      <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
-                        <div className="text-2xs font-medium text-slate-500">Quota Santri</div>
-                        <div className="text-base font-bold font-mono tabular-nums text-slate-900 mt-0.5">
-                          {plan.maxStudents.toLocaleString('id-ID')}
-                        </div>
-                      </div>
-                      <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
-                        <div className="text-2xs font-medium text-slate-500">Quota Musammi</div>
-                        <div className="text-base font-bold font-mono tabular-nums text-slate-900 mt-0.5">
-                          {plan.maxMusammi.toLocaleString('id-ID')}
-                        </div>
-                      </div>
-                      <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
-                        <div className="text-2xs font-medium text-slate-500">Retensi Audit</div>
-                        <div className="text-base font-bold font-mono tabular-nums text-slate-900 mt-0.5">
-                          {plan.auditRetentionDays} hr
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="pt-2 space-y-2">
-                      <div className="text-xs font-semibold text-slate-700">
-                        Fitur & Kapabilitas Paket:
-                      </div>
-                      <ul className="space-y-2 text-xs text-slate-600">
-                        {plan.features.map((feat, i) => (
-                          <li key={i} className="flex items-start gap-2">
-                            <span className="w-4 h-4 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-2xs font-bold shrink-0 mt-0.5">
-                              ✓
-                            </span>
-                            <span className="leading-relaxed">{feat}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-
-                  <div className="pt-3 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
-                    <span>Quota Halaqah</span>
-                    <span className="font-mono font-semibold text-slate-900 tabular-nums">
-                      Maks. {plan.maxHalaqah} halaqah aktif
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* 4B. Quota Usage & Penetapan Paket per Tenant */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
-            <div className="p-5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-base font-bold text-slate-900">
-                  Pemakaian Kuota & Penetapan Paket per Tenant
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Pantau pemakaian aktual santri dan musammi terhadap kuota paket. Perubahan paket
-                  hanya memodifikasi assignment lembaga dan wajib dikonfirmasi oleh server.
-                </p>
-              </div>
-              <StatusBadge label={`${tenants.length} LEMBAGA`} tone="primary" />
-            </div>
-
-            {tenants.length === 0 ? (
-              <EmptyState
-                title="Belum Ada Tenant Terdaftar"
-                description="Provision organisasi baru terlebih dahulu untuk mengelola penetapan paket dan kuota."
-              />
-            ) : (
-              <>
-                <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
-                      <tr>
-                        <th className="px-6 py-3.5">Nama Tenant</th>
-                        <th className="px-6 py-3.5">Paket Saat Ini</th>
-                        <th className="px-6 py-3.5 w-64">Pemakaian & Quota Santri</th>
-                        <th className="px-6 py-3.5 w-64">Pemakaian & Quota Musammi</th>
-                        <th className="px-6 py-3.5 text-right">Aksi Ubah Paket</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200">
-                      {tenants.map((t) => {
-                        const planDef = getPlanEntitlement(t.plan_id);
-                        return (
-                          <tr key={t.id} className="hover:bg-blue-50/50 transition-colors">
-                            <td className="px-6 py-4">
-                              <button
-                                type="button"
-                                onClick={() => openTenantDetail(t.id)}
-                                className="font-bold text-slate-900 hover:text-blue-600 text-left"
-                              >
-                                {t.name}
-                              </button>
-                              <div className="text-xs font-mono text-slate-500 mt-0.5">
-                                {t.slug}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <StatusBadge
-                                label={planDef.id.toUpperCase()}
-                                tone={
-                                  planDef.id === 'enterprise'
-                                    ? 'primary'
-                                    : planDef.id === 'standard'
-                                    ? 'success'
-                                    : 'warning'
-                                }
-                              />
-                              <div className="text-2xs text-slate-500 mt-1">
-                                Retensi audit {planDef.auditRetentionDays} hari
-                              </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <QuotaBar
-                                label="Santri"
-                                used={t.santriCount}
-                                limit={planDef.maxStudents}
-                              />
-                            </td>
-                            <td className="px-6 py-4">
-                              <QuotaBar
-                                label="Musammi"
-                                used={t.musammiCount}
-                                limit={planDef.maxMusammi}
-                              />
-                            </td>
-                            <td className="px-6 py-4 text-right">
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateTenantPlan(t)}
-                                className="px-3.5 py-1.5 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-semibold transition-colors"
-                              >
-                                Ubah Paket
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Mobile Quota Cards (<768px) */}
-                <div className="md:hidden divide-y divide-slate-200">
-                  {tenants.map((t) => {
-                    const planDef = getPlanEntitlement(t.plan_id);
-                    return (
-                      <div key={t.id} className="p-4 space-y-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <div className="font-bold text-slate-900">{t.name}</div>
-                            <div className="text-xs font-mono text-slate-500">{t.slug}</div>
-                          </div>
-                          <StatusBadge label={planDef.id.toUpperCase()} tone="primary" />
-                        </div>
-                        <QuotaBar
-                          label="Santri"
-                          used={t.santriCount}
-                          limit={planDef.maxStudents}
-                        />
-                        <QuotaBar
-                          label="Musammi"
-                          used={t.musammiCount}
-                          limit={planDef.maxMusammi}
-                        />
-                        <div className="flex justify-end pt-1">
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateTenantPlan(t)}
-                            className="px-3.5 py-1.5 rounded-lg bg-blue-50 text-blue-600 text-xs font-semibold"
-                          >
-                            Ubah Paket
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      {/* SECTION 4 (Fase 8): Pendaftaran lembaga, langganan & pembayaran, paket — pages/Platform/BisnisPanel.tsx */}
+      {!selectedTenant && tab === 'plans' && <BisnisPanel />}
 
       {/* =====================================================================
           SECTION 5: SUPPORT ACCESS SESSIONS (/platform/support-sessions)
@@ -5184,19 +4968,17 @@ const PlatformConsolePage: React.FC<PlatformConsolePageProps> = ({
                       onChange={(e) =>
                         setPlanChangeModal({
                           ...planChangeModal,
-                          nextPlan: e.target.value as 'trial' | 'standard' | 'enterprise',
+                          nextPlan: e.target.value as any,
                           error: null,
                         })
                       }
                       className="w-full h-9 border border-blue-300 rounded-lg px-2.5 text-xs font-semibold text-slate-900 bg-white"
                     >
-                      <option value="trial">TRIAL ({SAAS_PLANS[0].maxStudents} Santri)</option>
-                      <option value="standard">
-                        STANDARD ({SAAS_PLANS[1].maxStudents} Santri)
-                      </option>
-                      <option value="enterprise">
-                        ENTERPRISE ({SAAS_PLANS[2].maxStudents} Santri)
-                      </option>
+                      {paketDb.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.nama} ({p.batas_santri ?? 'tanpa batas'} santri){p.aktif ? '' : ' · nonaktif'}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>

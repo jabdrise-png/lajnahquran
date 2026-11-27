@@ -1,4 +1,5 @@
 import { tampilKode } from '../../lib/telegramPesan';
+import { PeringatanLangganan } from '../../components/LanggananLembaga';
 import { arahSantri } from '../../lib/arahHafalan';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -665,6 +666,8 @@ const SantriPage: React.FC = () => {
                     </button>
                 </div>
             </div>
+
+            <PeringatanLangganan />
 
             {/* Banner Kesiapan Enrollment Tahun Ajaran Aktif */}
             <div className={`p-4 rounded-xl border flex flex-wrap items-center justify-between gap-3 ${unenrolledCount > 0 ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-emerald-50/70 border-emerald-200 text-emerald-900'}`}>

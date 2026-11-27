@@ -6,7 +6,7 @@ import { AcademicYear } from '../../types';
 import { Plus, Edit, Trash, RefreshCw, Archive, CheckCircle2, AlertTriangle, ShieldCheck, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useAcademicYear } from '../../lib/AcademicYearContext';
-import { PageShell, PageHeader, StatCard, StatusBadge } from '../../components/ui/SaaSPrimitives';
+import { PageShell, PageHeader, StatCard, StatusBadge, ConfirmDialog } from '../../components/ui/SaaSPrimitives';
 import { NotificationStore } from '../../lib/NotificationStore';
 
 type AcademicYearLifecycleStatus = 'draft' | 'setup' | 'active' | 'closing' | 'closed';
@@ -29,11 +29,12 @@ interface ClosingReadinessReport {
 
 
 const LIFECYCLE_LABELS: Record<AcademicYearLifecycleStatus, { label: string; tone: 'neutral' | 'warning' | 'success' | 'primary' | 'danger' }> = {
-    draft: { label: 'DRAFT', tone: 'neutral' },
-    setup: { label: 'SETUP PERSIAPAN', tone: 'warning' },
-    active: { label: 'AKTIF BERJALAN', tone: 'success' },
-    closing: { label: 'REKONSILIASI PENUTUPAN', tone: 'primary' },
-    closed: { label: 'DITUTUP (TERKUNCI)', tone: 'danger' },
+    // Fase 8: bagi pengguna hanya dua keadaan — Aktif (bisa diubah) / Ditutup (terkunci)
+    draft: { label: 'Aktif', tone: 'success' },
+    setup: { label: 'Aktif', tone: 'success' },
+    active: { label: 'Aktif', tone: 'success' },
+    closing: { label: 'Aktif', tone: 'success' },
+    closed: { label: 'Ditutup', tone: 'danger' },
 };
 
 const TahunAjaranPage: React.FC = () => {
@@ -367,6 +368,26 @@ const TahunAjaranPage: React.FC = () => {
         }
     };
 
+    // Fase 8: buka kembali tahun ajaran yang sudah ditutup (Admin, wajib alasan, tercatat di audit)
+    const [bukaKembali, setBukaKembali] = useState<AcademicYear | null>(null);
+    const handleBukaKembali = async (alasan?: string) => {
+        if (!bukaKembali) return;
+        setIsSubmitting(true);
+        try {
+            const { error } = await (supabase as any).rpc('rpc_buka_kembali_tahun_ajaran', { p_tahun: bukaKembali.id, p_alasan: alasan || '' });
+            if (error) throw error;
+            NotificationStore.addNotification(`Tahun Ajaran ${bukaKembali.name} dibuka kembali. Data bisa dikoreksi; tutup lagi bila selesai.`, 'success');
+            setBukaKembali(null);
+            await fetchAcademicYears();
+            await refreshAcademicYears();
+            if (fetchData) await fetchData();
+        } catch (e: any) {
+            NotificationStore.addNotification(e?.message || 'Gagal membuka kembali tahun ajaran.', 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     const handleConfirmCloseAcademicYear = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!closingTargetYear) return;
@@ -396,7 +417,7 @@ const TahunAjaranPage: React.FC = () => {
             await refreshAcademicYears();
             if (fetchData) await fetchData();
             NotificationStore.addNotification(
-                `Tahun Ajaran ${closingTargetYear.name} resmi ditutup dan dikunci permanen.`,
+                `Tahun Ajaran ${closingTargetYear.name} resmi ditutup. Data tahun ini terkunci; Admin dapat membukanya kembali bila perlu koreksi.`,
                 'success'
             );
         } catch (err: any) {
@@ -939,7 +960,7 @@ const TahunAjaranPage: React.FC = () => {
                                     <tr>
                                         <th className="px-6 py-3.5">Tahun Ajaran</th>
                                         <th className="px-6 py-3.5">Semester Berjalan & Rentang Tanggal</th>
-                                        <th className="px-6 py-3.5">Tahap Siklus (Lifecycle)</th>
+                                        <th className="px-6 py-3.5">Status</th>
                                         <th className="px-6 py-3.5 text-right">Tindakan Tata Kelola</th>
                                     </tr>
                                 </thead>
@@ -1028,13 +1049,18 @@ const TahunAjaranPage: React.FC = () => {
                                                                 Aktifkan Tahun
                                                             </button>
                                                         )}
+                                                        {isClosed && (
+                                                            <button type="button" onClick={() => setBukaKembali(ay)} className="btn btn-secondary btn-sm">
+                                                                Buka kembali
+                                                            </button>
+                                                        )}
                                                         {!isClosed && (
                                                             <button
                                                                 type="button"
                                                                 onClick={() => handleOpenClosingModal(ay)}
                                                                 className="px-3 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 text-xs font-semibold transition-colors"
                                                             >
-                                                                Tutup & Kunci Tahun
+                                                                Tutup tahun ajaran
                                                             </button>
                                                         )}
                                                         <button
@@ -1485,6 +1511,17 @@ const TahunAjaranPage: React.FC = () => {
                     </div>
                 </form>
             </Modal>
+            <ConfirmDialog
+                isOpen={Boolean(bukaKembali)}
+                title={`Buka kembali Tahun Ajaran ${bukaKembali?.name || ''}`}
+                description="Data absensi, setoran, ujian, dan rekap tahun ini bisa diubah lagi. Tutup kembali setelah koreksi selesai. Penempatan halaqah yang sudah diakhiri saat penutupan tidak dipulihkan."
+                confirmLabel="Buka kembali"
+                requireReason
+                reasonLabel="Alasan (tercatat di log audit)"
+                isSubmitting={isSubmitting}
+                onCancel={() => setBukaKembali(null)}
+                onConfirm={handleBukaKembali}
+            />
         </PageShell>
     );
 };

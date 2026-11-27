@@ -46,7 +46,7 @@ export const PublicLayout: React.FC<{
 }> = ({ session, isSuperAdmin }) => {
   const location = useLocation();
   const isAccessibleWhileAuthenticated =
-    location.pathname.startsWith('/invite') || location.pathname.startsWith('/verify') || location.pathname.startsWith('/reset-password');
+    location.pathname.startsWith('/invite') || location.pathname.startsWith('/verify') || location.pathname.startsWith('/reset-password') || location.pathname.startsWith('/privasi');
 
   if (session && !isAccessibleWhileAuthenticated) {
     return <Navigate to={isSuperAdmin ? '/platform/dashboard' : '/app/dashboard'} replace />;

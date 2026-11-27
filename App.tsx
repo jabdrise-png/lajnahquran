@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, Suspense } from 'react';
 import { lazyHalaman, MemuatHalaman } from './lib/muatHalaman';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import PwaKontrol from './components/PwaKontrol';
+import StatusPendaftaran from './components/StatusPendaftaran';
 // Fase 7: semua halaman dimuat saat dibuka (code-splitting per rute)
 const Dashboard = lazyHalaman(() => import('./pages/Dashboard'));
 const AbsensiPage = lazyHalaman(() => import('./pages/Operasional/AbsensiPage'));
@@ -9,6 +10,7 @@ const AttendanceBook = lazyHalaman(() => import('./pages/AttendanceBook'));
 const BukuAbsensiPage = lazyHalaman(() => import('./pages/BukuAbsensiPage'));
 const Login = lazyHalaman(() => import('./pages/Login'));
 const ResetSandiPage = lazyHalaman(() => import('./pages/ResetSandiPage'));
+const KebijakanPrivasiPage = lazyHalaman(() => import('./pages/KebijakanPrivasiPage'));
 const Informasi = lazyHalaman(() => import('./pages/Informasi'));
 const Users = lazyHalaman(() => import('./pages/Users'));
 
@@ -250,7 +252,7 @@ const App: React.FC = () => {
     );
   }
 
-  if (session && isPending && !location.pathname.startsWith('/invite') && !location.pathname.startsWith('/reset-password')) {
+  if (session && isPending && !location.pathname.startsWith('/invite') && !location.pathname.startsWith('/reset-password') && !location.pathname.startsWith('/privasi')) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-neutral p-4">
         <div className="bg-white p-8 rounded-xl shadow-lg border border-slate-200 max-w-md text-center">
@@ -261,6 +263,7 @@ const App: React.FC = () => {
           <p className="text-slate-600 mb-6 text-sm leading-relaxed">
             Akun ini belum diaktifkan atau akses keanggotaan Anda sedang ditangguhkan oleh Admin Lembaga.
           </p>
+          <StatusPendaftaran />
           <button
             onClick={handleLogout}
             className="btn btn-secondary justify-center w-full"
@@ -288,7 +291,7 @@ const App: React.FC = () => {
     onSwitchRole: handleSwitchRole,
   };
 
-  if (session && needsRolePick && !location.pathname.startsWith('/invite') && !location.pathname.startsWith('/reset-password')) {
+  if (session && needsRolePick && !location.pathname.startsWith('/invite') && !location.pathname.startsWith('/reset-password') && !location.pathname.startsWith('/privasi')) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-neutral p-4">
         <div className="bg-white p-8 rounded-xl shadow-lg border border-slate-200 max-w-md w-full text-center">
@@ -329,6 +332,7 @@ const App: React.FC = () => {
         <Route path="/login" element={<Login onBack={() => navigate('/')} />} />
         <Route path="/invite" element={<AcceptInvitePage />} />
         <Route path="/reset-password" element={<ResetSandiPage />} />
+        <Route path="/privasi" element={<KebijakanPrivasiPage />} />
         <Route path="/verify" element={<VerifyReportPage />} />
         <Route path="/verify/:code" element={<VerifyReportPage />} />
       </Route>

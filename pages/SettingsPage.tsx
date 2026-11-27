@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { KartuLangganan } from '../components/LanggananLembaga';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSupabaseData } from '../hooks/useSupabaseData';
 import { supabase } from '../lib/supabaseClient';
@@ -228,7 +229,7 @@ const SettingsPage: React.FC = () => {
         setIsSaving(true);
         try {
             await updateOrganization(orgName, orgLogo);
-            const orgId = getOrgId();
+            const orgId = await getOrgId();
             if (orgId) {
                 try {
                     await (supabase as any).from('audit_logs').insert({
@@ -298,7 +299,7 @@ const SettingsPage: React.FC = () => {
             await saveAppSetting('ENABLE_TELEGRAM_NOTIFICATION', enableTelegram.toString());
             await saveAppSetting('ENABLE_WA_NOTIFICATION', enableWa.toString());
 
-            const orgId = getOrgId();
+            const orgId = await getOrgId();
             if (orgId) {
                 try {
                     await (supabase as any).from('audit_logs').insert({
@@ -449,6 +450,7 @@ const SettingsPage: React.FC = () => {
 
             {activeTab === 'organization' && (
             <>
+            <KartuLangganan />
             {/* Data Lembaga Section */}
             <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">

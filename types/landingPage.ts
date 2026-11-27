@@ -183,13 +183,11 @@ export const defaultLandingPageConfig: LandingPageConfig = {
     {
       id: 'testimonials',
       type: 'testimonials',
-      isVisible: true,
+      // Fase 8: tanpa testimoni contoh. Isi lewat Editor Website hanya dengan testimoni asli (dengan izin).
+      isVisible: false,
       data: {
-        title: 'Dipercaya oleh Praktisi',
-        testimonials: [
-          { id: '1', quote: 'Rekap absensi sangat mudah.', name: 'Ahmad', role: 'Kepala Tahfidz' },
-          { id: '2', quote: 'Sistemnya sangat intuitif.', name: 'Budi', role: 'Admin' }
-        ]
+        title: 'Kata Lembaga Pengguna',
+        testimonials: []
       }
     },
     {

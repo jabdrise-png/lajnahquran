@@ -951,7 +951,7 @@ export const Modal: React.FC<{
             type="button"
             onClick={onClose}
             aria-label="Tutup dialog"
-            className="px-2 py-1 rounded-md text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+            className="btn-icon -mr-1.5 -mt-1"
           >
             ✕
           </button>

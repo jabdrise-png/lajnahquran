@@ -24,6 +24,11 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [mahadName, setMahadName] = useState('');
+  // Fase 8 · data antrean pendaftaran lembaga + persetujuan kebijakan privasi
+  const [noHp, setNoHp] = useState('');
+  const [kota, setKota] = useState('');
+  const [perkiraanSantri, setPerkiraanSantri] = useState('');
+  const [setujuPrivasi, setSetujuPrivasi] = useState(false);
   const [orgId, setOrgId] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -77,6 +82,18 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
         setMessage({ type: 'error', text: "Nama Ma'had wajib diisi." });
         return;
     }
+    if (regType === 'create' && !noHp.trim()) {
+        setMessage({ type: 'error', text: "Nomor HP/WA wajib diisi agar pengelola bisa menghubungi Anda." });
+        return;
+    }
+    if (!setujuPrivasi) {
+        setMessage({ type: 'error', text: "Centang persetujuan Kebijakan Privasi untuk melanjutkan." });
+        return;
+    }
+    if (password.length < 8) {
+        setMessage({ type: 'error', text: "Kata sandi minimal 8 karakter." });
+        return;
+    }
     if (regType === 'join' && !orgId) {
         setMessage({ type: 'error', text: "ID Organisasi wajib diisi untuk bergabung." });
         return;
@@ -94,6 +111,9 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
 
         if (regType === 'create') {
             metaData.mahad_name = mahadName;
+            metaData.no_hp = noHp.trim();
+            metaData.kota = kota.trim();
+            metaData.perkiraan_santri = perkiraanSantri.trim();
         } else {
             metaData.target_organization_id = orgId.trim();
         }
@@ -110,7 +130,9 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
 
         setMessage({ 
             type: 'success', 
-            text: "Pendaftaran berhasil! Akun Anda sedang ditinjau oleh Super Admin. Mohon hubungi admin untuk persetujuan." 
+            text: regType === 'create'
+                ? "Pendaftaran terkirim. Periksa email untuk konfirmasi, lalu tunggu persetujuan pengelola aplikasi (biasanya 1×24 jam)."
+                : "Pendaftaran terkirim. Periksa email untuk konfirmasi, lalu minta Admin lembaga mengaktifkan akun Anda." 
         });
         
         // Reset form
@@ -338,6 +360,16 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
                             />
                         </div>
                     </div>
+                ) : null}
+                {regType === 'create' ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label className="block"><span className="block text-sm font-medium text-slate-700 mb-1.5">No HP/WA</span>
+                            <input type="tel" className="field" placeholder="08xx" value={noHp} onChange={(e) => setNoHp(e.target.value)} /></label>
+                        <label className="block"><span className="block text-sm font-medium text-slate-700 mb-1.5">Kota</span>
+                            <input type="text" className="field" placeholder="Kota/kabupaten" value={kota} onChange={(e) => setKota(e.target.value)} /></label>
+                        <label className="block sm:col-span-2"><span className="block text-sm font-medium text-slate-700 mb-1.5">Perkiraan jumlah santri</span>
+                            <input type="text" inputMode="numeric" className="field" placeholder="mis. 150" value={perkiraanSantri} onChange={(e) => setPerkiraanSantri(e.target.value)} /></label>
+                    </div>
                 ) : (
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1.5">ID Organisasi</label>
@@ -376,23 +408,28 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
                             type="password"
                             required
                             className="block w-full pl-10 pr-3 py-2.5 border border-slate-200/80 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 bg-white transition-all shadow-xs hover:border-slate-300"
-                            placeholder="Password (Min. 6 karakter)"
+                            placeholder="Kata sandi (min. 8 karakter)"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                         />
                     </div>
                 </div>
 
+                <label className="flex items-start gap-2 text-sm text-slate-600">
+                    <input type="checkbox" className="mt-0.5" checked={setujuPrivasi} onChange={(e) => setSetujuPrivasi(e.target.checked)} />
+                    <span>Saya menyetujui <a href="/privasi" target="_blank" rel="noopener" className="font-medium text-blue-700 underline">Kebijakan Privasi</a> dan bertanggung jawab memperoleh persetujuan wali sebelum mengunggah data santri.</span>
+                </label>
+
                 <div className="pt-3">
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-xl shadow-xs text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-600 transition-all disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                        className="btn btn-primary btn-lg w-full"
                     >
                         {loading ? 'Mendaftarkan...' : 'Daftar Akun'}
                     </button>
                     <p className="text-2xs text-slate-400 mt-4 text-center leading-relaxed px-4">
-                        *Akun baru memerlukan persetujuan Super Admin sebelum bisa digunakan. Pastikan data yang dimasukkan benar.
+                        Lembaga baru aktif setelah disetujui pengelola aplikasi. Tidak ada masa uji coba; harga sesuai paket jumlah santri.
                     </p>
                 </div>
                 

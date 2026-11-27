@@ -88,7 +88,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       { id: 'platform_dashboard', label: 'Dashboard Platform', icon: <Layout size={18} />, page: 'PlatformDashboard' },
       { id: 'platform_tenants', label: 'Organisasi & Tenant', icon: <Building2 size={18} />, page: 'PlatformTenants' },
       { id: 'platform_accounts', label: 'Akun Platform & Grants', icon: <Users size={18} />, page: 'PlatformAccounts' },
-      { id: 'platform_plans', label: 'Paket & Entitlements', icon: <CreditCard size={18} />, page: 'PlatformPlans' },
+      { id: 'platform_plans', label: 'Pendaftaran & Langganan', icon: <CreditCard size={18} />, page: 'PlatformPlans' },
       {
         id: 'platform_support',
         label: 'Support Access',

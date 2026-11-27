@@ -1,4 +1,4 @@
-# Catatan untuk Asisten AI (AI Studio, dll.) — Perubahan Fase 0 s.d. Fase 7
+# Catatan untuk Asisten AI (AI Studio, dll.) — Perubahan Fase 0 s.d. Fase 8 (bagian 1)
 
 Baca file ini **sebelum** mengubah kode. Isinya: apa yang sudah diubah, aturan yang wajib diikuti, dan hal yang tidak boleh dilakukan. Acuan utama: `docs/SPESIFIKASI_V2.md` (kebutuhan) dan `docs/RENCANA_V2.md` (urutan fase).
 
@@ -354,24 +354,36 @@ Hook memuat `examAttempts`, `periodeUjianBulanan`, `rubrikAktif`, `pengaturanRap
 
 ---
 
-## 11. Test otomatis
+## 11. Fase 8 — Bisnis, privasi & siklus tahun ajaran (bagian 1)
+
+- **Paket** `platform_plans` (id, nama, batas_santri null = tanpa batas, harga_bulanan/tahunan, aktif). `organizations.plan_id` FK ke sini. Ubah hanya lewat `rpc_simpan_paket` (Superadmin). Layar: `pages/Platform/BisnisPanel.tsx` (tab Paket); `PlatformConsolePage` membaca batas santri dari tabel ini (`getPlanEntitlement`).
+- **Pembayaran** `pembayaran_lembaga` (status sah/batal, tidak pernah dihapus) lewat `rpc_catat_pembayaran` / `rpc_batalkan_pembayaran`; `organizations.langganan_sampai` = max(periode_selesai sah). Status: `fn_status_langganan` = `statusLangganan()` di `lib/bisnis.ts` (aktif / segera_habis ≤ 7 hari / lewat / belum_bayar). **Tidak ada penangguhan otomatis.**
+- Ringkasan Superadmin `rpc_ringkasan_langganan()`; Admin `rpc_langganan_saya(org)` → `components/LanggananLembaga.tsx` (kartu di Pengaturan, peringatan di Data Santri).
+- **Pendaftaran** `pendaftaran_lembaga` diisi `handle_new_user` (daftar email + `mahad_name`, metadata `no_hp`, `kota`, `perkiraan_santri`). `rpc_setujui_pendaftaran(id, plan)` → lembaga active + grant Admin; `rpc_tolak_pendaftaran(id, alasan)` → lembaga archived. Pendaftar melihat statusnya (`components/StatusPendaftaran.tsx`).
+- **Privasi** `/privasi` (`pages/KebijakanPrivasiPage.tsx`); daftar wajib centang persetujuan.
+- **Tahun ajaran ditutup** (`status`/`lifecycle_status` = closed): trigger `trg_kunci_tahun_ditutup` menolak insert/update/delete oleh pengguna login pada halaqah_sessions, attendance_records, musammi_attendance_records, recitation_entries, exam_attempts, raport_catatan, monthly_exam_periods, exam_assignments, evaluation_periods, period_recaps, period_forms. `report_cards` tidak dikunci. `rpc_buka_kembali_tahun_ajaran(id, alasan)`. Label layar hanya **Aktif / Ditutup**.
+- Migrasi: `2026_12_03_01_f8_bisnis` → `_02_f8_tahun_ditutup`. Panduan: `docs/FASE_8_UJI.md`.
+
+---
+
+## 12. Test otomatis
 
 - `npm run test` = `npm run test:v2` + suite lama (`scripts/verify-fase*.ts`).
 - `tests/v2/` memakai PGlite (PostgreSQL di memori). `tests/v2/helpers/db.ts` membangun database dari skema repo + **semua** migrasi; `seed.sql` (data uji: 1 lembaga, superadmin, admin, musammi', halaqah, 2 santri), `seed_legacy.sql` (contoh data tabel lama).
 - Helper: `as(db, userId, fn)` menjalankan kueri sebagai pengguna tertentu (RLS aktif); `expectError()`.
-- Test penting yang menjaga aturan di atas: `f2-kode-dan-peran.test.ts` (tidak ada query tabel lama / kunci app_settings lama), `migrasi-umum.test.ts` (aturan migrasi + aman diulang), `f3-database.test.ts` (aturan 6.1), `f3-lib.test.ts` (predikat layar = database, arah hafalan, dan larangan kunci sesi/validasi di kode), `f4-database.test.ts` (aturan 7.2), `f4-lib.test.ts` (adaptor Rekap Periode dan larangan tabel evaluasi lama di kode), `f5-database.test.ts` (aturan 8.2), `f5-lib.test.ts` (rumus layar = server dan larangan tabel/pengaturan ujian lama di kode), `f6-database.test.ts` (aturan 9.2), `f6-server.test.ts` (webhook & pemroses antrian), `f6-lib.test.ts` (laporan mudir & layar), `f7-database.test.ts` (setoran terakhir, handle_new_user), `f7-lib.test.ts` (tanpa CDN/xlsx, lazy, data per halaman, PWA, lupa sandi), `f7b-ui.test.ts` (aturan tampilan).
+- Test penting yang menjaga aturan di atas: `f2-kode-dan-peran.test.ts` (tidak ada query tabel lama / kunci app_settings lama), `migrasi-umum.test.ts` (aturan migrasi + aman diulang), `f3-database.test.ts` (aturan 6.1), `f3-lib.test.ts` (predikat layar = database, arah hafalan, dan larangan kunci sesi/validasi di kode), `f4-database.test.ts` (aturan 7.2), `f4-lib.test.ts` (adaptor Rekap Periode dan larangan tabel evaluasi lama di kode), `f5-database.test.ts` (aturan 8.2), `f5-lib.test.ts` (rumus layar = server dan larangan tabel/pengaturan ujian lama di kode), `f6-database.test.ts` (aturan 9.2), `f6-server.test.ts` (webhook & pemroses antrian), `f6-lib.test.ts` (laporan mudir & layar), `f7-database.test.ts` (setoran terakhir, handle_new_user), `f7-lib.test.ts` (tanpa CDN/xlsx, lazy, data per halaman, PWA, lupa sandi), `f7b-ui.test.ts` (aturan tampilan), `f8-database.test.ts` (paket, pembayaran, pendaftaran, tahun ditutup), `f8-lib.test.ts`.
 - Bila mengubah perilaku yang diuji, perbarui test-nya dan jelaskan alasannya. Jangan menghapus test agar lulus.
 
 ---
 
-## 12. Yang masih dikerjakan fase berikutnya (jangan dianggap selesai)
+## 13. Yang masih dikerjakan fase berikutnya (jangan dianggap selesai)
 
 - Halaman analitik lama (Pivot, Statistik, Detail Santri, Raport) masih memakai bentuk lama lewat `lib/rekapAdapter.ts`; bila ditulis ulang, bacalah `periodRecaps` langsung.
-- **F8:** bisnis, kerapian & uji coba lembaga. Lihat `docs/RENCANA_V2.md`.
+- **F8 bagian 2:** pecah file > 1.000 baris (PlatformConsolePage, useSupabaseData, HalaqahPage, …), kurangi `any`, README & panduan pengguna. Butir 10–13 F8 dikerjakan pemilik bersama lembaga.
 - Dasbor masih menghitung di browser; untuk lembaga besar pertimbangkan RPC ringkasan.
 - Pengaturan lama "Automasi Perhitungan Nilai" (`SETORAN_AUTO_*` di `app_settings`) tidak dipakai untuk setoran baru; masih dibaca beberapa laporan lama untuk rata-rata nilai. Jangan dipakai di fitur baru.
 
-## 13. Cara meminta pekerjaan ke AI (contoh)
+## 14. Cara meminta pekerjaan ke AI (contoh)
 
 ```text
 Baca docs/CATATAN_UNTUK_AI.md dan docs/SPESIFIKASI_V2.md bagian 4.
