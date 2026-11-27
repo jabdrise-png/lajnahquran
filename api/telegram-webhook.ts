@@ -161,7 +161,7 @@ export async function processTelegramWebhook(options: {
 
     if (Array.isArray(secretRows)) {
       const matched = secretRows.find(
-        (r: any) => r.secret_value && timingSafeCompare(String(r.secret_value).trim(), secretHeader)
+        (r) => r.secret_value && timingSafeCompare(String(r.secret_value).trim(), secretHeader)
       );
       if (matched?.organization_id) {
         targetOrgId = String(matched.organization_id);

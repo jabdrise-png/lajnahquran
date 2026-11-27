@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { bacaModul } from '../tests/v2/helpers/baca';
 import path from 'path';
 import {
   resolveTenantContext,
@@ -158,10 +159,7 @@ async function runTests() {
     path.resolve(process.cwd(), 'database/skema_lajnah.sql'),
     'utf8'
   );
-  const invitationsApi = fs.readFileSync(
-    path.resolve(process.cwd(), 'api/invitations.ts'),
-    'utf8'
-  );
+  const invitationsApi = bacaModul(process.cwd(), 'api/invitations.ts');
 
   // =========================================================================
   // SKENARIO 1: Admin tidak dapat membuat Admin lain (UI, API, dan DB)

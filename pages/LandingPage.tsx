@@ -346,7 +346,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, configOverrides
                       
                       {/* Dots */}
                       <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                         {(heroSection.data.heroImages || []).map((_: any, idx: number) => (
+                         {(heroSection.data.heroImages || []).map((_, idx: number) => (
                             <button key={idx} onClick={() => setCurrentHeroIndex(idx)} className={`w-1.5 h-1.5 rounded-full transition-all ${currentHeroIndex === idx ? 'bg-slate-800 w-3' : 'bg-slate-400'}`}></button>
                          ))}
                       </div>
@@ -370,7 +370,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, configOverrides
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {featuresSection.data.features.map((item: any, i: number) => (
+            {featuresSection.data.features.map((item, i: number) => (
               <div key={item.id || i} className="rounded-2xl border border-slate-200/60 bg-slate-50/50 p-6 shadow-sm hover:shadow-md hover:bg-white transition-all duration-300 hover:-translate-y-1">
                 <div className="w-10 h-10 rounded-xl border border-slate-200/60 bg-white flex items-center justify-center mb-5 text-primary shadow-sm">
                   {renderIcon(item.icon)}
@@ -394,7 +394,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, configOverrides
           </div>
 
           <div className="space-y-32">
-            {(detailsSection.data.items || []).map((item: any, idx: number) => (
+            {(detailsSection.data.items || []).map((item, idx: number) => (
               <div key={item.id || idx} className={`flex flex-col md:flex-row items-center gap-12 lg:gap-24 ${item.imageRight ? '' : 'md:flex-row-reverse'}`}>
                 <div className="flex-1 space-y-6">
                   <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-700 shadow-sm">
@@ -441,7 +441,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, configOverrides
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-[900px] mx-auto">
-            {(pricingSection.data.plans || []).map((plan: any, idx: number) => (
+            {(pricingSection.data.plans || []).map((plan, idx: number) => (
               <div key={plan.id || idx} className={`relative flex flex-col bg-white rounded-3xl p-8 md:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-transform hover:-translate-y-1 ${plan.isRecommended ? 'border-2 border-blue-500 shadow-[0_8px_30px_rgba(59,130,246,0.1)]' : 'border border-slate-200'}`}>
                 {plan.isRecommended && plan.recommendedLabel && (
                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-blue-600 text-white text-[11px] font-bold tracking-wider uppercase px-4 py-1.5 rounded-full shadow-sm">
@@ -496,7 +496,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, configOverrides
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {testimonialsSection.data.testimonials.map((item: any, i: number) => (
+            {testimonialsSection.data.testimonials.map((item, i: number) => (
               <div key={item.id || i} className="p-6 rounded-2xl bg-white border border-slate-200/60 shadow-sm flex flex-col justify-between">
                 <p className="text-[14px] leading-relaxed text-slate-600 mb-8">"{item.quote}"</p>
                 <div className="flex items-center gap-3">

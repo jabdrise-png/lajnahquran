@@ -103,7 +103,7 @@ const EditorTemplate: React.FC<{
 const NotifikasiTelegramPage: React.FC = () => {
   const { allSantri, halaqah, appSettings, loading, evaluationPeriods, getOrgId, fetchData, orgName } = useSupabaseData();
   const [tab, setTab] = useState<Tab>('pengaturan');
-  const username = (appSettings.find((s: any) => s.key === 'TELEGRAM_BOT_USERNAME')?.value || '').trim();
+  const username = (appSettings.find((s) => s.key === 'TELEGRAM_BOT_USERNAME')?.value || '').trim();
 
   // ---------- Status bot ----------
   const [siap, setSiap] = useState<boolean | null>(null);
@@ -182,7 +182,7 @@ const NotifikasiTelegramPage: React.FC = () => {
     .sort((a, b) => String(a.nama).localeCompare(String(b.nama))), [allSantri]);
   const halaqahSantri = useMemo(() => {
     const m = new Map<number, string>();
-    (halaqah as any[]).forEach((h) => (h.santri || []).forEach((s: any) => m.set(Number(s.id), h.nama)));
+    (halaqah as any[]).forEach((h) => (h.santri || []).forEach((s) => m.set(Number(s.id), h.nama)));
     return m;
   }, [halaqah]);
   const baris = useMemo(() => {

@@ -2,6 +2,7 @@
  * Test Suite: Fase 7 — Exam, Gradebook & Report Card Integrity Verification
  * Verifies all 13 criteria from Prompt Fase 7 Section 8.
  */
+import { bacaModul } from '../tests/v2/helpers/baca';
 import fs from 'fs';
 import path from 'path';
 
@@ -39,7 +40,7 @@ const verifyReportPage = fs.readFileSync(verifyReportPagePath, 'utf-8');
 // nilai & raport dihitung server. Perilaku diuji nyata di tests/v2/f5-database.test.ts.
 const f5Rpc = fs.readFileSync(path.resolve(process.cwd(), 'database/migrations/2026_11_30_02_f5_rpc_ujian_raport.sql'), 'utf-8');
 const f5Migrasi = fs.readFileSync(path.resolve(process.cwd(), 'database/migrations/2026_11_30_03_f5_migrasi_ujian_lama.sql'), 'utf-8');
-const hookCode = fs.readFileSync(path.resolve(process.cwd(), 'hooks/useSupabaseData.tsx'), 'utf-8');
+const hookCode = bacaModul(process.cwd(), 'hooks/useSupabaseData.tsx');
 
 // -----------------------------------------------------------------------------
 // Test Case 1: Ujian Bulanan (exam_attempts + ujian_bulanan sync)

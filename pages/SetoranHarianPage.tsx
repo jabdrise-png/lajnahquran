@@ -25,7 +25,7 @@ export default function SetoranHarianPage() {
   const today = hariIni();
 
   const myMusammiIds = useMemo(
-    () => musammi.filter((m: any) => userProfile?.id && m.user_id === userProfile.id).map((m) => Number(m.id)),
+    () => musammi.filter((m) => userProfile?.id && m.user_id === userProfile.id).map((m) => Number(m.id)),
     [musammi, userProfile?.id]
   );
   const mine = useMemo(() => halaqahSaya(halaqah, { role, userId: userProfile?.id, myMusammiIds }), [halaqah, role, userProfile?.id, myMusammiIds]);

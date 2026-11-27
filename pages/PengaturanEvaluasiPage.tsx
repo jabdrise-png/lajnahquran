@@ -69,7 +69,7 @@ export const PengaturanEvaluasiPage: React.FC = () => {
 
     const activeMarhalahs = useMemo(() => {
         if (masterMarhalahs && masterMarhalahs.length > 0) {
-            return [...masterMarhalahs].sort((a: any, b: any) => (a.urutan ?? 99) - (b.urutan ?? 99) || a.nama.localeCompare(b.nama));
+            return [...masterMarhalahs].sort((a, b) => (a.urutan ?? 99) - (b.urutan ?? 99) || a.nama.localeCompare(b.nama));
         }
         return (globalMarhalahs || ['Mutawassithah', 'Aliyah', 'Jamiah']).map((m, idx) => ({
             id: undefined,
@@ -79,29 +79,29 @@ export const PengaturanEvaluasiPage: React.FC = () => {
     }, [masterMarhalahs, globalMarhalahs]);
 
     const getKelasListForMarhalah = (mObj: { id?: string, nama: string }) => {
-        const foundM = masterMarhalahs?.find((mm: any) => mm.nama === mObj.nama || (mObj.id && mm.id === mObj.id));
+        const foundM = masterMarhalahs?.find((mm) => mm.nama === mObj.nama || (mObj.id && mm.id === mObj.id));
         const effectiveMId = isUUID(mObj.id) ? mObj.id : (foundM && isUUID(foundM.id) ? foundM.id : undefined);
 
         if (effectiveMId && masterKelasRelasi && masterKelasRelasi.length > 0) {
             const linked = masterKelasRelasi
-                .filter((k: any) => k.marhalah_id === effectiveMId)
-                .map((k: any) => ({ id: isUUID(k.id) ? k.id : undefined, nama_kelas: k.nama_kelas }));
+                .filter((k) => k.marhalah_id === effectiveMId)
+                .map((k) => ({ id: isUUID(k.id) ? k.id : undefined, nama_kelas: k.nama_kelas }));
             if (linked.length > 0) {
-                return linked.sort((a: any, b: any) => a.nama_kelas.localeCompare(b.nama_kelas));
+                return linked.sort((a, b) => a.nama_kelas.localeCompare(b.nama_kelas));
             }
         }
         if (masterKelas && masterKelas.length > 0) {
             const linked = masterKelas
-                .filter((k: any) => k.marhalah === mObj.nama)
-                .map((k: any) => {
-                    const relObj = masterKelasRelasi?.find((r: any) => r.nama_kelas === k.nama_kelas && (!effectiveMId || r.marhalah_id === effectiveMId));
+                .filter((k) => k.marhalah === mObj.nama)
+                .map((k) => {
+                    const relObj = masterKelasRelasi?.find((r) => r.nama_kelas === k.nama_kelas && (!effectiveMId || r.marhalah_id === effectiveMId));
                     return {
                         id: relObj && isUUID(relObj.id) ? relObj.id : undefined,
                         nama_kelas: k.nama_kelas
                     };
                 });
             if (linked.length > 0) {
-                return linked.sort((a: any, b: any) => a.nama_kelas.localeCompare(b.nama_kelas));
+                return linked.sort((a, b) => a.nama_kelas.localeCompare(b.nama_kelas));
             }
         }
         return [
@@ -119,7 +119,7 @@ export const PengaturanEvaluasiPage: React.FC = () => {
                 initialGrid[sem][m.nama] = {};
                 const kelasList = getKelasListForMarhalah(m);
                 kelasList.forEach(k => {
-                    const foundTarget = classTargets?.find((t: any) => {
+                    const foundTarget = classTargets?.find((t) => {
                         const mMatch = (t.marhalah_id && isUUID(t.marhalah_id) && m.id && isUUID(m.id))
                             ? t.marhalah_id === m.id
                             : (t.marhalah || '').toLowerCase() === m.nama.toLowerCase();
@@ -142,7 +142,7 @@ export const PengaturanEvaluasiPage: React.FC = () => {
         });
         setTargets(initialGrid);
 
-        const murojaahSetting = appSettings.find((s: any) => s.key === 'TARGET_MUROJAAH_GLOBAL');
+        const murojaahSetting = appSettings.find((s) => s.key === 'TARGET_MUROJAAH_GLOBAL');
         if (murojaahSetting && murojaahSetting.value) {
             try {
                 const parsed = JSON.parse(murojaahSetting.value);
@@ -187,12 +187,12 @@ export const PengaturanEvaluasiPage: React.FC = () => {
             const currentGrid = targets[activeSemester] || {};
 
             Object.entries(currentGrid).forEach(([marhalahName, classes]) => {
-                const mObj = masterMarhalahs?.find((m: any) => m.nama === marhalahName);
+                const mObj = masterMarhalahs?.find((m) => m.nama === marhalahName);
                 const mId = isUUID(mObj?.id) ? mObj.id : undefined;
 
                 Object.entries(classes).forEach(([kelasName, vals]) => {
-                    const kObj = masterKelasRelasi?.find((k: any) => k.nama_kelas === kelasName && (!mId || k.marhalah_id === mId)) ||
-                                 masterKelasRelasi?.find((k: any) => k.nama_kelas === kelasName);
+                    const kObj = masterKelasRelasi?.find((k) => k.nama_kelas === kelasName && (!mId || k.marhalah_id === mId)) ||
+                                 masterKelasRelasi?.find((k) => k.nama_kelas === kelasName);
                     const kId = isUUID(kObj?.id) ? kObj.id : (isUUID(vals.kelas_id) ? vals.kelas_id : undefined);
 
                     batchToSave.push({
@@ -215,8 +215,8 @@ export const PengaturanEvaluasiPage: React.FC = () => {
             try {
                 const orgId = await getOrgId();
                 if (orgId) {
-                    const semPlans = targetPlansHistory.filter((p: any) => p.semester_name === activeSemester);
-                    const nextVersion = semPlans.length > 0 ? Math.max(...semPlans.map((p: any) => Number(p.version_no) || 1)) + 1 : 1;
+                    const semPlans = targetPlansHistory.filter((p) => p.semester_name === activeSemester);
+                    const nextVersion = semPlans.length > 0 ? Math.max(...semPlans.map((p) => Number(p.version_no) || 1)) + 1 : 1;
 
                     await (supabase as any)
                         .from('target_plans')
@@ -390,7 +390,7 @@ export const PengaturanEvaluasiPage: React.FC = () => {
                             </div>
                         ) : (
                             <div className="divide-y divide-slate-100">
-                                {targetPlansHistory.map((plan: any) => (
+                                {targetPlansHistory.map((plan) => (
                                     <div key={plan.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/60">
                                         <div>
                                             <div className="flex items-center gap-2">

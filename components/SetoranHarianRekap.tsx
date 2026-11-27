@@ -80,7 +80,7 @@ const SetoranHarianRekap = forwardRef<SetoranHarianRekapRef, Props>(({
         const map = new Map();
         halaqah.forEach(h => {
             if (h.history) {
-                h.history.forEach((hs: any) => {
+                h.history.forEach((hs) => {
                     if (hs.santri) {
                         const existing = map.get(hs.santri.id) || [];
                         existing.push({ halaqah: h, start_date: hs.start_date, end_date: hs.end_date });
@@ -88,7 +88,7 @@ const SetoranHarianRekap = forwardRef<SetoranHarianRekapRef, Props>(({
                     }
                 });
             } else if (h.santri) {
-                h.santri.forEach((s: any) => {
+                h.santri.forEach((s) => {
                     const existing = map.get(s.id) || [];
                     existing.push({ halaqah: h, start_date: null, end_date: null });
                     map.set(s.id, existing);
@@ -106,10 +106,10 @@ const SetoranHarianRekap = forwardRef<SetoranHarianRekapRef, Props>(({
             
             const hList = santriHalaqahMap.get(s.id) || [];
             if (filterHalaqah !== 'all') {
-                if (!hList.some((h: any) => h.halaqah.id.toString() === filterHalaqah)) return false;
+                if (!hList.some((h) => h.halaqah.id.toString() === filterHalaqah)) return false;
             }
             if (filterJenisHalaqah !== 'all') {
-                if (!hList.some((h: any) => (h.halaqah.jenis || h.halaqah.jenis_halaqah) === filterJenisHalaqah)) return false;
+                if (!hList.some((h) => (h.halaqah.jenis || h.halaqah.jenis_halaqah) === filterJenisHalaqah)) return false;
             }
             return true;
         });
@@ -138,7 +138,7 @@ const SetoranHarianRekap = forwardRef<SetoranHarianRekapRef, Props>(({
             let totalScore = 0;
             let scoredCount = 0;
             sSetoran.forEach(sh => {
-                const range = nilaiRanges.find((r: any) => r.label === sh.nilai);
+                const range = nilaiRanges.find((r) => r.label === sh.nilai);
                 if (range) {
                     totalScore += range.min;
                     scoredCount++;
@@ -155,7 +155,7 @@ const SetoranHarianRekap = forwardRef<SetoranHarianRekapRef, Props>(({
             
             const avgScore = scoredCount > 0 ? totalScore / scoredCount : 0;
             let finalNilaiLabel = '-';
-            const sortedRanges = [...nilaiRanges].sort((a: any, b: any) => b.min - a.min);
+            const sortedRanges = [...nilaiRanges].sort((a, b) => b.min - a.min);
             if (scoredCount > 0) {
                 for (const r of sortedRanges) {
                     if (avgScore >= r.min) {
@@ -343,7 +343,7 @@ const SetoranHarianRekap = forwardRef<SetoranHarianRekapRef, Props>(({
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {[...selectedSantriForModal.setoranList].sort((a: any, b: any) => (b.tanggal || '').localeCompare(a.tanggal || '')).map((sh: any) => (
+                                            {[...selectedSantriForModal.setoranList].sort((a, b) => (b.tanggal || '').localeCompare(a.tanggal || '')).map((sh) => (
                                                 <tr key={sh.id}>
                                                     <td className="whitespace-nowrap text-xs font-medium text-slate-700">{sh.tanggal ? (function(){ try { return format(parseISO(sh.tanggal), 'dd MMM yyyy', { locale: id }); } catch(e) { return sh.tanggal; } })() : '-'}</td>
                                                     <td className="whitespace-nowrap text-xs text-slate-500">{sh.waktu}</td>

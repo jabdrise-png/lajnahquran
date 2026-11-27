@@ -1,128 +1,64 @@
-# Lajnah Quran — Multi-Tenant Tahfidz Management SaaS Platform
+# Lajnah Quran
 
-Sistem Manajemen Tahfidz Al-Qur'an Multi-Tenant berbasis cloud yang dirancang untuk pondok pesantren, madrasah, dan lembaga tahfidz Al-Qur'an. Sistem ini menyediakan isolasi data yang ketat antar lembaga (multi-tenant), model hak akses berbasis peran (RBAC), siklus sesi halaqah presisi, pencatatan setoran hafalan (recitation ledger), penilaian terstandarisasi, dan penerbitan raport digital dengan verifikasi publik anti-pemalsuan.
+Aplikasi manajemen tahfidz untuk banyak lembaga (pondok, ma'had, rumah Qur'an): absensi halaqah, setoran hafalan,
+rekap per periode, ujian bulanan & semester, raport berkode verifikasi, notifikasi Telegram ke wali, dan laporan mudir.
+Bisa dipasang di HP (PWA).
 
-> **Pengembangan v2 sedang berjalan.** Acuan utama untuk semua perubahan:
+> **Baca dulu sebelum mengubah kode:**
 >
-> - [`docs/CATATAN_UNTUK_AI.md`](docs/CATATAN_UNTUK_AI.md) — **baca dulu**: perubahan Fase 0–8 dan aturan wajib untuk asisten AI
-> - [`docs/SPESIFIKASI_V2.md`](docs/SPESIFIKASI_V2.md) — kebutuhan produk (menggantikan deskripsi lama bila bertentangan)
-> - [`docs/RENCANA_V2.md`](docs/RENCANA_V2.md) — 9 fase pengerjaan dan checklist tiap fase
-> - [`docs/audit/BUG_REPORT_2026-11.md`](docs/audit/BUG_REPORT_2026-11.md) — daftar bug hasil uji November 2026
+> - [`docs/CATATAN_UNTUK_AI.md`](docs/CATATAN_UNTUK_AI.md) — perubahan Fase 0–8 dan aturan wajib (juga untuk asisten AI)
+> - [`docs/SPESIFIKASI_V2.md`](docs/SPESIFIKASI_V2.md) — kebutuhan produk · [`docs/RENCANA_V2.md`](docs/RENCANA_V2.md) — fase pengerjaan
+> - [`docs/PANDUAN_PENGGUNA.md`](docs/PANDUAN_PENGGUNA.md) — panduan pemakaian untuk Admin, Musammi' & Superadmin
+> - [`docs/PANDUAN_UI.md`](docs/PANDUAN_UI.md) — aturan tampilan (warna, filter, tabel, komponen)
+> - [`database/migrations/README.md`](database/migrations/README.md) — aturan & riwayat migrasi database
 > - [`docs/LINGKUNGAN.md`](docs/LINGKUNGAN.md) — lingkungan pengembangan v2 vs produksi lama
-> - [`database/migrations/README.md`](database/migrations/README.md) — aturan migrasi database
->
-> Catatan: skrip `scripts/verify-fase*.ts` memakai penomoran fase lama dan tidak terkait dengan fase di `RENCANA_V2.md`.
 
----
+## 1. Peran
 
-## 1. Gambaran Umum Sistem
+| Peran | Bisa |
+| --- | --- |
+| **Superadmin** | Mengelola lembaga, paket & harga, antrean pendaftaran, pembayaran, sesi bantuan (tercatat audit) |
+| **Admin lembaga** | Semua data lembaganya: tahun ajaran, kelas, santri, halaqah, musammi', ujian, raport, Telegram, laporan |
+| **Musammi'** | Halaqah yang dipegang: absensi, setoran, rekap periode, nilai ujian sebagai penguji |
 
-Lajnah Quran mengelola seluruh alur akademik dan operasional tahfidz:
-- **Platform Superadmin**: Konsol pengawasan kesehatan tenant, provisioning lembaga baru, paket kuota, dan audit log sesi bantuan teknis (Break-Glass Support Access).
-- **Admin Lembaga**: Pengelolaan tahun ajaran, struktur marhalah & kelas, kelompok halaqah, data santri, staf Musammi, rubrik penilaian, buku nilai, dan penerbitan raport resmi.
-- **Musammi Workspace**: Alur operasional harian yang ringkas dan fokus: Pilih Halaqah → Pilih Tanggal/Waktu → Buka Sesi → Isi Absensi Santri → Catat Setoran Hafalan (Ziyadah/Sabqi/Manzil) → Selesaikan dan Kunci Sesi.
-- **Verifikasi Publik Dokumen**: QR code dan kode kriptografis `LQ-***` untuk verifikasi keaslian raport oleh wali santri dengan penyensoran data pribadi (PII masking).
+Satu akun boleh memegang beberapa peran (mis. Admin sekaligus Musammi'); peran aktif dipilih setelah masuk.
 
----
+## 2. Teknologi
 
-## 2. Arsitektur Sistem
+- **Frontend:** React 18 + Vite + TypeScript, Tailwind (build), PWA (`vite-plugin-pwa`). Halaman dimuat terpisah (lazy).
+- **Data:** Supabase (PostgreSQL + Row Level Security per lembaga + fungsi RPC). Perubahan skema hanya lewat `database/migrations/`.
+- **Server:** Netlify Functions — `netlify/functions/api.ts` (router `/api/*`), `netlify/functions/telegram-antrian.ts` (terjadwal tiap menit).
+- **Integrasi:** bot Telegram per lembaga (webhook + antrian pesan), asisten AI (Gemini, server-side).
 
-Aplikasi dibangun menggunakan arsitektur modern yang memisahkan frontend reaktif, serverless/server API, dan basis data PostgreSQL:
-- **Frontend**: React 18 SPA, Vite, Tailwind CSS, Heroicons / Lucide.
-- **Backend / API**: Node.js, Express (`server.ts`), Netlify Functions (`netlify/functions/api.ts`), Vercel Serverless (`/api/*`).
-- **Database & Security**: PostgreSQL / Supabase, Row Level Security (RLS) aktif 100% pada tabel kanonikal V2, Trigger State Machine, dan RPC `SECURITY DEFINER` dengan verifikasi aktor server-side.
-- **Integrasi**: Bot Notifikasi Telegram Webhook aman (HMAC/Secret verification), WhatsApp Gateway (Fonnte API dengan deduplikasi idempotency), dan AI Chatbot Terpandu (Gemini API server-side).
+## 3. Menjalankan
 
-```
-+---------------------------------------------------------------------------------+
-|                                 CLIENT BROWSERS                                 |
-|   Platform Console (/platform/*)   |   Tenant App (/app/*)   |   Verify (/v/*)  |
-+---------------------------------------------------------------------------------+
-                                       | HTTPS (Bearer JWT / Requests)
-                                       v
-+---------------------------------------------------------------------------------+
-|                          EDGE & REVERSE PROXY LAYER                             |
-|          Vercel Serverless Functions  /  Netlify Functions  /  Express          |
-|      - X-Request-ID Correlation ID                                              |
-|      - Sanitized HTTP Logging (Sensor Password/Token)                            |
-|      - /api/health (DB Connection Probe & Latency Check)                        |
-|      - Server-Side Secret Storage (integration_secrets, AES/Vault)              |
-+---------------------------------------------------------------------------------+
-                                       |
-                                       v
-+---------------------------------------------------------------------------------+
-|                               DATABASE ENGINE                                   |
-|                          PostgreSQL + Supabase RLS                              |
-|   - access_grants (Single Source of Truth untuk Role & Membership)              |
-|   - recitation_entries (Kanonikal Ledger Setoran & Murajaah)                    |
-|   - halaqah_sessions & attendance_records (Finite State Machine)                 |
-|   - exam_attempts & report_cards (Raport Immutability Trigger)                  |
-+---------------------------------------------------------------------------------+
-```
-
----
-
-## 3. Model Peran (3 Canonical Roles)
-
-Sistem memberlakukan **3 Role Kanonikal** yang tegas. `access_grants` adalah satu-satunya sumber otoritatif hak akses:
-
-| Role Kanonikal | Lingkup Hak Akses | Fitur Utama |
-|---|---|---|
-| **`superadmin`** | Platform Global (`/platform/*`) | Provisioning tenant baru, monitoring kesehatan infrastruktur, paket langganan, dan sesi bantuan teknis (Break-Glass Support) dengan alasan wajib & audit trail. |
-| **`admin`** | Tenant Lembaga (`/app/*`) | Pengaturan lembaga, tahun ajaran, kelas, pendaftaran santri, penugasan musammi, review setoran, ujian semester, dan penerbitan raport. |
-| **`musammi`** | Halaqah Operasional (`/app/sessions`, `/app/recitations`, `/app/attendance`) | Pembukaan sesi halaqah aktif, presensi santri roster, input setoran harian (ziyadah/sabqi/manzil), dan penguncian sesi. |
-
-*Catatan Keamanan: Wali Kelas dan Musyrif adalah penanggung jawab administratif (atribut santri/kelas), BUKAN akun login dengan privilege mandiri.*
-
----
-
-## 4. Panduan Quickstart
-
-### Prasyarat
-- Node.js versi 18 atau lebih baru.
-- npm versi 9 atau lebih baru.
-
-### Langkah Instalasi
 ```bash
-# 1. Clone repository
-git clone https://github.com/jabdrise-png/lajnahquran.git
-cd lajnahquran
-
-# 2. Salin environment configuration
-cp .env.example .env
-
-# 3. Sesuaikan isi .env (SUPABASE_URL, SUPABASE_ANON_KEY, dsb.)
-
-# 4. Jalankan development server
-npm run dev
+npm install
+cp .env.example .env      # isi VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY (+ SUPABASE_SERVICE_ROLE_KEY untuk server)
+npm run dev               # aplikasi + API lokal
+npm run lint              # pemeriksaan tipe (tsc)
+npm run test              # test v2 (PGlite) + skrip verifikasi lama
+npx vite build            # build produksi (Netlify menjalankan ini otomatis)
 ```
 
-Aplikasi dapat diakses pada browser di: `http://localhost:3000`
+Database baru: jalankan file skema dasar lalu **semua** file `database/migrations/*.sql` berurutan (lihat README migrasi).
 
----
+## 4. Struktur kode
 
-## 5. Daftar Perintah Penting
+| Folder | Isi |
+| --- | --- |
+| `pages/` | Halaman per menu. Halaman besar dipecah: `X.tsx` (tampilan) + `X.logika.tsx` (state & handler, hook `useXLogika`) + `X.bagian*.tsx` (potongan tampilan) |
+| `components/` | Komponen bersama; `components/ui/` komponen dasar (`SaaSPrimitives`, `Dialog`) |
+| `hooks/useSupabaseData*.tsx` | Data lembaga untuk seluruh halaman (dimuat sekali, absensi & setoran per jendela 14 hari) |
+| `lib/` | Hitungan & aturan (ujian, kelancaran, laporan, permissions, rute, excel, bisnis) |
+| `api/`, `netlify/functions/` | Endpoint server (Telegram, notifikasi, undangan, integrasi) |
+| `database/migrations/` | Migrasi berurutan, aman diulang |
+| `tests/v2/` | Test database (PGlite) & pemeriksaan kode |
 
-| Perintah | Deskripsi |
-|---|---|
-| `npm run dev` | Menjalankan Express dev server terpadu dengan Vite middleware di port 3000 |
-| `npm run build` | Menjalankan kompilasi TypeScript dan bundler Vite untuk produksi |
-| `npm run lint` | Menjalankan linter ESLint untuk mendeteksi error sintaksis dan import |
-| `npx tsx scripts/verify-fase8-unit.ts` | Menjalankan 6 unit test logika bisnis, role, rute, dan kalkulasi |
-| `npx tsx scripts/verify-fase8-integration.ts` | Menjalankan 5 integration test API, auth bearer, dan routing adapter |
-| `npx tsx scripts/verify-fase8-db-security.ts` | Menjalankan 6 test keamanan database, RLS, dan pencabutan hak anon |
-| `npx tsx scripts/verify-fase8-e2e.ts` | Menjalankan simulasi 16-step canonical End-to-End flow lengkap |
-| `npx tsx scripts/verify-fase8-production-readiness.ts` | Menjalankan audit checklist kesiapan produksi (10 kriteria) |
-| `npm test` | Menjalankan seluruh test suite verifikasi regresi (Fase 1 sampai Fase 8) |
+Aturan kerapian (dijaga test): tidak ada file kode > 1.000 baris (kecuali data `lib/quranPageMap.ts`), jumlah `any` tidak boleh bertambah,
+tampilan mengikuti `docs/PANDUAN_UI.md`.
 
----
+## 5. Deploy
 
-## 6. Dokumentasi Lengkap
-
-Untuk panduan mendalam, silakan baca dokumentasi teknis di folder `docs/`:
-- [Arsitektur Sistem (docs/ARCHITECTURE.md)](docs/ARCHITECTURE.md)
-- [Matriks Hak Akses & Peran (docs/ROLE_PERMISSION_MATRIX.md)](docs/ROLE_PERMISSION_MATRIX.md)
-- [Panduan Deployment Vercel & Netlify (docs/DEPLOYMENT_GUIDE.md)](docs/DEPLOYMENT_GUIDE.md)
-- [Manual Operasional Lembaga & Superadmin (docs/OPERATIONAL_MANUAL.md)](docs/OPERATIONAL_MANUAL.md)
-- [Panduan Pengujian & QA (docs/TESTING_GUIDE.md)](docs/TESTING_GUIDE.md)
-- [Checklist Kesiapan Produksi (docs/PRODUCTION_CHECKLIST.md)](docs/PRODUCTION_CHECKLIST.md)
+Netlify (build `vite build`, folder `dist`). Variabel lingkungan & langkah lengkap: [`docs/DEPLOYMENT_GUIDE.md`](docs/DEPLOYMENT_GUIDE.md).
+Setiap fase punya panduan pasang & uji di `docs/FASE_*_UJI.md`.

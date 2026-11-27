@@ -46,7 +46,7 @@ export function useLandingPageContent() {
     const merged = { ...defaultLandingPageConfig, ...dbConfig };
 
     merged.sections = defaultLandingPageConfig.sections.map((ds) => {
-      const ex = dbConfig.sections?.find((s: any) => s.id === ds.id);
+      const ex = dbConfig.sections?.find((s) => s.id === ds.id);
       if (ex) {
         return {
           ...ds,
@@ -64,7 +64,7 @@ export function useLandingPageContent() {
     merged.customPages = dbConfig.customPages || defaultLandingPageConfig.customPages || [];
 
     if (dbConfig.sections) {
-      const dbOrderIds = dbConfig.sections.map((s: any) => s.id);
+      const dbOrderIds = dbConfig.sections.map((s) => s.id);
       const missingIds = defaultLandingPageConfig.sections
         .map((s) => s.id)
         .filter((id) => !dbOrderIds.includes(id));

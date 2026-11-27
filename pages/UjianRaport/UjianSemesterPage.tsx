@@ -37,7 +37,7 @@ const UjianSemesterPage: React.FC = () => {
   const [cari, setCari] = useState('');
 
   const myMusammiIds = useMemo(
-    () => musammi.filter((m: any) => userProfile?.id && m.user_id === userProfile.id).map((m: any) => Number(m.id)),
+    () => musammi.filter((m) => userProfile?.id && m.user_id === userProfile.id).map((m) => Number(m.id)),
     [musammi, userProfile?.id]
   );
   const boleh = useMemo(() => halaqahPenguji(halaqah, {
@@ -55,7 +55,7 @@ const UjianSemesterPage: React.FC = () => {
   // Nilai yang masuk raport = percobaan dengan nilai tertinggi (sama dengan server)
   const nilaiRaport = (sid: number) => percobaanRaport(examAttempts, sid, 'semester', null);
   const jumlahSah = (sid: number) => riwayatPercobaan(examAttempts, sid, 'semester', null).filter((a) => a.status === 'valid').length;
-  const catatanDari = (sid: number) => catatanRaport.find((c: any) => Number(c.santri_id) === sid && c.semester === semester)?.catatan || '';
+  const catatanDari = (sid: number) => catatanRaport.find((c) => Number(c.santri_id) === sid && c.semester === semester)?.catatan || '';
   const tampil = tab === 'remedial' ? baris.filter(({ s }) => { const t = nilaiRaport(s.id); return t && t.passed === false; }) : baris;
 
   // ---------- Modal input nilai ----------

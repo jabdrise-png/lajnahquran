@@ -143,8 +143,8 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
                 .select('email, full_name')
                 .eq('organization_id', orgId);
 
-            const enrichedData = (data as Informasi[] || []).map((info: any) => {
-                const profile = profiles?.find((p: any) => p.email === info.author_email);
+            const enrichedData = (data as Informasi[] || []).map((info) => {
+                const profile = profiles?.find((p) => p.email === info.author_email);
                 return {
                     ...info,
                     author_name: profile?.full_name || info.author_email

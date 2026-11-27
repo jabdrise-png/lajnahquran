@@ -88,9 +88,9 @@ const PengaturanNilaiPage: React.FC = () => {
 
   // ---------- Penguji ----------
   const [penguji, setPenguji] = useState({ halaqah: '', musammi: '', jenis: 'semua' as 'semua' | 'bulanan' | 'semester' });
-  const pengujiSemester = useMemo(() => pengujiUjian.filter((p: any) => p.semester === semester), [pengujiUjian, semester]);
+  const pengujiSemester = useMemo(() => pengujiUjian.filter((p) => p.semester === semester), [pengujiUjian, semester]);
   const namaHalaqah = (id: number) => halaqah.find((h) => Number(h.id) === Number(id))?.nama || `#${id}`;
-  const namaMusammi = (id: number) => musammi.find((m: any) => Number(m.id) === Number(id))?.nama || `#${id}`;
+  const namaMusammi = (id: number) => musammi.find((m) => Number(m.id) === Number(id))?.nama || `#${id}`;
 
   if (loading) return <LoadingState label="Memuat pengaturan nilai…" />;
   const contohNilai = nilaiJuz(rubrik, sim.kabir, sim.shoghir);
@@ -183,7 +183,7 @@ const PengaturanNilaiPage: React.FC = () => {
           <label className="text-xs font-semibold text-slate-600">Musammi' penguji
             <select className={`${inputCls} mt-1`} value={penguji.musammi} onChange={(e) => setPenguji({ ...penguji, musammi: e.target.value })}>
               <option value="">— pilih —</option>
-              {musammi.map((m: any) => <option key={m.id} value={m.id}>{m.nama}{m.user_id ? '' : ' (belum punya akun)'}</option>)}
+              {musammi.map((m) => <option key={m.id} value={m.id}>{m.nama}{m.user_id ? '' : ' (belum punya akun)'}</option>)}
             </select>
           </label>
           <label className="text-xs font-semibold text-slate-600">Ujian
@@ -199,7 +199,7 @@ const PengaturanNilaiPage: React.FC = () => {
         </div>
         <div className="divide-y divide-slate-100 rounded-lg border border-slate-200">
           {pengujiSemester.length === 0 && <p className="px-3 py-3 text-sm text-slate-400">Belum ada penugasan. Musammi' tetap bisa menguji santri halaqahnya sendiri.</p>}
-          {pengujiSemester.map((p: any) => (
+          {pengujiSemester.map((p) => (
             <div key={p.id} className="flex items-center gap-2 px-3 py-2 text-sm">
               <span className="flex-1"><b>{namaMusammi(p.musammi_id)}</b> menguji <b>{namaHalaqah(p.halaqah_id)}</b> <span className="text-slate-400">· {p.exam_type === 'semua' ? 'bulanan & semester' : p.exam_type}</span></span>
               <button type="button" title="Hapus" className="text-slate-400 hover:text-red-600" onClick={() => hapusPenguji(p.id).catch((e) => tampilkanError(e, 'Gagal menghapus penguji'))}><Trash2 size={14} /></button>

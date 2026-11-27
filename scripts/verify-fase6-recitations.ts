@@ -2,6 +2,7 @@
  * Verification Suite — Fase 6: Recitation Ledger & Review Workflow
  * Verifies all 11 Acceptance Criteria in Prompt Fase 6 Section 8.
  */
+import { bacaModul } from '../tests/v2/helpers/baca';
 import fs from 'fs';
 import path from 'path';
 
@@ -13,7 +14,8 @@ interface CheckResult {
 }
 
 const rootDir = process.cwd();
-const read = (relPath: string) => fs.readFileSync(path.join(rootDir, relPath), 'utf8');
+// Fase 8 bagian 2: halaman besar dipecah ke file bersaudara (X.logika.tsx, X.bagian*.tsx); baca sebagai satu modul.
+const read = (relPath: string) => bacaModul(rootDir, relPath);
 
 const hardeningSql = read('database/supabase_v2_1_production_hardening.sql');
 const migrationSql = read('database/supabase_saas_v2_migration.sql');

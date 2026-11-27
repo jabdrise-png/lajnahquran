@@ -134,7 +134,7 @@ async function isMusammiAssignedToSantriServer(
       .eq("organization_id", orgId)
       .eq("santri_id", santriRow.id);
 
-    const studentHalaqahIds = (memberships || []).map((m: any) => m.halaqah_id).filter(Boolean);
+    const studentHalaqahIds = (memberships || []).map((m) => m.halaqah_id).filter(Boolean);
     if (studentHalaqahIds.length > 0) {
       const { data: mentors } = await dbReader
         .from("halaqah_mentors")

@@ -13,7 +13,7 @@ const KenaikanKelasPage: React.FC = () => {
     const { santri, fetchData, getOrgId, masterKelas, masterMarhalahs, masterKelasRelasi } = useSupabaseData();
     const { academicYears, selectedAcademicYear } = useAcademicYear();
 
-    const globalMarhalahs = useMemo(() => masterMarhalahs.map((m: any) => m.nama), [masterMarhalahs]);
+    const globalMarhalahs = useMemo(() => masterMarhalahs.map((m) => m.nama), [masterMarhalahs]);
 
     const [sourceYearId, setSourceYearId] = useState<number | ''>('');
     const [targetYearId, setTargetYearId] = useState<number | ''>('');
@@ -71,11 +71,11 @@ const KenaikanKelasPage: React.FC = () => {
             if (v2Err) throw v2Err;
 
             const mergedMap = new Map<number, { santri_id: number; marhalah: string; kelas: string; status?: string }>();
-            (v2Enrollments || []).forEach((row: any) => {
+            (v2Enrollments || []).forEach((row) => {
                 const sid = Number(row.student_id ?? row.santri_id);
                 if (!sid) return;
-                const mObj = (masterMarhalahs || []).find((m: any) => Number(m.id) === Number(row.master_marhalah_id));
-                const kObj = (masterKelasRelasi || []).find((k: any) => Number(k.id) === Number(row.master_kelas_id));
+                const mObj = (masterMarhalahs || []).find((m) => Number(m.id) === Number(row.master_marhalah_id));
+                const kObj = (masterKelasRelasi || []).find((k) => Number(k.id) === Number(row.master_kelas_id));
                 mergedMap.set(sid, {
                     santri_id: sid,
                     marhalah: row.marhalah || mObj?.nama || mergedMap.get(sid)?.marhalah || '',
@@ -132,12 +132,12 @@ const KenaikanKelasPage: React.FC = () => {
             >();
 
 
-            (v2Enrollments || []).forEach((e: any) => {
+            (v2Enrollments || []).forEach((e) => {
                 const sid = Number(e.student_id ?? e.santri_id);
                 if (!sid) return;
                 const existing = enrollmentMap.get(sid);
-                const mObj = (masterMarhalahs || []).find((m: any) => Number(m.id) === Number(e.master_marhalah_id));
-                const kObj = (masterKelasRelasi || []).find((k: any) => Number(k.id) === Number(e.master_kelas_id));
+                const mObj = (masterMarhalahs || []).find((m) => Number(m.id) === Number(e.master_marhalah_id));
+                const kObj = (masterKelasRelasi || []).find((k) => Number(k.id) === Number(e.master_kelas_id));
                 enrollmentMap.set(sid, {
                     santri_id: sid,
                     marhalah: e.marhalah || mObj?.nama || existing?.marhalah || 'Mutawassithah',
@@ -151,7 +151,7 @@ const KenaikanKelasPage: React.FC = () => {
 
             const merged: (Santri & { source_enrollment_status?: string; source_left_at?: string | null })[] = [];
             enrollmentMap.forEach((enr, sid) => {
-                const s = (santriData || []).find((x: any) => Number(x.id) === sid);
+                const s = (santriData || []).find((x) => Number(x.id) === sid);
                 if (s) {
                     merged.push({
                         ...(s as any),

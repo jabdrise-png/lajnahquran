@@ -1,6 +1,7 @@
 /**
  * Fase 7 · HP, performa & PWA — pemeriksaan kode dan pustaka Excel pengganti xlsx.
  */
+import { bacaModul } from './helpers/baca';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
@@ -9,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { bacaCsv, barisKeObjek, buatWorkbook, bacaBaris } from '../../lib/excel';
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..', '..');
-const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
+const read = (p: string) => bacaModul(ROOT, p);
 
 function semuaSumber(dir = ROOT, hasil: string[] = []): string[] {
   for (const n of readdirSync(dir)) {

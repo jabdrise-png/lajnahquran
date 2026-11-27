@@ -98,7 +98,7 @@ const WaliKelasPage: React.FC = () => {
             setFormData({ nama: wali.nama, marhalah: wali.marhalah, kelas: wali.kelas, no_hp: wali.no_hp || '', user_id: wali.user_id || '' });
         } else {
             const initialMarhalah = masterMarhalahs.length > 0 ? masterMarhalahs[0].nama : 'Mutawassithah';
-            const initialClasses = masterKelasRelasi.filter((k: any) => k.marhalah_id === masterMarhalahs.find((m: any) => m.nama === initialMarhalah)?.id).map((k: any) => k.nama_kelas);
+            const initialClasses = masterKelasRelasi.filter((k) => k.marhalah_id === masterMarhalahs.find((m) => m.nama === initialMarhalah)?.id).map((k) => k.nama_kelas);
             setFormData({ nama: '', marhalah: initialMarhalah, kelas: initialClasses[0] || '', no_hp: '', user_id: '' });
         }
         setIsModalOpen(true);
@@ -114,8 +114,8 @@ const WaliKelasPage: React.FC = () => {
             if (!finalKelas) return NotificationStore.addNotification("Kelas wajib diisi", "error");
             
             
-            const m_id = masterMarhalahs.find((m: any) => m.nama === formData.marhalah)?.id || null;
-            const k_id = masterKelasRelasi.find((k: any) => k.nama_kelas === finalKelas && k.marhalah_id === m_id)?.id || null;
+            const m_id = masterMarhalahs.find((m) => m.nama === formData.marhalah)?.id || null;
+            const k_id = masterKelasRelasi.find((k) => k.nama_kelas === finalKelas && k.marhalah_id === m_id)?.id || null;
 
             const legacyEnumList = ['Mutawassithah', 'Aliyah', 'Jamiah'];
             const safeLegacyMarhalah = legacyEnumList.includes(formData.marhalah) ? formData.marhalah : 'Mutawassithah';
@@ -296,7 +296,7 @@ const WaliKelasPage: React.FC = () => {
                                             className="kontrol"
                                         >
                                             <option value="all">Semua Marhalah</option>
-                                            {masterMarhalahs.map((m: any) => <option key={m.id} value={m.nama}>{m.nama}</option>)}
+                                            {masterMarhalahs.map((m) => <option key={m.id} value={m.nama}>{m.nama}</option>)}
                                         </select>
                 <select 
                                             value={filterKelas} 
@@ -404,11 +404,11 @@ const WaliKelasPage: React.FC = () => {
                             <label className="block text-xs font-semibold text-slate-500 mb-2">Marhalah <span className="text-red-500">*</span></label>
                             <select className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-sm font-semibold text-slate-800 cursor-pointer" value={formData.marhalah} onChange={e => {
                                 const newMarhalah = e.target.value;
-                                const availableForNew = masterKelasRelasi.filter((k: any) => k.marhalah_id === masterMarhalahs.find((m: any) => m.nama === newMarhalah)?.id).map((k: any) => k.nama_kelas);
+                                const availableForNew = masterKelasRelasi.filter((k) => k.marhalah_id === masterMarhalahs.find((m) => m.nama === newMarhalah)?.id).map((k) => k.nama_kelas);
                                 setFormData({...formData, marhalah: newMarhalah, kelas: availableForNew[0] || ''});
                                 setIsCustomKelas(false);
                             }}>
-                                {masterMarhalahs.map((m: any) => <option key={m.id} value={m.nama}>{m.nama}</option>)}
+                                {masterMarhalahs.map((m) => <option key={m.id} value={m.nama}>{m.nama}</option>)}
                             </select>
                         </div>
                         <div className="flex flex-col gap-2">

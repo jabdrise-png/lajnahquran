@@ -115,7 +115,7 @@ const bulat2 = (x: number) => Math.round(x * 100) / 100;
 export function normalisasiRubrik(r: any): Rubrik {
   if (!r) return RUBRIK_BAWAAN;
   const preds = Array.isArray(r.predicates) && r.predicates.length
-    ? r.predicates.map((p: any) => ({ label: String(p.label), minScore: n(p.minScore, 0) }))
+    ? r.predicates.map((p) => ({ label: String(p.label), minScore: n(p.minScore, 0) }))
     : RUBRIK_BAWAAN.predicates;
   return {
     id: r.id, version_no: r.version_no, name: r.name,
@@ -211,7 +211,7 @@ export function normalisasiPercobaan(a: any): PercobaanUjian {
     academic_year_id: Number(a.academic_year_id),
     attempt_no: Number(a.attempt_no) || 1,
     final_score: angka(a.final_score),
-    juz_scores: Array.isArray(a.juz_scores) ? a.juz_scores.map((j: any) => ({ juz: Number(j.juz), kabir: Number(j.kabir) || 0, shoghir: Number(j.shoghir) || 0, nilai: angka(j.nilai) ?? undefined, custom: j.custom === true || j.custom === 'true' })) : [],
+    juz_scores: Array.isArray(a.juz_scores) ? a.juz_scores.map((j) => ({ juz: Number(j.juz), kabir: Number(j.kabir) || 0, shoghir: Number(j.shoghir) || 0, nilai: angka(j.nilai) ?? undefined, custom: j.custom === true || j.custom === 'true' })) : [],
     status: a.status === 'voided' ? 'voided' : 'valid',
   };
 }
@@ -243,7 +243,7 @@ export function halaqahPenguji(
   const hasil = new Set<number>();
   for (const h of halaqahList) {
     const pegang = (opts.userId && h.musammi?.user_id === opts.userId) || mine.has(Number(h.musammi?.id))
-      || (h.musammi_assignments || []).some((a: any) => a.is_active && !a.valid_to && ((opts.userId && a.musammi_user_id === opts.userId) || mine.has(Number(a.musammi_id))));
+      || (h.musammi_assignments || []).some((a) => a.is_active && !a.valid_to && ((opts.userId && a.musammi_user_id === opts.userId) || mine.has(Number(a.musammi_id))));
     if (pegang) hasil.add(Number(h.id));
   }
   for (const p of opts.penguji) {

@@ -79,12 +79,12 @@ const AttendanceBook: React.FC<AttendanceBookProps> = ({ onNavigate }) => {
     const filteredHalaqah = useMemo(() => {
         const getActiveSantriForDate = (h: any, dateStr: string) => {
             if (!h.history) return h.santri || [];
-            return h.history.filter((hs: any) => {
+            return h.history.filter((hs) => {
                 if (!hs.santri) return false;
                 if (hs.start_date && new Date(hs.start_date.includes('/') ? hs.start_date.split('/').reverse().join('-') : hs.start_date).getTime() > new Date(dateStr.length > 10 ? dateStr.substring(0,10) : dateStr).getTime()) return false;
                 if (hs.end_date && hs.end_date.trim() !== '' && new Date(hs.end_date.includes('/') ? hs.end_date.split('/').reverse().join('-') : hs.end_date).getTime() < new Date(dateStr.length > 10 ? dateStr.substring(0,10) : dateStr).getTime()) return false;
                 return true;
-            }).map((hs: any) => hs.santri);
+            }).map((hs) => hs.santri);
         };
 
         return permittedHalaqah
@@ -98,7 +98,7 @@ const AttendanceBook: React.FC<AttendanceBookProps> = ({ onNavigate }) => {
             .filter(h => {
             if (h.jenis !== selectedType) return false;
             if (selectedMarhalah !== 'all') {
-                const targetMarhalahId = masterMarhalahs?.find((m: any) => m.nama === selectedMarhalah)?.id;
+                const targetMarhalahId = masterMarhalahs?.find((m) => m.nama === selectedMarhalah)?.id;
                 const matchesMarhalah = h.marhalah === selectedMarhalah || (targetMarhalahId && h.marhalah_id === targetMarhalahId);
                 if (!matchesMarhalah) return false;
             }
@@ -332,7 +332,7 @@ const AttendanceBook: React.FC<AttendanceBookProps> = ({ onNavigate }) => {
                     });
                     return [
                         i + 1, 
-                        `${s.nama} (${s.kelas_id ? masterKelasRelasi?.find((k: any) => k.id === s.kelas_id)?.nama_kelas || s.kelas : s.kelas})`, 
+                        `${s.nama} (${s.kelas_id ? masterKelasRelasi?.find((k) => k.id === s.kelas_id)?.nama_kelas || s.kelas : s.kelas})`, 
                         ...sCells
                     ];
                 });

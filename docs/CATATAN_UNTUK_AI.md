@@ -1,4 +1,4 @@
-# Catatan untuk Asisten AI (AI Studio, dll.) — Perubahan Fase 0 s.d. Fase 8 (bagian 1)
+# Catatan untuk Asisten AI (AI Studio, dll.) — Perubahan Fase 0 s.d. Fase 8
 
 Baca file ini **sebelum** mengubah kode. Isinya: apa yang sudah diubah, aturan yang wajib diikuti, dan hal yang tidak boleh dilakukan. Acuan utama: `docs/SPESIFIKASI_V2.md` (kebutuhan) dan `docs/RENCANA_V2.md` (urutan fase).
 
@@ -366,6 +366,22 @@ Hook memuat `examAttempts`, `periodeUjianBulanan`, `rubrikAktif`, `pengaturanRap
 
 ---
 
+## 11b. Fase 8 bagian 2 — kerapian kode
+
+- **Tidak ada file kode > 1.000 baris** (kecuali data `lib/quranPageMap.ts`) dan **jumlah `any` tidak boleh naik** (`BATAS_ANY` di `tests/v2/f8-lib.test.ts`; turunkan angkanya bila Anda mengurangi `any`).
+- Pola pecahan halaman besar (dibuat dengan alat berbasis TypeScript compiler, perilaku tidak berubah):
+  - `X.tsx` — komponen tipis: `const s = useXLogika(props); const { … } = s;` lalu JSX.
+  - `X.logika.tsx` — hook `useXLogika` berisi seluruh state, efek, dan handler (+ kode tingkat modul yang diekspor). Hook tidak mengembalikan JSX; bila perlu berhenti lebih awal ia mengembalikan `{ __berhenti: true, __kembali }`.
+  - `X.bagian*.tsx` — potongan tampilan besar (`Bagian1…`) yang menerima `s`.
+  - File lain bersaudara: `HalaqahPage.pilihan.tsx`, `StatistikPerkembangan.grafik.tsx`, `WebsiteEditorPage.panel.tsx`, `PlatformConsolePage.tipe.tsx` (tipe & `labelStatus`), `PlatformConsolePage.logika-1/-2.tsx` (paruh hook berurutan).
+- `hooks/useSupabaseData.tsx` dipecah berurutan: `.absensi.tsx` (absensi/setoran per jendela) → `.muat.tsx` (state & muat data, `useSupabaseDataInternalMuat`) → `.mutasi.tsx` → `useSupabaseData.tsx` (sisanya + Provider). Urutan pemanggilan hook tetap sama.
+- `lib/permissions.ts` → daftar rute & tipe peran di `lib/rute.ts`. `components/ui/SaaSPrimitives.tsx` → `Modal`, `Drawer`, `ConfirmDialog` di `components/ui/Dialog.tsx` (tetap bisa diimpor dari `SaaSPrimitives`).
+- Pemeriksaan kode di test membaca satu modul beserta file saudaranya lewat `tests/v2/helpers/baca.ts` (`bacaModul`).
+- Konsol Superadmin berbahasa Indonesia (Lembaga, Hak Akses, Sesi Bantuan, Kesehatan Sistem); kode status di database tetap Inggris, tampilan lewat `labelStatus()`.
+- Panduan pemakaian: `docs/PANDUAN_PENGGUNA.md`.
+
+---
+
 ## 12. Test otomatis
 
 - `npm run test` = `npm run test:v2` + suite lama (`scripts/verify-fase*.ts`).
@@ -379,7 +395,8 @@ Hook memuat `examAttempts`, `periodeUjianBulanan`, `rubrikAktif`, `pengaturanRap
 ## 13. Yang masih dikerjakan fase berikutnya (jangan dianggap selesai)
 
 - Halaman analitik lama (Pivot, Statistik, Detail Santri, Raport) masih memakai bentuk lama lewat `lib/rekapAdapter.ts`; bila ditulis ulang, bacalah `periodRecaps` langsung.
-- **F8 bagian 2:** pecah file > 1.000 baris (PlatformConsolePage, useSupabaseData, HalaqahPage, …), kurangi `any`, README & panduan pengguna. Butir 10–13 F8 dikerjakan pemilik bersama lembaga.
+- Butir 10–13 F8 (impor data lembaga uji ke produksi, pelatihan, uji coba 2 pekan, evaluasi) dikerjakan pemilik bersama lembaga.
+- `any` masih ±900 (kebanyakan `(supabase as any)` karena `types/database.types.ts` belum diperbarui dari skema v2). Langkah berikut: buat ulang tipe database (`supabase gen types`) lalu hapus cast bertahap.
 - Dasbor masih menghitung di browser; untuk lembaga besar pertimbangkan RPC ringkasan.
 - Pengaturan lama "Automasi Perhitungan Nilai" (`SETORAN_AUTO_*` di `app_settings`) tidak dipakai untuk setoran baru; masih dibaca beberapa laporan lama untuk rata-rata nilai. Jangan dipakai di fitur baru.
 

@@ -64,7 +64,7 @@ const RekapNilaiPage: React.FC = () => {
         })(),
       ]);
       setKomponen(Object.fromEntries(k.map((x: KomponenRaport) => [x.santri_id, x])));
-      setTerbit(Object.fromEntries(rc.map((r: any) => [Number(r.santri_id), { ...r, santri_id: Number(r.santri_id), final_score: r.final_score === null ? null : Number(r.final_score) }])));
+      setTerbit(Object.fromEntries(rc.map((r) => [Number(r.santri_id), { ...r, santri_id: Number(r.santri_id), final_score: r.final_score === null ? null : Number(r.final_score) }])));
     } catch (e) {
       tampilkanError(e, 'Gagal memuat komponen raport');
     } finally {
@@ -76,14 +76,14 @@ const RekapNilaiPage: React.FC = () => {
 
   // ---------- Info hafalan (dari Rekap Periode) & target ----------
   const infoHafalan = useCallback((s: any) => {
-    const urutan = new Map<string, number>(periodeEvaluasi.map((p: any, i: number) => [p.id, i] as [string, number]));
+    const urutan = new Map<string, number>(periodeEvaluasi.map((p, i: number) => [p.id, i] as [string, number]));
     const terbaru = (type: string) => studentProgress
-      .filter((p: any) => p.santri_id === s.id && p.progress_type === type)
-      .sort((a: any, b: any) => (urutan.get(b.month_key) ?? -1) - (urutan.get(a.month_key) ?? -1))[0]?.value;
+      .filter((p) => p.santri_id === s.id && p.progress_type === type)
+      .sort((a, b) => (urutan.get(b.month_key) ?? -1) - (urutan.get(a.month_key) ?? -1))[0]?.value;
     const juz = (v?: string) => (v === undefined || v === '' ? undefined : `${Number(v)} juz`);
     const depan = juz(terbaru('Hafalan Depan'));
     const belakang = juz(terbaru('Hafalan Belakang'));
-    const target = (classTargets || []).find((t: any) => (t.semester === semester || !t.semester) && t.marhalah === s.marhalah && t.kelas === s.kelas);
+    const target = (classTargets || []).find((t) => (t.semester === semester || !t.semester) && t.marhalah === s.marhalah && t.kelas === s.kelas);
     return {
       target_hafalan: target?.target_hafalan ? `${target.target_hafalan} juz` : undefined,
       hafalan_depan: depan ? `${depan}${terbaru('Surat Ayat Depan') ? ` (${terbaru('Surat Ayat Depan')})` : ''}` : undefined,
@@ -169,8 +169,8 @@ const RekapNilaiPage: React.FC = () => {
     const snap = rc?.snapshot_json;
     return {
       santri: { id: s.id, nama: snap?.santri_nama || s.nama, marhalah: s.marhalah, kelas: s.kelas, marhalah_id: (s as any).marhalah_id, kelas_id: (s as any).kelas_id },
-      juz: (k.semester?.juz || []).map((j: any) => ({ juz: Number(j.juz), kabir: Number(j.kabir), shoghir: Number(j.shoghir), nilai: j.nilai === undefined ? null : Number(j.nilai) })),
-      bulanan: (k.bulanan?.daftar || []).map((b: any) => ({ ke: Number(b.ke), label: b.label, nilai: b.nilai === null ? null : Number(b.nilai) })),
+      juz: (k.semester?.juz || []).map((j) => ({ juz: Number(j.juz), kabir: Number(j.kabir), shoghir: Number(j.shoghir), nilai: j.nilai === undefined ? null : Number(j.nilai) })),
+      bulanan: (k.bulanan?.daftar || []).map((b) => ({ ke: Number(b.ke), label: b.label, nilai: b.nilai === null ? null : Number(b.nilai) })),
       nilaiSemester: k.semester?.nilai ?? null,
       rataBulanan: k.bulanan?.rata_rata ?? null,
       kehadiran: k.kehadiran?.persen ?? null,
@@ -239,7 +239,7 @@ const RekapNilaiPage: React.FC = () => {
         <div className="panel-filter"><div className="grid-filter">
           <label className="kontrol-label"><span>Marhalah</span><select className="kontrol-dalam" value={filterMarhalah} onChange={(e) => setFilterMarhalah(e.target.value)}>
               <option value="all">Semua</option>
-              {(masterMarhalahs || []).map((m: any) => <option key={m.id} value={m.nama}>{m.nama}</option>)}
+              {(masterMarhalahs || []).map((m) => <option key={m.id} value={m.nama}>{m.nama}</option>)}
             </select></label>
           <label className="kontrol-label"><span>Status</span><select className="kontrol-dalam" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as any)}>
               <option value="semua">Semua</option>

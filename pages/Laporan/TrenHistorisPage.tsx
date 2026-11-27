@@ -115,7 +115,7 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
             groups[key].Total++;
         });
         // Sort by Date Descending, then Waktu Descending
-        return Object.values(groups).sort((a: any, b: any) => {
+        return Object.values(groups).sort((a, b) => {
             const dateCmp = b.date.localeCompare(a.date);
             if (dateCmp !== 0) return dateCmp;
             return b.waktu.localeCompare(a.waktu);
@@ -148,7 +148,7 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
         const classGroups: Record<string, any> = {};
         
         sessionAttendance.forEach(r => {
-            const key = `${r.marhalah_id ? masterMarhalahs?.find((m: any) => m.id === r.marhalah_id)?.nama || r.marhalah : r.marhalah}-${r.kelas_id ? masterKelasRelasi?.find((k: any) => k.id === r.kelas_id)?.nama_kelas || r.kelas : r.kelas}`;
+            const key = `${r.marhalah_id ? masterMarhalahs?.find((m) => m.id === r.marhalah_id)?.nama || r.marhalah : r.marhalah}-${r.kelas_id ? masterKelasRelasi?.find((k) => k.id === r.kelas_id)?.nama_kelas || r.kelas : r.kelas}`;
             if (!classGroups[key]) {
                 classGroups[key] = {
                     kelas: r.kelas,
@@ -165,7 +165,7 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
             classGroups[key].Total++;
         });
 
-        return Object.values(classGroups).sort((a: any, b: any) => {
+        return Object.values(classGroups).sort((a, b) => {
             const mIdxA = globalMarhalahs.indexOf(a.marhalah);
             const mIdxB = globalMarhalahs.indexOf(b.marhalah);
             if (mIdxA !== mIdxB) return mIdxA - mIdxB;
@@ -309,7 +309,7 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
                             </tr>
                         </thead>
                         <tbody>
-                            {paginatedData.map((item: any, idx: number) => (
+                            {paginatedData.map((item, idx: number) => (
                                 <tr 
                                     key={idx} 
                                     className="cursor-pointer"

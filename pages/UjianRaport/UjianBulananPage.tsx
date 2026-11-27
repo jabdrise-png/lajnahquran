@@ -57,7 +57,7 @@ const UjianBulananPage: React.FC = () => {
   const periode = periodeList.find((p) => p.id === periodId);
 
   const myMusammiIds = useMemo(
-    () => musammi.filter((m: any) => userProfile?.id && m.user_id === userProfile.id).map((m: any) => Number(m.id)),
+    () => musammi.filter((m) => userProfile?.id && m.user_id === userProfile.id).map((m) => Number(m.id)),
     [musammi, userProfile?.id]
   );
   const boleh = useMemo(() => halaqahPenguji(halaqah, {
@@ -169,7 +169,7 @@ const UjianBulananPage: React.FC = () => {
 
   // ---------- Telegram ke wali ----------
   const templateKey = `UB_TELEGRAM_TEMPLATE_${selectedAcademicYear?.id}_${semester}`;
-  const template = appSettings.find((s: any) => s.key === templateKey)?.value || TEMPLATE_BAWAAN;
+  const template = appSettings.find((s) => s.key === templateKey)?.value || TEMPLATE_BAWAAN;
   const [kirimBuka, setKirimBuka] = useState(false);
   const [templateDraf, setTemplateDraf] = useState(template);
   const [mengirim, setMengirim] = useState(false);

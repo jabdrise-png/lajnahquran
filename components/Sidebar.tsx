@@ -85,18 +85,18 @@ const Sidebar: React.FC<SidebarProps> = ({
   if (canonicalRole === 'superadmin') {
     navStructure.push(
       { id: 'g_platform', label: 'KONSOL PLATFORM', isGroup: true },
-      { id: 'platform_dashboard', label: 'Dashboard Platform', icon: <Layout size={18} />, page: 'PlatformDashboard' },
-      { id: 'platform_tenants', label: 'Organisasi & Tenant', icon: <Building2 size={18} />, page: 'PlatformTenants' },
-      { id: 'platform_accounts', label: 'Akun Platform & Grants', icon: <Users size={18} />, page: 'PlatformAccounts' },
+      { id: 'platform_dashboard', label: 'Ringkasan Platform', icon: <Layout size={18} />, page: 'PlatformDashboard' },
+      { id: 'platform_tenants', label: 'Lembaga', icon: <Building2 size={18} />, page: 'PlatformTenants' },
+      { id: 'platform_accounts', label: 'Akun & Hak Akses', icon: <Users size={18} />, page: 'PlatformAccounts' },
       { id: 'platform_plans', label: 'Pendaftaran & Langganan', icon: <CreditCard size={18} />, page: 'PlatformPlans' },
       {
         id: 'platform_support',
-        label: 'Support Access',
+        label: 'Sesi Bantuan',
         icon: <KeyRound size={18} />,
         page: 'PlatformSupport',
         badge: supportSession ? 'AKTIF' : undefined,
       },
-      { id: 'platform_audit', label: 'Audit & Health Monitor', icon: <Activity size={18} />, page: 'PlatformAudit' },
+      { id: 'platform_audit', label: 'Audit & Kesehatan Sistem', icon: <Activity size={18} />, page: 'PlatformAudit' },
       { id: 'platform_settings', label: 'Pengaturan Platform', icon: <Settings size={18} />, page: 'PlatformSettings' },
       { id: 'website_editor', label: 'Landing Page Platform', icon: <Globe size={18} />, page: 'WebsiteEditor' }
     );
@@ -557,7 +557,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                       className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-blue-600 hover:bg-blue-50/70 flex items-center gap-2 transition-colors"
                     >
                       <KeyRound size={14} />
-                      Buka Sesi Support Tenant
+                      Buka sesi bantuan lembaga
                     </button>
                     <button
                       type="button"

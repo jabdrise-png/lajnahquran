@@ -94,7 +94,7 @@ const MusyrifDataPage: React.FC = () => {
         if (!selectedAcademicYear) return NotificationStore.addNotification("Tahun ajaran belum dipilih", "error");
         if (!formData.nama.trim()) return NotificationStore.addNotification("Nama Musyrif wajib diisi", "error");
         
-        const mObj = (masterMarhalahs || []).find((m: any) => m.nama === formData.marhalah);
+        const mObj = (masterMarhalahs || []).find((m) => m.nama === formData.marhalah);
         const payload: any = { 
             organization_id: orgId, 
             academic_year_id: selectedAcademicYear.id,
@@ -252,7 +252,7 @@ const MusyrifDataPage: React.FC = () => {
                                             className="kontrol"
                                         >
                                             <option value="all">Semua Marhalah</option>
-                                            {masterMarhalahs?.map((m: any) => <option key={m.id} value={m.nama}>{m.nama}</option>) || globalMarhalahs.map((m: any) => <option key={m} value={m}>{m}</option>)}
+                                            {masterMarhalahs?.map((m) => <option key={m.id} value={m.nama}>{m.nama}</option>) || globalMarhalahs.map((m) => <option key={m} value={m}>{m}</option>)}
                                         </select>
               </div>
             </div>
@@ -347,7 +347,7 @@ const MusyrifDataPage: React.FC = () => {
                     <div>
                         <label className="block text-xs font-semibold text-slate-500 mb-2">Marhalah yang Diampu <span className="text-red-500">*</span></label>
                         <select className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all focus:bg-white text-sm font-semibold text-slate-800 cursor-pointer" value={formData.marhalah} onChange={e => setFormData({...formData, marhalah: e.target.value})}>
-                            {masterMarhalahs?.map((m: any) => <option key={m.id} value={m.nama}>{m.nama}</option>) || globalMarhalahs.map((m: any) => <option key={m} value={m}>{m}</option>)}
+                            {masterMarhalahs?.map((m) => <option key={m.id} value={m.nama}>{m.nama}</option>) || globalMarhalahs.map((m) => <option key={m} value={m}>{m}</option>)}
                         </select>
                     </div>
                     <div className="flex justify-end gap-3 pt-6 border-t border-slate-200/80">

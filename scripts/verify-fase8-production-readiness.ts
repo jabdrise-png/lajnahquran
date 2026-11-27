@@ -2,6 +2,7 @@
  * Test Suite: Fase 8 — Production Readiness Checklist Audit
  * Verifies all criteria from Section 12 with actual test proofs.
  */
+import { bacaModul } from '../tests/v2/helpers/baca';
 import fs from 'fs';
 import path from 'path';
 
@@ -84,7 +85,7 @@ const checklist: ChecklistItem[] = [
     item: 'Endpoint pemantauan kesehatan sistem (/api/health) dan request identifier aktif',
     evidence: 'server.ts menyajikan /api/health probe DB dan header X-Request-ID pada setiap request.',
     verify: () => {
-      const serverCode = fs.readFileSync(path.resolve(process.cwd(), 'server.ts'), 'utf-8');
+      const serverCode = bacaModul(process.cwd(), 'server.ts');
       return serverCode.includes('/api/health') && serverCode.includes('X-Request-ID');
     },
   },
@@ -94,7 +95,7 @@ const checklist: ChecklistItem[] = [
     item: 'Dialog, formulir, dan navigasi memenuhi standar aksesibilitas keyboard dan ARIA',
     evidence: 'ConfirmDialog mendukung ESC, focus trap, aria-modal="true", dan aria-labelledby.',
     verify: () => {
-      const primitives = fs.readFileSync(path.resolve(process.cwd(), 'components/ui/SaaSPrimitives.tsx'), 'utf-8');
+      const primitives = bacaModul(process.cwd(), 'components/ui/SaaSPrimitives.tsx');
       return primitives.includes('role="dialog"') &&
              primitives.includes('aria-modal="true"') &&
              primitives.includes('e.key === \'Escape\'');

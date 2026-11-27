@@ -5,6 +5,7 @@
  *  - pemeriksaan kode: tidak ada lagi tabel ujian lama, RPC lama, tanda tangan di localStorage,
  *    tulis langsung ke report_cards, atau Silabus di raport.
  */
+import { bacaModul } from './helpers/baca';
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -18,7 +19,7 @@ import {
 } from '../../lib/ujian';
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..', '..');
-const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
+const read = (p: string) => bacaModul(ROOT, p);
 let db: PGlite;
 before(async () => { db = await buildTestDb(); });
 

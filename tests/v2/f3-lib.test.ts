@@ -2,6 +2,7 @@
  * Fase 3 · logika layar (predikat, arah hafalan, pesan wali, absensi per waktu) + pemeriksaan kode.
  * Predikat di layar dibandingkan langsung dengan fungsi database fn_predikat_kelancaran.
  */
+import { bacaModul } from './helpers/baca';
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
@@ -21,7 +22,7 @@ before(async () => {
 });
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..', '..');
-const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
+const read = (p: string) => bacaModul(ROOT, p);
 
 // ---------------------------------------------------------------- predikat
 test('predikat layar sama dengan fn_predikat_kelancaran (tabel bawaan, kabir 0–6 × shoghir 0–8)', async () => {

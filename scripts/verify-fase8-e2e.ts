@@ -2,6 +2,7 @@
  * Test Suite: Fase 8 — End-to-End Canonical Lifecycle Simulation (16 Steps)
  * Tests the entire production workflow from tenant creation to academic year closure.
  */
+import { bacaModul } from '../tests/v2/helpers/baca';
 import fs from 'fs';
 import path from 'path';
 
@@ -20,17 +21,17 @@ function step(stepNo: number, id: string, name: string, fn: () => boolean | Prom
 
 const hardeningSql = fs.readFileSync(path.resolve(process.cwd(), 'database/supabase_v2_1_production_hardening.sql'), 'utf-8');
 const migrationSql = fs.readFileSync(path.resolve(process.cwd(), 'database/supabase_saas_v2_migration.sql'), 'utf-8');
-const platformConsole = fs.readFileSync(path.resolve(process.cwd(), 'pages/Platform/PlatformConsolePage.tsx'), 'utf-8');
-const invitationsApi = fs.readFileSync(path.resolve(process.cwd(), 'api/invitations.ts'), 'utf-8');
-const acceptInvitePage = fs.readFileSync(path.resolve(process.cwd(), 'pages/AcceptInvitePage.tsx'), 'utf-8');
-const tahunAjaranPage = fs.readFileSync(path.resolve(process.cwd(), 'pages/DataMaster/TahunAjaranPage.tsx'), 'utf-8');
-const sesiHalaqahPage = fs.readFileSync(path.resolve(process.cwd(), 'pages/Operasional/SesiHalaqahPage.tsx'), 'utf-8');
-const setoranHarianPage = fs.readFileSync(path.resolve(process.cwd(), 'pages/SetoranHarianPage.tsx'), 'utf-8');
-const ujianSemesterPage = fs.readFileSync(path.resolve(process.cwd(), 'pages/UjianRaport/UjianSemesterPage.tsx'), 'utf-8');
-const rekapNilaiPage = fs.readFileSync(path.resolve(process.cwd(), 'pages/UjianRaport/RekapNilaiPage.tsx'), 'utf-8');
-const verifyReportPage = fs.readFileSync(path.resolve(process.cwd(), 'pages/VerifyReportPage.tsx'), 'utf-8');
+const platformConsole = bacaModul(process.cwd(), 'pages/Platform/PlatformConsolePage.tsx');
+const invitationsApi = bacaModul(process.cwd(), 'api/invitations.ts');
+const acceptInvitePage = bacaModul(process.cwd(), 'pages/AcceptInvitePage.tsx');
+const tahunAjaranPage = bacaModul(process.cwd(), 'pages/DataMaster/TahunAjaranPage.tsx');
+const sesiHalaqahPage = bacaModul(process.cwd(), 'pages/Operasional/SesiHalaqahPage.tsx');
+const setoranHarianPage = bacaModul(process.cwd(), 'pages/SetoranHarianPage.tsx');
+const ujianSemesterPage = bacaModul(process.cwd(), 'pages/UjianRaport/UjianSemesterPage.tsx');
+const rekapNilaiPage = bacaModul(process.cwd(), 'pages/UjianRaport/RekapNilaiPage.tsx');
+const verifyReportPage = bacaModul(process.cwd(), 'pages/VerifyReportPage.tsx');
 const f5Rpc = fs.readFileSync(path.resolve(process.cwd(), 'database/migrations/2026_11_30_02_f5_rpc_ujian_raport.sql'), 'utf-8');
-const hookCode = fs.readFileSync(path.resolve(process.cwd(), 'hooks/useSupabaseData.tsx'), 'utf-8');
+const hookCode = bacaModul(process.cwd(), 'hooks/useSupabaseData.tsx');
 
 // Step 1: Login Superadmin
 step(1, 'E2E-01', 'Superadmin Login & Verifikasi Hak Akses Platform Console', () => {
@@ -84,9 +85,9 @@ step(8, 'E2E-08', 'Admin Menugaskan Musammi ke Halaqah via rpc_assign_halaqah_mu
 // perilakunya diuji nyata di tests/v2/f3-database.test.ts.
 const f3AbsensiSql = fs.readFileSync(path.resolve(process.cwd(), 'database/migrations/2026_11_28_03_f3_absensi_tanpa_kunci.sql'), 'utf-8');
 const f3SetoranSql = fs.readFileSync(path.resolve(process.cwd(), 'database/migrations/2026_11_28_02_f3_setoran_langsung_sah.sql'), 'utf-8');
-const useSupabaseDataCode = fs.readFileSync(path.resolve(process.cwd(), 'hooks/useSupabaseData.tsx'), 'utf-8');
-const absensiPage = fs.readFileSync(path.resolve(process.cwd(), 'pages/Operasional/AbsensiPage.tsx'), 'utf-8');
-const daftarSetoran = fs.readFileSync(path.resolve(process.cwd(), 'components/setoran/DaftarSetoran.tsx'), 'utf-8');
+const useSupabaseDataCode = bacaModul(process.cwd(), 'hooks/useSupabaseData.tsx');
+const absensiPage = bacaModul(process.cwd(), 'pages/Operasional/AbsensiPage.tsx');
+const daftarSetoran = bacaModul(process.cwd(), 'components/setoran/DaftarSetoran.tsx');
 
 // Step 9: Musammi membuka layar Absensi/Sesi (roster per tanggal, sesi belum dibuat)
 step(9, 'E2E-09', 'Musammi Membuka Absensi Halaqah (roster per tanggal, sesi dibuat saat absensi pertama)', () => {

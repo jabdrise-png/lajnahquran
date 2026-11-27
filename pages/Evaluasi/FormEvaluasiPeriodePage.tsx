@@ -135,7 +135,7 @@ const FormEvaluasiPeriodePage: React.FC = () => {
 
   const periods = useMemo(() => periodeTahunAjaran(evaluationPeriods, selectedAcademicYear?.id), [evaluationPeriods, selectedAcademicYear]);
   const myMusammiIds = useMemo(
-    () => musammi.filter((m: any) => userProfile?.id && m.user_id === userProfile.id).map((m: any) => Number(m.id)),
+    () => musammi.filter((m) => userProfile?.id && m.user_id === userProfile.id).map((m) => Number(m.id)),
     [musammi, userProfile?.id]
   );
   const halaqahList = useMemo(
@@ -182,7 +182,7 @@ const FormEvaluasiPeriodePage: React.FC = () => {
     setGalat(null);
     try {
       const res: any = await bukaFormPeriode(periodId, halaqahId);
-      const rows: RekapBaris[] = (res?.recaps || []).map((r: any) => ({
+      const rows: RekapBaris[] = (res?.recaps || []).map((r) => ({
         ...normalisasiRekap(r), nama: r.nama, kode: r.kode, arah_hafalan: arahSantri(r.arah_hafalan),
         sebelumnya: r.sebelumnya ? { ...r.sebelumnya, total_juz: r.sebelumnya.total_juz === null ? null : Number(r.sebelumnya.total_juz) } : null,
       }));

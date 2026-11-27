@@ -1,0 +1,11 @@
+FASE 8 (BAGIAN 2) — KERAPIAN KODE, PANDUAN, KONSOL SUPERADMIN BERBAHASA INDONESIA
+(cabang: fase-8b-kerapian, dari main c4c434b)
+
+Cara pasang kode:
+- Salin isi ZIP ini ke root repo (timpa semua), commit, push.
+- Tidak ada berkas yang perlu dihapus, tidak ada migrasi database, tidak ada paket baru.
+- Banyak file BARU (pecahan halaman besar: *.logika.tsx, *.bagian*.tsx, dll.) — pastikan ikut ter-commit
+  (git add -A).
+
+Setelah deploy: cek beberapa halaman (Dasbor, Halaqah, Tahun Ajaran, Data Santri, Buku Absensi, Laporan,
+Statistik, konsol Superadmin, Editor Website). Perilaku tidak berubah; hanya struktur kode & teks Superadmin.

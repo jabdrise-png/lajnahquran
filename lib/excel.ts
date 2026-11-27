@@ -25,7 +25,7 @@ export function nilaiSel(v: any): any {
   if (v === null || v === undefined) return undefined;
   if (v instanceof Date) return isNaN(v.getTime()) ? undefined : v.toISOString().slice(0, 10);
   if (typeof v === 'object') {
-    if (Array.isArray(v.richText)) return v.richText.map((r: any) => r.text).join('');
+    if (Array.isArray(v.richText)) return v.richText.map((r) => r.text).join('');
     if ('result' in v) return nilaiSel(v.result);
     if ('text' in v) return v.text;
     if ('error' in v) return undefined;

@@ -84,7 +84,7 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
     const classRecapData = useMemo(() => {
         const groups: Record<string, any> = {};
         filteredData.forEach(r => {
-            const key = `${r.marhalah_id ? masterMarhalahs?.find((m: any) => m.id === r.marhalah_id)?.nama || r.marhalah : r.marhalah}-${r.kelas_id ? masterKelasRelasi?.find((k: any) => k.id === r.kelas_id)?.nama_kelas || r.kelas : r.kelas}`;
+            const key = `${r.marhalah_id ? masterMarhalahs?.find((m) => m.id === r.marhalah_id)?.nama || r.marhalah : r.marhalah}-${r.kelas_id ? masterKelasRelasi?.find((k) => k.id === r.kelas_id)?.nama_kelas || r.kelas : r.kelas}`;
             if (!groups[key]) {
                 groups[key] = {
                     key, Marhalah: r.marhalah, Kelas: r.kelas, Total: 0
@@ -99,13 +99,13 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
             groups[key].Total++;
         });
 
-        Object.values(groups).forEach((g: any) => {
+        Object.values(groups).forEach((g) => {
             const hadirKey = 'Hadir';
             g.PersenKehadiran = g.Total > 0 ? `${Math.round((((g['Hadir'] || 0) + (g['Terlambat'] || 0)) / g.Total) * 100)}%` : '0%';
         });
 
         // Sorting
-        return Object.values(groups).sort((a: any, b: any) => {
+        return Object.values(groups).sort((a, b) => {
             let detailCompare = 0;
             switch (sortBy) {
                 case 'Kelas':
@@ -145,7 +145,7 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
         });
     }, [filteredData, sortBy, sortOrder, globalMarhalahs, globalAttendanceStatus]);
 
-    const chartData = useMemo(() => classRecapData.map((item: any) => {
+    const chartData = useMemo(() => classRecapData.map((item) => {
         const total = item.Total || 1;
         const res: any = { name: `${item.Kelas} (${item.Marhalah})`, rawTotal: item.Total };
         globalAttendanceStatus?.forEach(s => {
@@ -192,7 +192,7 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
 
         const reports: Record<string, any> = {};
         for (const classKey of selectedClassKeys) {
-            const classItem = classRecapData.find((c: any) => c.key === classKey);
+            const classItem = classRecapData.find((c) => c.key === classKey);
             if (!classItem) continue;
 
             const chartEl = hiddenChartRefs.current[classKey];
@@ -373,7 +373,7 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
                                 <th className="sticky top-0 left-0 z-20 w-12">
                                     <button 
                                         className="h-full w-full flex items-center justify-center p-1 rounded-md hover:bg-slate-200/50 transition-colors"
-                                        onClick={() => setSelectedClassKeys(selectedClassKeys.length === classRecapData.length ? [] : classRecapData.map((c: any) => c.key))}
+                                        onClick={() => setSelectedClassKeys(selectedClassKeys.length === classRecapData.length ? [] : classRecapData.map((c) => c.key))}
                                     >
                                         {selectedClassKeys.length > 0 ? <CheckSquare size={18} className="text-blue-600"/> : <Square size={18} className="text-slate-400"/>}
                                     </button>
@@ -392,7 +392,7 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
                             </tr>
                         </thead>
                         <tbody>
-                            {classRecapData.map((item: any) => (
+                            {classRecapData.map((item) => (
                                 <tr key={item.key} className="cursor-pointer" onClick={() => setSelectedClassKeys(p => p.includes(item.key) ? p.filter(k => k !== item.key) : [...p, item.key])}>
                                     <td className="sticky left-0 bg-white group-hover:bg-slate-50/95 backdrop-blur-sm z-10 transition-colors text-center w-12">
                                         <button className="p-1 rounded-md hover:bg-slate-100 transition-colors">
@@ -453,7 +453,7 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
             {/* Hidden Charts for Image Generation - MATCH REKAP STYLE */}
             <div className="absolute top-0 left-0 -z-50 opacity-0 pointer-events-none">
                 {selectedClassKeys.map(classKey => {
-                    const classItem = classRecapData.find((c: any) => c.key === classKey);
+                    const classItem = classRecapData.find((c) => c.key === classKey);
                     if (!classItem) return null;
                     const classSpecificData = filteredData
                         .filter(r => r.marhalah === classItem.Marhalah && r.kelas === classItem.Kelas)
@@ -468,7 +468,7 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
                             return acc;
                         }, [])
                         // Sort internal chart data by Name
-                        .sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
+                        .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
                     // Dynamic Width Calculation based on Student Count (Same as Rekap)
                     const calculatedWidth = Math.max(1000, classSpecificData.length * 60);

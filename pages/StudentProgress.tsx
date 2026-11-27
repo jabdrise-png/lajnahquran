@@ -111,7 +111,7 @@ const StudentProgress: React.FC<StudentProgressProps> = ({
             );
             musammiHalaqahs.forEach(h => {
                 if (h.history) {
-                    h.history.forEach((hs: any) => { if (hs.santri) allowedSantriIds!.add(hs.santri_id); });
+                    h.history.forEach((hs) => { if (hs.santri) allowedSantriIds!.add(hs.santri_id); });
                 } else if (h.santri) {
                     h.santri.forEach(s => allowedSantriIds!.add(s.id));
                 }
@@ -127,7 +127,7 @@ const StudentProgress: React.FC<StudentProgressProps> = ({
             return true;
         });
 
-        const globalMarhalahs = masterMarhalahs.map((m: any) => m.nama);
+        const globalMarhalahs = masterMarhalahs.map((m) => m.nama);
         return filtered.sort((a, b) => {
             const rankMarhalahA = globalMarhalahs.indexOf(a.marhalah);
             const rankMarhalahB = globalMarhalahs.indexOf(b.marhalah);

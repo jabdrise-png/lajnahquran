@@ -54,10 +54,10 @@ export function rosterPadaTanggal(h: Halaqah, date: string, allSantri: Santri[] 
   if (h.history && h.history.length > 0) {
     const ids = new Set(
       h.history
-        .filter((x: any) => (!x.start_date || x.start_date <= date) && (!x.end_date || x.end_date >= date))
-        .map((x: any) => Number(x.santri_id))
+        .filter((x) => (!x.start_date || x.start_date <= date) && (!x.end_date || x.end_date >= date))
+        .map((x) => Number(x.santri_id))
     );
-    const hasil = Array.from(ids).map((id) => byId.get(id) || (h.history || []).find((x: any) => Number(x.santri_id) === id)?.santri)
+    const hasil = Array.from(ids).map((id) => byId.get(id) || (h.history || []).find((x) => Number(x.santri_id) === id)?.santri)
       .filter(Boolean) as Santri[];
     if (hasil.length > 0) return hasil.sort((a, b) => a.nama.localeCompare(b.nama));
   }

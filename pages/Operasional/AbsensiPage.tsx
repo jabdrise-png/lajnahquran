@@ -33,7 +33,7 @@ const AbsensiPage: React.FC = () => {
   const [bentrok, setBentrok] = useState<Bentrok[]>([]);
 
   const myMusammiIds = useMemo(
-    () => musammi.filter((m: any) => userProfile?.id && m.user_id === userProfile.id).map((m) => Number(m.id)),
+    () => musammi.filter((m) => userProfile?.id && m.user_id === userProfile.id).map((m) => Number(m.id)),
     [musammi, userProfile?.id]
   );
   const badalHalaqahIds = useMemo(

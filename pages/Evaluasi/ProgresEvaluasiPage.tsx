@@ -92,7 +92,7 @@ const ProgresEvaluasiPage: React.FC = () => {
     setMemuatStatus(true);
     try {
       const rows = await statusPeriode(periodId);
-      setStatus(rows.map((r: any) => ({ ...r, halaqah_id: Number(r.halaqah_id), jumlah_santri: Number(r.jumlah_santri) || 0, terisi: Number(r.terisi) || 0 })));
+      setStatus(rows.map((r) => ({ ...r, halaqah_id: Number(r.halaqah_id), jumlah_santri: Number(r.jumlah_santri) || 0, terisi: Number(r.terisi) || 0 })));
     } catch (e) {
       tampilkanError(e, 'Gagal memuat status periode');
     } finally {
@@ -132,7 +132,7 @@ const ProgresEvaluasiPage: React.FC = () => {
   // ---------- Rekap santri ----------
   const label = labelIsianSistem(periodFormFields);
   const isianBebas = periodFormFields.filter((f) => f.scope === 'santri' && !f.system_key && f.is_active).sort((a, b) => a.sort_order - b.sort_order);
-  const santriById = useMemo(() => new Map((allSantri || santri).map((s: any) => [Number(s.id), s])), [allSantri, santri]);
+  const santriById = useMemo(() => new Map((allSantri || santri).map((s) => [Number(s.id), s])), [allSantri, santri]);
   const halaqahById = useMemo(() => new Map(halaqah.map((h) => [Number(h.id), h])), [halaqah]);
   const kelasList = useMemo(() => Array.from(new Set(santri.filter((s) => filterMarhalah === 'all' || s.marhalah === filterMarhalah).map((s) => s.kelas).filter(Boolean))).sort(), [santri, filterMarhalah]);
 
@@ -169,14 +169,14 @@ const ProgresEvaluasiPage: React.FC = () => {
   // ---------- Detail santri (komponen lama) ----------
   const evalColors = useMemo(() => {
     const out: Record<string, string> = {};
-    try { Object.assign(out, JSON.parse(appSettings.find((s: any) => s.key === 'EVALUATION_COLORS')?.value || '{}')); } catch { /* abaikan */ }
-    (evaluationSettings || []).forEach((e: any) => { if (e.color) out[e.label] = e.color; });
+    try { Object.assign(out, JSON.parse(appSettings.find((s) => s.key === 'EVALUATION_COLORS')?.value || '{}')); } catch { /* abaikan */ }
+    (evaluationSettings || []).forEach((e) => { if (e.color) out[e.label] = e.color; });
     return out;
   }, [appSettings, evaluationSettings]);
-  const allCategories = useMemo(() => Array.from(new Set((evaluationSettings || []).map((e: any) => e.category))) as string[], [evaluationSettings]);
+  const allCategories = useMemo(() => Array.from(new Set((evaluationSettings || []).map((e) => e.category))) as string[], [evaluationSettings]);
   const getOptions = (category: string) => (evaluationSettings || [])
-    .filter((e: any) => e.category === category)
-    .map((e: any) => ({ label: e.label, color: evalColors[e.label], score: e.score ?? undefined }));
+    .filter((e) => e.category === category)
+    .map((e) => ({ label: e.label, color: evalColors[e.label], score: e.score ?? undefined }));
 
   if (loading) return <LoadingState label="Memuat progres & evaluasi…" />;
 
@@ -222,7 +222,7 @@ const ProgresEvaluasiPage: React.FC = () => {
           <>
             <label className="kontrol-label"><span>Marhalah</span><select className="kontrol-dalam" value={filterMarhalah} onChange={(e) => { setFilterMarhalah(e.target.value); setFilterKelas('all'); }}>
                 <option value="all">Semua</option>
-                {(masterMarhalahs || []).map((m: any) => <option key={m.id} value={m.nama}>{m.nama}</option>)}
+                {(masterMarhalahs || []).map((m) => <option key={m.id} value={m.nama}>{m.nama}</option>)}
               </select></label>
             <label className="kontrol-label"><span>Kelas</span><select className="kontrol-dalam" value={filterKelas} onChange={(e) => setFilterKelas(e.target.value)}>
                 <option value="all">Semua</option>

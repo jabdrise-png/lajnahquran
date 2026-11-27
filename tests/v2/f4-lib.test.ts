@@ -5,6 +5,7 @@
  *  - aturan layar = aturan server (periode tumpang tindih, kelengkapan sebelum Kirim);
  *  - pemeriksaan kode: tabel evaluasi lama & JSON EVALUATION_PERIODS tidak dipakai lagi.
  */
+import { bacaModul } from './helpers/baca';
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
@@ -21,7 +22,7 @@ import { formatPeriodName } from '../../lib/utils';
 import { hitungTotalHafalan } from '../../lib/totalHafalan';
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..', '..');
-const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
+const read = (p: string) => bacaModul(ROOT, p);
 let db: PGlite;
 let pH: string; // Mode Harian
 let pR: string; // Mode Rekap

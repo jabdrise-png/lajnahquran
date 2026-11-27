@@ -238,8 +238,8 @@ const MusammiPage: React.FC = () => {
             
             const finalKelas = isCustomKelas ? customKelas : formData.kelas;
             
-            const m_id = masterMarhalahs?.find((m: any) => m.nama === formData.marhalah)?.id || null;
-            const k_id = masterKelasRelasi?.find((k: any) => k.nama_kelas === finalKelas && k.marhalah_id === m_id)?.id || null;
+            const m_id = masterMarhalahs?.find((m) => m.nama === formData.marhalah)?.id || null;
+            const k_id = masterKelasRelasi?.find((k) => k.nama_kelas === finalKelas && k.marhalah_id === m_id)?.id || null;
 
             const legacyEnumList = ['Mutawassithah', 'Aliyah', 'Jamiah'];
             const safeLegacyMarhalah = formData.marhalah && legacyEnumList.includes(formData.marhalah) ? formData.marhalah : (formData.marhalah ? 'Mutawassithah' : null);
@@ -383,8 +383,8 @@ const MusammiPage: React.FC = () => {
                 
                 const m_nama = finalMarhalah || 'Belum Diisi';
                 const k_nama = finalKelas || 'Belum Diisi';
-                const m_id = masterMarhalahs?.find((m: any) => m.nama === m_nama)?.id || null;
-                const k_id = masterKelasRelasi?.find((k: any) => k.nama_kelas === k_nama && k.marhalah_id === m_id)?.id || null;
+                const m_id = masterMarhalahs?.find((m) => m.nama === m_nama)?.id || null;
+                const k_id = masterKelasRelasi?.find((k) => k.nama_kelas === k_nama && k.marhalah_id === m_id)?.id || null;
 
                 const payload = {
                     organization_id: orgId,
@@ -491,7 +491,7 @@ const MusammiPage: React.FC = () => {
                                                         className="kontrol"
                                                     >
                                                         <option value="all">Semua Marhalah</option>
-                                                        {masterMarhalahs?.map((m: any) => <option key={m.id} value={m.nama}>{m.nama}</option>) || globalMarhalahs.map(m => <option key={m} value={m}>{m}</option>)}
+                                                        {masterMarhalahs?.map((m) => <option key={m.id} value={m.nama}>{m.nama}</option>) || globalMarhalahs.map(m => <option key={m} value={m}>{m}</option>)}
                                                     </select>
                 <select 
                                                         value={filterKelas} 
@@ -649,7 +649,7 @@ const MusammiPage: React.FC = () => {
                             <label className="block text-xs font-semibold text-slate-500 mb-1.5">Marhalah</label>
                             <select className="kontrol" value={modalMarhalah} onChange={e => setModalMarhalah(e.target.value as any)}>
                                 <option value="all">Semua</option>
-                                {masterMarhalahs?.map((m: any) => <option key={m.id} value={m.nama}>{m.nama}</option>) || globalMarhalahs.map(m => <option key={m} value={m}>{m}</option>)}
+                                {masterMarhalahs?.map((m) => <option key={m.id} value={m.nama}>{m.nama}</option>) || globalMarhalahs.map(m => <option key={m} value={m}>{m}</option>)}
                             </select>
                         </div>
                         <div>
@@ -687,7 +687,7 @@ const MusammiPage: React.FC = () => {
                                     }}
                                 >
                                     <option value="">-- Pilih --</option>
-                                    {masterMarhalahs?.map((m: any) => <option key={m.id} value={m.nama}>{m.nama}</option>) || globalMarhalahs.map(m => <option key={m} value={m}>{m}</option>)}
+                                    {masterMarhalahs?.map((m) => <option key={m.id} value={m.nama}>{m.nama}</option>) || globalMarhalahs.map(m => <option key={m} value={m}>{m}</option>)}
                                     <option value="Lainnya">Lainnya...</option>
                                 </select>
                             </div>

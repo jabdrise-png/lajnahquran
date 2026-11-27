@@ -1,6 +1,7 @@
 /**
  * Fase 6 · hitungan laporan mudir (bulanan & semester) dan pemeriksaan layar/kode.
  */
+import { bacaModul } from './helpers/baca';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
@@ -10,7 +11,7 @@ import { rekapLembaga, periodeDalamRentang, ringkasUjian, fmt } from '../../lib/
 import { buatPdfMudir } from '../../lib/laporanMudirPdf';
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..', '..');
-const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
+const read = (p: string) => bacaModul(ROOT, p);
 
 const P = (id: string, start: string, end: string, extra: any = {}) => ({ id, academic_year_id: 1, name: id, start_date: start, end_date: end, needs_review: false, ...extra });
 const R = (period: string, santri: number, halaqah: number, x: any) => ({

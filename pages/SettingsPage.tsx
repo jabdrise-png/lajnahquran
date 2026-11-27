@@ -551,7 +551,7 @@ const SettingsPage: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {masterMarhalahs?.map((m: any) => (
+                                {masterMarhalahs?.map((m) => (
                                     <tr key={m.id}>
                                         <td className="font-mono text-xs text-slate-400">#{m.id}</td>
                                         <td className="font-semibold text-slate-800">
@@ -607,7 +607,7 @@ const SettingsPage: React.FC = () => {
                                 <div className="flex gap-2">
                                     <select value={newKelasMarhalahId || ''} onChange={e => setNewKelasMarhalahId(e.target.value)} className="flex-1 px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" required>
                                         <option value="">Pilih Marhalah</option>
-                                        {masterMarhalahs?.map((m: any) => <option key={m.id} value={m.id}>{m.nama}</option>)}
+                                        {masterMarhalahs?.map((m) => <option key={m.id} value={m.id}>{m.nama}</option>)}
                                     </select>
                                     <input type="text" value={newKelasName} onChange={e => setNewKelasName(e.target.value)} placeholder="Nama Kelas (cth: 1A)" className="flex-1 px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" required/>
                                 </div>
@@ -630,16 +630,16 @@ const SettingsPage: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {masterKelasRelasi?.map((mk: any) => (
+                                {masterKelasRelasi?.map((mk) => (
                                     <tr key={mk.id}>
                                         <td className="font-mono text-xs text-slate-400">#{mk.id}</td>
                                         <td className="font-medium text-slate-600">
                                             {editingKelasId === mk.id ? (
                                                 <select value={editKelasMarhalahId || ''} onChange={e => setEditKelasMarhalahId(e.target.value)} className="px-2 py-1 text-sm border border-slate-200 rounded focus:ring-1 focus:ring-blue-500 w-full" required>
-                                                    {masterMarhalahs?.map((m: any) => <option key={m.id} value={m.id}>{m.nama}</option>)}
+                                                    {masterMarhalahs?.map((m) => <option key={m.id} value={m.id}>{m.nama}</option>)}
                                                 </select>
                                             ) : (
-                                                masterMarhalahs?.find((m: any) => m.id === mk.marhalah_id)?.nama || 'Unknown'
+                                                masterMarhalahs?.find((m) => m.id === mk.marhalah_id)?.nama || 'Unknown'
                                             )}
                                         </td>
                                         <td className="font-semibold text-slate-800">

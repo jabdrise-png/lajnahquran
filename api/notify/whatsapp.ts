@@ -145,7 +145,7 @@ async function isMusammiAssignedToSantriServer(
       .eq("organization_id", orgId)
       .eq("santri_id", santriRow.id);
 
-    const studentHalaqahIds = (memberships || []).map((m: any) => m.halaqah_id).filter(Boolean);
+    const studentHalaqahIds = (memberships || []).map((m) => m.halaqah_id).filter(Boolean);
     if (studentHalaqahIds.length > 0) {
       const { data: mentors } = await dbReader
         .from("halaqah_mentors")
@@ -317,18 +317,18 @@ export async function processWhatsAppNotification(
     ]);
 
     const matchedSantri = (santriRes?.data || []).find(
-      (s: any) => normalizePhoneDigits(s.no_hp || "") === requestedCore
+      (s) => normalizePhoneDigits(s.no_hp || "") === requestedCore
     );
     const matchedMusyrif = (musyrifRes?.data || []).find(
-      (m: any) => normalizePhoneDigits(m.no_hp || "") === requestedCore
+      (m) => normalizePhoneDigits(m.no_hp || "") === requestedCore
     );
     const matchedKelasWali = (kelasRes?.data || []).find(
-      (k: any) =>
+      (k) =>
         normalizePhoneDigits(k.wali_kelas_phone || "") === requestedCore ||
         normalizePhoneDigits(k.musyrif_phone || "") === requestedCore
     );
     const matchedMusammi = (musammiRes?.data || []).find(
-      (m: any) => normalizePhoneDigits(m.no_hp || "") === requestedCore
+      (m) => normalizePhoneDigits(m.no_hp || "") === requestedCore
     );
 
     if (matchedSantri) {

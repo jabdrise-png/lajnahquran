@@ -79,7 +79,7 @@ export async function processIntegrationSecrets(
     }
 
     const sanitizedMetadata: IntegrationSecretMetadata[] = (Array.isArray(rawRows) ? rawRows : []).map(
-      (row: any) => ({
+      (row) => ({
         provider: String(row.provider || ""),
         secret_key_name: String(row.secret_key_name || ""),
         masked_preview: maskSecretValue(row.masked_preview || "••••••••"),

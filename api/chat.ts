@@ -144,15 +144,15 @@ export async function processChatRequest(
   let normalizedMessages: Array<{ role: "user" | "model"; text: string }> = [];
 
   if (Array.isArray(messages) && messages.length > 0) {
-    normalizedMessages = messages.map((m: any) => ({
+    normalizedMessages = messages.map((m) => ({
       role: m?.role === "user" ? "user" : "model",
       text: String(m?.text || m?.content || "").trim(),
     }));
   } else if (message || Array.isArray(history)) {
     const histList: Array<{ role: "user" | "model"; text: string }> = Array.isArray(history)
       ? history
-          .filter((h: any) => h && h.id !== "init")
-          .map((h: any) => ({
+          .filter((h) => h && h.id !== "init")
+          .map((h) => ({
             role: h.role === "user" ? "user" : "model",
             text: String(h.content || h.text || "").trim(),
           }))

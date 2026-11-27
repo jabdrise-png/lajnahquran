@@ -136,7 +136,7 @@ export function normalisasiField(f: any): PeriodFormField {
   const opts = Array.isArray(f.options) ? f.options : [];
   return {
     ...f,
-    options: opts.map((o: any) => (typeof o === 'string' ? { label: o } : { label: String(o?.label ?? ''), score: o?.score ?? null, color: o?.color ?? null })),
+    options: opts.map((o) => (typeof o === 'string' ? { label: o } : { label: String(o?.label ?? ''), score: o?.score ?? null, color: o?.color ?? null })),
     sort_order: Number(f.sort_order) || 0,
   };
 }
