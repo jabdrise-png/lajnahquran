@@ -5,7 +5,7 @@
  *  - Tab Rekap: ringkasan per santri.
  * Tidak ada lagi alur validasi (accepted/returned).
  */
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Download } from 'lucide-react';
 import { useSupabaseData } from '../hooks/useSupabaseData';
 import { normalizeRole } from '../lib/permissions';
@@ -33,6 +33,8 @@ export default function SetoranHarianPage() {
   const [tab, setTab] = useState<'daftar' | 'rekap'>('daftar');
   const [dari, setDari] = useState(shiftHari(today, -6));
   const [sampai, setSampai] = useState(today);
+  const { pastikanTanggal } = useSupabaseData();
+  useEffect(() => { pastikanTanggal(dari); }, [dari, pastikanTanggal]); // Fase 7: rentang lama → muat riwayat
   const [halaqahId, setHalaqahId] = useState<string>('all');
   const [jenis, setJenis] = useState<string>('all');
   const [hanyaUlang, setHanyaUlang] = useState(false);
@@ -77,29 +79,29 @@ export default function SetoranHarianPage() {
       </div>
 
       <div className="flex flex-wrap items-end gap-2 bg-white border border-slate-200 rounded-xl p-3">
-        <label className="text-xs font-semibold text-slate-600">Dari
+        <label className="text-sm sm:text-xs font-semibold text-slate-600">Dari
           <input type="date" value={dari} onChange={(e) => setDari(e.target.value)} className="block mt-1 border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
         </label>
-        <label className="text-xs font-semibold text-slate-600">Sampai
+        <label className="text-sm sm:text-xs font-semibold text-slate-600">Sampai
           <input type="date" value={sampai} onChange={(e) => setSampai(e.target.value)} className="block mt-1 border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
         </label>
-        <label className="text-xs font-semibold text-slate-600">Halaqah
+        <label className="text-sm sm:text-xs font-semibold text-slate-600">Halaqah
           <select value={halaqahId} onChange={(e) => setHalaqahId(e.target.value)} className="block mt-1 border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white">
             <option value="all">Semua</option>
             {mine.map((h) => <option key={h.id} value={h.id}>{h.nama}</option>)}
           </select>
         </label>
-        <label className="text-xs font-semibold text-slate-600">Jenis
+        <label className="text-sm sm:text-xs font-semibold text-slate-600">Jenis
           <select value={jenis} onChange={(e) => setJenis(e.target.value)} className="block mt-1 border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white">
             <option value="all">Semua</option>
             {recitationKinds.map((k) => <option key={k.code} value={k.code}>{k.name}</option>)}
           </select>
         </label>
-        <label className="text-xs font-semibold text-slate-600 flex-1 min-w-[160px]">Cari santri
+        <label className="text-sm sm:text-xs font-semibold text-slate-600 flex-1 min-w-[160px]">Cari santri
           <input value={cari} onChange={(e) => setCari(e.target.value)} placeholder="Nama…" className="block w-full mt-1 border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
         </label>
         {tab === 'daftar' && (
-          <label className="inline-flex items-center gap-1.5 text-xs text-slate-700 pb-2">
+          <label className="inline-flex items-center gap-1.5 text-sm sm:text-xs text-slate-700 pb-2">
             <input type="checkbox" checked={hanyaUlang} onChange={(e) => setHanyaUlang(e.target.checked)} className="rounded border-slate-300" /> Hanya yang diulang (Rasib)
           </label>
         )}
@@ -112,9 +114,9 @@ export default function SetoranHarianPage() {
 
       {tab === 'daftar' ? (
         <>
-          <p className="text-xs text-slate-600">{rows.length} setoran · {totalHal} halaman (ziyadah yang menambah hafalan: {totalZiyadah} hal)</p>
+          <p className="text-sm sm:text-xs text-slate-600">{rows.length} setoran · {totalHal} halaman (ziyadah yang menambah hafalan: {totalZiyadah} hal)</p>
           <DaftarSetoran rows={rows.slice(0, 500)} isAdmin={isAdmin} halaqahOptions={halaqah} santriList={allSantri} showDate emptyText="Tidak ada setoran pada filter ini." />
-          {rows.length > 500 && <p className="text-xs text-slate-500">Menampilkan 500 terbaru. Persempit rentang tanggal untuk melihat lainnya.</p>}
+          {rows.length > 500 && <p className="text-sm sm:text-xs text-slate-500">Menampilkan 500 terbaru. Persempit rentang tanggal untuk melihat lainnya.</p>}
         </>
       ) : (
         <SetoranHarianRekap

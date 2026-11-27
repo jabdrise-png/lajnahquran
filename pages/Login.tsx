@@ -14,7 +14,7 @@ interface LoginProps {
 const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
   const { publishedConfig: dbConfig } = useLandingPageContent();
   const publishedConfig = configOverrides || dbConfig;
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [mode, setMode] = useState<'login' | 'register' | 'lupa'>(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('lupa') ? 'lupa' : 'login'));
   const [regType, setRegType] = useState<'create' | 'join'>('create');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{type: 'error' | 'success', text: string} | null>(null);
@@ -39,6 +39,30 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
     } finally {
         setLoading(false);
     }
+  };
+
+  // Fase 7 · lupa sandi: kirim tautan atur ulang. Pesan sengaja sama untuk email terdaftar/tidak.
+  const handleLupa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage(null);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}/reset-password` });
+      if (error && !/not found|user/i.test(error.message || '')) throw error;
+      setMessage({ type: 'success', text: 'Jika email tersebut terdaftar, tautan untuk mengatur ulang kata sandi sudah dikirim. Periksa kotak masuk atau folder spam.' });
+    } catch (error: any) {
+      const m = String(error?.message || error);
+      setMessage({ type: 'error', text: /rate|seconds|too many/i.test(m) ? 'Terlalu sering meminta tautan. Tunggu sebentar lalu coba lagi.' : m });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fase 7 · masuk dengan Google (akun harus sudah diundang/terdaftar di lembaga dengan email yang sama).
+  const handleGoogle = async () => {
+    setMessage(null);
+    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/app/dashboard` } });
+    if (error) setMessage({ type: 'error', text: /provider is not enabled|unsupported provider/i.test(error.message || '') ? 'Masuk dengan Google belum diaktifkan oleh pengelola aplikasi.' : error.message });
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -134,10 +158,10 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
 
           <div className="text-center">
             <h2 className="text-2xl font-bold tracking-tight text-slate-900">
-              {mode === 'login' ? 'Selamat datang kembali' : 'Pendaftaran Admin'}
+              {mode === 'login' ? 'Selamat datang kembali' : mode === 'lupa' ? 'Lupa kata sandi' : 'Pendaftaran Admin'}
             </h2>
             <p className="mt-2 text-[14px] text-slate-500 mb-8">
-              {mode === 'login' ? 'Silakan masukkan detail akun Anda untuk melanjutkan.' : 'Lengkapi data di bawah ini untuk membuat akun baru.'}
+              {mode === 'login' ? 'Silakan masukkan detail akun Anda untuk melanjutkan.' : mode === 'lupa' ? 'Atur ulang kata sandi lewat email.' : 'Lengkapi data di bawah ini untuk membuat akun baru.'}
             </p>
           </div>
 
@@ -147,7 +171,22 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
               </div>
           )}
 
-          {mode === 'login' ? (
+          {mode === 'lupa' ? (
+            <form className="space-y-4" onSubmit={handleLupa}>
+              <p className="text-[14px] text-slate-600">Masukkan email akun Anda. Kami kirim tautan untuk membuat kata sandi baru.</p>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none"><Mail className="h-[18px] w-[18px] text-slate-400" /></div>
+                <input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nama@pesantren.com"
+                  className="block w-full pl-10 pr-3 py-3 border border-slate-200/80 rounded-xl text-[14px] text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 bg-white" />
+              </div>
+              <button type="submit" disabled={loading} className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[14px] font-semibold disabled:opacity-70">
+                {loading ? 'Mengirim…' : 'Kirim tautan atur ulang'}
+              </button>
+              <button type="button" onClick={() => { setMode('login'); setMessage(null); }} className="w-full py-2 text-[13px] font-medium text-slate-600 inline-flex items-center justify-center gap-1.5">
+                <ArrowLeft size={14} /> Kembali ke halaman masuk
+              </button>
+            </form>
+          ) : mode === 'login' ? (
             <div className="animate-in fade-in slide-in-from-right duration-300">
               <form className="space-y-4" onSubmit={handleLogin}>
                 <div>
@@ -177,9 +216,9 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
                     <label htmlFor="password" className="block text-[13px] font-medium text-slate-700">
                       Kata Sandi
                     </label>
-                    {/* <a href="#" className="text-[12px] font-medium text-blue-600 hover:text-blue-700 transition-colors">
-                      Lupa kata sandi?
-                    </a> */}
+                    <button type="button" onClick={() => { setMode('lupa'); setMessage(null); }} className="text-[13px] font-medium text-blue-600 hover:text-blue-700 transition-colors py-1">
+                      Lupa sandi?
+                    </button>
                   </div>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
@@ -227,33 +266,18 @@ const Login: React.FC<LoginProps> = ({ onBack, configOverrides }) => {
                 </div>
               </form>
 
-              {/* <div className="mt-8">
+              <div className="mt-6">
                 <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-slate-200/60" />
-                  </div>
-                  <div className="relative flex justify-center text-[12px]">
-                    <span className="px-3 bg-white text-slate-400">Atau lanjutkan dengan</span>
-                  </div>
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200/60" /></div>
+                  <div className="relative flex justify-center text-[12px]"><span className="px-3 bg-white text-slate-400">atau</span></div>
                 </div>
-
-                <div className="mt-6 grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    className="w-full inline-flex justify-center items-center gap-2 py-2.5 px-4 border border-slate-200/80 rounded-xl shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] bg-white text-[13px] font-medium text-slate-600 hover:bg-slate-50 transition-colors hover:border-slate-300"
-                  >
-                    <Chrome className="w-4 h-4 text-slate-500" />
-                    <span>Google</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="w-full inline-flex justify-center items-center gap-2 py-2.5 px-4 border border-slate-200/80 rounded-xl shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] bg-white text-[13px] font-medium text-slate-600 hover:bg-slate-50 transition-colors hover:border-slate-300"
-                  >
-                    <Github className="w-4 h-4 text-slate-500" />
-                    <span>Microsoft</span>
-                  </button>
-                </div>
-              </div> */}
+                <button type="button" onClick={handleGoogle}
+                  className="mt-4 w-full inline-flex justify-center items-center gap-2.5 py-2.5 px-4 border border-slate-200 rounded-xl bg-white text-[14px] font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+                  <svg viewBox="0 0 48 48" className="w-[18px] h-[18px]" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>
+                  Masuk dengan Google
+                </button>
+                <p className="mt-2 text-center text-[12px] text-slate-400">Gunakan akun Google dengan email yang sama seperti undangan lembaga.</p>
+              </div>
               
               <div className="mt-8 text-center border-t border-slate-100 pt-6">
                 <p className="text-[13px] text-slate-500">

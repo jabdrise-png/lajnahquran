@@ -37,7 +37,7 @@ interface Props {
 
 const Stepper: React.FC<{ label: string; value: number; onChange: (n: number) => void }> = ({ label, value, onChange }) => (
   <div className="flex-1">
-    <div className="text-[11px] font-semibold text-slate-600 mb-1">{label}</div>
+    <div className="text-sm sm:text-[11px] font-semibold text-slate-600 mb-1">{label}</div>
     <div className="flex items-center border border-slate-300 rounded-lg overflow-hidden bg-white">
       <button type="button" aria-label={`Kurangi ${label}`} onClick={() => onChange(Math.max(0, value - 1))} className="px-3 py-2.5 text-slate-600 active:bg-slate-100"><Minus size={16} /></button>
       <input type="number" inputMode="numeric" min={0} value={value} onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
@@ -52,6 +52,7 @@ const FormSetoranRingkas: React.FC<Props> = ({ halaqahOptions, initialHalaqahId,
     allSantri, setoranHarian, attendance, attendanceStatuses, recitationKinds, sessionSlots, fluencyRules,
     simpanSetoran, appSettings,
   } = useSupabaseData();
+  const { pastikanTanggal } = useSupabaseData();
   const today = hariIni();
   const isEdit = Boolean(editEntry);
 
@@ -66,6 +67,7 @@ const FormSetoranRingkas: React.FC<Props> = ({ halaqahOptions, initialHalaqahId,
   useEffect(() => { if (!isEdit && !lockContext && (!slot || !slotOptions.includes(slot))) setSlot(slotOptions[0] || ''); }, [slotOptions]); // eslint-disable-line
   useEffect(() => { if (lockContext && slotProp) setSlot(slotProp); }, [slotProp, lockContext]);
   useEffect(() => { if (lockContext && dateProp) setDate(dateProp); }, [dateProp, lockContext]);
+  useEffect(() => { pastikanTanggal(date); }, [date, pastikanTanggal]); // Fase 7
   useEffect(() => { if (lockContext && initialHalaqahId) setHalaqahId(initialHalaqahId); }, [initialHalaqahId, lockContext]);
 
   const roster = useMemo(() => (halaqah ? rosterPadaTanggal(halaqah, date, allSantri) : []), [halaqah, date, allSantri]);
@@ -206,19 +208,19 @@ const FormSetoranRingkas: React.FC<Props> = ({ halaqahOptions, initialHalaqahId,
       )}
 
       {halaqah?.recording_mode === 'rekap' && !isEdit && (
-        <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+        <p className="text-sm sm:text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
           Halaqah ini memakai <b>Mode Rekap</b>: capaian periode diisi di Form Evaluasi Periode. Setoran harian tetap boleh dicatat, tetapi tidak dijumlah ke rekap dan tidak dikirim ke wali.
         </p>
       )}
 
       {/* 1. Santri */}
       <div>
-        <div className="text-xs font-semibold text-slate-600 mb-1.5">Santri</div>
+        <div className="text-sm sm:text-xs font-semibold text-slate-600 mb-1.5">Santri</div>
         {isEdit ? (
           <div className="text-sm font-semibold text-slate-800">{santri?.nama || `Santri ${santriId}`}</div>
         ) : (
           <div className="flex flex-wrap gap-1.5 max-h-44 overflow-y-auto">
-            {roster.length === 0 && <span className="text-xs text-slate-500">Belum ada santri di halaqah ini.</span>}
+            {roster.length === 0 && <span className="text-sm sm:text-xs text-slate-500">Belum ada santri di halaqah ini.</span>}
             {roster.map((s) => {
               const st = statusOf(Number(s.id));
               const boleh = bolehSetor(st, attendanceStatuses);
@@ -227,8 +229,8 @@ const FormSetoranRingkas: React.FC<Props> = ({ halaqahOptions, initialHalaqahId,
                 <button key={s.id} type="button" disabled={!boleh} onClick={() => setSantriId(Number(s.id))}
                   title={!boleh ? `Tercatat ${st}: tidak bisa setor` : undefined} className={chip(santriId === Number(s.id), !boleh)}>
                   {s.nama}
-                  {st && <span className="ml-1 text-[10px] font-normal opacity-80">({findStatus(attendanceStatuses, st)?.name || st})</span>}
-                  {n > 0 && <span className="ml-1 text-[10px] font-bold">✓{n}</span>}
+                  {st && <span className="ml-1 text-sm sm:text-[10px] font-normal opacity-80">({findStatus(attendanceStatuses, st)?.name || st})</span>}
+                  {n > 0 && <span className="ml-1 text-sm sm:text-[10px] font-bold">✓{n}</span>}
                 </button>
               );
             })}
@@ -239,14 +241,14 @@ const FormSetoranRingkas: React.FC<Props> = ({ halaqahOptions, initialHalaqahId,
       {santriId && (
         <>
           {!santriBolehSetor && (
-            <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            <div className="text-sm sm:text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
               Santri tercatat "{lastAtt}" pada waktu ini sehingga tidak bisa setor. Ubah absensinya dulu bila keliru.
             </div>
           )}
 
           {/* 2. Jenis */}
           <div>
-            <div className="text-xs font-semibold text-slate-600 mb-1.5">Jenis setoran</div>
+            <div className="text-sm sm:text-xs font-semibold text-slate-600 mb-1.5">Jenis setoran</div>
             <div className="flex flex-wrap gap-1.5">
               {kinds.map((k) => (
                 <button key={k.code} type="button" onClick={() => setKind(k.code)} className={chip(kind === k.code)}>{k.name}</button>
@@ -256,13 +258,13 @@ const FormSetoranRingkas: React.FC<Props> = ({ halaqahOptions, initialHalaqahId,
 
           {/* 3. Rentang */}
           <div>
-            <div className="flex items-center justify-between text-xs font-semibold text-slate-600 mb-1.5">
+            <div className="flex items-center justify-between text-sm sm:text-xs font-semibold text-slate-600 mb-1.5">
               <span>Rentang hafalan</span>
               {arahData === 'dua_arah' && !isEdit ? (
                 <span className="inline-flex rounded-lg border border-slate-300 overflow-hidden" role="group" aria-label="Sisi hafalan">
                   {([['maju', 'Depan'], ['mundur', 'Belakang']] as const).map(([v, t]) => (
                     <button key={v} type="button" onClick={() => { sisiPilihan.current = v; setSisi(v); setSisiKunci((k) => k + 1); }}
-                      className={`px-2.5 py-0.5 text-[11px] font-semibold ${arah === v ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}>{t}</button>
+                      className={`px-2.5 py-0.5 text-sm sm:text-[11px] font-semibold ${arah === v ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}>{t}</button>
                   ))}
                 </span>
               ) : <span className="font-normal text-slate-400">{labelArah(arahData === 'dua_arah' ? 'dua_arah' : arah)}</span>}
@@ -283,7 +285,7 @@ const FormSetoranRingkas: React.FC<Props> = ({ halaqahOptions, initialHalaqahId,
                 onChange={(e) => setA2(Math.min(maxA(s2), Math.max(1, Number(e.target.value) || 1)))}
                 className="border border-slate-300 rounded-lg px-2 py-2 text-sm text-center" />
             </div>
-            <div className="mt-1.5 inline-flex items-center gap-1.5 text-xs text-slate-600">
+            <div className="mt-1.5 inline-flex items-center gap-1.5 text-sm sm:text-xs text-slate-600">
               <BookOpen size={13} /> {halaman} halaman (Mushaf Madinah 15 baris)
             </div>
           </div>
@@ -295,11 +297,11 @@ const FormSetoranRingkas: React.FC<Props> = ({ halaqahOptions, initialHalaqahId,
           </div>
           <div className={`rounded-lg px-3 py-2 text-sm font-semibold flex items-center justify-between ${pred.isRepeat ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'}`}>
             <span>Predikat: {pred.predicate}</span>
-            <span className="text-xs font-normal">{pred.isRepeat ? 'Ulang — tidak menambah hafalan' : 'Lanjut'}</span>
+            <span className="text-sm sm:text-xs font-normal">{pred.isRepeat ? 'Ulang — tidak menambah hafalan' : 'Lanjut'}</span>
           </div>
 
           <details className="text-sm">
-            <summary className="text-xs text-slate-500 cursor-pointer">Catatan (opsional)</summary>
+            <summary className="text-sm sm:text-xs text-slate-500 cursor-pointer">Catatan (opsional)</summary>
             <textarea rows={2} value={catatan} onChange={(e) => setCatatan(e.target.value)}
               className="mt-1 w-full border border-slate-300 rounded-lg p-2 text-sm" />
           </details>

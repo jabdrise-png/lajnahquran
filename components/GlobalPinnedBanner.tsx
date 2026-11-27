@@ -45,24 +45,15 @@ export const GlobalPinnedBanner: React.FC<GlobalPinnedBannerProps> = ({ onNaviga
 
         fetchPinned();
 
-        // Listen for changes
-        const channel = supabase.channel('schema-db-changes')
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'informasi',
-                    filter: `is_pinned=eq.true`
-                },
-                (payload) => {
-                    fetchPinned();
-                }
-            )
-            .subscribe();
+        // Fase 7: tanpa koneksi realtime (WebSocket) — cukup muat ulang saat aplikasi dibuka kembali
+        // dan tiap 5 menit. Hemat baterai/kuota di HP dan tidak ada galat WebSocket berulang.
+        const onFokus = () => { if (document.visibilityState === 'visible') fetchPinned(); };
+        document.addEventListener('visibilitychange', onFokus);
+        const jeda = window.setInterval(onFokus, 5 * 60_000);
 
         return () => {
-            supabase.removeChannel(channel);
+            document.removeEventListener('visibilitychange', onFokus);
+            window.clearInterval(jeda);
         };
     }, []);
 

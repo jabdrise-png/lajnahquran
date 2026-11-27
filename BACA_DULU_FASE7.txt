@@ -1,0 +1,18 @@
+FASE 7 — HP, PERFORMA & PWA (cabang: fase-7-hp-pwa, dari main d5a31f4)
+
+Cara pasang kode:
+- Salin isi ZIP ini ke root repo (timpa semua), commit, push.
+- Tidak ada berkas yang perlu dihapus. package.json berubah (xlsx dihapus; exceljs, tailwindcss,
+  vite-plugin-pwa, dll. ditambah) -> Netlify menjalankan npm install sendiri. Bila build lokal,
+  jalankan `npm install` dulu.
+
+Urutan:
+1. Cadangan database.
+2. Supabase SQL Editor, satu file per kali:
+   2026_12_02_01_f7_kinerja.sql -> 2026_12_02_02_f7_login_google.sql
+3. Supabase > Authentication > URL Configuration: Site URL + Redirect URLs
+   (https://<situs>/reset-password dan https://<situs>/app/dashboard).
+4. (Opsional, untuk tombol Google) Google Cloud OAuth client + Supabase > Providers > Google.
+   Langkah lengkap: docs/FASE_7_UJI.md bagian 2.
+5. Deploy. Buka aplikasi di HP Android -> kartu "Pasang Lajnah Quran".
+6. Uji manual: docs/FASE_7_UJI.md bagian 4.

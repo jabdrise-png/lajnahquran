@@ -152,7 +152,7 @@ const AbsensiHalaqahCard: React.FC<Props> = ({
   };
 
   const StatusChips: React.FC<{ k: string; disabled?: boolean }> = ({ k, disabled }) => (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="grid grid-cols-3 gap-1.5 sm:flex sm:flex-wrap">
       {aktif.map((st) => {
         const selected = nilai(k) === st.name;
         return (
@@ -161,7 +161,7 @@ const AbsensiHalaqahCard: React.FC<Props> = ({
             type="button"
             disabled={disabled}
             onClick={() => setDraft((d) => ({ ...d, [k]: st.name }))}
-            className={`min-w-[3.25rem] px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
+            className={`min-h-[44px] sm:min-h-0 min-w-[3.25rem] px-2.5 py-2 sm:py-1.5 rounded-lg border text-sm sm:text-xs font-semibold transition-colors ${
               selected ? toneFor(st) + ' ring-1 ring-offset-0' : 'border-slate-200 text-slate-600 bg-white hover:bg-slate-50'
             }`}
           >
@@ -177,14 +177,14 @@ const AbsensiHalaqahCard: React.FC<Props> = ({
       <header className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-slate-100">
         <button type="button" onClick={() => setOpen(!open)} className="text-left min-w-0">
           <h3 className="font-bold text-slate-800 text-sm truncate">{halaqah.nama}</h3>
-          <p className="text-[11px] text-slate-500">
+          <p className="text-sm sm:text-[11px] text-slate-500">
             {halaqah.marhalah} · {terisi}/{roster.length} santri terisi
             {records.length > 0 ? '' : ' · sesi belum tercatat'}
           </p>
         </button>
         <div className="flex items-center gap-2">
           {hadir && (
-            <button type="button" onClick={tandaiSemuaHadir} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-emerald-300 text-emerald-700 text-xs font-semibold hover:bg-emerald-50">
+            <button type="button" onClick={tandaiSemuaHadir} className="inline-flex items-center gap-1 px-2.5 py-1.5 min-h-[40px] sm:min-h-0 rounded-lg border border-emerald-300 text-emerald-700 text-sm sm:text-xs font-semibold hover:bg-emerald-50">
               <CheckCheck size={14} /> Tandai semua {hadir.name}
             </button>
           )}
@@ -200,15 +200,15 @@ const AbsensiHalaqahCard: React.FC<Props> = ({
                 <div className="flex items-center gap-2 min-w-0">
                   <UserCheck size={16} className="text-blue-600 shrink-0" />
                   <span className="text-sm font-semibold text-slate-800 truncate">{musammi.nama}</span>
-                  <span className="text-[10px] uppercase font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5">Musammi'</span>
+                  <span className="text-sm sm:text-[10px] uppercase font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5">Musammi'</span>
                 </div>
                 {musammiRecord?.markedByName && (
-                  <span className="text-[11px] text-slate-400">oleh {musammiRecord.markedByName} {jam(musammiRecord.updatedAt)}</span>
+                  <span className="text-sm sm:text-[11px] text-slate-400">oleh {musammiRecord.markedByName} {jam(musammiRecord.updatedAt)}</span>
                 )}
               </div>
               <StatusChips k="m" />
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <label className="inline-flex items-center gap-1.5 text-xs text-slate-700">
+                <label className="inline-flex items-center gap-1.5 text-sm sm:text-xs text-slate-700">
                   <input type="checkbox" className="rounded border-slate-300" checked={badal.on}
                     onChange={(e) => setBadal({ on: e.target.checked, id: e.target.checked ? badal.id : null })} />
                   Digantikan (badal)
@@ -217,7 +217,7 @@ const AbsensiHalaqahCard: React.FC<Props> = ({
                   <select
                     value={badal.id ?? ''}
                     onChange={(e) => setBadal({ on: true, id: e.target.value ? Number(e.target.value) : null })}
-                    className="border border-slate-300 rounded-lg px-2 py-1 text-xs"
+                    className="border border-slate-300 rounded-lg px-2 py-1 text-sm sm:text-xs"
                   >
                     <option value="">Pilih musammi' pengganti…</option>
                     {musammiList.filter((m) => Number(m.id) !== Number(musammi.id)).map((m) => (
@@ -225,15 +225,15 @@ const AbsensiHalaqahCard: React.FC<Props> = ({
                     ))}
                   </select>
                 )}
-                {badal.on && !nilai('m') && <span className="text-[11px] text-amber-700">Isi juga status musammi' utama.</span>}
+                {badal.on && !nilai('m') && <span className="text-sm sm:text-[11px] text-amber-700">Isi juga status musammi' utama.</span>}
               </div>
             </div>
           ) : (
-            <div className="px-4 py-2 text-xs text-amber-700 bg-amber-50">Halaqah ini belum punya musammi' utama.</div>
+            <div className="px-4 py-2 text-sm sm:text-xs text-amber-700 bg-amber-50">Halaqah ini belum punya musammi' utama.</div>
           )}
 
           {/* Santri */}
-          {roster.length === 0 && <div className="px-4 py-4 text-xs text-slate-500">Belum ada santri di halaqah ini pada tanggal tersebut.</div>}
+          {roster.length === 0 && <div className="px-4 py-4 text-sm sm:text-xs text-slate-500">Belum ada santri di halaqah ini pada tanggal tersebut.</div>}
           {roster.map((s) => {
             const rec = santriRecords.get(Number(s.id));
             const k = `s:${s.id}`;
@@ -242,7 +242,7 @@ const AbsensiHalaqahCard: React.FC<Props> = ({
               <div key={s.id} className={`px-4 py-2.5 ${dirty ? 'bg-blue-50/40' : ''}`}>
                 <div className="flex items-baseline justify-between gap-2 mb-1.5">
                   <span className="text-sm font-medium text-slate-800 truncate">{s.nama}</span>
-                  <span className="text-[11px] text-slate-400 shrink-0">
+                  <span className="text-sm sm:text-[11px] text-slate-400 shrink-0">
                     {rec?.markedByName ? `oleh ${rec.markedByName} ${jam(rec.updatedAt)}` : s.kelas && s.kelas !== '-' ? s.kelas : ''}
                   </span>
                 </div>
@@ -252,13 +252,13 @@ const AbsensiHalaqahCard: React.FC<Props> = ({
           })}
 
           <footer className="sticky bottom-0 bg-white px-4 py-3 flex flex-wrap items-center justify-between gap-2 rounded-b-xl">
-            <span className="text-[11px] text-slate-500">
+            <span className="text-sm sm:text-[11px] text-slate-500">
               {isPast ? 'Tanggal sudah lewat: perubahan catatan tersimpan = koreksi Admin dengan alasan.' : 'Perubahan hari ini bisa diperbarui Admin maupun Musammi\'.'}
             </span>
             <div className="flex items-center gap-2">
               {jumlahBerubah > 0 && (
                 <button type="button" onClick={() => { setDraft({}); setBadal({ on: Boolean(musammiRecord?.isBadal), id: musammiRecord?.badalMusammiId ?? null }); }}
-                  className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700">
+                  className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-300 text-sm sm:text-xs font-semibold text-slate-700">
                   <RefreshCw size={13} /> Batal
                 </button>
               )}
@@ -266,7 +266,7 @@ const AbsensiHalaqahCard: React.FC<Props> = ({
                 type="button"
                 disabled={saving || jumlahBerubah === 0}
                 onClick={onKlikSimpan}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold disabled:opacity-40"
+                className="inline-flex flex-1 sm:flex-none justify-center items-center gap-1.5 px-4 py-3 sm:py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold disabled:opacity-40"
               >
                 <Save size={15} /> {saving ? 'Menyimpan…' : `Simpan${jumlahBerubah ? ` (${jumlahBerubah})` : ''}`}
               </button>

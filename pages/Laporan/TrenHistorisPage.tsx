@@ -3,7 +3,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { MarhalahLabel, KelasLabel } from '../../components/Labels';
 import Card from '../../components/Card';
 import Modal from '../../components/Modal';
-import { useSupabaseData } from '../../hooks/useSupabaseData';
+import { useSupabaseData, useRiwayat } from '../../hooks/useSupabaseData';
 import { StackedBarChart } from '../../components/Chart';
 import { exportToExcel } from '../../lib/utils';
 import { ALL_ATTENDANCE_STATUS } from '../../constants';
@@ -25,6 +25,7 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
     exportTrigger
 }) => {
     const { attendance, deleteAttendanceBatch, loading, error, globalMarhalahs, globalWaktuHalaqah, globalAttendanceStatus, userProfile, waliKelas , masterMarhalahs, masterKelasRelasi} = useSupabaseData();
+    useRiwayat(); // Fase 7: riwayat absensi/setoran dimuat saat halaman ini dibuka
     const canDeleteSession = (userProfile?.role || '').toLowerCase() !== 'musammi';
     const [dialogAlasan, mintaAlasan] = useMintaAlasan();
     

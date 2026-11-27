@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react'; 
 import { MarhalahLabel, KelasLabel } from '../components/Labels';
 import Card from '../components/Card';
-import { useSupabaseData } from '../hooks/useSupabaseData';
+import { useSupabaseData, useRiwayat } from '../hooks/useSupabaseData';
 import { HalaqahType, Marhalah, Waktu, Peran } from '../types';
 // Removed globalJenisHalaqah import
 import { Printer, Calendar, Filter, Clock, ArrowLeft } from 'lucide-react';
@@ -17,6 +17,7 @@ interface AttendanceBookProps {
 
 const AttendanceBook: React.FC<AttendanceBookProps> = ({ onNavigate }) => {
     const { halaqah, attendance, loading, error, globalMarhalahs, globalWaktuHalaqah, globalJenisHalaqah, userProfile, waliKelas , masterMarhalahs, masterKelasRelasi} = useSupabaseData();
+    useRiwayat(); // Fase 7: riwayat absensi/setoran dimuat saat halaman ini dibuka
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
     const permittedHalaqah = useMemo(() => {

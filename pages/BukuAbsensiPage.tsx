@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { useSupabaseData } from '../hooks/useSupabaseData';
+import { useSupabaseData, useRiwayat } from '../hooks/useSupabaseData';
 import ActionDropdown from '../components/ActionDropdown';
 import Modal from '../components/Modal';
 import { supabase } from '../lib/supabaseClient';
@@ -46,6 +46,7 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
     orgLogo,
     loading
   } = useSupabaseData();
+  useRiwayat(); // Fase 7: riwayat absensi/setoran dimuat saat halaman ini dibuka
 
   const isAdminUser = userProfile?.role === 'admin' || userProfile?.role === 'superadmin';
   const [correctionTarget, setCorrectionTarget] = useState<{
@@ -792,7 +793,31 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
           Tidak ada data santri yang sesuai dengan filter yang dipilih.
         </div>
       ) : (
-        <div className="relative z-10 bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden print:border print:border-slate-300 print:shadow-none">
+        <>
+        {/* Fase 7 · HP: ringkasan per santri sebagai kartu (matriks tanggal tampil di layar ≥ 640 px & saat cetak) */}
+        <div className="sm:hidden print:hidden space-y-2">
+          <p className="text-sm text-slate-500 px-1">Ringkasan kehadiran {studentRows.length} orang. Buka di layar lebar untuk melihat matriks per tanggal.</p>
+          {studentRows.map((student) => {
+            const summary = calculateStudentSummary(student.id, student.peran);
+            return (
+              <div key={`hp_${student.peran}_${student.id}_${student.halaqahId}`} className="bg-white rounded-xl border border-slate-200 p-3.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-semibold text-slate-900 text-[15px] truncate">{student.nama}</div>
+                    <div className="text-sm text-slate-500">{student.peran} · {student.halaqahNama}{student.kelas && student.kelas !== '-' ? ` · ${student.kelas}` : ''}</div>
+                  </div>
+                  <div className="text-xl font-extrabold text-slate-900 tabular-nums">{summary.percentage}%</div>
+                </div>
+                <div className="mt-2.5 grid grid-cols-5 gap-1.5 text-center text-sm">
+                  {([['Hadir', summary.h, 'text-emerald-700 bg-emerald-50'], ['Izin', summary.i, 'text-blue-700 bg-blue-50'], ['Sakit', summary.s, 'text-amber-700 bg-amber-50'], ['Alpa', summary.a, 'text-rose-700 bg-rose-50'], ['Telat', summary.t, 'text-yellow-700 bg-yellow-50']] as [string, number, string][]).map(([l, v, c]) => (
+                    <div key={l} className={`rounded-lg py-1.5 ${c}`}><div className="font-bold tabular-nums">{v}</div><div className="text-xs">{l}</div></div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="hidden sm:block print:block relative z-10 bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden print:border print:border-slate-300 print:shadow-none">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
@@ -1085,6 +1110,7 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = ({ onNavigate }) 
             </table>
           </div>
         </div>
+        </>
       )}
 
       {/* Modal Koreksi Kehadiran Teraudit (Admin) */}

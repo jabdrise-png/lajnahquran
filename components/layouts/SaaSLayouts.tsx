@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, Navigate, useLocation } from 'react-router-dom';
+import { Suspense } from 'react';
+import { MemuatHalaman } from '../../lib/muatHalaman';
 import Sidebar from '../Sidebar';
 import Header from '../Header';
 import ChatWidget from '../ChatWidget';
@@ -7,7 +9,7 @@ import TopUpdateBar from '../TopUpdateBar';
 import { GlobalPinnedBanner } from '../GlobalPinnedBanner';
 import { TenantContextBar } from '../ui/SaaSPrimitives';
 import { AcademicYearProvider } from '../../lib/AcademicYearContext';
-import { SupabaseDataProvider } from '../../hooks/useSupabaseData';
+import { SupabaseDataProvider, IndikatorRiwayat } from '../../hooks/useSupabaseData';
 import {
   CanonicalRole,
   ActiveSupportSession,
@@ -44,7 +46,7 @@ export const PublicLayout: React.FC<{
 }> = ({ session, isSuperAdmin }) => {
   const location = useLocation();
   const isAccessibleWhileAuthenticated =
-    location.pathname.startsWith('/invite') || location.pathname.startsWith('/verify');
+    location.pathname.startsWith('/invite') || location.pathname.startsWith('/verify') || location.pathname.startsWith('/reset-password');
 
   if (session && !isAccessibleWhileAuthenticated) {
     return <Navigate to={isSuperAdmin ? '/platform/dashboard' : '/app/dashboard'} replace />;
@@ -137,7 +139,7 @@ export const PlatformLayout: React.FC<ShellCommonProps> = ({
               className="print:hidden"
             />
             <main className="flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[#F3F6FB] p-4 sm:p-6 lg:p-8 print:p-0 print:overflow-visible print:bg-white print:w-full">
-              <Outlet />
+              <Suspense fallback={<MemuatHalaman />}><Outlet /></Suspense>
             </main>
           </div>
         </div>
@@ -228,6 +230,7 @@ export const TenantLayout: React.FC<ShellCommonProps> = ({
             />
             <TopUpdateBar onNavigate={handleSetPage} />
             <GlobalPinnedBanner onNavigate={handleSetPage} />
+            <IndikatorRiwayat />
             <Header
               currentPage={currentPage}
               toggleSidebar={() => setSidebarOpen(!isSidebarOpen)}
@@ -244,7 +247,7 @@ export const TenantLayout: React.FC<ShellCommonProps> = ({
               onSwitchRole={onSwitchRole}
             />
             <main className="flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-neutral p-4 sm:p-6 lg:p-8 print:p-0 print:overflow-visible print:bg-white print:w-full">
-              {allowed ? <Outlet /> : <Navigate to="/app/dashboard" replace />}
+              {allowed ? <Suspense fallback={<MemuatHalaman />}><Outlet /></Suspense> : <Navigate to="/app/dashboard" replace />}
             </main>
             <div className="print:hidden">
               <ChatWidget />

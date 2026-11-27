@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { HalaqahPerformanceChart } from './HalaqahPerformanceChart';
 import Card from '../components/Card';
-import { useSupabaseData } from '../hooks/useSupabaseData';
+import { useSupabaseData, useRiwayat } from '../hooks/useSupabaseData';
 import { Marhalah, ProgressType, StudentEvaluation } from '../types';
 import { formatPeriodName } from '../lib/utils';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend, ComposedChart, CartesianGrid, XAxis, YAxis, Line, Bar, AreaChart, Area } from 'recharts';
@@ -651,6 +651,7 @@ const StatistikPerkembangan: React.FC<StatistikPerkembanganProps> = ({
     setPage
 }) => {
     const { santri, studentProgress, studentEvaluations, classTargets, evaluationSettings, halaqah, halaqahEvalQuestions, halaqahEvaluations, appSettings, periodeEvaluasi, userProfile, masterKelas, waliKelas, attendance , masterMarhalahs, masterKelasRelasi, selectedAcademicYear } = useSupabaseData();
+    useRiwayat(); // Fase 7: riwayat absensi/setoran dimuat saat halaman ini dibuka
     
     // Mapping Global Props
     const filterMarhalah = globalFilterMarhalah as Marhalah | 'all';

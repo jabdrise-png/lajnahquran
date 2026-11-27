@@ -6,12 +6,11 @@ import { MarhalahLabel, KelasLabel } from '../../components/Labels';
 import Card from '../../components/Card';
 import Modal from '../../components/Modal';
 import ActionDropdown from '../../components/ActionDropdown';
-import { useSupabaseData } from '../../hooks/useSupabaseData';
+import { useSupabaseData, useRiwayat } from '../../hooks/useSupabaseData';
 import { useAcademicYear } from '../../lib/AcademicYearContext';
 import { Marhalah, Santri } from '../../types';
 import { Plus, Trash, Upload, Download, Search, Edit, FileText, FileSpreadsheet, ChevronRight, Send, Link as LinkIcon, ListFilter, ArrowUpDown } from 'lucide-react';
 import { parseSpreadsheet, exportToExcel, exportToPDF } from '../../lib/utils';
-import * as XLSX from 'xlsx';
 import { supabase } from '../../lib/supabaseClient';
 import { StatusBadge } from '../../components/ui/SaaSPrimitives';
 import { NotificationStore } from '../../lib/NotificationStore';
@@ -40,6 +39,7 @@ const SantriPage: React.FC = () => {
     };
 
     const { allSantri, santri, halaqah, setoranHarian, fetchData, loading, error, getOrgId, masterKelas, globalMarhalahs, masterMarhalahs, masterKelasRelasi } = useSupabaseData();
+    useRiwayat(); // Fase 7: riwayat absensi/setoran dimuat saat halaman ini dibuka
     const { selectedAcademicYear, academicYears } = useAcademicYear();
     
     // State
@@ -451,34 +451,17 @@ const SantriPage: React.FC = () => {
 
         const guideData = [...guideMarhalahRows, ...guideKelasRows];
 
-        // Build Excel Workbook with 2 Sheets
-        const wb = XLSX.utils.book_new();
-
-        const wsTemplate = XLSX.utils.json_to_sheet(dummyData);
-        wsTemplate['!cols'] = [
-            { wch: 25 }, // Nama Santri
-            { wch: 14 }, // ID Marhalah
-            { wch: 18 }, // Nama Marhalah
-            { wch: 12 }, // ID Kelas
-            { wch: 16 }, // Nama Kelas
-            { wch: 14 }, // NIS / Kode
-            { wch: 22 }, // Nama Wali
-            { wch: 16 }  // No HP Wali
-        ];
-        XLSX.utils.book_append_sheet(wb, wsTemplate, 'Data Santri');
-
-        const wsGuide = XLSX.utils.json_to_sheet(guideData.length > 0 ? guideData : [
-            { 'Tipe': 'Info', 'ID': '-', 'Nama': '-', 'Keterangan': 'Belum ada data master marhalah/kelas di Pengaturan.' }
-        ]);
-        wsGuide['!cols'] = [
-            { wch: 12 },
-            { wch: 10 },
-            { wch: 22 },
-            { wch: 45 }
-        ];
-        XLSX.utils.book_append_sheet(wb, wsGuide, 'Panduan Master ID');
-
-        XLSX.writeFile(wb, 'template_import_santri.xlsx');
+        // Fase 7: template 2 lembar dengan exceljs (dimuat saat dipakai)
+        import('../../lib/excel').then(({ unduhExcel }) => unduhExcel([
+            { nama: 'Data Santri', data: dummyData, lebar: [25, 14, 18, 12, 16, 14, 22, 16] },
+            {
+                nama: 'Panduan Master ID',
+                data: guideData.length > 0 ? guideData : [
+                    { 'Tipe': 'Info', 'ID': '-', 'Nama': '-', 'Keterangan': 'Belum ada data master marhalah/kelas di Pengaturan.' }
+                ],
+                lebar: [12, 10, 22, 45],
+            },
+        ], 'template_import_santri.xlsx')).catch(() => NotificationStore.addNotification('Gagal membuat template Excel.', 'error'));
     };
 
     const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {

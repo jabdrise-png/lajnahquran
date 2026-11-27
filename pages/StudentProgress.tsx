@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react'; 
 import { MarhalahLabel, KelasLabel } from '../components/Labels';
-import { useSupabaseData } from '../hooks/useSupabaseData';
+import { useSupabaseData, useRiwayat } from '../hooks/useSupabaseData';
 import { ViewMode, SchemeOption, Marhalah, ProgressType, MasterEvaluationPeriod } from '../types';
 import { format } from 'date-fns';
 import { formatPeriodName } from '../lib/utils';
@@ -37,6 +37,7 @@ const StudentProgress: React.FC<StudentProgressProps> = ({
     globalViewMode, 
 }) => {
     const { santri, studentProgress, classTargets, periodeEvaluasi, loading, appSettings, masterKelas, userProfile, halaqah, waliKelas , masterMarhalahs, masterKelasRelasi} = useSupabaseData();
+    useRiwayat(); // Fase 7: riwayat absensi/setoran dimuat saat halaman ini dibuka
 
     const viewMode = globalViewMode;
 

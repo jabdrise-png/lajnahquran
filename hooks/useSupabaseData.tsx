@@ -4,7 +4,7 @@ import type { Santri, Musammi, Halaqah, AttendanceRecord, HalaqahType, Waktu, St
 import { Marhalah, Peran, AttendanceStatus } from '../types';
 import { useAcademicYear } from '../lib/AcademicYearContext';
 
-import { SupportSessionStore, resolveTenantContext } from '../lib/permissions';
+import { SupportSessionStore, resolveTenantContext, bersihkanCacheKonteks } from '../lib/permissions';
 import { DEFAULT_FLUENCY_RULES, type FluencyRule } from '../lib/kelancaran';
 import {
     normalisasiRekap, normalisasiField, periodeKeLegacy, periodeTahunAjaran,
@@ -22,6 +22,103 @@ import {
     DEFAULT_KINDS, DEFAULT_STATUSES,
     type RecitationKind, type AttendanceStatusRef, type SessionSlotRef, type HalaqahTypeRef, type SetoranRow,
 } from '../lib/v2Adapter';
+
+// ---------------------------------------------------------------------------------------------
+// Fase 7 · data per halaman. Saat dibuka, aplikasi hanya memuat absensi & setoran 14 hari terakhir
+// (+ setoran terakhir per santri lewat rpc_setoran_terakhir) — cepat di HP. Riwayat penuh (absensi
+// semester, semua setoran) dimuat oleh halaman yang membutuhkannya (useRiwayat / muatRiwayat).
+// Semua tabel besar diambil per 1.000 baris (batas baris Supabase), jadi tidak ada data terpotong.
+// ---------------------------------------------------------------------------------------------
+export const JENDELA_OPERASIONAL_HARI = 14;
+const tanggalLokal = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+export const awalJendelaOperasional = (hariIni: Date = new Date()) => {
+    const d = new Date(hariIni);
+    d.setDate(d.getDate() - JENDELA_OPERASIONAL_HARI);
+    return tanggalLokal(d);
+};
+
+/** Ambil semua baris per 1.000 (urutan WAJIB stabil di `buat`). */
+export async function ambilBertahap(buat: (dari: number, sampai: number) => any, batasBaris = 200000): Promise<{ data: any[]; error: any }> {
+    const semua: any[] = [];
+    for (let dari = 0; dari < batasBaris; dari += 1000) {
+        const { data, error } = await buat(dari, dari + 999);
+        if (error) return { data: semua, error };
+        semua.push(...(data || []));
+        if (!data || data.length < 1000) break;
+    }
+    return { data: semua, error: null };
+}
+
+/** Nama/marhalah/kelas untuk baris absensi bentuk lama. */
+function beriNamaAbsensi(rows: any[], k: { santriAktif: any[]; semuaSantri: any[]; musammiList: any[]; musammiData: any[] }): AttendanceRecord[] {
+    return (rows || [])
+        .map((a: any): AttendanceRecord | null => {
+            let person: any = null;
+            if (a.peran === 'Santri' || a.peran === Peran.Santri) {
+                person = k.santriAktif.find((p: any) => p.id === a.personId)
+                    || k.semuaSantri.find((p: any) => p.id === a.personId);
+            } else {
+                person = k.musammiList.find((p: any) => p.id === a.personId)
+                    || (k.musammiData || []).find((p: any) => p.id === a.personId);
+            }
+            const nama = person?.nama || (a.peran === 'Santri' ? `Santri (${a.personId})` : `Musammi (${a.personId})`);
+            return {
+                ...a,
+                id: a.id,
+                date: a.date,
+                waktu: a.waktu as Waktu,
+                personId: a.personId,
+                nama,
+                marhalah: (person?.marhalah || '-') as any,
+                kelas: person?.kelas || '-',
+                peran: a.peran as Peran,
+                status: a.status as AttendanceStatus,
+                halaqahId: a.halaqahId,
+            };
+        })
+        .filter((a): a is AttendanceRecord => a !== null);
+}
+
+interface KonteksAbsensi {
+    orgId: string; yearId: number; semMulai: string | null; semSelesai: string | null;
+    statusesList: AttendanceStatusRef[]; kindsList: RecitationKind[];
+    santriAktif: any[]; semuaSantri: any[]; musammiList: any[]; musammiData: any[];
+}
+
+/** Absensi santri & musammi' + setoran sesuai lingkup ('jendela' = 14 hari + terakhir per santri; 'lengkap' = semester/semua). */
+async function ambilAbsensiSetoran(k: Pick<KonteksAbsensi, 'orgId' | 'yearId' | 'semMulai' | 'semSelesai'>, lengkap: boolean, catatGalat: (tabel: string, e: any) => void) {
+    const sb: any = supabase;
+    const mulai = awalJendelaOperasional();
+    const adaSemester = Boolean(k.semMulai && k.semSelesai);
+    const join = lengkap && !adaSemester ? ', halaqah_sessions!inner(academic_year_id)' : '';
+    const saring = (q: any, kol: string) => {
+        if (!lengkap) return q.gte(kol, mulai);
+        return adaSemester ? q.gte(kol, k.semMulai).lte(kol, k.semSelesai) : q.eq('halaqah_sessions.academic_year_id', k.yearId);
+    };
+    const tabel = async (nama: string, buat: (dari: number, sampai: number) => any) => {
+        const r = await ambilBertahap(buat);
+        if (r.error) catatGalat(nama, r.error);
+        return r.data;
+    };
+    const [santriAtt, musammiAtt, setoran, terakhir] = await Promise.all([
+        tabel('attendance_records', (a, b) => saring(sb.from('attendance_records').select('*' + join).eq('organization_id', k.orgId), 'attendance_date')
+            .order('attendance_date', { ascending: true }).order('id', { ascending: true }).range(a, b)),
+        tabel('musammi_attendance_records', (a, b) => saring(sb.from('musammi_attendance_records').select('*' + join).eq('organization_id', k.orgId), 'attendance_date')
+            .order('attendance_date', { ascending: true }).order('id', { ascending: true }).range(a, b)),
+        tabel('recitation_entries', (a, b) => {
+            let q = sb.from('recitation_entries').select('*').eq('organization_id', k.orgId).neq('status', 'voided');
+            if (!lengkap) q = q.gte('recitation_date', mulai);
+            return q.order('recitation_date', { ascending: true }).order('id', { ascending: true }).range(a, b);
+        }),
+        lengkap ? Promise.resolve([] as any[]) : tabel('rpc_setoran_terakhir', (a, b) => sb.rpc('rpc_setoran_terakhir', { p_org: k.orgId }).range(a, b)),
+    ]);
+    // Gabung setoran jendela + setoran terakhir per santri (tanpa duplikat), urut tanggal naik
+    const peta = new Map<string, any>();
+    for (const r of [...(terakhir || []), ...(setoran || [])]) peta.set(String(r.id), r);
+    const gabung = [...peta.values()].sort((x, y) =>
+        String(x.recitation_date).localeCompare(String(y.recitation_date)) || String(x.created_at || '').localeCompare(String(y.created_at || '')));
+    return { santriAtt, musammiAtt, setoran: gabung };
+}
 
 const useSupabaseDataInternal = () => {
     const { selectedAcademicYear, loading: ayLoading } = useAcademicYear();
@@ -75,6 +172,11 @@ const useSupabaseDataInternal = () => {
     const [musammiAssignments, setMusammiAssignments] = useState<any[]>([]);
     const [queryErrors, setQueryErrors] = useState<{ table: string; code?: string; message: string }[]>([]);
     const [loading, setLoading] = useState(true);
+    // Fase 7: lingkup data absensi & setoran ('jendela' saat dibuka, 'lengkap' bila halaman butuh riwayat)
+    const lingkupRef = useRef<'jendela' | 'lengkap'>('jendela');
+    const konteksAbsensiRef = useRef<KonteksAbsensi | null>(null);
+    const [riwayatTermuat, setRiwayatTermuat] = useState(false);
+    const [memuatRiwayat, setMemuatRiwayat] = useState(false);
     const [error, setError] = useState<string | null>(null);
     
     // Store Org ID to avoid repeated fetching
@@ -84,6 +186,7 @@ const useSupabaseDataInternal = () => {
     // Helper: Get Current User's Organization ID
     const updateOrganization = async (name: string, logoUrl: string) => {
         const orgId = await getOrgId();
+        bersihkanCacheKonteks();
         const { data, error } = await supabase.from('organizations').update({ name, logo_url: logoUrl }).eq('id', orgId).select();
         if (!error && (!data || data.length === 0)) {
             throw new Error("Gagal memperbarui data. Anda mungkin tidak memiliki akses untuk mengubah data organisasi ini.");
@@ -315,24 +418,17 @@ const useSupabaseDataInternal = () => {
 
             setActiveSemesterDates({ startDate: activeSemStartDate, endDate: activeSemEndDate });
 
-            // Batch 4: Absensi & setoran — Fase 2: hanya tabel V2
-            const applyRange = (q: any, col: string) => {
-                if (activeSemStartDate && activeSemEndDate) {
-                    return q.gte(col, activeSemStartDate).lte(col, activeSemEndDate);
+            // Batch 4: Absensi & setoran (Fase 7: lingkup jendela/lengkap, bertahap per 1.000 baris)
+            const lengkapSaatIni = lingkupRef.current === 'lengkap';
+            const { santriAtt: santriAttData, musammiAtt: musammiAttData, setoran: recitationData } = await ambilAbsensiSetoran(
+                { orgId, yearId: selectedAcademicYear.id, semMulai: activeSemStartDate, semSelesai: activeSemEndDate },
+                lengkapSaatIni,
+                (tabel, e) => {
+                    collectedErrors.push({ table: tabel, code: String(e?.code || ''), message: String(e?.message || e) });
+                    console.error(`[useSupabaseData] Query error on ${tabel}: ${e?.message || e}`);
                 }
-                return q.eq('halaqah_sessions.academic_year_id', selectedAcademicYear.id);
-            };
-            const sessionJoin = activeSemStartDate && activeSemEndDate ? '' : ', halaqah_sessions!inner(academic_year_id)';
-
-            const [
-                { data: santriAttData },
-                { data: musammiAttData },
-                { data: recitationData }
-            ] = await Promise.all([
-                executeTableQuery('attendance_records', applyRange((supabase as any).from('attendance_records').select('*' + sessionJoin).eq('organization_id', orgId), 'attendance_date').limit(50000), []),
-                executeTableQuery('musammi_attendance_records', applyRange((supabase as any).from('musammi_attendance_records').select('*' + sessionJoin).eq('organization_id', orgId), 'attendance_date').limit(20000), []),
-                executeTableQuery('recitation_entries', (supabase as any).from('recitation_entries').select('*').eq('organization_id', orgId).neq('status', 'voided').order('recitation_date', { ascending: true }).limit(50000), [])
-            ]);
+            );
+            setRiwayatTermuat(lengkapSaatIni);
 
             const rawAttendanceData = [
                 ...((santriAttData as any[]) || []).map(r => attendanceToLegacy(r, 'santri', statusesList)),
@@ -613,36 +709,13 @@ const useSupabaseDataInternal = () => {
             
             setHalaqah(halaqahWithSantri);
             
-            const attendanceWithNames: AttendanceRecord[] = (attendanceData || [])
-                .map((a): AttendanceRecord | null => {
-                    let person: any = null;
-                    if (a.peran === 'Santri' || a.peran === Peran.Santri) {
-                        person = activeSantriListForApp.find(p => p.id === a.personId)
-                            || allSantriMapped.find((p: any) => p.id === a.personId);
-                    } else {
-                        person = musammiList.find(p => p.id === a.personId)
-                            || (musammiData || []).find((p: any) => p.id === a.personId);
-                    }
-                    
-                    const nama = person?.nama || (a.peran === 'Santri' ? `Santri (${a.personId})` : `Musammi (${a.personId})`);
-                    const marhalah = person?.marhalah || '-';
-                    const kelas = person?.kelas || '-';
-
-                    return {
-                        ...a,
-                        id: a.id,
-                        date: a.date,
-                        waktu: a.waktu as Waktu,
-                        personId: a.personId,
-                        nama,
-                        marhalah: marhalah as any,
-                        kelas,
-                        peran: a.peran as Peran,
-                        status: a.status as AttendanceStatus,
-                        halaqahId: a.halaqahId,
-                    };
-                })
-                .filter((a): a is AttendanceRecord => a !== null);
+            const konteksAbsensi: KonteksAbsensi = {
+                orgId, yearId: selectedAcademicYear.id, semMulai: activeSemStartDate, semSelesai: activeSemEndDate,
+                statusesList, kindsList, santriAktif: activeSantriListForApp, semuaSantri: allSantriMapped,
+                musammiList, musammiData: (musammiData as any[]) || [],
+            };
+            konteksAbsensiRef.current = konteksAbsensi;
+            const attendanceWithNames: AttendanceRecord[] = beriNamaAbsensi(attendanceData, konteksAbsensi);
             setAttendance(attendanceWithNames);
 
             setStudentProgress(rekapKeStudentProgress(recapsList, fieldsList) as unknown as StudentProgress[]);
@@ -658,6 +731,41 @@ const useSupabaseDataInternal = () => {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    /**
+     * Fase 7 (BUG-18): setelah simpan/ubah absensi atau setoran, muat ulang HANYA absensi & setoran
+     * (lingkup saat ini) — bukan seluruh data aplikasi. Halaman tidak berkedip/kembali ke "memuat".
+     */
+    const segarkanAbsensiSetoran = useCallback(async () => {
+        const k = konteksAbsensiRef.current;
+        if (!k) { await fetchData(); return; }
+        const lengkap = lingkupRef.current === 'lengkap';
+        const { santriAtt, musammiAtt, setoran } = await ambilAbsensiSetoran(k, lengkap,
+            (tabel, e) => console.error(`[useSupabaseData] Query error on ${tabel}: ${e?.message || e}`));
+        setAttendance(beriNamaAbsensi([
+            ...(santriAtt || []).map((r: any) => attendanceToLegacy(r, 'santri', k.statusesList)),
+            ...(musammiAtt || []).map((r: any) => attendanceToLegacy(r, 'musammi', k.statusesList)),
+        ], k));
+        setSetoranHarian((setoran || []).map((e: any) => recitationToSetoranRow(e, k.kindsList)));
+        setRiwayatTermuat(lengkap);
+    }, [fetchData]);
+
+    /** Muat riwayat penuh (absensi semester & semua setoran) sekali; dipanggil halaman laporan/riwayat. */
+    const muatRiwayat = useCallback(async () => {
+        if (lingkupRef.current === 'lengkap') return;
+        lingkupRef.current = 'lengkap';
+        setMemuatRiwayat(true);
+        try {
+            await segarkanAbsensiSetoran();
+        } finally {
+            setMemuatRiwayat(false);
+        }
+    }, [segarkanAbsensiSetoran]);
+
+    /** Pastikan data tanggal tertentu termuat (tanggal sebelum jendela 14 hari → muat riwayat). */
+    const pastikanTanggal = useCallback((tanggal?: string | null) => {
+        if (tanggal && lingkupRef.current === 'jendela' && tanggal < awalJendelaOperasional()) muatRiwayat();
+    }, [muatRiwayat]);
 
     useEffect(() => {
         const unsubscribe = SupportSessionStore.subscribe(() => {
@@ -1034,7 +1142,7 @@ const useSupabaseDataInternal = () => {
         for (let i = 0; i < payload.length; i += chunkSize) {
             await rpcOrThrow('rpc_record_attendance', { p_records: payload.slice(i, i + chunkSize), p_reason: reason || null });
         }
-        await fetchData();
+        await segarkanAbsensiSetoran();
     };
 
     const findAttendanceById = (id: string | number) => attendance.find((a: any) => String(a.id) === String(id)) as any;
@@ -1052,14 +1160,14 @@ const useSupabaseDataInternal = () => {
         } else if (updates.status) {
             await rpcOrThrow('rpc_update_attendance_entry', { p_kind: existing.kind, p_id: existing.id, p_status: updates.status, p_reason: reason || null });
         }
-        await fetchData();
+        await segarkanAbsensiSetoran();
     }, [fetchData, attendance]);
 
     const deleteAttendanceRecord = useCallback(async (id: string | number, reason?: string) => {
         const existing = findAttendanceById(id);
         if (!existing) return;
         await rpcOrThrow('rpc_delete_attendance_entries', { p_items: [{ kind: existing.kind, id: existing.id }], p_reason: reason || null });
-        await fetchData();
+        await segarkanAbsensiSetoran();
     }, [fetchData, attendance]);
 
     const deleteAttendanceBatch = useCallback(async (date: string, waktu: string, options?: { peran?: string; halaqahId?: number; ids?: (string | number)[] }, reason?: string) => {
@@ -1077,7 +1185,7 @@ const useSupabaseDataInternal = () => {
         for (let i = 0; i < items.length; i += 300) {
             await rpcOrThrow('rpc_delete_attendance_entries', { p_items: items.slice(i, i + 300), p_reason: reason || null });
         }
-        await fetchData();
+        await segarkanAbsensiSetoran();
     }, [fetchData, attendance]);
 
     const addSetoranHarianRecord = useCallback(async (record: Partial<any>) => {
@@ -1086,14 +1194,14 @@ const useSupabaseDataInternal = () => {
             sessionId: record.session_id || null,
         });
         const result = await rpcOrThrow('rpc_submit_recitation_entry', args);
-        await fetchData();
+        await segarkanAbsensiSetoran();
         return result;
     }, [fetchData]);
 
     /** Fase 3: simpan setoran dari argumen RPC lengkap (dipakai FormSetoranRingkas). */
     const simpanSetoran = useCallback(async (args: Record<string, any>, opts: { refresh?: boolean } = {}) => {
         const result = await rpcOrThrow('rpc_submit_recitation_entry', args);
-        if (opts.refresh !== false) await fetchData();
+        if (opts.refresh !== false) await segarkanAbsensiSetoran();
         return result;
     }, [fetchData]);
 
@@ -1106,7 +1214,7 @@ const useSupabaseDataInternal = () => {
         if (updates.surat_selesai || updates.surat) { delete merged.surah_end_no; }
         const args = setoranInputToRpcArgs(merged, { existingEntryId: existing.v2_id || (isUuid(existing.id) ? existing.id : null), reason: reason || updates.alasan || null });
         const result = await rpcOrThrow('rpc_submit_recitation_entry', args);
-        await fetchData();
+        await segarkanAbsensiSetoran();
         return result;
     }, [fetchData, setoranHarian]);
 
@@ -1120,7 +1228,7 @@ const useSupabaseDataInternal = () => {
             p_new_status: 'voided',
             p_reason: (reason || '').trim(),
         });
-        await fetchData();
+        await segarkanAbsensiSetoran();
     }, [fetchData, setoranHarian]);
 
     // Fase 4: student_progress tidak dipakai lagi. Capaian per periode = period_recaps (lewat RPC di bawah).
@@ -1829,6 +1937,8 @@ const useSupabaseDataInternal = () => {
         addMasterMarhalah, updateMasterMarhalah, deleteMasterMarhalah,
         addMasterKelasRelasi, updateMasterKelasRelasi, deleteMasterKelasRelasi,
         getOrgId,
+        // Fase 7: data per halaman
+        riwayatTermuat, memuatRiwayat, muatRiwayat, pastikanTanggal, segarkanAbsensiSetoran,
         selectedAcademicYear,
         activeSemester: selectedAcademicYear?.active_semester || 'Ganjil',
         activeSemesterDates
@@ -1853,4 +1963,34 @@ export const useSupabaseData = () => {
         throw new Error('useSupabaseData must be used within a SupabaseDataProvider');
     }
     return context;
+};
+
+/**
+ * Fase 7 · dipanggil halaman/komponen yang butuh riwayat absensi & setoran (laporan, buku absensi,
+ * grafik, detail santri). Muat sekali per sesi; `tunda` (ms) memberi waktu halaman tampil dulu.
+ */
+export const useRiwayat = (opsi: { aktif?: boolean; tunda?: number } = {}) => {
+    const { muatRiwayat, memuatRiwayat, riwayatTermuat } = useSupabaseData();
+    const aktif = opsi.aktif !== false;
+    useEffect(() => {
+        if (!aktif) return;
+        if (!opsi.tunda) { muatRiwayat(); return; }
+        const t = window.setTimeout(() => { muatRiwayat(); }, opsi.tunda);
+        return () => window.clearTimeout(t);
+    }, [aktif, opsi.tunda, muatRiwayat]);
+    return { memuatRiwayat, riwayatTermuat, muatRiwayat };
+};
+
+
+/** Fase 7 · penanda kecil saat riwayat sedang dimuat (ditaruh di layout, di dalam provider). */
+export const IndikatorRiwayat: React.FC = () => {
+    const { memuatRiwayat } = useSupabaseData();
+    if (!memuatRiwayat) return null;
+    return (
+        <div role="status" aria-live="polite"
+            className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-full bg-slate-900/90 px-4 py-2 text-sm text-white shadow-lg print:hidden">
+            <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+            Memuat riwayat…
+        </div>
+    );
 };

@@ -1,4 +1,4 @@
-# Catatan untuk Asisten AI (AI Studio, dll.) — Perubahan Fase 0 s.d. Fase 6
+# Catatan untuk Asisten AI (AI Studio, dll.) — Perubahan Fase 0 s.d. Fase 7
 
 Baca file ini **sebelum** mengubah kode. Isinya: apa yang sudah diubah, aturan yang wajib diikuti, dan hal yang tidak boleh dilakukan. Acuan utama: `docs/SPESIFIKASI_V2.md` (kebutuhan) dan `docs/RENCANA_V2.md` (urutan fase).
 
@@ -315,26 +315,60 @@ Hook memuat `examAttempts`, `periodeUjianBulanan`, `rubrikAktif`, `pengaturanRap
 
 ---
 
-## 10. Test otomatis
+## 10. Fase 7 — HP, performa & PWA
+
+### 10.1 Build & muat
+
+- Tailwind lewat build (`tailwind.config.js`, `postcss.config.js`, `index.css` berisi `@tailwind`); font Inter dari `@fontsource/inter` (latin). **Jangan** menambah CDN/importmap ke `index.html`.
+- Semua halaman di `App.tsx` memakai `lazyHalaman(() => import(...))` (`lib/muatHalaman.tsx`, memuat ulang sekali bila potongan gagal setelah deploy) + `<Suspense>`. Halaman baru wajib ikut pola ini.
+- Pustaka berat dimuat saat dipakai: `exceljs` (lewat `lib/excel.ts`: `bacaBaris`, `unduhExcel`, `bacaCsv`), `jspdf`/`jspdf-autotable` (`exportToPDF` async). `xlsx` **dilarang** (dihapus; dicek test).
+
+### 10.2 Data per halaman (`hooks/useSupabaseData.tsx`)
+
+- Muat awal: absensi santri/musammi' & `recitation_entries` sejak `awalJendelaOperasional()` (14 hari) + `rpc_setoran_terakhir(org)` (setoran diterima terakhir per santri per jenis, SECURITY INVOKER).
+- Riwayat penuh: `useRiwayat({ aktif?, tunda? })` di halaman laporan/riwayat; `pastikanTanggal(tgl)` di layar yang memilih tanggal (memuat riwayat bila tanggal < jendela). Status: `riwayatTermuat`, `memuatRiwayat` (`IndikatorRiwayat` di layout). Halaman baru yang membaca `attendance`/`setoranHarian` di luar 14 hari **wajib** memanggil salah satunya.
+- Tabel besar diambil per 1.000 baris (`ambilBertahap`) — jangan pakai `.limit(50000)`; Supabase memotong diam-diam.
+- Setelah mutasi absensi/setoran panggil `segarkanAbsensiSetoran()`, bukan `fetchData()` (BUG-18).
+- `resolveTenantContext` di-cache 60 detik per klien+pengguna+peran (`bersihkanCacheKonteks()` saat auth berubah/ubah lembaga). Tidak ada `supabase.channel` (realtime) — banner pengumuman cek ulang tiap 5 menit.
+
+### 10.3 Tampilan HP
+
+- Layar operasional: teks `text-sm sm:text-xs` (≥ 14 px di HP), tombol status absensi `min-h-[44px]` grid 3 kolom.
+- Tabel yang harus terbaca di HP: tambah kelas `tabel-kartu` pada `<table>` dan `data-label="…"` pada `<td>` (CSS di `index.css`, < 640 px jadi kartu). Contoh: Ujian Bulanan/Semester, Rekap Nilai. Buku Absensi: kartu ringkasan `sm:hidden`, matriks `hidden sm:block print:block`.
+
+### 10.4 PWA & login
+
+- `vite-plugin-pwa` (`vite.config.ts`): `registerType: 'prompt'`, precache hanya kerangka (index.html, `assets/index-*`, font, ikon); potongan lain `CacheFirst` saat dipakai. **Supabase & `/api` tidak di-cache.** Ikon di `public/icons/`.
+- `components/PwaKontrol.tsx` (di `App.tsx`): banner versi baru, kartu "Pasang aplikasi" (`usePasangAplikasi()`; iPhone: petunjuk), pita offline.
+- Login: "Lupa sandi?" → `resetPasswordForEmail(redirectTo: /reset-password)`; `pages/ResetSandiPage.tsx` → `auth.updateUser` (aturan `lib/sandi.ts`: ≥ 8, bukan `Mahad123!`, konfirmasi sama). Google: `signInWithOAuth({ provider: 'google' })`. `handle_new_user` (migrasi `2026_12_02_02`) hanya membuat lembaga untuk pendaftaran email dengan `mahad_name`.
+
+### 10.5 Migrasi Fase 7 (urutan)
+
+`2026_12_02_01_f7_kinerja` → `_02_f7_login_google`. Panduan & pengaturan Supabase/Google: `docs/FASE_7_UJI.md`.
+
+---
+
+## 11. Test otomatis
 
 - `npm run test` = `npm run test:v2` + suite lama (`scripts/verify-fase*.ts`).
 - `tests/v2/` memakai PGlite (PostgreSQL di memori). `tests/v2/helpers/db.ts` membangun database dari skema repo + **semua** migrasi; `seed.sql` (data uji: 1 lembaga, superadmin, admin, musammi', halaqah, 2 santri), `seed_legacy.sql` (contoh data tabel lama).
 - Helper: `as(db, userId, fn)` menjalankan kueri sebagai pengguna tertentu (RLS aktif); `expectError()`.
-- Test penting yang menjaga aturan di atas: `f2-kode-dan-peran.test.ts` (tidak ada query tabel lama / kunci app_settings lama), `migrasi-umum.test.ts` (aturan migrasi + aman diulang), `f3-database.test.ts` (aturan 6.1), `f3-lib.test.ts` (predikat layar = database, arah hafalan, dan larangan kunci sesi/validasi di kode), `f4-database.test.ts` (aturan 7.2), `f4-lib.test.ts` (adaptor Rekap Periode dan larangan tabel evaluasi lama di kode), `f5-database.test.ts` (aturan 8.2), `f5-lib.test.ts` (rumus layar = server dan larangan tabel/pengaturan ujian lama di kode), `f6-database.test.ts` (aturan 9.2), `f6-server.test.ts` (webhook & pemroses antrian), `f6-lib.test.ts` (laporan mudir & layar).
+- Test penting yang menjaga aturan di atas: `f2-kode-dan-peran.test.ts` (tidak ada query tabel lama / kunci app_settings lama), `migrasi-umum.test.ts` (aturan migrasi + aman diulang), `f3-database.test.ts` (aturan 6.1), `f3-lib.test.ts` (predikat layar = database, arah hafalan, dan larangan kunci sesi/validasi di kode), `f4-database.test.ts` (aturan 7.2), `f4-lib.test.ts` (adaptor Rekap Periode dan larangan tabel evaluasi lama di kode), `f5-database.test.ts` (aturan 8.2), `f5-lib.test.ts` (rumus layar = server dan larangan tabel/pengaturan ujian lama di kode), `f6-database.test.ts` (aturan 9.2), `f6-server.test.ts` (webhook & pemroses antrian), `f6-lib.test.ts` (laporan mudir & layar), `f7-database.test.ts` (setoran terakhir, handle_new_user), `f7-lib.test.ts` (tanpa CDN/xlsx, lazy, data per halaman, PWA, lupa sandi).
 - Bila mengubah perilaku yang diuji, perbarui test-nya dan jelaskan alasannya. Jangan menghapus test agar lulus.
 
 ---
 
-## 11. Yang masih dikerjakan fase berikutnya (jangan dianggap selesai)
+## 12. Yang masih dikerjakan fase berikutnya (jangan dianggap selesai)
 
 - Halaman analitik lama (Pivot, Statistik, Detail Santri, Raport) masih memakai bentuk lama lewat `lib/rekapAdapter.ts`; bila ditulis ulang, bacalah `periodRecaps` langsung.
-- **F7–F8:** HP, performa & PWA; bisnis, kerapian & uji coba lembaga. Lihat `docs/RENCANA_V2.md`.
+- **F8:** bisnis, kerapian & uji coba lembaga. Lihat `docs/RENCANA_V2.md`.
+- Dasbor masih menghitung di browser; untuk lembaga besar pertimbangkan RPC ringkasan.
 - Pengaturan lama "Automasi Perhitungan Nilai" (`SETORAN_AUTO_*` di `app_settings`) tidak dipakai untuk setoran baru; masih dibaca beberapa laporan lama untuk rata-rata nilai. Jangan dipakai di fitur baru.
 
-## 12. Cara meminta pekerjaan ke AI (contoh)
+## 13. Cara meminta pekerjaan ke AI (contoh)
 
 ```text
 Baca docs/CATATAN_UNTUK_AI.md dan docs/SPESIFIKASI_V2.md bagian 4.
-Kerjakan F7 butir 1. Perubahan database lewat file migrasi baru.
+Kerjakan F8 butir 1. Perubahan database lewat file migrasi baru.
 Tambahkan test di tests/v2/. Jalankan npm run test sampai lulus.
 ```

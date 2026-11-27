@@ -21,12 +21,14 @@ const AbsensiPage: React.FC = () => {
     halaqah, attendance, attendanceStatuses, sessionSlots, musammi, allSantri, userProfile, loading,
     addAttendanceRecords, getOrgId,
   } = useSupabaseData();
+  const { pastikanTanggal } = useSupabaseData();
   const [params, setParams] = useSearchParams();
   const role = normalizeRole(userProfile?.role);
   const isAdmin = role === 'admin' || role === 'superadmin';
   const today = hariIni();
 
   const [date, setDate] = useState(params.get('date') || today);
+  useEffect(() => { pastikanTanggal(date); }, [date, pastikanTanggal]); // Fase 7
   const [search, setSearch] = useState('');
   const [bentrok, setBentrok] = useState<Bentrok[]>([]);
 
@@ -92,15 +94,15 @@ const AbsensiPage: React.FC = () => {
       />
 
       <div className="sticky top-0 z-10 bg-neutral/95 backdrop-blur py-2 flex flex-wrap items-end gap-3">
-        <label className="text-xs font-semibold text-slate-600">
+        <label className="text-sm sm:text-xs font-semibold text-slate-600">
           Tanggal
           <input type="date" value={date} max={today} onChange={(e) => setDate(e.target.value || today)}
             className="block mt-1 border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white" />
         </label>
-        <div className="text-xs font-semibold text-slate-600">
+        <div className="text-sm sm:text-xs font-semibold text-slate-600">
           Waktu
           <div className="mt-1 flex flex-wrap gap-1.5">
-            {waktuList.length === 0 && <span className="text-xs text-slate-500 py-2">Belum ada jadwal halaqah.</span>}
+            {waktuList.length === 0 && <span className="text-sm sm:text-xs text-slate-500 py-2">Belum ada jadwal halaqah.</span>}
             {waktuList.map((w) => (
               <button key={w} type="button" onClick={() => setSlot(w)}
                 className={`px-3 py-2 rounded-lg border text-sm font-semibold ${slot === w ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-700'}`}>
@@ -110,7 +112,7 @@ const AbsensiPage: React.FC = () => {
           </div>
         </div>
         {(isAdmin || visible.length > 3) && (
-          <label className="text-xs font-semibold text-slate-600 flex-1 min-w-[180px]">
+          <label className="text-sm sm:text-xs font-semibold text-slate-600 flex-1 min-w-[180px]">
             Cari halaqah / musammi'
             <div className="relative mt-1">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -119,7 +121,7 @@ const AbsensiPage: React.FC = () => {
             </div>
           </label>
         )}
-        <div className="text-xs text-slate-600 ml-auto">
+        <div className="text-sm sm:text-xs text-slate-600 ml-auto">
           {visible.length} halaqah · {ringkasan.terisi}/{ringkasan.total} santri terisi
         </div>
       </div>
@@ -129,7 +131,7 @@ const AbsensiPage: React.FC = () => {
           <summary className="cursor-pointer font-semibold flex items-center gap-2">
             <AlertTriangle size={16} /> {bentrok.length} jadwal bentrok (orang yang sama di dua halaqah pada waktu yang sama)
           </summary>
-          <ul className="mt-2 space-y-1 text-xs">
+          <ul className="mt-2 space-y-1 text-sm sm:text-xs">
             {bentrok.map((b, i) => (
               <li key={i}>
                 {b.jenis === 'musammi' ? "Musammi'" : 'Santri'} <b>{b.nama}</b> — {b.waktu}: {b.halaqah_nama.join(', ')}

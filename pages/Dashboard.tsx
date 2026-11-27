@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { normalizeRole } from '../lib/permissions';
 import { useNavigate } from 'react-router-dom';
-import { useSupabaseData } from '../hooks/useSupabaseData';
+import { useSupabaseData, useRiwayat } from '../hooks/useSupabaseData';
 import { useAcademicYear } from '../lib/AcademicYearContext';
 import { formatPeriodName } from '../lib/utils';
 import {
@@ -59,7 +60,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
   const currentAcademicYear = ctxAcademicYear || dataAcademicYear;
 
   // State Tabs & Filters
-  const [trendRange, setTrendRange] = useState<'7' | '30' | '90'>('30');
+  // Fase 7: admin memuat riwayat penuh sesudah dasbor tampil; peran lain (musammi' di HP) tetap
+  // memakai data 14 hari & tren 7 hari, riwayat baru dimuat bila memilih 30/90 hari.
+  const peranDasbor = normalizeRole(userProfile?.role);
+  const dasborAdmin = peranDasbor === 'admin' || peranDasbor === 'superadmin';
+  const [trendRange, setTrendRange] = useState<'7' | '30' | '90'>(dasborAdmin ? '30' : '7');
+  const { riwayatTermuat } = useRiwayat({ aktif: dasborAdmin || trendRange !== '7', tunda: dasborAdmin ? 1500 : 0 });
+  useEffect(() => { if (dasborAdmin) setTrendRange((t) => (t === '7' ? '30' : t)); }, [dasborAdmin]);
   const [progressScheme, setProgressScheme] = useState<string>('Total Hafalan');
 
   // Filter Statistik Kehadiran per Marhalah (Row 4 Kanan)
@@ -1200,7 +1207,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, userRole }) =>
             {/* Ringkasan Keseluruhan Lembaga */}
             <div className="p-3.5 rounded-[12px] bg-[#F8FAFC] border border-[#E1E7EF] mt-3 mb-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[#667085]">Tingkat Kehadiran Global</span>
+                <span className="text-xs font-semibold text-[#667085]">Tingkat Kehadiran Global{!riwayatTermuat && ' (14 hari terakhir)'}</span>
                 <span className="text-base font-extrabold text-[#1557D5] tabular-nums">
                   {overallAttendanceStats.rate}%
                 </span>

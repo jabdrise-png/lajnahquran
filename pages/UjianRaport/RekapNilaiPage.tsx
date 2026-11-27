@@ -262,7 +262,7 @@ const RekapNilaiPage: React.FC = () => {
           <EmptyState title="Tidak ada santri" description="Tidak ada santri yang cocok dengan filter, atau Anda belum menjadi penguji pada semester ini." />
         ) : (
           <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-            <table className="min-w-full text-sm">
+            <table className="min-w-full text-sm tabel-kartu">
               <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
                 <tr>
                   <th className="px-3 py-2 w-8"><input type="checkbox" checked={semuaTerpilih} onChange={() => setPilih(semuaTerpilih ? new Set() : new Set(baris.map(({ s }) => s.id)))} /></th>
@@ -280,16 +280,16 @@ const RekapNilaiPage: React.FC = () => {
                   <tr key={s.id} className={pilih.has(s.id) ? 'bg-blue-50/40' : ''}>
                     <td className="px-3 py-2"><input type="checkbox" checked={pilih.has(s.id)} onChange={() => setPilih((p) => { const n = new Set(p); n.has(s.id) ? n.delete(s.id) : n.add(s.id); return n; })} /></td>
                     <td className="px-3 py-2"><div className="font-semibold text-slate-800">{s.nama}</div><div className="text-[11px] text-slate-400">{s.kelas || '-'} · {halaqahSantri.get(s.id) || '-'}</div></td>
-                    <td className="px-3 py-2 text-right tabular-nums">{tampilNilai(k.semester?.nilai)}{k.semester?.is_remedial ? <span className="text-[10px] text-slate-400"> R</span> : null}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{k.bobot.bulanan > 0 ? tampilNilai(k.bulanan.rata_rata) : '-'}<div className="text-[10px] text-slate-400">{k.bulanan.jumlah_nilai}/{k.bulanan.jumlah_ujian}</div></td>
-                    <td className="px-3 py-2 text-right tabular-nums">{k.kehadiran.persen !== null ? `${tampilNilai(k.kehadiran.persen)}%` : '-'}</td>
-                    <td className="px-3 py-2 text-right"><b className="tabular-nums">{tampilNilai(k.nilai_akhir)}</b>{k.predikat && <div className="text-[11px] text-slate-500">{k.predikat}</div>}</td>
-                    <td className="px-3 py-2 text-xs">
+                    <td data-label="Semester" className="px-3 py-2 text-right tabular-nums">{tampilNilai(k.semester?.nilai)}{k.semester?.is_remedial ? <span className="text-[10px] text-slate-400"> R</span> : null}</td>
+                    <td data-label="Bulanan" className="px-3 py-2 text-right tabular-nums">{k.bobot.bulanan > 0 ? tampilNilai(k.bulanan.rata_rata) : '-'}<div className="text-[10px] text-slate-400">{k.bulanan.jumlah_nilai}/{k.bulanan.jumlah_ujian}</div></td>
+                    <td data-label="Hadir" className="px-3 py-2 text-right tabular-nums">{k.kehadiran.persen !== null ? `${tampilNilai(k.kehadiran.persen)}%` : '-'}</td>
+                    <td data-label="Nilai akhir" className="px-3 py-2 text-right"><b className="tabular-nums">{tampilNilai(k.nilai_akhir)}</b>{k.predikat && <div className="text-[11px] text-slate-500">{k.predikat}</div>}</td>
+                    <td data-label="Kelengkapan" className="px-3 py-2 text-xs">
                       {k.lengkap ? <span className="inline-flex items-center gap-1 text-emerald-700"><CheckCircle2 size={13} /> Lengkap</span>
                         : <ul className="text-rose-700 list-disc pl-4">{k.kekurangan.map((x) => <li key={x}>{x}</li>)}</ul>}
                       {k.peringatan.length > 0 && <div className="text-amber-700 mt-0.5">{k.peringatan.join('; ')}</div>}
                     </td>
-                    <td className="px-3 py-2 text-xs whitespace-nowrap">
+                    <td data-label="Raport" className="px-3 py-2 text-xs whitespace-nowrap">
                       {rc ? (
                         <div>
                           <span className="font-semibold text-blue-700">Terbit v{rc.version_no}</span> <span className="text-slate-400">{rc.verification_code}</span>

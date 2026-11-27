@@ -1,49 +1,53 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, Suspense } from 'react';
+import { lazyHalaman, MemuatHalaman } from './lib/muatHalaman';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import Dashboard from './pages/Dashboard';
-import AbsensiPage from './pages/Operasional/AbsensiPage';
-import AttendanceBook from './pages/AttendanceBook';
-import BukuAbsensiPage from './pages/BukuAbsensiPage';
-import Login from './pages/Login';
-import Informasi from './pages/Informasi';
-import Users from './pages/Users';
+import PwaKontrol from './components/PwaKontrol';
+// Fase 7: semua halaman dimuat saat dibuka (code-splitting per rute)
+const Dashboard = lazyHalaman(() => import('./pages/Dashboard'));
+const AbsensiPage = lazyHalaman(() => import('./pages/Operasional/AbsensiPage'));
+const AttendanceBook = lazyHalaman(() => import('./pages/AttendanceBook'));
+const BukuAbsensiPage = lazyHalaman(() => import('./pages/BukuAbsensiPage'));
+const Login = lazyHalaman(() => import('./pages/Login'));
+const ResetSandiPage = lazyHalaman(() => import('./pages/ResetSandiPage'));
+const Informasi = lazyHalaman(() => import('./pages/Informasi'));
+const Users = lazyHalaman(() => import('./pages/Users'));
 
 // DATA MASTER PAGES
-import SantriPage from './pages/DataMaster/SantriPage';
-import MusammiPage from './pages/DataMaster/MusammiPage';
-import MusyrifDataPage from './pages/DataMaster/MusyrifDataPage';
-import WaliKelasPage from './pages/DataMaster/WaliKelasPage';
-import KenaikanKelasPage from './pages/DataMaster/KenaikanKelasPage';
-import HalaqahPage from './pages/DataMaster/HalaqahPage';
-import LandingPage from './pages/LandingPage';
-import AdminGalleryPage from './pages/AdminGalleryPage';
-import TahunAjaranPage from './pages/DataMaster/TahunAjaranPage';
+const SantriPage = lazyHalaman(() => import('./pages/DataMaster/SantriPage'));
+const MusammiPage = lazyHalaman(() => import('./pages/DataMaster/MusammiPage'));
+const MusyrifDataPage = lazyHalaman(() => import('./pages/DataMaster/MusyrifDataPage'));
+const WaliKelasPage = lazyHalaman(() => import('./pages/DataMaster/WaliKelasPage'));
+const KenaikanKelasPage = lazyHalaman(() => import('./pages/DataMaster/KenaikanKelasPage'));
+const HalaqahPage = lazyHalaman(() => import('./pages/DataMaster/HalaqahPage'));
+const LandingPage = lazyHalaman(() => import('./pages/LandingPage'));
+const AdminGalleryPage = lazyHalaman(() => import('./pages/AdminGalleryPage'));
+const TahunAjaranPage = lazyHalaman(() => import('./pages/DataMaster/TahunAjaranPage'));
 
 // AKADEMIK & OPERASIONAL PAGES
-import SetoranHarianPage from './pages/SetoranHarianPage';
-import FormEvaluasiPeriodePage from './pages/Evaluasi/FormEvaluasiPeriodePage';
-import ProgresEvaluasiPage from './pages/Evaluasi/ProgresEvaluasiPage';
-import PengaturanEvaluasiPage from './pages/PengaturanEvaluasiPage';
-import SesiHalaqahPage from './pages/Operasional/SesiHalaqahPage';
-import AuditLembagaPage from './pages/Akademik/AuditLembagaPage';
+const SetoranHarianPage = lazyHalaman(() => import('./pages/SetoranHarianPage'));
+const FormEvaluasiPeriodePage = lazyHalaman(() => import('./pages/Evaluasi/FormEvaluasiPeriodePage'));
+const ProgresEvaluasiPage = lazyHalaman(() => import('./pages/Evaluasi/ProgresEvaluasiPage'));
+const PengaturanEvaluasiPage = lazyHalaman(() => import('./pages/PengaturanEvaluasiPage'));
+const SesiHalaqahPage = lazyHalaman(() => import('./pages/Operasional/SesiHalaqahPage'));
+const AuditLembagaPage = lazyHalaman(() => import('./pages/Akademik/AuditLembagaPage'));
 
 // PLATFORM CONSOLE (SUPERADMIN)
-import PlatformConsolePage from './pages/Platform/PlatformConsolePage';
+const PlatformConsolePage = lazyHalaman(() => import('./pages/Platform/PlatformConsolePage'));
 
 // UJIAN & RAPORT
-import UjianBulananPage from './pages/UjianRaport/UjianBulananPage';
-import UjianSemesterPage from './pages/UjianRaport/UjianSemesterPage';
-import RekapNilaiPage from './pages/UjianRaport/RekapNilaiPage';
-import PengaturanNilaiPage from './pages/UjianRaport/PengaturanNilaiPage';
-import NotifikasiTelegramPage from './pages/Pengaturan/NotifikasiTelegramPage';
-import LaporanMudirPage from './pages/Laporan/LaporanMudirPage';
+const UjianBulananPage = lazyHalaman(() => import('./pages/UjianRaport/UjianBulananPage'));
+const UjianSemesterPage = lazyHalaman(() => import('./pages/UjianRaport/UjianSemesterPage'));
+const RekapNilaiPage = lazyHalaman(() => import('./pages/UjianRaport/RekapNilaiPage'));
+const PengaturanNilaiPage = lazyHalaman(() => import('./pages/UjianRaport/PengaturanNilaiPage'));
+const NotifikasiTelegramPage = lazyHalaman(() => import('./pages/Pengaturan/NotifikasiTelegramPage'));
+const LaporanMudirPage = lazyHalaman(() => import('./pages/Laporan/LaporanMudirPage'));
 
 // LAPORAN & SISTEM PAGES
-import LaporanRekapPage from './pages/Laporan/LaporanRekapPage';
-import SettingsPage from './pages/SettingsPage';
-import WebsiteEditorPage from './pages/WebsiteEditorPage';
-import AcceptInvitePage from './pages/AcceptInvitePage';
-import VerifyReportPage from './pages/VerifyReportPage';
+const LaporanRekapPage = lazyHalaman(() => import('./pages/Laporan/LaporanRekapPage'));
+const SettingsPage = lazyHalaman(() => import('./pages/SettingsPage'));
+const WebsiteEditorPage = lazyHalaman(() => import('./pages/WebsiteEditorPage'));
+const AcceptInvitePage = lazyHalaman(() => import('./pages/AcceptInvitePage'));
+const VerifyReportPage = lazyHalaman(() => import('./pages/VerifyReportPage'));
 
 import type { Page } from './types';
 import { supabase } from './lib/supabaseClient';
@@ -55,6 +59,7 @@ import {
   resolveTenantContext,
   SupportSessionStore,
   ActiveSupportSession,
+  bersihkanCacheKonteks,
 } from './lib/permissions';
 import {
   PublicLayout,
@@ -164,7 +169,9 @@ const App: React.FC = () => {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      // Token diperbarui tidak mengubah peran; masuk/keluar/ubah akun mengosongkan cache konteks
+      if (event !== 'TOKEN_REFRESHED') bersihkanCacheKonteks();
       setSession(nextSession);
       if (nextSession?.user) {
         fetchUserOrganization(nextSession.user.id);
@@ -243,7 +250,7 @@ const App: React.FC = () => {
     );
   }
 
-  if (session && isPending && !location.pathname.startsWith('/invite')) {
+  if (session && isPending && !location.pathname.startsWith('/invite') && !location.pathname.startsWith('/reset-password')) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-neutral p-4">
         <div className="bg-white p-8 rounded-xl shadow-lg border border-slate-200 max-w-md text-center">
@@ -281,7 +288,7 @@ const App: React.FC = () => {
     onSwitchRole: handleSwitchRole,
   };
 
-  if (session && needsRolePick && !location.pathname.startsWith('/invite')) {
+  if (session && needsRolePick && !location.pathname.startsWith('/invite') && !location.pathname.startsWith('/reset-password')) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-neutral p-4">
         <div className="bg-white p-8 rounded-xl shadow-lg border border-slate-200 max-w-md w-full text-center">
@@ -310,6 +317,9 @@ const App: React.FC = () => {
   }
 
   return (
+    <>
+    <PwaKontrol />
+    <Suspense fallback={<MemuatHalaman />}>
     <Routes>
       {/* =====================================================================
           1. PUBLIC SHELL ROUTES (/ , /login, /invite, /verify)
@@ -318,6 +328,7 @@ const App: React.FC = () => {
         <Route path="/" element={<LandingPage onLoginClick={() => navigate('/login')} />} />
         <Route path="/login" element={<Login onBack={() => navigate('/')} />} />
         <Route path="/invite" element={<AcceptInvitePage />} />
+        <Route path="/reset-password" element={<ResetSandiPage />} />
         <Route path="/verify" element={<VerifyReportPage />} />
         <Route path="/verify/:code" element={<VerifyReportPage />} />
       </Route>
@@ -482,6 +493,8 @@ const App: React.FC = () => {
         }
       />
     </Routes>
+    </Suspense>
+    </>
   );
 };
 

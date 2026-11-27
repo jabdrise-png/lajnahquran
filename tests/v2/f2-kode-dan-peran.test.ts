@@ -66,7 +66,7 @@ test('resolveTenantContext: akun Admin + Musammi\' mendapat dua peran dan memaka
   };
   (globalThis as any).sessionStorage = (globalThis as any).window.sessionStorage;
   (globalThis as any).CustomEvent = class { constructor(public type: string, public init?: any) {} };
-  const { resolveTenantContext } = await import('../../lib/permissions');
+  const { resolveTenantContext, bersihkanCacheKonteks } = await import('../../lib/permissions');
 
   const org = 'org-1';
   const grants = [
@@ -97,6 +97,7 @@ test('resolveTenantContext: akun Admin + Musammi\' mendapat dua peran dan memaka
 
   // Peran musammi dicabut -> kembali ke admin walau pilihan tersimpan musammi
   grants[1].status = 'revoked';
+  bersihkanCacheKonteks(); // Fase 7: konteks di-cache 60 detik; perubahan izin terbaca setelah cache kosong/kedaluwarsa
   const c = await resolveTenantContext(fake);
   assert.equal(c.effectiveRole, 'admin');
   assert.deepEqual(c.availableRoles, ['admin']);

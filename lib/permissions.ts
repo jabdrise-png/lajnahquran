@@ -686,7 +686,43 @@ export function getEffectiveGrantStatus(
  *    (never selected randomly via `.find(status === 'active')`).
  * 5. Support Access Sessions are verified against `public.support_access_sessions` in the DB.
  */
+// Fase 7 (BUG-19 & kinerja): hasil resolveTenantContext dipakai bersama selama 60 detik dan
+// permintaan yang sedang berjalan tidak digandakan. Sebelumnya profil & izin akses diminta
+// hingga 6 kali per halaman. Cache dikosongkan saat login/logout & sesi support berubah.
+const CACHE_KONTEKS_MS = 60_000;
+type CacheKonteks = Map<string, { sampai: number; janji: Promise<ResolvedTenantContext> }>;
+let cachePerKlien = new WeakMap<object, CacheKonteks>();
+export function bersihkanCacheKonteks() {
+  cachePerKlien = new WeakMap();
+}
+
 export async function resolveTenantContext(
+  supabaseClient: any,
+  preferredOrgId?: string | null,
+  preferredRole?: string | null
+): Promise<ResolvedTenantContext> {
+  let userId = '';
+  try {
+    const { data } = await supabaseClient?.auth?.getSession?.() ?? { data: null };
+    userId = data?.session?.user?.id || '';
+  } catch {
+    userId = '';
+  }
+  const kunci = [userId, SupportSessionStore.getSession()?.id || '', preferredOrgId || '', preferredRole ?? ActiveRoleStore.get() ?? ''].join('|');
+  let cacheKonteks = supabaseClient && typeof supabaseClient === 'object' ? cachePerKlien.get(supabaseClient) : undefined;
+  if (!cacheKonteks && supabaseClient && typeof supabaseClient === 'object') { cacheKonteks = new Map(); cachePerKlien.set(supabaseClient, cacheKonteks); }
+  const ada = cacheKonteks?.get(kunci);
+  if (userId && ada && ada.sampai > Date.now()) return ada.janji;
+  const janji = resolveTenantContextLangsung(supabaseClient, preferredOrgId, preferredRole);
+  if (userId && cacheKonteks) {
+    const c = cacheKonteks;
+    c.set(kunci, { sampai: Date.now() + CACHE_KONTEKS_MS, janji });
+    janji.catch(() => c.delete(kunci));
+  }
+  return janji;
+}
+
+async function resolveTenantContextLangsung(
   supabaseClient: any,
   preferredOrgId?: string | null,
   preferredRole?: string | null

@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import Card from '../../components/Card';
 import Modal from '../../components/Modal';
-import { useSupabaseData } from '../../hooks/useSupabaseData';
+import { useSupabaseData, useRiwayat } from '../../hooks/useSupabaseData';
 import { StackedBarChart, StudentStackedBarChart } from '../../components/Chart';
 import { exportToExcel } from '../../lib/utils';
 import { NotificationStore } from '../../lib/NotificationStore';
@@ -29,6 +29,7 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
     exportTrigger
 }) => {
     const { attendance, waliKelas, appSettings, loading, error, globalMarhalahs, masterKelas, globalAttendanceStatus, userProfile , masterMarhalahs, masterKelasRelasi} = useSupabaseData();
+    useRiwayat(); // Fase 7: riwayat absensi/setoran dimuat saat halaman ini dibuka
     
     // UI States
     const [localShowFilters, setLocalShowFilters] = useState(false);

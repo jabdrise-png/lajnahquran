@@ -51,6 +51,8 @@ contoh: 2026_12_01_01_fix_recitation_revisions_action_check.sql
 | `2026_11_30_04_keputusan_f3_f4.sql` | Keputusan 26-11-2026: arah bawaan maju + dua arah, kehadiran rekap selalu dari absensi, koreksi setoran oleh musammi' | belum |
 | `2026_12_01_01_f6_telegram_struktur.sql` | F6 (kode Telegram santri, telegram_settings + template, notification_queue, render template) | belum |
 | `2026_12_01_02_f6_telegram_fungsi.sql` | F6 (penautan wali, antrian + retry, pesan setoran / progres periode / kehadiran mingguan terjadwal, RPC Admin) | belum |
+| `2026_12_02_01_f7_kinerja.sql` | F7 (rpc_setoran_terakhir untuk muat awal 14 hari, indeks setoran terakhir & keanggotaan halaqah) | belum |
+| `2026_12_02_02_f7_login_google.sql` | F7 (handle_new_user: pengguna Google/OAuth yang belum diundang tidak lagi membuat lembaga "Ma'had Baru") | belum |
 
 ## Pemeriksaan sebelum migrasi
 

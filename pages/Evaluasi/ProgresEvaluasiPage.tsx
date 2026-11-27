@@ -8,7 +8,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Calculator, Download, ExternalLink, RefreshCw, Search, Unlock } from 'lucide-react';
-import { useSupabaseData } from '../../hooks/useSupabaseData';
+import { useSupabaseData, useRiwayat } from '../../hooks/useSupabaseData';
 import { normalizeRole } from '../../lib/permissions';
 import { PageHeader, LoadingState, EmptyState } from '../../components/ui/SaaSPrimitives';
 import { useMintaAlasan } from '../../components/ui/AlasanDialog';
@@ -53,6 +53,7 @@ const ProgresEvaluasiPage: React.FC = () => {
     evaluationSettings, userProfile, loading, evaluationPeriods, periodeEvaluasi, periodRecaps, periodFormFields,
     masterMarhalahs, selectedAcademicYear, statusPeriode, hitungRekapHarian, bukaKembaliFormPeriode,
   } = useSupabaseData();
+  useRiwayat(); // Fase 7: riwayat absensi/setoran dimuat saat halaman ini dibuka
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const role = normalizeRole(userProfile?.role);

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useRiwayat } from '../hooks/useSupabaseData';
 import { 
     ArrowLeft, Calendar, BookOpen, Award, CheckCircle2, 
     ChevronRight, ChevronDown, User, FileText,
@@ -51,6 +52,7 @@ export const SantriDetailProgressView: React.FC<SantriDetailProgressViewProps> =
     classTargets,
     onBack
 }) => {
+    useRiwayat(); // Fase 7: detail santri butuh riwayat lengkap
     // Helper to normalize dates (handles slash, ISO timestamps, etc.)
     const normDate = (d: any) => {
         if (!d) return '';

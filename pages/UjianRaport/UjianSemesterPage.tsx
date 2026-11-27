@@ -201,7 +201,7 @@ const UjianSemesterPage: React.FC = () => {
 
       {tab !== 'catatan' && tampil.length > 0 && (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-          <table className="min-w-full text-sm">
+          <table className="min-w-full text-sm tabel-kartu">
             <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
               <tr><th className="px-3 py-2 text-left">Santri</th><th className="px-3 py-2 text-left">Materi (juz)</th><th className="px-3 py-2 text-right">Nilai</th><th className="px-3 py-2 text-left">Predikat</th><th className="px-3 py-2 text-right">Aksi</th></tr>
             </thead>
@@ -212,10 +212,10 @@ const UjianSemesterPage: React.FC = () => {
                   <tr key={s.id}>
                     <td className="px-3 py-2"><div className="font-semibold text-slate-800">{s.nama}</div>
                       <div className="text-[11px] text-slate-400">{h.nama} · {s.kelas || '-'}{t ? ` · percobaan ${t.attempt_no}${t.is_remedial ? ' (remedial)' : ''}${jumlahSah(s.id) > 1 ? ` · tertinggi dari ${jumlahSah(s.id)} percobaan` : ''}` : ''}{t?.source === 'migrasi' ? ' · data lama' : ''}</div></td>
-                    <td className="px-3 py-2 text-slate-600">{t?.materi_juz || '-'}</td>
-                    <td className="px-3 py-2 text-right font-semibold tabular-nums">{tampilNilai(t?.final_score)}</td>
-                    <td className="px-3 py-2">{t ? <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${t.passed === false ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}>{t.predikat}{t.passed === false ? ' · perlu remedial' : ''}</span> : <span className="text-slate-300">-</span>}</td>
-                    <td className="px-3 py-2 text-right whitespace-nowrap">
+                    <td data-label="Materi (juz)" className="px-3 py-2 text-slate-600">{t?.materi_juz || '-'}</td>
+                    <td data-label="Nilai" className="px-3 py-2 text-right font-semibold tabular-nums">{tampilNilai(t?.final_score)}</td>
+                    <td data-label="Predikat" className="px-3 py-2">{t ? <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${t.passed === false ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}>{t.predikat}{t.passed === false ? ' · perlu remedial' : ''}</span> : <span className="text-slate-300">-</span>}</td>
+                    <td data-label="Aksi" className="px-3 py-2 text-right whitespace-nowrap">
                       {!t && <button type="button" className="text-xs font-semibold text-blue-700" onClick={() => buka(s, 'baru')}>Input nilai</button>}
                       {t && <button type="button" className="text-xs font-semibold text-blue-700 mr-3 inline-flex items-center gap-1" onClick={() => buka(s, 'remedial')}><RotateCcw size={12} /> Remedial</button>}
                       {t && isAdmin && <button type="button" className="text-xs font-semibold text-amber-700 mr-3 inline-flex items-center gap-1" onClick={() => buka(s, 'koreksi')}><Pencil size={12} /> Koreksi</button>}
@@ -252,21 +252,21 @@ const UjianSemesterPage: React.FC = () => {
             </label>
             {daftarJuz.length > 0 && (
               <div className="rounded-lg border border-slate-200 overflow-hidden">
-                <table className="min-w-full text-sm">
+                <table className="min-w-full text-sm tabel-kartu">
                   <thead className="bg-slate-50 text-[11px] uppercase text-slate-500"><tr><th className="px-3 py-1.5 text-left">Juz</th><th className="px-3 py-1.5 text-left">Kabir</th><th className="px-3 py-1.5 text-left">Shoghir</th><th className="px-3 py-1.5 text-left" title="Kosongkan untuk memakai hitungan rubrik">Nilai custom</th><th className="px-3 py-1.5 text-right">Nilai</th></tr></thead>
                   <tbody className="divide-y divide-slate-100">
                     {daftarJuz.map((j) => (
                       <tr key={j}>
                         <td className="px-3 py-1.5 font-semibold">Juz {j}</td>
                         {(['kabir', 'shoghir'] as const).map((k) => (
-                          <td key={k} className="px-3 py-1.5"><input type="number" min={0} step={1} inputMode="numeric" className={`${inputCls.replace('w-full', 'w-20')}`}
+                          <td key={k} data-label={k === 'kabir' ? 'Kabir' : 'Shoghir'} className="px-3 py-1.5"><input type="number" min={0} step={1} inputMode="numeric" className={`${inputCls.replace('w-full', 'w-20')}`}
                             value={form.juz[j]?.[k] ?? ''} placeholder="0"
                             onChange={(e) => setForm({ ...form, juz: { ...form.juz, [j]: { kabir: form.juz[j]?.kabir ?? '', shoghir: form.juz[j]?.shoghir ?? '', custom: form.juz[j]?.custom ?? '', [k]: e.target.value } } })} /></td>
                         ))}
-                        <td className="px-3 py-1.5"><input type="number" min={0} max={100} step="any" inputMode="decimal" className={`${inputCls.replace('w-full', 'w-24')}`}
+                        <td data-label="Nilai custom" className="px-3 py-1.5"><input type="number" min={0} max={100} step="any" inputMode="decimal" className={`${inputCls.replace('w-full', 'w-24')}`}
                           value={form.juz[j]?.custom ?? ''} placeholder="otomatis"
                           onChange={(e) => setForm({ ...form, juz: { ...form.juz, [j]: { kabir: form.juz[j]?.kabir ?? '', shoghir: form.juz[j]?.shoghir ?? '', custom: e.target.value } } })} /></td>
-                        <td className="px-3 py-1.5 text-right tabular-nums">{tampilNilai(nilaiJuzInput(rubrikAktif, juzIsi.find((x) => x.juz === j) || { juz: j, kabir: 0, shoghir: 0 }))}{(form.juz[j]?.custom ?? '').trim() !== '' && <span className="ml-1 text-[10px] text-amber-700">custom</span>}</td>
+                        <td data-label="Nilai" className="px-3 py-1.5 text-right tabular-nums">{tampilNilai(nilaiJuzInput(rubrikAktif, juzIsi.find((x) => x.juz === j) || { juz: j, kabir: 0, shoghir: 0 }))}{(form.juz[j]?.custom ?? '').trim() !== '' && <span className="ml-1 text-[10px] text-amber-700">custom</span>}</td>
                       </tr>
                     ))}
                   </tbody>

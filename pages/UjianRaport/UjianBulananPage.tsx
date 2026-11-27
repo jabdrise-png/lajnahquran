@@ -235,7 +235,7 @@ const UjianBulananPage: React.FC = () => {
 
       {periodId && baris.length > 0 && (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-          <table className="min-w-full text-sm">
+          <table className="min-w-full text-sm tabel-kartu">
             <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-3 py-2 text-left">Santri</th>
@@ -259,18 +259,18 @@ const UjianBulananPage: React.FC = () => {
                       <div className="font-semibold text-slate-800">{s.nama}</div>
                       <div className="text-[11px] text-slate-400">{h.nama} · {s.kelas || '-'}{t ? ` · percobaan ${t.attempt_no}${t.is_remedial ? ' (remedial)' : ''}${jumlahSah(s.id) > 1 ? ` · tertinggi dari ${jumlahSah(s.id)} percobaan` : ''}` : ''}</div>
                     </td>
-                    <td className="px-3 py-2">
+                    <td data-label="Materi (juz)" className="px-3 py-2">
                       {edit ? <input className={inputCls} value={d?.materi ?? t?.materi_juz ?? ''} placeholder="mis. 30" onChange={(e) => ubah(s.id, { materi: e.target.value })} />
                         : <span className="text-slate-600">{t?.materi_juz || '-'}</span>}
                     </td>
-                    <td className="px-3 py-2">
+                    <td data-label="Nilai" className="px-3 py-2">
                       {edit ? <input className={inputCls} inputMode="decimal" value={d?.nilai ?? ''} placeholder={d?.mode === 'remedial' ? 'remedial' : '0–100'} onChange={(e) => ubah(s.id, { nilai: e.target.value })} />
                         : <span className="font-semibold text-slate-800">{tampilNilai(t?.final_score)}</span>}
                     </td>
-                    <td className="px-3 py-2">
+                    <td data-label="Predikat" className="px-3 py-2">
                       {pred ? <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${lulus ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>{pred}{lulus === false ? ' · perlu remedial' : ''}</span> : <span className="text-slate-300">-</span>}
                     </td>
-                    <td className="px-3 py-2 text-right whitespace-nowrap">
+                    <td data-label="Aksi" className="px-3 py-2 text-right whitespace-nowrap">
                       {t && !d && (
                         <>
                           <button type="button" className="text-xs font-semibold text-blue-700 mr-3 inline-flex items-center gap-1" onClick={() => mulai(s.id, 'remedial')}><RotateCcw size={12} /> Remedial</button>

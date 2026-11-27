@@ -9,7 +9,7 @@
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { useSupabaseData } from '../../hooks/useSupabaseData';
+import { useSupabaseData, useRiwayat } from '../../hooks/useSupabaseData';
 import { supabase } from '../../lib/supabaseClient';
 import { normalizeRole } from '../../lib/permissions';
 import { PageHeader, LoadingState, EmptyState, StatCard } from '../../components/ui/SaaSPrimitives';
@@ -56,6 +56,10 @@ const SesiHalaqahPage: React.FC = () => {
   const [slot, setSlot] = useState(params.get('slot') || '');
   useEffect(() => { if (!slot || !slotOptions.includes(slot)) setSlot(slotOptions[0] || ''); }, [slotOptions]); // eslint-disable-line
   const [tab, setTab] = useState<Tab>(((params.get('tab') as Tab) || (/recitations/.test(window.location.pathname) ? 'setoran' : 'absensi')));
+  // Fase 7: tab Riwayat butuh data lama; tanggal lampau juga memicu muat riwayat.
+  const { pastikanTanggal } = useSupabaseData();
+  useRiwayat({ aktif: tab === 'riwayat' });
+  useEffect(() => { pastikanTanggal(date); }, [date, pastikanTanggal]);
 
   // Tautan lama /app/sessions/:sessionId -> isi pilihan dari sesi
   useEffect(() => {
@@ -204,26 +208,26 @@ const SesiHalaqahPage: React.FC = () => {
             <div key={p.santri.id} className="px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-1">
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-semibold text-slate-800">{p.santri.nama}</div>
-                <div className="text-[11px] text-slate-500">{labelArah((p.santri as any).arah_hafalan)} · posisi terakhir: {p.posisi}</div>
+                <div className="text-sm sm:text-[11px] text-slate-500">{labelArah((p.santri as any).arah_hafalan)} · posisi terakhir: {p.posisi}</div>
               </div>
-              <div className="text-xs text-slate-700">Ziyadah <b>{p.ziyadah}</b> hal</div>
-              <div className="text-xs text-slate-700">Murojaah <b>{p.murojaah}</b> hal</div>
-              {p.ulang > 0 && <div className="text-xs text-red-700">{p.ulang}× ulang</div>}
-              <div className="text-xs text-slate-700">Hadir <b>{p.kehadiran === null ? '-' : `${p.kehadiran}%`}</b></div>
+              <div className="text-sm sm:text-xs text-slate-700">Ziyadah <b>{p.ziyadah}</b> hal</div>
+              <div className="text-sm sm:text-xs text-slate-700">Murojaah <b>{p.murojaah}</b> hal</div>
+              {p.ulang > 0 && <div className="text-sm sm:text-xs text-red-700">{p.ulang}× ulang</div>}
+              <div className="text-sm sm:text-xs text-slate-700">Hadir <b>{p.kehadiran === null ? '-' : `${p.kehadiran}%`}</b></div>
             </div>
           ))}
-          {progresSantri.length === 0 && <p className="px-4 py-3 text-xs text-slate-500">Belum ada santri.</p>}
+          {progresSantri.length === 0 && <p className="px-4 py-3 text-sm sm:text-xs text-slate-500">Belum ada santri.</p>}
         </div>
       )}
 
       {tab === 'riwayat' && (
         <div className="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100">
-          {riwayatSesi.length === 0 && <p className="px-4 py-3 text-xs text-slate-500">Belum ada sesi tercatat pada tahun ajaran ini.</p>}
+          {riwayatSesi.length === 0 && <p className="px-4 py-3 text-sm sm:text-xs text-slate-500">Belum ada sesi tercatat pada tahun ajaran ini.</p>}
           {riwayatSesi.map((r) => (
             <button key={`${r.date}-${r.slot}`} type="button" onClick={() => { setDate(r.date); setSlot(r.slot); setTab('absensi'); }}
               className="w-full text-left px-4 py-2.5 flex items-center justify-between hover:bg-slate-50">
               <span className="text-sm font-medium text-slate-800">{r.date} · {r.slot}</span>
-              <span className="text-xs text-slate-600">Hadir {r.hadir}/{r.total} · {r.setoran} setoran</span>
+              <span className="text-sm sm:text-xs text-slate-600">Hadir {r.hadir}/{r.total} · {r.setoran} setoran</span>
             </button>
           ))}
         </div>

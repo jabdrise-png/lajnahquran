@@ -315,7 +315,7 @@ const FormEvaluasiPeriodePage: React.FC = () => {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <label className="text-xs font-semibold text-slate-600">Periode
+        <label className="text-sm sm:text-xs font-semibold text-slate-600">Periode
           <select className={`${inputCls} mt-1`} value={periodId} onChange={(e) => setPeriodId(e.target.value)}>
             {periods.length === 0 && <option value="">Belum ada periode</option>}
             {periods.map((p) => (
@@ -325,7 +325,7 @@ const FormEvaluasiPeriodePage: React.FC = () => {
             ))}
           </select>
         </label>
-        <label className="text-xs font-semibold text-slate-600">Halaqah
+        <label className="text-sm sm:text-xs font-semibold text-slate-600">Halaqah
           <select className={`${inputCls} mt-1`} value={halaqahId || ''} onChange={(e) => setHalaqahId(Number(e.target.value))}>
             {halaqahList.length === 0 && <option value="">Tidak ada halaqah</option>}
             {halaqahList.map((h) => <option key={h.id} value={h.id}>{h.nama}{h.musammi?.nama ? ` · ${h.musammi.nama}` : ''}</option>)}
@@ -343,7 +343,7 @@ const FormEvaluasiPeriodePage: React.FC = () => {
 
       {data && !memuat && (
         <>
-          <div className="flex flex-wrap items-center gap-2 text-xs">
+          <div className="flex flex-wrap items-center gap-2 text-sm sm:text-xs">
             <span className="px-2.5 py-1 rounded-full border bg-blue-50 text-blue-700 border-blue-200 font-semibold">{MODE_LABEL[mode]}</span>
             <span className={`px-2.5 py-1 rounded-full border font-semibold ${badgeStatus[status]}`}>{STATUS_FORM_LABEL[status]}</span>
             {periode && <span className="text-slate-500">{periode.start_date} s.d. {periode.end_date}</span>}
@@ -361,7 +361,7 @@ const FormEvaluasiPeriodePage: React.FC = () => {
               )}
             </div>
           </div>
-          <p className="text-xs text-slate-500">
+          <p className="text-sm sm:text-xs text-slate-500">
             {mode === 'harian'
               ? `${label.ziyadah}, ${label.murojaah}, ${label.posisi}, ${label.kelancaran}, dan ${label.kehadiran} dihitung otomatis dari setoran & absensi harian. Bila keliru, perbaiki setorannya${isAdmin ? ' atau gunakan Koreksi (wajib alasan)' : ''}.`
               : `Isi ${label.ziyadah.toLowerCase()}, ${label.murojaah.toLowerCase()}, ${label.posisi.toLowerCase()} (sampai surat … ayat …), dan ${label.kelancaran.toLowerCase()}. ${label.kehadiran} selalu dihitung dari absensi.`}
@@ -390,20 +390,20 @@ const FormEvaluasiPeriodePage: React.FC = () => {
               return (
                 <div key={r.santri_id} className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 space-y-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-slate-400 w-6">{idx + 1}.</span>
+                    <span className="text-sm sm:text-xs text-slate-400 w-6">{idx + 1}.</span>
                     <span className="font-semibold text-slate-800">{r.nama}</span>
-                    {r.kode && <span className="text-xs text-slate-400">{r.kode}</span>}
-                    <span className="text-[11px] text-slate-500 px-2 py-0.5 rounded-full bg-slate-100">{dua ? 'Dua arah' : maju ? 'Maju' : 'Mundur'}</span>
-                    {r.sumber === 'migrasi' && <span className="text-[11px] text-slate-500 px-2 py-0.5 rounded-full bg-slate-100">data lama</span>}
-                    {dikoreksi.length > 0 && <span className="text-[11px] text-amber-700 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200">dikoreksi Admin: {dikoreksi.join(', ')}</span>}
-                    {kotor.has(r.santri_id) && <span className="text-[11px] text-blue-700">• belum disimpan</span>}
+                    {r.kode && <span className="text-sm sm:text-xs text-slate-400">{r.kode}</span>}
+                    <span className="text-sm sm:text-[11px] text-slate-500 px-2 py-0.5 rounded-full bg-slate-100">{dua ? 'Dua arah' : maju ? 'Maju' : 'Mundur'}</span>
+                    {r.sumber === 'migrasi' && <span className="text-sm sm:text-[11px] text-slate-500 px-2 py-0.5 rounded-full bg-slate-100">data lama</span>}
+                    {dikoreksi.length > 0 && <span className="text-sm sm:text-[11px] text-amber-700 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200">dikoreksi Admin: {dikoreksi.join(', ')}</span>}
+                    {kotor.has(r.santri_id) && <span className="text-sm sm:text-[11px] text-blue-700">• belum disimpan</span>}
                     {isAdmin && r.sumber === 'harian' && bolehUbah && (
                       <div className="ml-auto flex gap-2">
                         {!koreksi.has(r.santri_id) && (
-                          <button type="button" className="text-xs font-semibold text-blue-700" onClick={() => setKoreksi((k) => new Set(k).add(r.santri_id))}>Koreksi</button>
+                          <button type="button" className="text-sm sm:text-xs font-semibold text-blue-700" onClick={() => setKoreksi((k) => new Set(k).add(r.santri_id))}>Koreksi</button>
                         )}
                         {dikoreksi.length > 0 && (
-                          <button type="button" className="text-xs font-semibold text-slate-600 inline-flex items-center gap-1"
+                          <button type="button" className="text-sm sm:text-xs font-semibold text-slate-600 inline-flex items-center gap-1"
                             onClick={() => { setReset((s) => new Set(s).add(r.santri_id)); setKotor((k) => new Set(k).add(r.santri_id)); }}>
                             <RotateCcw size={12} /> Kembali ke otomatis{reset.has(r.santri_id) ? ' ✓' : ''}
                           </button>
@@ -414,15 +414,15 @@ const FormEvaluasiPeriodePage: React.FC = () => {
 
                   {/* Isian sistem */}
                   <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-2">
-                    <label className="text-[11px] font-semibold text-slate-500">{label.ziyadah}
+                    <label className="text-sm sm:text-[11px] font-semibold text-slate-500">{label.ziyadah}
                       {edit ? <input type="number" min={0} step="any" className={`${inputCls} mt-0.5`} value={d.ziyadah} onChange={(e) => ubah(r.santri_id, { ziyadah: e.target.value })} />
-                        : <div className="mt-0.5 text-sm font-semibold text-slate-800">{r.ziyadah_pages ?? '-'} <span className="text-xs font-normal text-slate-400">hal</span></div>}
+                        : <div className="mt-0.5 text-sm font-semibold text-slate-800">{r.ziyadah_pages ?? '-'} <span className="text-sm sm:text-xs font-normal text-slate-400">hal</span></div>}
                     </label>
-                    <label className="text-[11px] font-semibold text-slate-500">{label.murojaah}
+                    <label className="text-sm sm:text-[11px] font-semibold text-slate-500">{label.murojaah}
                       {edit ? <input type="number" min={0} step="any" className={`${inputCls} mt-0.5`} value={d.murojaah} onChange={(e) => ubah(r.santri_id, { murojaah: e.target.value })} />
-                        : <div className="mt-0.5 text-sm font-semibold text-slate-800">{r.murojaah_pages ?? '-'} <span className="text-xs font-normal text-slate-400">hal</span></div>}
+                        : <div className="mt-0.5 text-sm font-semibold text-slate-800">{r.murojaah_pages ?? '-'} <span className="text-sm sm:text-xs font-normal text-slate-400">hal</span></div>}
                     </label>
-                    <div className="col-span-2 text-[11px] font-semibold text-slate-500">{label.posisi} {edit && <span className="font-normal">({dua ? 'depan: Al-Fatihah →' : maju ? 'Al-Fatihah →' : 'An-Nas →'} sampai)</span>}
+                    <div className="col-span-2 text-sm sm:text-[11px] font-semibold text-slate-500">{label.posisi} {edit && <span className="font-normal">({dua ? 'depan: Al-Fatihah →' : maju ? 'Al-Fatihah →' : 'An-Nas →'} sampai)</span>}
                       {edit ? (
                         <div className="mt-0.5 flex gap-1">
                           <select className={inputCls} value={d.surah} onChange={(e) => ubah(r.santri_id, { surah: e.target.value, ayah: e.target.value ? String(SURAHS_DATA[Number(e.target.value) - 1]?.totalAyah || 1) : '' })}>
@@ -448,17 +448,17 @@ const FormEvaluasiPeriodePage: React.FC = () => {
                       ) : null}
                       {!edit && <div className="mt-0.5 text-sm text-slate-800">{teksPosisi(r) || '-'}</div>}
                       {edit && sebelum && (sebelum.posisi_maju_surah || sebelum.posisi_mundur_surah) && (
-                        <div className="text-[10px] font-normal text-slate-400 mt-0.5">Sebelumnya ({sebelum.nama_periode}): {teksPosisi(sebelum as any)}</div>
+                        <div className="text-sm sm:text-[10px] font-normal text-slate-400 mt-0.5">Sebelumnya ({sebelum.nama_periode}): {teksPosisi(sebelum as any)}</div>
                       )}
                     </div>
-                    <div className="text-[11px] font-semibold text-slate-500">Total hafalan
+                    <div className="text-sm sm:text-[11px] font-semibold text-slate-500">Total hafalan
                       {edit && !posMaju[0] && !posMundur[0] ? (
                         <input type="number" min={0} max={30} step="any" className={`${inputCls} mt-0.5`} placeholder="juz" value={d.totalJuz} onChange={(e) => ubah(r.santri_id, { totalJuz: e.target.value })} />
                       ) : (
-                        <div className="mt-0.5 text-sm font-semibold text-slate-800">{(total?.juz ?? r.total_juz) ?? '-'} <span className="text-xs font-normal text-slate-400">juz</span></div>
+                        <div className="mt-0.5 text-sm font-semibold text-slate-800">{(total?.juz ?? r.total_juz) ?? '-'} <span className="text-sm sm:text-xs font-normal text-slate-400">juz</span></div>
                       )}
                     </div>
-                    <label className="text-[11px] font-semibold text-slate-500">{label.kelancaran}
+                    <label className="text-sm sm:text-[11px] font-semibold text-slate-500">{label.kelancaran}
                       {edit ? (
                         <select className={`${inputCls} mt-0.5`} value={d.kelancaran} onChange={(e) => ubah(r.santri_id, { kelancaran: e.target.value })}>
                           <option value="">—</option>
@@ -466,12 +466,12 @@ const FormEvaluasiPeriodePage: React.FC = () => {
                         </select>
                       ) : <div className="mt-0.5 text-sm font-semibold text-slate-800">{r.kelancaran || '-'}</div>}
                     </label>
-                    <div className="text-[11px] font-semibold text-slate-500" title="Dihitung otomatis dari absensi">{label.kehadiran}
+                    <div className="text-sm sm:text-[11px] font-semibold text-slate-500" title="Dihitung otomatis dari absensi">{label.kehadiran}
                       <div className="mt-0.5 text-sm font-semibold text-slate-800">
                         {r.kehadiran_persen !== null ? `${r.kehadiran_persen}%` : '-'}
-                        {r.kehadiran_total ? <span className="text-xs font-normal text-slate-400"> ({r.hadir_count}/{r.kehadiran_total})</span> : null}
+                        {r.kehadiran_total ? <span className="text-sm sm:text-xs font-normal text-slate-400"> ({r.hadir_count}/{r.kehadiran_total})</span> : null}
                       </div>
-                      <div className="text-[10px] font-normal text-slate-400">dari absensi</div>
+                      <div className="text-sm sm:text-[10px] font-normal text-slate-400">dari absensi</div>
                     </div>
                   </div>
 
@@ -479,14 +479,14 @@ const FormEvaluasiPeriodePage: React.FC = () => {
                   {(isianBebas.length > 0) && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
                       {isianBebas.map((f) => (
-                        <label key={f.id} className="text-[11px] font-semibold text-slate-500">{f.label}
+                        <label key={f.id} className="text-sm sm:text-[11px] font-semibold text-slate-500">{f.label}
                           <div className="mt-0.5"><IsianBebas f={f} value={d.bebas[f.id]} disabled={!bolehUbah}
                             onChange={(v) => ubah(r.santri_id, { bebas: { ...d.bebas, [f.id]: v } })} /></div>
                         </label>
                       ))}
                     </div>
                   )}
-                  <label className="block text-[11px] font-semibold text-slate-500">Catatan
+                  <label className="block text-sm sm:text-[11px] font-semibold text-slate-500">Catatan
                     <textarea rows={1} className={`${inputCls} mt-0.5`} value={d.catatan} disabled={!bolehUbah} onChange={(e) => ubah(r.santri_id, { catatan: e.target.value })} />
                   </label>
                 </div>
@@ -498,7 +498,7 @@ const FormEvaluasiPeriodePage: React.FC = () => {
             <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
               <h3 className="font-bold text-slate-800 text-sm">Evaluasi Kegiatan Halaqah</h3>
               {pertanyaan.map((f) => (
-                <label key={f.id} className="block text-xs font-semibold text-slate-600">{f.label}
+                <label key={f.id} className="block text-sm sm:text-xs font-semibold text-slate-600">{f.label}
                   {f.description && <span className="block font-normal text-slate-400">{f.description}</span>}
                   <div className="mt-1"><IsianBebas f={f} value={kegiatan[f.id]} disabled={!bolehUbah}
                     onChange={(v) => { setKegiatan((k) => ({ ...k, [f.id]: v })); setKegiatanKotor(true); }} /></div>
@@ -509,7 +509,7 @@ const FormEvaluasiPeriodePage: React.FC = () => {
 
           {bolehUbah && (
             <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur pl-4 pr-20 py-3 flex items-center justify-end gap-2 lg:pl-72">
-              <span className="mr-auto text-xs text-slate-500 hidden sm:inline">{adaPerubahan ? `${kotor.size} santri diubah` : 'Tidak ada perubahan'}</span>
+              <span className="mr-auto text-sm sm:text-xs text-slate-500 hidden sm:inline">{adaPerubahan ? `${kotor.size} santri diubah` : 'Tidak ada perubahan'}</span>
               <button type="button" disabled={menyimpan || !adaPerubahan} onClick={() => simpan(false)}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-700 whitespace-nowrap disabled:opacity-50">
                 <Save size={15} /> {terkirim ? 'Simpan koreksi' : 'Simpan Draft'}

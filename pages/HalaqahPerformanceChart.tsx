@@ -1,4 +1,4 @@
-import { useSupabaseData } from '../hooks/useSupabaseData';
+import { useSupabaseData, useRiwayat } from '../hooks/useSupabaseData';
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, ComposedChart } from 'recharts';
@@ -54,6 +54,7 @@ const PortalTooltip = ({ active, payload, label }: any) => {
 
 export const HalaqahPerformanceChart = ({ studentProgress, halaqah, halaqahEvaluations = [], filteredSantri, availableMonths, classTargets, evaluationSettings, appSettings, filterMonth, attendance, filterHalaqah = 'all', filterMarhalah = 'all' }: any) => {
     const { periodeEvaluasi } = useSupabaseData();
+    useRiwayat(); // Fase 7: riwayat absensi/setoran dimuat saat halaman ini dibuka
     const { selectedAcademicYear } = useAcademicYear();
     const activeSem = selectedAcademicYear?.active_semester || 'Ganjil';
     const [isMenuOpen, setIsMenuOpen] = useState(false);

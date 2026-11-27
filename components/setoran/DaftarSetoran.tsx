@@ -43,7 +43,7 @@ const DaftarSetoran: React.FC<Props> = ({ rows, isAdmin, halaqahOptions, santriL
     setRiwayat({ row, items: data || [] });
   };
 
-  if (rows.length === 0) return <p className="text-xs text-slate-500 py-3">{emptyText || 'Belum ada setoran.'}</p>;
+  if (rows.length === 0) return <p className="text-sm sm:text-xs text-slate-500 py-3">{emptyText || 'Belum ada setoran.'}</p>;
 
   return (
     <>
@@ -54,20 +54,20 @@ const DaftarSetoran: React.FC<Props> = ({ rows, isAdmin, halaqahOptions, santriL
               <div className="text-sm font-semibold text-slate-800 truncate">
                 {nama(r.santri_id)} <span className="font-normal text-slate-500">· {r.skema}</span>
               </div>
-              <div className="text-[12px] text-slate-600">
+              <div className="text-sm sm:text-[12px] text-slate-600">
                 {showDate && <>{r.tanggal} {r.waktu} · </>}{rentang(r)} · {r.jumlah_halaman} hal · K{r.kesalahan_kabir}/S{r.kesalahan_shoghir}
                 {halaqahNama(r.halaqah_id) && showDate && <> · {halaqahNama(r.halaqah_id)}</>}
               </div>
             </div>
-            <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${r.is_repeat ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
+            <span className={`text-sm sm:text-[11px] font-bold px-2 py-0.5 rounded ${r.is_repeat ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
               {r.nilai || '-'}{r.is_repeat ? ' · Ulang' : ''}
             </span>
             <div className="flex items-center gap-1">
-              <button type="button" title="Riwayat revisi" onClick={() => bukaRiwayat(r)} className="p-1.5 text-slate-400 hover:text-slate-700"><History size={15} /></button>
+              <button type="button" title="Riwayat revisi" onClick={() => bukaRiwayat(r)} className="p-2.5 sm:p-1.5 text-slate-400 hover:text-slate-700"><History size={18} /></button>
               {/* Koreksi: Admin & musammi' halaqah itu (server memeriksa); pembatalan hanya Admin */}
-              <button type="button" title="Koreksi" onClick={() => setKoreksi(r)} className="p-1.5 text-slate-400 hover:text-blue-600"><Pencil size={15} /></button>
+              <button type="button" title="Koreksi" onClick={() => setKoreksi(r)} className="p-2.5 sm:p-1.5 text-slate-400 hover:text-blue-600"><Pencil size={18} /></button>
               {isAdmin && (
-                <button type="button" title="Batalkan" onClick={() => setBatal(r)} className="p-1.5 text-slate-400 hover:text-red-600"><XCircle size={15} /></button>
+                <button type="button" title="Batalkan" onClick={() => setBatal(r)} className="p-2.5 sm:p-1.5 text-slate-400 hover:text-red-600"><XCircle size={18} /></button>
               )}
             </div>
           </li>
@@ -111,14 +111,14 @@ const DaftarSetoran: React.FC<Props> = ({ rows, isAdmin, halaqahOptions, santriL
       <Modal isOpen={Boolean(riwayat)} onClose={() => setRiwayat(null)} title="Riwayat revisi setoran" maxWidth="lg">
         {riwayat && (
           <ol className="space-y-2 text-sm">
-            {riwayat.items.length === 0 && <li className="text-slate-500 text-xs">Belum ada riwayat.</li>}
+            {riwayat.items.length === 0 && <li className="text-slate-500 text-sm sm:text-xs">Belum ada riwayat.</li>}
             {riwayat.items.map((it) => (
               <li key={it.id} className="border border-slate-200 rounded-lg px-3 py-2">
                 <div className="font-semibold text-slate-800">
                   #{it.revision_no} · {it.action === 'create' || it.action?.startsWith('create') ? 'Dicatat' : it.action === 'void' ? 'Dibatalkan' : it.action === 'correct' ? 'Dikoreksi' : it.action}
                   <span className="font-normal text-slate-500"> · {new Date(it.created_at).toLocaleString('id-ID')}</span>
                 </div>
-                {it.reason && <div className="text-xs text-slate-600">Alasan: {it.reason}</div>}
+                {it.reason && <div className="text-sm sm:text-xs text-slate-600">Alasan: {it.reason}</div>}
               </li>
             ))}
           </ol>

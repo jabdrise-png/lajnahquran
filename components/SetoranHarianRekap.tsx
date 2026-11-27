@@ -1,7 +1,7 @@
 import React, { useState, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, Filter, Calendar, ChevronDown, ChevronRight, CheckCircle2, X } from 'lucide-react';
-import { useSupabaseData } from '../hooks/useSupabaseData';
+import { useSupabaseData, useRiwayat } from '../hooks/useSupabaseData';
 import { format, parseISO} from 'date-fns';
 import { id } from 'date-fns/locale';
 import { exportToExcel } from '../lib/utils';
@@ -42,6 +42,7 @@ const SetoranHarianRekap = forwardRef<SetoranHarianRekapRef, Props>(({
         globalJenisHalaqah,
         recitationKinds
     } = useSupabaseData();
+    useRiwayat(); // Fase 7: riwayat absensi/setoran dimuat saat halaman ini dibuka
 
 
     

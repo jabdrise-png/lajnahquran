@@ -22,6 +22,14 @@
 
 begin;
 
+-- Pengaman urutan: file ini butuh tabel dari 2026_12_01_01
+do $$
+begin
+  if to_regclass('public.telegram_settings') is null or to_regclass('public.notification_queue') is null then
+    raise exception 'Jalankan dulu 2026_12_01_01_f6_telegram_struktur.sql, lalu jalankan ulang file ini.';
+  end if;
+end $$;
+
 -- ---------------------------------------------------------------------
 -- 1. Fungsi bantu teks
 -- ---------------------------------------------------------------------

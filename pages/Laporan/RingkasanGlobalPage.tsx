@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { MarhalahLabel, KelasLabel } from '../../components/Labels';
 import Card from '../../components/Card';
 import Modal from '../../components/Modal'; 
-import { useSupabaseData } from '../../hooks/useSupabaseData';
+import { useSupabaseData, useRiwayat } from '../../hooks/useSupabaseData';
 import { exportToExcel } from '../../lib/utils';
 import { supabase } from '../../lib/supabaseClient';
 import { ALL_PERAN, ALL_ATTENDANCE_STATUS } from '../../constants';
@@ -31,6 +31,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = ({
     exportTrigger
 }) => {
     const { attendance, halaqah, santri, appSettings, updateAttendanceRecord, deleteAttendanceRecord, addAttendanceRecords, loading, error , globalMarhalahs, globalWaktuHalaqah, globalAttendanceStatus, userProfile, waliKelas , masterMarhalahs, masterKelasRelasi, getOrgId} = useSupabaseData();
+    useRiwayat(); // Fase 7: riwayat absensi/setoran dimuat saat halaman ini dibuka
     const [displayLimit, setDisplayLimit] = useState(50); // Initial limit as in screenshot
 
     // UI States
