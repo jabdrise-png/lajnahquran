@@ -211,18 +211,80 @@ async function startServer() {
     }
   });
 
+  const STATIC_ASSET_EXT_RE = /\.(?:js|mjs|cjs|css|map|wasm|json|webmanifest|svg|png|jpe?g|webp|gif|ico|woff2?|ttf|eot)$/i;
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
+    // Jika browser masih punya Service Worker lama di origin dev, pastikan langsung dibersihkan (bukan mengembalikan text/html)
+    app.get("/sw.js", (_req, res) => {
+      res.setHeader("Content-Type", "application/javascript; charset=utf-8");
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+      res.send(
+        "self.addEventListener('install',()=>self.skipWaiting());" +
+        "self.addEventListener('activate',(e)=>{e.waitUntil(" +
+        "caches.keys().then((ks)=>Promise.all(ks.map((k)=>caches.delete(k))))" +
+        ".then(()=>self.registration.unregister())" +
+        ".then(()=>self.clients.matchAll({type:'window'}))" +
+        ".then((cs)=>cs.forEach((c)=>c.navigate(c.url)))" +
+        ");});"
+      );
+    });
+
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, allowedHosts: true },
       appType: "spa",
     });
+
+    // Jangan biarkan permintaan chunk produksi lama (/assets/*.js) jatuh ke SPA fallback text/html di mode dev
+    app.use((req, res, next) => {
+      if ((req.method === "GET" || req.method === "HEAD") && req.path.startsWith("/assets/") && STATIC_ASSET_EXT_RE.test(req.path)) {
+        const publicAssetPath = path.join(process.cwd(), "public", req.path);
+        return res.sendFile(publicAssetPath, (err) => {
+          if (err && !res.headersSent) {
+            res.status(404).type("text/plain").send("Asset not found");
+          }
+        });
+      }
+      return next();
+    });
+
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+    app.use(
+      "/assets",
+      express.static(path.join(distPath, "assets"), {
+        maxAge: "1y",
+        immutable: true,
+      })
+    );
+    app.use("/assets", (_req, res) => {
+      res.status(404).type("text/plain").send("Asset not found");
+    });
+    app.use(
+      express.static(distPath, {
+        index: false,
+        setHeaders: (res, filePath) => {
+          if (
+            filePath.endsWith("index.html") ||
+            filePath.endsWith("sw.js") ||
+            filePath.endsWith("manifest.webmanifest")
+          ) {
+            res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+          }
+        },
+      })
+    );
+    app.use((req, res, next) => {
+      if ((req.method !== "GET" && req.method !== "HEAD") || req.path.startsWith("/api/")) {
+        return next();
+      }
+      // Jangan pernah mengembalikan index.html (text/html) untuk berkas aset/skrip yang tidak ditemukan
+      if (req.path.startsWith("/assets/") || STATIC_ASSET_EXT_RE.test(req.path)) {
+        return res.status(404).type("text/plain").send("Not Found");
+      }
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+      return res.sendFile(path.join(distPath, "index.html"));
     });
   }
 

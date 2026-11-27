@@ -15,15 +15,25 @@
   status = 200
 
 [[redirects]]
+  from = "/assets/*"
+  to = "/404.html"
+  status = 404
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
 
-# Fase 7 · PWA: service worker & manifest selalu dicek ulang; aset ber-hash boleh disimpan lama.
+# Fase 7 · PWA: service worker, html & manifest selalu dicek ulang; aset ber-hash boleh disimpan lama.
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
 [[headers]]
   for = "/sw.js"
   [headers.values]
-    Cache-Control = "no-cache"
+    Cache-Control = "no-cache, no-store, must-revalidate"
 
 [[headers]]
   for = "/manifest.webmanifest"

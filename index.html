@@ -18,6 +18,21 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      window.addEventListener('vite:preloadError', function () {
+        try {
+          if (sessionStorage.getItem('lq:preload-reload') === '1') return;
+          sessionStorage.setItem('lq:preload-reload', '1');
+        } catch (e) {}
+        if ('caches' in window) {
+          caches.keys().then(function (ks) {
+            return Promise.all(ks.map(function (k) { return caches.delete(k); }));
+          }).finally(function () { window.location.reload(); });
+        } else {
+          window.location.reload();
+        }
+      });
+    </script>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>

@@ -15,11 +15,17 @@ export function lazyHalaman<T extends React.ComponentType<any>>(impor: () => Pro
       return m;
     } catch (e: any) {
       const pesan = String(e?.message || e);
-      const chunkHilang = /dynamically imported module|Importing a module script failed|Failed to fetch|ChunkLoadError|Loading chunk/i.test(pesan);
+      const chunkHilang = /dynamically imported module|Importing a module script failed|Failed to fetch|ChunkLoadError|Loading chunk|MIME type|text\/html|module script/i.test(pesan);
       let sudah = false;
       try { sudah = sessionStorage.getItem(KUNCI) === '1'; } catch { /* abaikan */ }
       if (chunkHilang && !sudah) {
         try { sessionStorage.setItem(KUNCI, '1'); } catch { /* abaikan */ }
+        try {
+          if ('caches' in window) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map((k) => caches.delete(k)));
+          }
+        } catch { /* abaikan */ }
         window.location.reload();
         return new Promise<{ default: T }>(() => undefined);
       }

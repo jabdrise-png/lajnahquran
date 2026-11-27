@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 3000,
         host: '0.0.0.0',
+        allowedHosts: true,
       },
       plugins: [
         react(),
@@ -41,13 +42,28 @@ export default defineConfig(({ mode }) => {
             // Kerangka: html, css, js utama, font & ikon. Potongan halaman (lazy) disimpan saat dipakai.
             globPatterns: ['index.html', 'assets/index-*.{js,css}', 'assets/*.woff2', 'favicon.svg', 'icons/*.png'],
             navigateFallback: '/index.html',
-            navigateFallbackDenylist: [/^\/api\//, /^\/\.netlify\//],
+            navigateFallbackDenylist: [/^\/api\//, /^\/\.netlify\//, /^\/assets\//, /\/[^/?]+\.[^/]+$/],
             cleanupOutdatedCaches: true,
             runtimeCaching: [
               {
                 urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith('/assets/'),
                 handler: 'CacheFirst',
-                options: { cacheName: 'lq-aset', expiration: { maxEntries: 120, maxAgeSeconds: 60 * 60 * 24 * 30 } },
+                options: {
+                  cacheName: 'lq-aset-v2',
+                  expiration: { maxEntries: 120, maxAgeSeconds: 60 * 60 * 24 * 30 },
+                  cacheableResponse: { statuses: [200] },
+                  plugins: [
+                    {
+                      cacheWillUpdate: async ({ response }) => {
+                        const ct = response?.headers?.get('content-type') || '';
+                        if (!response || response.status !== 200 || ct.includes('text/html')) {
+                          return null;
+                        }
+                        return response;
+                      },
+                    },
+                  ],
+                },
               },
             ],
           },
