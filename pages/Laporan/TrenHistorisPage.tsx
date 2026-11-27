@@ -230,10 +230,10 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
     if (error) return <p className="text-error">{error}</p>;
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500 font-sans">
+        <div className="space-y-5 font-sans">
             {dialogAlasan}
             <div className="panel-filter">
-              <div className="grid-filter">
+              <div className="grid-filter lg:grid-cols-5">
                 <label className="kontrol flex items-center gap-2"><span className="shrink-0 text-xs font-semibold text-slate-400">Dari:</span><input 
                                                     type="date" 
                                                     value={dateRange.start} 
@@ -265,7 +265,7 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
                 <select 
                                                     value={selectedPeran} 
                                                     onChange={e => setSelectedPeran(e.target.value)} 
-                                                    className="kontrol"
+                                                    className="kontrol sm:col-span-2 lg:col-span-1"
                                                 >
                                                     <option value="all">Semua Peran</option>
                                                     <option value="Santri">Santri</option>
@@ -273,13 +273,13 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
                                                 </select>
               </div>
             </div>
-            <div className="wadah-tabel flex flex-col min-h-[500px]">
+            <div className="wadah-tabel flex flex-col">
                 
 
                 {/* Toolbar */}
                 <div className="p-4 bg-white border-b border-slate-100 flex justify-between items-center gap-3">
                     <span className="text-xs font-semibold text-slate-500">
-                        {timeRecapData.length} Data Rekapitutulasi
+                        {timeRecapData.length} Data Rekapitulasi
                     </span>
                     <div className="flex items-center gap-2">
 
@@ -294,7 +294,7 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
 
                 {/* Table */}
                 <div className="flex-1 custom-scrollbar overflow-x-auto">
-                    <table className="tabel min-w-[700px]">
+                    <table className="tabel tabel-kartu sm:min-w-[700px]">
                         <thead>
                             <tr>
                                 <th className="sticky top-0 z-10">Tanggal</th>
@@ -316,23 +316,23 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
                                     onClick={() => setSelectedSession({ date: item.date, waktu: item.waktu })}
                                     title="Klik untuk lihat detail per kelas"
                                 >
-                                    <td className="font-medium text-sm text-slate-800">
+                                    <td data-label="Tanggal" className="font-medium text-sm text-slate-800 tabular-nums">
                                         {item.date}
                                     </td>
-                                    <td><span className="px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 text-xs font-semibold">{item.waktu}</span></td>
+                                    <td data-label="Waktu"><span className="badge badge-abu">{item.waktu}</span></td>
                                     {globalAttendanceStatus?.map(s => (
-                                        <td key={s} className="text-center text-sm text-slate-600 font-bold">{item[s] || 0}</td>
+                                        <td key={s} data-label={s} className="text-center text-sm text-slate-600 font-bold tabular-nums">{item[s] || 0}</td>
                                     ))}
-                                    <td className="text-center text-sm font-extrabold text-slate-700 bg-slate-50/50">{item.Total}</td>
+                                    <td data-label="Total" className="text-center text-sm font-extrabold text-slate-700 bg-slate-50/50 tabular-nums">{item.Total}</td>
                                     {canDeleteSession && (
-                                        <td className="text-right">
+                                        <td data-label="Aksi" className="text-right">
                                             <div className="flex justify-end">
                                                 <button 
                                                     onClick={(e) => handleDeleteTimeRecap(e, item.date, item.waktu)} 
-                                                    className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                                    className="btn-icon hover:!text-red-600 hover:!bg-red-50"
                                                     title={selectedPeran !== 'all' ? `Hapus Absensi ${selectedPeran} Sesi Ini` : "Hapus Sesi"}
                                                 >
-                                                    <Trash size={16} strokeWidth={2.5}/>
+                                                    <Trash size={15} />
                                                 </button>
                                             </div>
                                         </td>
@@ -350,22 +350,22 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
                     </table>
                 </div>
                 {totalPages > 1 && (
-                    <div className="bg-white border-t border-slate-100 p-4 flex items-center justify-between">
-                        <span className="text-sm text-slate-500 font-medium">Halaman {currentPage} dari {totalPages}</span>
+                    <div className="bg-white border-t border-slate-100 p-4 flex flex-wrap items-center justify-between gap-3">
+                        <span className="text-sm text-slate-500 font-medium tabular-nums">Halaman {currentPage} dari {totalPages}</span>
                         <div className="flex items-center gap-2">
                             <button 
                                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
                                 disabled={currentPage === 1}
-                                className="px-3.5 py-1.5 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+                                className="btn btn-secondary btn-sm"
                             >
-                                Prev
+                                Sebelumnya
                             </button>
                             <button 
                                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
                                 disabled={currentPage === totalPages || totalPages === 0}
-                                className="px-3.5 py-1.5 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+                                className="btn btn-secondary btn-sm"
                             >
-                                Next
+                                Berikutnya
                             </button>
                             <div className="h-4 w-px bg-slate-200 mx-1"></div>
                             <button 
@@ -373,7 +373,7 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
                                     setItemsPerPage(prev => prev === 50 ? 999999 : 50);
                                     setCurrentPage(1);
                                 }}
-                                className="px-3.5 py-1.5 border border-blue-200 bg-blue-50/50 rounded-lg text-sm font-bold text-blue-600 hover:bg-blue-100 transition-colors ml-1"
+                                className="btn btn-soft btn-sm"
                             >
                                 {itemsPerPage === 50 ? 'Tampilkan Semua' : 'Tampilkan Sedikit'}
                             </button>
@@ -385,8 +385,8 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
                 </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                <div className="bg-slate-50/50 px-6 py-4 border-b border-slate-100/60 flex justify-between items-center relative" ref={chartMenuRef}>
+            <div className="card overflow-hidden">
+                <div className="bg-slate-50/50 px-5 py-4 border-b border-slate-100 flex justify-between items-center relative" ref={chartMenuRef}>
                     <h3 className="text-sm font-bold text-slate-800 tracking-tight">Grafik Total Absensi Per Sesi (Global)</h3>
                     <div className="relative">
                         <button onClick={() => setIsChartMenuOpen(!isChartMenuOpen)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"><MoreVertical size={16} strokeWidth={2.5}/></button>
@@ -412,7 +412,7 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
             <Modal isOpen={!!selectedSession} onClose={() => setSelectedSession(null)} title={`Detail Absensi: ${selectedSession?.date} (${selectedSession?.waktu})`} maxWidth="3xl">
                 <div className="max-h-[60vh] overflow-y-auto custom-scrollbar p-1">
                     <div className="wadah-tabel overflow-x-auto">
-                        <table className="tabel min-w-[500px]">
+                        <table className="tabel tabel-kartu sm:min-w-[500px]">
                             <thead className="sticky top-0 z-10">
                                 <tr>
                                     <th>Kelas</th>
@@ -425,11 +425,11 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
                             <tbody>
                                 {sessionDetailData.map((cls, idx) => (
                                     <tr key={idx}>
-                                        <td className="font-bold text-sm text-slate-800"><KelasLabel text={cls.kelas} id={cls.kelas_id} /> <span className="text-2xs font-medium text-slate-500 block"><MarhalahLabel text={cls.marhalah} id={cls.marhalah_id} /></span></td>
+                                        <td data-label="Kelas" className="font-bold text-sm text-slate-800"><KelasLabel text={cls.kelas} id={cls.kelas_id} /> <span className="text-2xs font-medium text-slate-500 block"><MarhalahLabel text={cls.marhalah} id={cls.marhalah_id} /></span></td>
                                         {globalAttendanceStatus?.map(s => (
-                                            <td key={s} className="text-center text-sm font-bold text-slate-600">{cls[s] || 0}</td>
+                                            <td key={s} data-label={s} className="text-center text-sm font-bold text-slate-600 tabular-nums">{cls[s] || 0}</td>
                                         ))}
-                                        <td className="text-center text-sm font-extrabold text-slate-700 bg-slate-50/50">{cls.Total}</td>
+                                        <td data-label="Total" className="text-center text-sm font-extrabold text-slate-700 bg-slate-50/50 tabular-nums">{cls.Total}</td>
                                     </tr>
                                 ))}
                                 {sessionDetailData.length === 0 && (
@@ -440,16 +440,16 @@ const TrenHistorisPage: React.FC<TrenHistorisPageProps> = ({
                                 <tr>
                                     <td className="px-5 py-4 border-r border-slate-200/60">Total Global</td>
                                     {globalAttendanceStatus?.map(s => (
-                                        <td key={s} className="px-5 py-4 text-center text-slate-700">{sessionDetailData.reduce((a:number, b:any) => a + (b[s] || 0), 0)}</td>
+                                        <td key={s} className="px-5 py-4 text-center text-slate-700 tabular-nums">{sessionDetailData.reduce((a:number, b:any) => a + (b[s] || 0), 0)}</td>
                                     ))}
-                                    <td className="px-5 py-4 text-center font-extrabold border-l border-slate-200/60 bg-slate-200/50">{sessionDetailData.reduce((a:number, b:any) => a + (b.Total || 0), 0)}</td>
+                                    <td className="px-5 py-4 text-center font-extrabold border-l border-slate-200/60 bg-slate-200/50 tabular-nums">{sessionDetailData.reduce((a:number, b:any) => a + (b.Total || 0), 0)}</td>
                                 </tr>
                             </tfoot>
                         </table>
                     </div>
                 </div>
-                <div className="mt-6 flex justify-end">
-                    <button onClick={() => setSelectedSession(null)} className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-sm font-bold transition-all shadow-sm">Tutup Detail</button>
+                <div className="mt-5 flex justify-end">
+                    <button onClick={() => setSelectedSession(null)} className="btn btn-secondary">Tutup Detail</button>
                 </div>
             </Modal>
         </div>

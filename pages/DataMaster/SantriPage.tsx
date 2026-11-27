@@ -13,7 +13,7 @@ import { Marhalah, Santri } from '../../types';
 import { Plus, Trash, Upload, Download, Search, Edit, FileText, FileSpreadsheet, ChevronRight, Send, Link as LinkIcon, ListFilter, ArrowUpDown } from 'lucide-react';
 import { parseSpreadsheet, exportToExcel, exportToPDF } from '../../lib/utils';
 import { supabase } from '../../lib/supabaseClient';
-import { StatusBadge, LoadingState } from '../../components/ui/SaaSPrimitives';
+import { PageHeader, StatusBadge, LoadingState } from '../../components/ui/SaaSPrimitives';
 import { NotificationStore } from '../../lib/NotificationStore';
 import { useSantriPageLogika, type SantriPageLogika, normalizeTanggal } from './SantriPage.logika';
 
@@ -27,51 +27,45 @@ const SantriPage: React.FC = () => {
     if (loading) return <LoadingState label="Memuat data…" />;
     if (error) return <p className="text-error">{error}</p>;
   return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20 max-w-[1400px] font-sans">
-            {/* Header */}
-            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3 sm:gap-4">
-                <div className="min-w-0 flex-1">
-                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                        Data Santri
-                    </h1>
-                    <p className="mt-1 text-sm text-slate-500">
-                        Identitas santri dan kelasnya pada tahun ajaran ini. Klik nama santri untuk melihat progres & riwayat kelas.
-                    </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 lg:shrink-0 lg:justify-end">
-                    <input type="file" ref={fileInputRef} onChange={handleImportCSV} accept=".csv,.xlsx,.xls" className="hidden" />
-                    
-                    <ActionDropdown label="Ekspor data" icon={<Download size={14}/>}>
-                        <button onClick={() => exportToExcel(filteredData, 'Data_Santri')} className="flex items-center w-full px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-left">
-                            <FileSpreadsheet size={16} className="mr-3 text-emerald-600"/> Ekspor Excel
+        <div className="space-y-5 pb-12 font-sans">
+            <input type="file" ref={fileInputRef} onChange={handleImportCSV} accept=".csv,.xlsx,.xls" className="hidden" />
+            <PageHeader
+                title="Data Santri"
+                description="Identitas santri dan kelasnya pada tahun ajaran ini. Klik nama santri untuk melihat progres & riwayat kelas."
+                actions={
+                    <>
+                        <ActionDropdown label="Ekspor data" icon={<Download size={14}/>}>
+                            <button onClick={() => exportToExcel(filteredData, 'Data_Santri')} className="flex items-center w-full px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-left">
+                                <FileSpreadsheet size={16} className="mr-3 text-emerald-600"/> Ekspor Excel
+                            </button>
+                            <button onClick={handleExportPDF} className="flex items-center w-full px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-left border-t border-slate-100">
+                                <FileText size={16} className="mr-3 text-red-600"/> Ekspor PDF
+                            </button>
+                        </ActionDropdown>
+
+                        <ActionDropdown label="Impor data" icon={<Upload size={14}/>}>
+                            <button onClick={() => fileInputRef.current?.click()} className="flex items-center w-full px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-left">
+                                <FileSpreadsheet size={16} className="mr-3 text-emerald-600"/> Unggah file Excel/CSV
+                            </button>
+                            <button onClick={handleDownloadTemplate} className="flex items-center w-full px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-left border-t border-slate-100">
+                                <Download size={16} className="mr-3 text-blue-600"/> Unduh template
+                            </button>
+                        </ActionDropdown>
+
+                        <button
+                            onClick={() => openModal(null)}
+                            className="btn btn-primary justify-center"
+                        >
+                            <Plus size={16} strokeWidth={2.5}/> Tambah Data
                         </button>
-                        <button onClick={handleExportPDF} className="flex items-center w-full px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-left border-t border-slate-100">
-                            <FileText size={16} className="mr-3 text-red-600"/> Ekspor PDF
-                        </button>
-                    </ActionDropdown>
-                    
-                    <ActionDropdown label="Impor data" icon={<Upload size={14}/>}>
-                        <button onClick={() => fileInputRef.current?.click()} className="flex items-center w-full px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-left">
-                            <FileSpreadsheet size={16} className="mr-3 text-emerald-600"/> Unggah file Excel/CSV
-                        </button>
-                        <button onClick={handleDownloadTemplate} className="flex items-center w-full px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-left border-t border-slate-100">
-                            <Download size={16} className="mr-3 text-blue-600"/> Unduh template
-                        </button>
-                    </ActionDropdown>
-                    
-                    <button 
-                        onClick={() => openModal(null)} 
-                        className="btn btn-primary justify-center"
-                    >
-                        <Plus size={16} strokeWidth={2.5}/> Tambah Data
-                    </button>
-                </div>
-            </div>
+                    </>
+                }
+            />
 
             <PeringatanLangganan />
 
-            {/* Banner Kesiapan Enrollment Tahun Ajaran Aktif */}
-            <div className={`p-4 rounded-xl border flex flex-wrap items-center justify-between gap-3 ${unenrolledCount > 0 ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-emerald-50/70 border-emerald-200 text-emerald-900'}`}>
+            {/* Banner Kesiapan Penempatan Kelas Tahun Ajaran Aktif */}
+            <div className={`p-4 rounded-2xl border flex flex-wrap items-center justify-between gap-3 ${unenrolledCount > 0 ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-emerald-50/70 border-emerald-200 text-emerald-900'}`}>
                 <div className="flex items-center gap-3">
                     <StatusBadge
                         label={unenrolledCount > 0 ? `${unenrolledCount} belum punya kelas` : 'Semua sudah punya kelas'}
@@ -87,7 +81,7 @@ const SantriPage: React.FC = () => {
                     <button
                         type="button"
                         onClick={() => setFilterUnenrolledOnly((prev) => !prev)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                        className={`btn btn-sm ${
                             filterUnenrolledOnly
                                 ? 'bg-amber-900 text-white border-amber-900'
                                 : 'bg-white text-amber-900 border-amber-300 hover:bg-amber-100'
@@ -137,9 +131,7 @@ const SantriPage: React.FC = () => {
               </div>
             </div>
             <div className="wadah-tabel">
-                
-
-                <div className="wadah-tabel min-h-[400px] hide-scrollbar overflow-x-auto">
+                <div className="min-h-[400px] hide-scrollbar overflow-x-auto">
                                         <table className="tabel tabel-kartu">
                         <thead>
                             <tr>

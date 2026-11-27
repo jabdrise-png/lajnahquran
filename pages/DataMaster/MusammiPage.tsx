@@ -9,7 +9,7 @@ import { Marhalah, Musammi } from '../../types';
 import { Plus, Trash, Upload, Download, Search, Edit, FileSpreadsheet, FileText, ChevronRight } from 'lucide-react';
 import { parseSpreadsheet, exportToExcel, exportToPDF } from '../../lib/utils';
 import { supabase } from '../../lib/supabaseClient';
-import { StatusBadge, LoadingState } from '../../components/ui/SaaSPrimitives';
+import { PageHeader, StatusBadge, LoadingState } from '../../components/ui/SaaSPrimitives';
 import { NotificationStore } from '../../lib/NotificationStore';
 
 const MusammiPage: React.FC = () => {
@@ -420,94 +420,86 @@ const MusammiPage: React.FC = () => {
     if (error) return <p className="text-error">{error}</p>;
 
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20 max-w-[1400px] font-sans">
-            {/* Header */}
-            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3 sm:gap-4">
-                <div className="min-w-0 flex-1">
-                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                        Data Musammi'
-                    </h1>
-                    <p className="mt-1 text-sm text-slate-500">
-                        Daftar santri senior (Aliyah/Jamiah) yang bertugas menyimak hafalan.
-                    </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                    {selectedIds.length > 0 && (
+        <div className="space-y-5 pb-12 font-sans">
+            <input type="file" ref={fileInputRef} onChange={handleImportCSV} accept=".csv,.xlsx,.xls" className="hidden" />
+            <PageHeader
+                title="Data Musammi'"
+                description="Daftar santri senior (Aliyah/Jamiah) yang bertugas menyimak hafalan."
+                actions={
+                    <>
+                        {selectedIds.length > 0 && (
+                            <button
+                                onClick={handleBulkDelete}
+                                className="btn btn-danger justify-center"
+                            >
+                                <Trash size={16} strokeWidth={2.5}/> ({selectedIds.length})
+                            </button>
+                        )}
+                        <ActionDropdown label="Ekspor">
+                            <button onClick={() => exportToExcel(musammi, 'Data_Musammi')} className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 text-left transition-colors">
+                                <FileSpreadsheet size={15} className="mr-2 text-emerald-600"/> Ekspor Excel
+                            </button>
+                            <button onClick={handleExportPDF} className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100 transition-colors">
+                                <FileText size={15} className="mr-2 text-red-600"/> Ekspor PDF
+                            </button>
+                        </ActionDropdown>
+
+                        <ActionDropdown label="Impor">
+                            <button onClick={() => fileInputRef.current?.click()} className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 text-left transition-colors">
+                                <FileSpreadsheet size={15} className="mr-2 text-emerald-600"/> Unggah Excel/CSV
+                            </button>
+                            <button onClick={handleDownloadTemplate} className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100 transition-colors">
+                                <Download size={15} className="mr-2 text-blue-600"/> Unduh Template
+                            </button>
+                        </ActionDropdown>
+
                         <button
-                            onClick={handleBulkDelete}
-                            className="btn btn-danger justify-center"
+                            onClick={() => openAccountModal(null)}
+                            className="btn btn-secondary"
                         >
-                            <Trash size={16} strokeWidth={2.5}/> ({selectedIds.length})
+                            Akun Musammi
                         </button>
-                    )}
-                    <input type="file" ref={fileInputRef} onChange={handleImportCSV} accept=".csv,.xlsx,.xls" className="hidden" />
-                    
-                    <ActionDropdown label="Ekspor">
-                        <button onClick={() => exportToExcel(musammi, 'Data_Musammi')} className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 text-left transition-colors">
-                            <FileSpreadsheet size={15} className="mr-2 text-emerald-600"/> Ekspor Excel
+                        <button
+                            onClick={() => openModal(null)}
+                            className="btn btn-primary justify-center"
+                        >
+                            Tambah Data
                         </button>
-                        <button onClick={handleExportPDF} className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100 transition-colors">
-                            <FileText size={15} className="mr-2 text-red-600"/> Ekspor PDF
-                        </button>
-                    </ActionDropdown>
-                    
-                    <ActionDropdown label="Impor">
-                        <button onClick={() => fileInputRef.current?.click()} className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 text-left transition-colors">
-                            <FileSpreadsheet size={15} className="mr-2 text-emerald-600"/> Upload Excel/CSV
-                        </button>
-                        <button onClick={handleDownloadTemplate} className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100 transition-colors">
-                            <Download size={15} className="mr-2 text-blue-600"/> Download Template
-                        </button>
-                    </ActionDropdown>
-                    
-                    <button 
-                        onClick={() => openAccountModal(null)} 
-                        className="btn btn-secondary"
-                    >
-                        Akun Musammi
-                    </button>
-                    <button 
-                        onClick={() => openModal(null)} 
-                        className="btn btn-primary justify-center"
-                    >
-                        Tambah Data
-                    </button>
-                </div>
-            </div>
+                    </>
+                }
+            />
 
             {/* Content Wrap */}
             <div className="panel-filter">
-              <div className="grid-filter">
-                <input 
-                                                type="text" 
-                                                placeholder="Cari nama musammi..."
-                                                value={search} 
-                                                onChange={e => setSearch(e.target.value)} 
-                                                className="kontrol kontrol-cari"
-                                            />
-                <select 
-                                                        value={filterMarhalah} 
-                                                        onChange={e => {setFilterMarhalah(e.target.value as any); setFilterKelas('all')}}
-                                                        className="kontrol"
-                                                    >
-                                                        <option value="all">Semua Marhalah</option>
-                                                        {masterMarhalahs?.map((m) => <option key={m.id} value={m.nama}>{m.nama}</option>) || globalMarhalahs.map(m => <option key={m} value={m}>{m}</option>)}
-                                                    </select>
-                <select 
-                                                        value={filterKelas} 
-                                                        onChange={e => setFilterKelas(e.target.value)} 
-                                                        disabled={filterMarhalah === 'all'} 
-                                                        className="kontrol"
-                                                    >
-                                                        <option value="all">Semua Kelas</option>
-                                                        {filterMarhalah !== 'all' && availableFilterKelasList.map(k => <option key={k} value={k}>{k}</option>)}
-                                                    </select>
+              <div className="grid-filter sm:grid-cols-3 lg:grid-cols-3">
+                <input
+                  type="text"
+                  placeholder="Cari nama musammi..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="kontrol kontrol-cari"
+                />
+                <select
+                  value={filterMarhalah}
+                  onChange={e => {setFilterMarhalah(e.target.value as any); setFilterKelas('all')}}
+                  className="kontrol"
+                >
+                  <option value="all">Semua Marhalah</option>
+                  {masterMarhalahs?.map((m) => <option key={m.id} value={m.nama}>{m.nama}</option>) || globalMarhalahs.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+                <select
+                  value={filterKelas}
+                  onChange={e => setFilterKelas(e.target.value)}
+                  disabled={filterMarhalah === 'all'}
+                  className="kontrol"
+                >
+                  <option value="all">Semua Kelas</option>
+                  {filterMarhalah !== 'all' && availableFilterKelasList.map(k => <option key={k} value={k}>{k}</option>)}
+                </select>
               </div>
             </div>
             <div className="wadah-tabel">
-                
-
-                <div className="wadah-tabel min-h-[400px] hide-scrollbar overflow-x-auto">
+                <div className="min-h-[400px] hide-scrollbar overflow-x-auto">
                     <table className="tabel tabel-kartu">
                         <thead>
                             <tr>

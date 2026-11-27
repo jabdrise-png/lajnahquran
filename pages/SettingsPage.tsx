@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-do
 import { useSupabaseData } from '../hooks/useSupabaseData';
 import { supabase } from '../lib/supabaseClient';
 import { NotificationStore } from '../lib/NotificationStore';
-import { StatusBadge } from '../components/ui/SaaSPrimitives';
+import { LoadingState, PageHeader, StatusBadge } from '../components/ui/SaaSPrimitives';
 import { 
     Save, Trash2, Plus, Edit
 } from 'lucide-react';
@@ -400,30 +400,19 @@ const SettingsPage: React.FC = () => {
     };
 
 
-    if (loading) return (
-        <div className="flex items-center justify-center p-12 text-slate-500">
-            <div className="animate-spin mr-3 h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
-            Memuat pengaturan...
-        </div>
-    );
+    if (loading) return <LoadingState label="Memuat pengaturan…" />;
 
     return (
-        <div className="space-y-6 pb-20">
+        <div className="space-y-5 pb-12">
             {/* Header */}
-            <div>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                            Pengaturan Lembaga & Sistem
-                        </h1>
-                        <p className="text-sm text-slate-500">
-                            Profil lembaga, referensi akademik, dan integrasi Telegram.
-                        </p>
-                    </div>
-                </div>
+            <div className="space-y-4">
+                <PageHeader
+                    title="Pengaturan Lembaga & Sistem"
+                    description="Profil lembaga, referensi akademik, dan integrasi Telegram."
+                />
 
                 {/* Navigasi Sub-Rute Pengaturan (/app/settings/organization | /methodology | /integrations) */}
-                <div className="tabs mt-4">
+                <div className="tabs">
                     <button
                         type="button"
                         onClick={() => handleSwitchTab('organization')}
@@ -452,15 +441,15 @@ const SettingsPage: React.FC = () => {
             <>
             <KartuLangganan />
             {/* Data Lembaga Section */}
-            <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
+            <section className="card overflow-hidden">
+                <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
                     <h2 className="text-base font-bold text-slate-800">Data Lembaga (Pesantren / Ma'had)</h2>
-                    <p className="text-xs text-slate-500 mt-1">Konfigurasi identitas lembaga yang akan muncul pada dokumen cetak.</p>
+                    <p className="text-xs text-slate-500 mt-0.5">Konfigurasi identitas lembaga yang akan muncul pada dokumen cetak.</p>
                 </div>
-                <div className="p-6">
+                <div className="p-5">
                     <form onSubmit={handleSaveLembaga} className="max-w-2xl">
-                        <div className="flex items-start gap-6 mb-5">
-                            <div className="w-24 h-24 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden shrink-0 mt-7 relative group">
+                        <div className="flex flex-col sm:flex-row items-start gap-5 mb-5">
+                            <div className="w-24 h-24 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden shrink-0 sm:mt-6 relative group">
                                 {orgLogo ? (
                                     <img 
                                         src={orgLogo} 
@@ -474,32 +463,32 @@ const SettingsPage: React.FC = () => {
                                         }} 
                                     />
                                 ) : null}
-                                <span className={`text-slate-400 text-xs text-center px-2 ${orgLogo ? 'hidden' : ''}`}>No Logo</span>
+                                <span className={`text-slate-400 text-xs text-center px-2 ${orgLogo ? 'hidden' : ''}`}>Belum ada logo</span>
                             </div>
-                            <div className="flex-1 space-y-5">
+                            <div className="flex-1 w-full space-y-4">
                                 <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Nama Lembaga (Ma'had)</label>
-                            <input 
-                                type="text" 
-                                value={orgName} 
-                                onChange={e => setOrgName(e.target.value)}
-                                className="w-full px-4 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm text-slate-800 shadow-sm"
-                                placeholder="Contoh: Ma'had Al Faruq Assalafy litahfidzil quran Purwakerta"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-1.5">Logo URL</label>
-                            <input 
-                                type="text" 
-                                value={orgLogo} 
-                                onChange={e => setOrgLogo(e.target.value)}
-                                className="w-full px-4 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm text-slate-800 shadow-sm"
-                                placeholder="https://example.com/logo.png"
-                            />
-                        </div>
+                                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Nama Lembaga (Ma'had)</label>
+                                    <input 
+                                        type="text" 
+                                        value={orgName} 
+                                        onChange={e => setOrgName(e.target.value)}
+                                        className="field"
+                                        placeholder="Contoh: Ma'had Al Faruq Assalafy litahfidzil quran Purwakerta"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">URL Logo</label>
+                                    <input 
+                                        type="text" 
+                                        value={orgLogo} 
+                                        onChange={e => setOrgLogo(e.target.value)}
+                                        className="field"
+                                        placeholder="https://example.com/logo.png"
+                                    />
+                                </div>
                             </div>
                         </div>
-                        <div className="pt-2">
+                        <div className="pt-1">
                             <button 
                                 type="submit" 
                                 disabled={isSaving}
@@ -513,13 +502,13 @@ const SettingsPage: React.FC = () => {
             </section>
 
             {/* Master Marhalah & Kelas Section */}
-            <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <section className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {/* Master Marhalah */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-                    <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="card overflow-hidden flex flex-col">
+                    <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
                             <h2 className="text-base font-bold text-slate-800">Master Marhalah</h2>
-                            <p className="text-xs text-slate-500 mt-1">Kelola data marhalah utama</p>
+                            <p className="text-xs text-slate-500 mt-0.5">Kelola data marhalah utama</p>
                         </div>
                         {!isAddingMarhalah && (
                             <button 
@@ -534,7 +523,7 @@ const SettingsPage: React.FC = () => {
                     {isAddingMarhalah && (
                         <div className="p-4 border-b border-slate-100 bg-slate-50">
                             <form onSubmit={handleAddMarhalah} className="flex gap-2">
-                                <input type="text" value={newMarhalahName} onChange={e => setNewMarhalahName(e.target.value)} placeholder="Nama Marhalah" className="flex-1 px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" required/>
+                                <input type="text" value={newMarhalahName} onChange={e => setNewMarhalahName(e.target.value)} placeholder="Nama Marhalah" className="field flex-1" required/>
                                 <button type="submit" disabled={isSaving} className="btn btn-primary btn-sm">Simpan</button>
                                 <button type="button" onClick={() => setIsAddingMarhalah(false)} className="btn btn-secondary btn-sm">Batal</button>
                             </form>
@@ -542,7 +531,7 @@ const SettingsPage: React.FC = () => {
                     )}
 
                     <div className="overflow-y-auto flex-1 max-h-[400px]">
-                        <table className="tabel">
+                        <table className="tabel tabel-kartu">
                             <thead className="sticky top-0">
                                 <tr>
                                     <th>ID</th>
@@ -553,21 +542,21 @@ const SettingsPage: React.FC = () => {
                             <tbody>
                                 {masterMarhalahs?.map((m) => (
                                     <tr key={m.id}>
-                                        <td className="font-mono text-xs text-slate-400">#{m.id}</td>
-                                        <td className="font-semibold text-slate-800">
+                                        <td data-label="ID" className="font-mono text-xs text-slate-400">#{m.id}</td>
+                                        <td data-label="Nama Marhalah" className="font-semibold text-slate-800">
                                             {editingMarhalahId === m.id ? (
-                                                <form onSubmit={handleUpdateMarhalah} className="flex gap-2">
-                                                    <input type="text" value={editMarhalahName} onChange={e => setEditMarhalahName(e.target.value)} className="px-2 py-1 text-sm border border-slate-200 rounded focus:ring-1 focus:ring-blue-500 w-full" autoFocus required/>
-                                                    <button type="submit" className="text-blue-600 hover:text-blue-800 p-1"><Save size={14}/></button>
-                                                    <button type="button" onClick={() => setEditingMarhalahId(null)} className="text-slate-400 hover:text-slate-600 p-1"><Trash2 size={14} className="opacity-0"/> Batal</button>
+                                                <form onSubmit={handleUpdateMarhalah} className="flex items-center gap-2">
+                                                    <input type="text" value={editMarhalahName} onChange={e => setEditMarhalahName(e.target.value)} className="field !h-9 flex-1" autoFocus required/>
+                                                    <button type="submit" className="btn-icon text-blue-600"><Save size={14}/></button>
+                                                    <button type="button" onClick={() => setEditingMarhalahId(null)} className="btn btn-secondary btn-sm">Batal</button>
                                                 </form>
                                             ) : m.nama}
                                         </td>
-                                        <td className="text-right">
+                                        <td data-label="Aksi" className="text-right">
                                             {editingMarhalahId !== m.id && (
                                                 <div className="flex justify-end gap-1">
-                                                    <button onClick={() => {setEditingMarhalahId(m.id); setEditMarhalahName(m.nama);}} className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors"><Edit size={14} /></button>
-                                                    <button onClick={() => handleDeleteMarhalah(m.id)} className="text-slate-400 hover:text-red-600 p-1.5 rounded transition-colors"><Trash2 size={14} /></button>
+                                                    <button onClick={() => {setEditingMarhalahId(m.id); setEditMarhalahName(m.nama);}} className="btn-icon hover:!text-blue-600"><Edit size={14} /></button>
+                                                    <button onClick={() => handleDeleteMarhalah(m.id)} className="btn-icon hover:!text-red-600 hover:!bg-red-50"><Trash2 size={14} /></button>
                                                 </div>
                                             )}
                                         </td>
@@ -582,11 +571,11 @@ const SettingsPage: React.FC = () => {
                 </div>
 
                 {/* Master Kelas */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-                    <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="card overflow-hidden flex flex-col">
+                    <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
                             <h2 className="text-base font-bold text-slate-800">Master Kelas</h2>
-                            <p className="text-xs text-slate-500 mt-1">Kelola kelas per marhalah</p>
+                            <p className="text-xs text-slate-500 mt-0.5">Kelola kelas per marhalah</p>
                         </div>
                         {!isAddingKelas && (
                             <button 
@@ -594,7 +583,7 @@ const SettingsPage: React.FC = () => {
                                     setIsAddingKelas(true);
                                     if(masterMarhalahs && masterMarhalahs.length > 0) setNewKelasMarhalahId(masterMarhalahs[0].id);
                                 }}
-                                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1.5 shrink-0"
+                                className="btn btn-primary btn-sm justify-center shrink-0"
                             >
                                 <Plus size={14}/> Tambah Kelas
                             </button>
@@ -603,13 +592,13 @@ const SettingsPage: React.FC = () => {
                     
                     {isAddingKelas && (
                         <div className="p-4 border-b border-slate-100 bg-slate-50">
-                            <form onSubmit={handleAddKelas} className="flex flex-col gap-2">
-                                <div className="flex gap-2">
-                                    <select value={newKelasMarhalahId || ''} onChange={e => setNewKelasMarhalahId(e.target.value)} className="flex-1 px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" required>
+                            <form onSubmit={handleAddKelas} className="flex flex-col gap-2.5">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <select value={newKelasMarhalahId || ''} onChange={e => setNewKelasMarhalahId(e.target.value)} className="field" required>
                                         <option value="">Pilih Marhalah</option>
                                         {masterMarhalahs?.map((m) => <option key={m.id} value={m.id}>{m.nama}</option>)}
                                     </select>
-                                    <input type="text" value={newKelasName} onChange={e => setNewKelasName(e.target.value)} placeholder="Nama Kelas (cth: 1A)" className="flex-1 px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" required/>
+                                    <input type="text" value={newKelasName} onChange={e => setNewKelasName(e.target.value)} placeholder="Nama Kelas (cth: 1A)" className="field" required/>
                                 </div>
                                 <div className="flex gap-2 justify-end">
                                     <button type="submit" disabled={isSaving} className="btn btn-primary btn-sm">Simpan</button>
@@ -620,7 +609,7 @@ const SettingsPage: React.FC = () => {
                     )}
 
                     <div className="overflow-y-auto flex-1 max-h-[400px]">
-                        <table className="tabel">
+                        <table className="tabel tabel-kartu">
                             <thead className="sticky top-0">
                                 <tr>
                                     <th>ID</th>
@@ -632,28 +621,28 @@ const SettingsPage: React.FC = () => {
                             <tbody>
                                 {masterKelasRelasi?.map((mk) => (
                                     <tr key={mk.id}>
-                                        <td className="font-mono text-xs text-slate-400">#{mk.id}</td>
-                                        <td className="font-medium text-slate-600">
+                                        <td data-label="ID" className="font-mono text-xs text-slate-400">#{mk.id}</td>
+                                        <td data-label="Marhalah" className="font-medium text-slate-600">
                                             {editingKelasId === mk.id ? (
-                                                <select value={editKelasMarhalahId || ''} onChange={e => setEditKelasMarhalahId(e.target.value)} className="px-2 py-1 text-sm border border-slate-200 rounded focus:ring-1 focus:ring-blue-500 w-full" required>
+                                                <select value={editKelasMarhalahId || ''} onChange={e => setEditKelasMarhalahId(e.target.value)} className="field !h-9" required>
                                                     {masterMarhalahs?.map((m) => <option key={m.id} value={m.id}>{m.nama}</option>)}
                                                 </select>
                                             ) : (
-                                                masterMarhalahs?.find((m) => m.id === mk.marhalah_id)?.nama || 'Unknown'
+                                                masterMarhalahs?.find((m) => m.id === mk.marhalah_id)?.nama || '-'
                                             )}
                                         </td>
-                                        <td className="font-semibold text-slate-800">
+                                        <td data-label="Nama Kelas" className="font-semibold text-slate-800">
                                             {editingKelasId === mk.id ? (
                                                 <form onSubmit={handleUpdateKelas} id={`form-kelas-${mk.id}`} className="flex gap-2">
-                                                    <input type="text" value={editKelasName} onChange={e => setEditKelasName(e.target.value)} className="px-2 py-1 text-sm border border-slate-200 rounded focus:ring-1 focus:ring-blue-500 w-full" autoFocus required/>
+                                                    <input type="text" value={editKelasName} onChange={e => setEditKelasName(e.target.value)} className="field !h-9" autoFocus required/>
                                                 </form>
                                             ) : mk.nama_kelas}
                                         </td>
-                                        <td className="text-right">
+                                        <td data-label="Aksi" className="text-right">
                                             {editingKelasId === mk.id ? (
                                                 <div className="flex justify-end gap-1">
-                                                    <button key="save-kelas" type="submit" form={`form-kelas-${mk.id}`} className="text-blue-600 hover:text-blue-800 p-1"><Save size={14}/></button>
-                                                    <button key="cancel-kelas" type="button" onClick={() => setEditingKelasId(null)} className="text-slate-400 hover:text-slate-600 p-1">Batal</button>
+                                                    <button key="save-kelas" type="submit" form={`form-kelas-${mk.id}`} className="btn-icon text-blue-600"><Save size={14}/></button>
+                                                    <button key="cancel-kelas" type="button" onClick={() => setEditingKelasId(null)} className="btn btn-secondary btn-sm">Batal</button>
                                                 </div>
                                             ) : (
                                                 <div className="flex justify-end gap-1">
@@ -661,8 +650,8 @@ const SettingsPage: React.FC = () => {
                                                         setEditingKelasId(mk.id); 
                                                         setEditKelasName(mk.nama_kelas);
                                                         setEditKelasMarhalahId(mk.marhalah_id);
-                                                    }} className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors"><Edit size={14} /></button>
-                                                    <button onClick={() => handleDeleteKelas(mk.id)} className="text-slate-400 hover:text-red-600 p-1.5 rounded transition-colors"><Trash2 size={14} /></button>
+                                                    }} className="btn-icon hover:!text-blue-600"><Edit size={14} /></button>
+                                                    <button onClick={() => handleDeleteKelas(mk.id)} className="btn-icon hover:!text-red-600 hover:!bg-red-50"><Trash2 size={14} /></button>
                                                 </div>
                                             )}
                                         </td>
@@ -681,9 +670,8 @@ const SettingsPage: React.FC = () => {
 
             {activeTab === 'methodology' && (
             <>
-                <section className="mt-6 space-y-6">
-<div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="px-6 py-5">
+                <section className="card overflow-hidden">
+                    <div className="px-5 py-4">
                         <h2 className="text-base font-bold text-slate-800">Predikat Nilai Ujian & Raport</h2>
                         <p className="text-xs text-slate-500 mt-1">
                             Skala predikat (Mumtaz, Jayyid, …), KKM, dan rumus nilai juz kini diatur di <b>Ujian &amp; Raport &gt; Pengaturan Nilai</b>
@@ -691,18 +679,17 @@ const SettingsPage: React.FC = () => {
                         </p>
                         <div className="flex flex-wrap gap-2 mt-3">
                             {globalPredikatNilai.map((p) => (
-                                <span key={p.label} className="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">{p.label} ≥ {p.minScore}</span>
+                                <span key={p.label} className="badge badge-abu">{p.label} ≥ {p.minScore}</span>
                             ))}
                         </div>
                     </div>
-                </div>
-            </section>
+                </section>
 
             {/* Referensi Data Dasar Section */}
-            <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
+            <section className="card overflow-hidden">
+                <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
                     <h2 className="text-base font-bold text-slate-800">Referensi Data Dasar</h2>
-                    <p className="text-xs text-slate-500 mt-1">Jenis setoran, waktu halaqah, status kehadiran, dan jenis halaqah lembaga Anda.</p>
+                    <p className="text-xs text-slate-500 mt-0.5">Jenis setoran, waktu halaqah, status kehadiran, dan jenis halaqah lembaga Anda.</p>
                 </div>
                 
                 {/* Fase 2: referensi disimpan di tabel (bukan app_settings) */}
@@ -713,11 +700,11 @@ const SettingsPage: React.FC = () => {
 
             {activeTab === 'integrations' && (
             /* API & Notifikasi Section */
-            <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+            <section className="card overflow-hidden">
+                <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
                     <div>
                         <h2 className="text-base font-bold text-slate-800">API & Notifikasi</h2>
-                        <p className="text-xs text-slate-500 mt-1">Konfigurasi token API pihak ketiga untuk layanan pengiriman pesan.</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Konfigurasi token API pihak ketiga untuk layanan pengiriman pesan.</p>
                     </div>
                     <button 
                         onClick={handleSaveNotifikasi}
@@ -727,8 +714,8 @@ const SettingsPage: React.FC = () => {
                         {isSaving ? 'Menyimpan...' : 'Simpan Notifikasi'}
                     </button>
                 </div>
-                <div className="p-6">
-                    <div className="space-y-8 max-w-2xl">
+                <div className="p-5">
+                    <div className="space-y-6 max-w-2xl">
                         {/* Telegram Settings */}
                         <div className="space-y-4">
                             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -738,14 +725,10 @@ const SettingsPage: React.FC = () => {
                                 </div>
                                 {secretMetaMap.TELEGRAM_BOT_TOKEN && (
                                     <div className="flex items-center gap-2">
-                                        <span className={`px-2 py-0.5 rounded text-2xs font-bold ${
-                                            secretMetaMap.TELEGRAM_BOT_TOKEN.status === 'active'
-                                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                                : 'bg-red-50 text-red-700 border border-red-200'
-                                        }`}>
-                                            {secretMetaMap.TELEGRAM_BOT_TOKEN.status === 'active' ? 'Token Aktif' : 'Token Dinonaktifkan'}
-                                            {' • '}Rotasi #{secretMetaMap.TELEGRAM_BOT_TOKEN.rotation_count}
-                                        </span>
+                                        <StatusBadge
+                                            label={`${secretMetaMap.TELEGRAM_BOT_TOKEN.status === 'active' ? 'Token Aktif' : 'Token Dinonaktifkan'} · Rotasi #${secretMetaMap.TELEGRAM_BOT_TOKEN.rotation_count}`}
+                                            tone={secretMetaMap.TELEGRAM_BOT_TOKEN.status === 'active' ? 'success' : 'danger'}
+                                        />
                                         <button
                                             type="button"
                                             disabled={isSaving}
@@ -759,23 +742,23 @@ const SettingsPage: React.FC = () => {
                             </div>
                             <div className="grid gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1.5">Bot Token (Masukkan token baru untuk rotasi)</label>
-                                    <input type="text" value={telegramBotToken} onChange={e => setTelegramBotToken(e.target.value)} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm font-medium" placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz..." />
+                                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Bot Token (Masukkan token baru untuk rotasi)</label>
+                                    <input type="text" value={telegramBotToken} onChange={e => setTelegramBotToken(e.target.value)} className="field" placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz..." />
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-xs font-bold text-slate-700 mb-1.5">Bot Username</label>
-                                        <input type="text" value={telegramBotUsername} onChange={e => setTelegramBotUsername(e.target.value)} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm font-medium" placeholder="Contoh: @MahadBot" />
+                                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Bot Username</label>
+                                        <input type="text" value={telegramBotUsername} onChange={e => setTelegramBotUsername(e.target.value)} className="field" placeholder="Contoh: @MahadBot" />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-bold text-slate-700 mb-1.5">Global Group Chat ID</label>
-                                        <input type="text" value={telegramGlobalChatId} onChange={e => setTelegramGlobalChatId(e.target.value)} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm font-medium" placeholder="Contoh: -100123456789" />
+                                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Global Group Chat ID</label>
+                                        <input type="text" value={telegramGlobalChatId} onChange={e => setTelegramGlobalChatId(e.target.value)} className="field" placeholder="Contoh: -100123456789" />
                                     </div>
                                 </div>
                                 <label className="flex items-center gap-3 cursor-pointer mt-1">
                                     <input type="checkbox" checked={enableTelegram} onChange={e => setEnableTelegram(e.target.checked)} className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer" />
                                     <div>
-                                        <span className="text-sm font-bold text-slate-800">Aktifkan Notifikasi Telegram</span>
+                                        <span className="text-sm font-semibold text-slate-800">Aktifkan Notifikasi Telegram</span>
                                     </div>
                                 </label>
                             </div>

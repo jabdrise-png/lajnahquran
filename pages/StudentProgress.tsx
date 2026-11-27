@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { formatPeriodName } from '../lib/utils';
 import { TrendingUp, Save, Upload, Download, Eye, EyeOff, MoreVertical, Edit2, Filter } from 'lucide-react';
 import { ResponsiveContainer, ComposedChart, Line, Area, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
+import { LoadingState } from '../components/ui/SaaSPrimitives';
 
 // Helper
 // Fase 4: kolom dari Rekap Periode (Ziyadah = halaman, Murojaah & Total Hafalan = juz)
@@ -189,14 +190,11 @@ const StudentProgress: React.FC<StudentProgressProps> = ({
             );
         };
 
-        if (loading) return <div className="p-8 text-center text-slate-500">Memuat data...</div>;
-
-
+        if (loading) return <LoadingState label="Memuat data perkembangan santri…" />;
 
         return (
-            <div className="space-y-6">
-            <div className="wadah-tabel">
-                <div className="wadah-tabel overflow-y-auto w-full max-h-[600px] relative hide-scrollbar overflow-x-auto">
+            <div className="space-y-5">
+            <div className="wadah-tabel overflow-y-auto w-full max-h-[600px] relative hide-scrollbar overflow-x-auto">
                     <table className="tabel">
                         <thead className="sticky top-0 z-40">
                             <tr>
@@ -250,7 +248,7 @@ const StudentProgress: React.FC<StudentProgressProps> = ({
                                                 return (
                                                     <td key={`${s.id}-${key}`} className={`p-1.5 border-r border-slate-100 min-w-[70px] ${isAuto ? 'bg-slate-50' : ''}`}>
                                                         <div 
-                                                            className={`w-full text-center text-sm font-medium px-2 py-1.5 rounded transition-all ${
+                                                            className={`w-full text-center text-sm font-medium tabular-nums px-2 py-1.5 rounded transition-all ${
                                                                 isAuto 
                                                                     ? 'text-slate-500' 
                                                                     : 'text-slate-700 hover:bg-slate-50'
@@ -267,7 +265,6 @@ const StudentProgress: React.FC<StudentProgressProps> = ({
                             )}
                         </tbody>
                     </table>
-                </div>
             </div>
         </div>
     );

@@ -109,7 +109,7 @@ step(11, 'E2E-11', 'Musammi Mencatat Setoran via rpc_submit_recitation_entry (la
   return f3SetoranSql.includes('create or replace function public.rpc_submit_recitation_entry') &&
          f3SetoranSql.includes('public.fn_predikat_kelancaran(') &&
          useSupabaseDataCode.includes("rpcOrThrow('rpc_submit_recitation_entry'") &&
-         sesiHalaqahPage.includes('FormSetoranRingkas');
+         (sesiHalaqahPage.includes('FormSetoranRingkas') || sesiHalaqahPage.includes('DaftarSantriSetoran')); // Fase 8c: form dibuka per santri
 });
 
 // Step 12: Admin mengoreksi / membatalkan setoran beralasan

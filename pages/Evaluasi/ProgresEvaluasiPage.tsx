@@ -10,7 +10,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Calculator, Download, ExternalLink, RefreshCw, Search, Unlock } from 'lucide-react';
 import { useSupabaseData, useRiwayat } from '../../hooks/useSupabaseData';
 import { normalizeRole } from '../../lib/permissions';
-import { PageHeader, LoadingState, EmptyState } from '../../components/ui/SaaSPrimitives';
+import { PageHeader, LoadingState, EmptyState, StatCard } from '../../components/ui/SaaSPrimitives';
 import { useMintaAlasan } from '../../components/ui/AlasanDialog';
 import { NotificationStore } from '../../lib/NotificationStore';
 import { tampilkanError } from '../../lib/pesanError';
@@ -213,7 +213,7 @@ const ProgresEvaluasiPage: React.FC = () => {
         }
       />
 
-      <div className="panel-filter"><div className="grid-filter">
+      <div className="panel-filter"><div className={`grid-filter ${tab === 'pemantauan' ? 'sm:grid-cols-1 lg:grid-cols-1' : 'sm:grid-cols-2 lg:grid-cols-5'}`}>
         <label className="kontrol-label"><span>Periode</span><select className="kontrol-dalam" value={periodId} onChange={(e) => setPeriodId(e.target.value)}>
             {periods.length === 0 && <option value="">Belum ada periode</option>}
             {periods.map((p) => <option key={p.id} value={p.id}>{p.name}{p.needs_review ? ' (tanggal perlu dicek)' : ''}</option>)}
@@ -232,7 +232,7 @@ const ProgresEvaluasiPage: React.FC = () => {
                 <option value="all">Semua</option>
                 {halaqah.filter((h) => !h.is_archived).map((h) => <option key={h.id} value={String(h.id)}>{h.nama}</option>)}
               </select></label>
-            <label className="kontrol-label"><span>Cari santri</span><input className="kontrol-dalam" value={cari} onChange={(e) => setCari(e.target.value)} placeholder="Nama…" /></label>
+            <label className="kontrol-label sm:col-span-2 lg:col-span-1"><span>Cari santri</span><input className="kontrol-dalam" value={cari} onChange={(e) => setCari(e.target.value)} placeholder="Nama…" /></label>
           </>
         )}
       </div></div>
@@ -248,27 +248,26 @@ const ProgresEvaluasiPage: React.FC = () => {
       {periods.length === 0 && <EmptyState title="Belum ada periode evaluasi" description="Buat periode di Pengaturan Evaluasi." />}
 
       {tab === 'pemantauan' && periodId && (
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold">Terkirim {ringkas.terkirim}</span>
-            <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-semibold">Draft {ringkas.draft}</span>
-            <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 font-semibold">Belum diisi {ringkas.belum}</span>
-            <span className="text-slate-500">dari {ringkas.total} halaqah</span>
-            <div className="ml-auto flex gap-2">
-              <button type="button" onClick={muatStatus} className="btn btn-secondary btn-sm">
-                <RefreshCw size={13} /> Muat ulang
+        <div className="space-y-4">
+          <div className="grid grid-cols-3 gap-3">
+            <StatCard label="Terkirim" value={ringkas.terkirim} tone="success" meta={`dari ${ringkas.total} halaqah`} />
+            <StatCard label="Draft" value={ringkas.draft} tone="warning" />
+            <StatCard label="Belum diisi" value={ringkas.belum} />
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <button type="button" onClick={muatStatus} className="btn btn-secondary btn-sm">
+              <RefreshCw size={13} /> Muat ulang
+            </button>
+            {isAdmin && (
+              <button type="button" disabled={menghitung || periode?.needs_review} onClick={hitungSemua}
+                className="btn btn-soft btn-sm">
+                <Calculator size={13} /> {menghitung ? 'Menghitung…' : 'Hitung rekap semua halaqah'}
               </button>
-              {isAdmin && (
-                <button type="button" disabled={menghitung || periode?.needs_review} onClick={hitungSemua}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-blue-300 bg-blue-50 text-xs font-semibold text-blue-700 disabled:opacity-50">
-                  <Calculator size={13} /> {menghitung ? 'Menghitung…' : 'Hitung rekap semua halaqah'}
-                </button>
-              )}
-            </div>
+            )}
           </div>
           {memuatStatus ? <LoadingState rows={4} /> : (
             <div className="wadah-tabel overflow-x-auto">
-              <table className="tabel">
+              <table className="tabel tabel-kartu">
                 <thead>
                   <tr>
                     <th className="text-left">Halaqah</th>
@@ -285,12 +284,12 @@ const ProgresEvaluasiPage: React.FC = () => {
                   {status.map((s) => (
                     <tr key={s.halaqah_id}>
                       <td className="font-semibold text-slate-800">{s.halaqah_nama}<div className="text-2xs font-normal text-slate-400">{s.marhalah || ''}</div></td>
-                      <td className="text-slate-600">{s.musammi_nama || '-'}</td>
-                      <td className="text-slate-600">{MODE_LABEL[s.recording_mode] || s.recording_mode}</td>
-                      <td><span className={`px-2 py-0.5 rounded-full border text-xs font-semibold ${badge[s.status]}`}>{STATUS_FORM_LABEL[s.status]}</span></td>
-                      <td className="text-right tabular-nums">{s.terisi}/{s.jumlah_santri}</td>
-                      <td className="text-xs text-slate-500">{s.submitted_at ? new Date(s.submitted_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '-'}</td>
-                      <td className="text-right whitespace-nowrap">
+                      <td data-label="Musammi'" className="text-slate-600">{s.musammi_nama || '-'}</td>
+                      <td data-label="Mode" className="text-slate-600">{MODE_LABEL[s.recording_mode] || s.recording_mode}</td>
+                      <td data-label="Status"><span className={`badge ${badge[s.status]}`}>{STATUS_FORM_LABEL[s.status]}</span></td>
+                      <td data-label="Terisi" className="text-right tabular-nums">{s.terisi}/{s.jumlah_santri}</td>
+                      <td data-label="Dikirim" className="text-xs text-slate-500">{s.submitted_at ? new Date(s.submitted_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '-'}</td>
+                      <td data-label="Aksi" className="text-right whitespace-nowrap">
                         <button type="button" className="text-xs font-semibold text-blue-700 mr-3" onClick={() => navigate(`/app/evaluations?period=${periodId}&halaqah=${s.halaqah_id}`)}>Buka form</button>
                         {isAdmin && s.status === 'submitted' && (
                           <button type="button" className="text-xs font-semibold text-amber-700 inline-flex items-center gap-1" onClick={() => bukaKembali(s)}><Unlock size={12} /> Buka kembali</button>
@@ -315,7 +314,7 @@ const ProgresEvaluasiPage: React.FC = () => {
             </button>
           </div>
           <div className="wadah-tabel overflow-x-auto">
-            <table className="tabel">
+            <table className="tabel tabel-kartu">
               <thead>
                 <tr>
                   <th className="text-left">Santri</th>
@@ -341,14 +340,14 @@ const ProgresEvaluasiPage: React.FC = () => {
                       <button type="button" className="font-semibold text-blue-700 hover:underline text-left" onClick={() => setDetail(s)}>{s.nama}</button>
                       <div className="text-2xs text-slate-400">{s.kelas} · {r.sumber === 'harian' ? 'harian' : r.sumber === 'rekap' ? 'rekap' : 'data lama'}{Object.keys(r.overrides || {}).length ? ' · dikoreksi' : ''}</div>
                     </td>
-                    <td className="text-slate-600">{h?.nama || '-'}</td>
-                    <td className="text-right tabular-nums">{r.ziyadah_pages ?? '-'}</td>
-                    <td className="text-right tabular-nums">{r.murojaah_pages ?? '-'}</td>
-                    <td className="text-slate-600 whitespace-nowrap">{teksPosisi(r) || '-'}</td>
-                    <td className="text-right tabular-nums font-semibold">{r.total_juz ?? '-'}</td>
-                    <td>{r.kelancaran || '-'}</td>
-                    <td className="text-right tabular-nums">{r.kehadiran_persen !== null ? `${r.kehadiran_persen}%` : '-'}</td>
-                    {isianBebas.map((f) => <td key={f.id} className="text-slate-600">{String(nilaiBebas(r.free_answers?.[f.id]) || '-')}</td>)}
+                    <td data-label="Halaqah" className="text-slate-600">{h?.nama || '-'}</td>
+                    <td data-label={label.ziyadah} className="text-right tabular-nums">{r.ziyadah_pages ?? '-'}</td>
+                    <td data-label={label.murojaah} className="text-right tabular-nums">{r.murojaah_pages ?? '-'}</td>
+                    <td data-label={label.posisi} className="text-slate-600 whitespace-nowrap">{teksPosisi(r) || '-'}</td>
+                    <td data-label="Total (juz)" className="text-right tabular-nums font-semibold">{r.total_juz ?? '-'}</td>
+                    <td data-label={label.kelancaran}>{r.kelancaran || '-'}</td>
+                    <td data-label={label.kehadiran} className="text-right tabular-nums">{r.kehadiran_persen !== null ? `${r.kehadiran_persen}%` : '-'}</td>
+                    {isianBebas.map((f) => <td key={f.id} data-label={f.label} className="text-slate-600">{String(nilaiBebas(r.free_answers?.[f.id]) || '-')}</td>)}
                   </tr>
                 ))}
               </tbody>

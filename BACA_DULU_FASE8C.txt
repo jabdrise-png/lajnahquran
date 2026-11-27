@@ -1,0 +1,4 @@
+FASE 8c · Catatan UI/UX (Dasbor, Sesi Halaqah, Absensi, Buku Absensi, Analitik)
+- Tanpa migrasi database, tanpa file yang dihapus.
+- Salin semua file dari ZIP ke repo (timpa), lalu: git add -A && git commit && git push
+- File baru: components/absensi/FilterSesi.tsx, components/setoran/DaftarSantriSetoran.tsx, tests/v2/f8c-ui.test.ts

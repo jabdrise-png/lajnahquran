@@ -306,9 +306,9 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
     if (error) return <p className="text-error">{error}</p>;
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500 font-sans">
+        <div className="space-y-5 font-sans">
             <div className="panel-filter">
-              <div className="grid-filter">
+              <div className="grid-filter sm:grid-cols-3 lg:grid-cols-3">
                 <label className="kontrol flex items-center gap-2"><span className="shrink-0 text-xs font-semibold text-slate-400">Dari:</span><input 
                                                     type="date" 
                                                     value={dateRange.start} 
@@ -331,7 +331,7 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
                                                 </select>
               </div>
             </div>
-            <div className="wadah-tabel flex flex-col min-h-[500px]">
+            <div className="wadah-tabel flex flex-col">
                 
 
                 {/* Toolbar */}
@@ -367,7 +367,7 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
 
                 {/* Table */}
                 <div className="flex-1 custom-scrollbar overflow-x-auto">
-                    <table className="tabel min-w-[600px]">
+                    <table className="tabel tabel-kartu sm:min-w-[600px]">
                         <thead>
                             <tr>
                                 <th className="sticky top-0 left-0 z-20 w-12">
@@ -394,12 +394,12 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
                         <tbody>
                             {classRecapData.map((item) => (
                                 <tr key={item.key} className="cursor-pointer" onClick={() => setSelectedClassKeys(p => p.includes(item.key) ? p.filter(k => k !== item.key) : [...p, item.key])}>
-                                    <td className="sticky left-0 bg-white group-hover:bg-slate-50/95 backdrop-blur-sm z-10 transition-colors text-center w-12">
+                                    <td data-label="Pilih" className="sticky left-0 bg-white group-hover:bg-slate-50/95 backdrop-blur-sm z-10 transition-colors text-center w-12">
                                         <button className="p-1 rounded-md hover:bg-slate-100 transition-colors">
                                             {selectedClassKeys.includes(item.key) ? <CheckSquare size={18} className="text-blue-600"/> : <Square size={18} className="text-slate-300"/>}
                                         </button>
                                     </td>
-                                    <td className="sticky left-[48px] bg-white group-hover:bg-slate-50/95 backdrop-blur-sm z-10 transition-colors min-w-[200px]">
+                                    <td data-label="Kelas" className="sticky left-[48px] bg-white group-hover:bg-slate-50/95 backdrop-blur-sm z-10 transition-colors min-w-[200px]">
                                         <div className="flex flex-col gap-0.5">
                                             <span className="font-bold text-sm text-slate-800 group-hover:text-blue-600 transition-colors">{item.Kelas}</span>
                                             <span className="text-2xs font-medium text-slate-500">{item.Marhalah}</span>
@@ -408,10 +408,10 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
                                     {globalAttendanceStatus?.map(s => {
                                          const val = item[s] || 0;
                                          return (
-                                            <td key={s} className="text-center text-sm font-bold text-slate-600">{val}</td>
+                                            <td key={s} data-label={s} className="text-center text-sm font-bold text-slate-600 tabular-nums">{val}</td>
                                          )
                                     })}
-                                    <td className="text-center text-sm font-extrabold text-slate-700 bg-slate-50/50">{item.PersenKehadiran}</td>
+                                    <td data-label="% Hadir" className="text-center text-sm font-extrabold text-slate-700 bg-slate-50/50 tabular-nums">{item.PersenKehadiran}</td>
                                 </tr>
                             ))}
                             {classRecapData.length === 0 && (
@@ -426,8 +426,8 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
                 </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                <div className="bg-slate-50/50 px-6 py-4 border-b border-slate-100/60 flex justify-between items-center relative" ref={chartMenuRef}>
+            <div className="card overflow-hidden">
+                <div className="bg-slate-50/50 px-5 py-4 border-b border-slate-100 flex justify-between items-center relative" ref={chartMenuRef}>
                     <h3 className="text-sm font-bold text-slate-800 tracking-tight">Grafik Kehadiran Per Kelas</h3>
                     <div className="relative">
                         <button onClick={() => setIsChartMenuOpen(!isChartMenuOpen)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"><MoreVertical size={16} strokeWidth={2.5}/></button>
@@ -436,13 +436,18 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
                         </div>}
                     </div>
                 </div>
-                <div className="p-6 overflow-x-auto custom-scrollbar hide-scrollbar" ref={mainChartRef}>
-                    <div style={{ minWidth: chartData.length > 8 ? chartData.length * 80 : '100%' }} className="bg-white">
+                <div className="px-4 pt-4 pb-2 sm:px-6 overflow-x-auto custom-scrollbar hide-scrollbar" ref={mainChartRef}>
+                    <div
+                        style={chartData.length > 8
+                            ? { minWidth: chartData.length * 72 }
+                            : { width: Math.max(360, chartData.length * 120 + 70), maxWidth: '100%' }}
+                        className="bg-white mx-auto"
+                    >
                         <StackedBarChart 
                             data={chartData} 
-                            rotateLabels={true}
-                            bottomMargin={100}
-                            height={450}
+                            rotateLabels={chartData.length > 6}
+                            bottomMargin={chartData.length > 6 ? 64 : 32}
+                            height={chartData.length > 6 ? 380 : 340}
                             keys={globalAttendanceStatus}
                             unit="%"
                         />
@@ -488,7 +493,7 @@ const AnalisisPerKelasPage: React.FC<AnalisisPerKelasPageProps> = ({
                 })}
             </div>
 
-            <Modal isOpen={isPreviewModalOpen} onClose={() => !isMassSending && setIsPreviewModalOpen(false)} title="Preview Laporan WA Per Kelas" maxWidth="3xl">
+            <Modal isOpen={isPreviewModalOpen} onClose={() => !isMassSending && setIsPreviewModalOpen(false)} title="Pratinjau Laporan WA Per Kelas" maxWidth="3xl">
                 <div className="space-y-6 max-h-[70vh] overflow-y-auto p-2 custom-scrollbar">
                     {Object.entries(generatedReports).map(([key, data]) => {
                          const report = data as { image: string, caption: string, phone?: string };

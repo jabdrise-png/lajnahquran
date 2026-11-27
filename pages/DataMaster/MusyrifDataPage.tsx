@@ -8,7 +8,7 @@ import { Marhalah } from '../../types';
 import { Plus, Trash, Download, Edit, Upload, FileSpreadsheet, FileText, Search, ChevronRight } from 'lucide-react';
 import { parseSpreadsheet, exportToExcel, exportToPDF } from '../../lib/utils';
 import { supabase } from '../../lib/supabaseClient';
-import { StatusBadge, LoadingState } from '../../components/ui/SaaSPrimitives';
+import { PageHeader, StatusBadge, LoadingState } from '../../components/ui/SaaSPrimitives';
 import { NotificationStore } from '../../lib/NotificationStore';
 
 export interface Musyrif {
@@ -193,72 +193,62 @@ const MusyrifDataPage: React.FC = () => {
     if (loading) return <LoadingState label="Memuat data…" />;
 
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20 max-w-[1400px] font-sans">
+        <div className="space-y-5 pb-12 font-sans">
             <input type="file" ref={fileInputRef} onChange={handleImportCSV} accept=".csv,.xlsx,.xls" className="hidden" />
 
-            {/* Header */}
-            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3 sm:gap-4">
-                <div className="min-w-0 flex-1">
-                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                        Musyrif Pembina
-                    </h1>
-                    <p className="mt-1 text-sm text-slate-500">
-                        Nama musyrif pendamping per marhalah/santri (hanya data, bukan akun login).
-                    </p>
-                </div>
-            </div>
+            <PageHeader
+                title="Musyrif Pembina"
+                description="Nama musyrif pendamping per marhalah/santri (hanya data, bukan akun login)."
+                actions={
+                    <>
+                        <ActionDropdown label="Impor data" icon={<Upload size={16}/>}>
+                            <button onClick={() => fileInputRef.current?.click()} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left">
+                                <FileSpreadsheet size={14} className="mr-2 text-emerald-600"/> Unggah file Excel/CSV
+                            </button>
+                            <button onClick={handleDownloadTemplate} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100">
+                                <Download size={14} className="mr-2 text-blue-600"/> Unduh template
+                            </button>
+                        </ActionDropdown>
 
-            <div className="flex justify-end">
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                    <ActionDropdown label="Impor data" icon={<Upload size={16}/>}>
-                        <button onClick={() => fileInputRef.current?.click()} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left">
-                            <FileSpreadsheet size={14} className="mr-2 text-emerald-600"/> Unggah file Excel/CSV
-                        </button>
-                        <button onClick={handleDownloadTemplate} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100">
-                            <Download size={14} className="mr-2 text-blue-600"/> Unduh template
-                        </button>
-                    </ActionDropdown>
+                        <ActionDropdown label="Ekspor data" icon={<Download size={16}/>}>
+                            <button onClick={() => exportToExcel(musyrifList, 'Data_Musyrif')} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left">
+                                <FileSpreadsheet size={14} className="mr-2 text-emerald-600"/> Ekspor Excel
+                            </button>
+                            <button onClick={handleExportPDF} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100">
+                                <FileText size={14} className="mr-2 text-red-600"/> Ekspor PDF
+                            </button>
+                        </ActionDropdown>
 
-                    <ActionDropdown label="Ekspor data" icon={<Download size={16}/>}>
-                        <button onClick={() => exportToExcel(musyrifList, 'Data_Musyrif')} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left">
-                            <FileSpreadsheet size={14} className="mr-2 text-emerald-600"/> Ekspor Excel
+                        <button
+                            onClick={() => openModal(null)}
+                            className="btn btn-primary justify-center"
+                        >
+                            <Plus size={16} strokeWidth={2.5}/> Tambah Baru
                         </button>
-                        <button onClick={handleExportPDF} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100">
-                            <FileText size={14} className="mr-2 text-red-600"/> Ekspor PDF
-                        </button>
-                    </ActionDropdown>
-                    
-                    <button 
-                        onClick={() => openModal(null)} 
-                        className="btn btn-primary justify-center"
-                    >
-                        <Plus size={16} strokeWidth={2.5}/> Tambah Baru
-                    </button>
-                </div>
-            </div>
+                    </>
+                }
+            />
 
             <div className="panel-filter">
-              <div className="grid-filter">
-                <input 
-                                                type="text" 
-                                                placeholder="Cari nama musyrif..." 
-                                                value={search} 
-                                                onChange={e => setSearch(e.target.value)} 
-                                                className="kontrol kontrol-cari" 
-                                            />
-                <select 
-                                            value={filterMarhalah} 
-                                            onChange={e => setFilterMarhalah(e.target.value)} 
-                                            className="kontrol"
-                                        >
-                                            <option value="all">Semua Marhalah</option>
-                                            {masterMarhalahs?.map((m) => <option key={m.id} value={m.nama}>{m.nama}</option>) || globalMarhalahs.map((m) => <option key={m} value={m}>{m}</option>)}
-                                        </select>
+              <div className="grid-filter sm:grid-cols-2 lg:grid-cols-2">
+                <input
+                  type="text"
+                  placeholder="Cari nama musyrif..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="kontrol kontrol-cari"
+                />
+                <select
+                  value={filterMarhalah}
+                  onChange={e => setFilterMarhalah(e.target.value)}
+                  className="kontrol"
+                >
+                  <option value="all">Semua Marhalah</option>
+                  {masterMarhalahs?.map((m) => <option key={m.id} value={m.nama}>{m.nama}</option>) || globalMarhalahs.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
               </div>
             </div>
             <div className="wadah-tabel flex flex-col h-auto min-h-[500px]">
-                
-
                 <div className="flex-1 overflow-auto p-0 min-h-[300px]">
                     <table className="tabel tabel-kartu">
                         <thead className="sticky top-0 z-10">
@@ -274,7 +264,7 @@ const MusyrifDataPage: React.FC = () => {
                                 <tr key={w.id}>
                                     <td className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{w.nama}</td>
                                     <td data-label="Marhalah" className="text-sm font-semibold text-slate-600">
-                                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-2xs font-bold bg-amber-50 text-amber-700 border border-amber-200/60">
+                                        <span className="badge badge-kuning">
                                             <MarhalahLabel text={w.marhalah} id={(w as any).marhalah_id} />
                                         </span>
                                     </td>

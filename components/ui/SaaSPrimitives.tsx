@@ -30,12 +30,12 @@ export const StatusBadge: React.FC<{
   className?: string;
 }> = ({ label, tone = 'neutral', dot = false, className = '' }) => {
   const toneClasses: Record<BadgeTone, string> = {
-    neutral: 'bg-slate-100 text-slate-600 border-slate-200',
-    primary: 'bg-blue-50 text-blue-600 border-blue-200',
-    info: 'bg-blue-50 text-blue-600 border-blue-200',
-    success: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    warning: 'bg-amber-50 text-amber-700 border-amber-200',
-    danger: 'bg-red-50 text-red-700 border-red-200',
+    neutral: 'badge-netral',
+    primary: 'badge-biru',
+    info: 'badge-biru',
+    success: 'badge-hijau',
+    warning: 'badge-kuning',
+    danger: 'badge-merah',
   };
 
   const dotClasses: Record<BadgeTone, string> = {
@@ -49,7 +49,7 @@ export const StatusBadge: React.FC<{
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-semibold border whitespace-nowrap shrink-0 tabular-nums ${toneClasses[tone]} ${className}`}
+      className={`badge shrink-0 ${toneClasses[tone]} ${className}`}
     >
       {dot && <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotClasses[tone]}`} />}
       {label}
@@ -128,8 +128,8 @@ export const IconButton: React.FC<
 > = ({ variant = 'outline', size = 'md', label, className = '', children, type = 'button', ...rest }) => {
   const sizeMap: Record<ButtonSize, string> = {
     sm: 'w-8 h-8 rounded-lg',
-    md: 'w-9 h-9 rounded-lg',
-    lg: 'w-10 h-10 rounded-lg',
+    md: 'w-9 h-9 rounded-xl',
+    lg: 'w-10 h-10 rounded-xl',
   };
   const variantMap: Record<ButtonVariant, string> = {
     primary: 'bg-blue-600 hover:bg-blue-800 text-white border border-transparent',
@@ -444,7 +444,7 @@ export const PageShell: React.FC<{
   children: React.ReactNode;
   className?: string;
 }> = ({ children, className = '' }) => (
-  <div className={`max-w-[1440px] mx-auto space-y-6 pb-12 font-sans ${className}`}>
+  <div className={`w-full space-y-5 pb-12 font-sans ${className}`}>
     {children}
   </div>
 );
@@ -551,11 +551,11 @@ export const StatCard: React.FC<{
   };
 
   return (
-    <div className="card p-4 sm:p-5 flex flex-col justify-between">
+    <div className="card h-full p-4 sm:p-5 flex flex-col justify-between">
       <div className="flex items-start justify-between gap-3">
         <span className="text-xs font-semibold text-slate-500 leading-snug">{label}</span>
         {icon ? (
-          <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${iconBgColors[tone]}`}>
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${iconBgColors[tone]}`}>
             {icon}
           </div>
         ) : (
@@ -563,7 +563,7 @@ export const StatCard: React.FC<{
         )}
       </div>
       <div
-        className={`mt-2 text-2xl sm:text-3xl font-bold tabular-nums tracking-tight ${valueColors[tone]}`}
+        className={`mt-2.5 text-2xl sm:text-3xl font-bold tabular-nums tracking-tight ${valueColors[tone]}`}
       >
         {value}
       </div>

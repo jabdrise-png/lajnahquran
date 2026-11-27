@@ -2,12 +2,12 @@
  * Fase 3 · kartu absensi satu halaqah untuk satu tanggal & waktu.
  * Dipakai layar Absensi (Admin: semua halaqah; Musammi': halaqahnya) dan Sesi Halaqah.
  *  - kehadiran musammi' + pilihan BADAL (digantikan musammi' lain)
- *  - kehadiran tiap santri, tombol "Tandai semua hadir"
+ *  - kehadiran tiap santri lewat dropdown status (Fase 8c); "Tandai semua hadir" dipicu dari panel filter
  *  - tidak ada kunci sesi; mengubah catatan tanggal yang sudah lewat = koreksi Admin beralasan
  *  - tercatat siapa yang terakhir mengubah
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { CheckCheck, Save, UserCheck, RefreshCw } from 'lucide-react';
+import { Save, UserCheck, RefreshCw } from 'lucide-react';
 import type { AttendanceRecord, Halaqah, Musammi, Santri } from '../../types';
 import type { AttendanceStatusRef } from '../../lib/v2Adapter';
 import { hitungPerubahan, rosterPadaTanggal, statusHadir } from '../../lib/sesiHalaqah';
@@ -27,6 +27,10 @@ interface Props {
   musammiList: Musammi[];
   onSave: (records: any[], reason?: string) => Promise<void>;
   defaultOpen?: boolean;
+  /** Fase 8c: naikkan angka ini untuk menandai semua santri yang belum terisi sebagai hadir */
+  sinyalTandai?: number;
+  /** Fase 8c: saring baris santri menurut nama */
+  cari?: string;
 }
 
 const jam = (iso?: string | null) => {
@@ -35,14 +39,11 @@ const jam = (iso?: string | null) => {
   return isNaN(d.getTime()) ? '' : d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 };
 
-const toneFor = (st?: AttendanceStatusRef) =>
-  !st ? 'border-slate-200 text-slate-600 bg-white'
-    : st.counts_as_present ? 'border-emerald-500 bg-emerald-50 text-emerald-800'
-    : st.code === 'alpa' ? 'border-red-500 bg-red-50 text-red-700'
-    : 'border-amber-500 bg-amber-50 text-amber-800';
+const kelasStatus = (st?: AttendanceStatusRef) =>
+  !st ? '' : st.counts_as_present ? 'st-hadir' : st.code === 'alpa' ? 'st-alpa' : 'st-lain';
 
 const AbsensiHalaqahCard: React.FC<Props> = ({
-  halaqah, date, slot, today, isAdmin, statuses, attendance, allSantri, musammiList, onSave, defaultOpen = true,
+  halaqah, date, slot, today, isAdmin, statuses, attendance, allSantri, musammiList, onSave, defaultOpen = true, sinyalTandai = 0, cari = '',
 }) => {
   const aktif = useMemo(() => statuses.filter((s) => s.is_active), [statuses]);
   const byName = useMemo(() => new Map(statuses.map((s) => [s.name, s])), [statuses]);
@@ -100,6 +101,16 @@ const AbsensiHalaqahCard: React.FC<Props> = ({
     roster.forEach((s) => { if (!nilai(`s:${s.id}`)) next[`s:${s.id}`] = hadir.name; });
     setDraft(next);
   };
+  // Fase 8c: tombol "Tandai semua hadir" ada di panel filter halaman
+  const sinyalAwal = React.useRef(sinyalTandai);
+  useEffect(() => {
+    if (sinyalTandai === sinyalAwal.current) return;
+    sinyalAwal.current = sinyalTandai;
+    tandaiSemuaHadir();
+    setOpen(true);
+  }, [sinyalTandai]); // eslint-disable-line react-hooks/exhaustive-deps
+  const q = cari.trim().toLowerCase();
+  const rosterTampil = q ? roster.filter((s) => (s.nama || '').toLowerCase().includes(q)) : roster;
 
   const kumpulkan = () => {
     const out: any[] = [];
@@ -151,44 +162,34 @@ const AbsensiHalaqahCard: React.FC<Props> = ({
     simpan();
   };
 
-  const StatusChips: React.FC<{ k: string; disabled?: boolean }> = ({ k, disabled }) => (
-    <div className="grid grid-cols-3 gap-1.5 sm:flex sm:flex-wrap">
-      {aktif.map((st) => {
-        const selected = nilai(k) === st.name;
-        return (
-          <button
-            key={st.code}
-            type="button"
-            disabled={disabled}
-            onClick={() => setDraft((d) => ({ ...d, [k]: st.name }))}
-            className={`min-h-[44px] sm:min-h-0 min-w-[3.25rem] px-2.5 py-2 sm:py-1.5 rounded-lg border text-sm sm:text-xs font-semibold transition-colors ${
-              selected ? toneFor(st) + ' ring-1 ring-offset-0' : 'border-slate-200 text-slate-600 bg-white hover:bg-slate-50'
-            }`}
-          >
-            {st.name}
-          </button>
-        );
-      })}
-    </div>
-  );
+  const PilihStatus: React.FC<{ k: string; label: string; disabled?: boolean }> = ({ k, label, disabled }) => {
+    const v = nilai(k);
+    return (
+      <select
+        aria-label={`Status ${label}`}
+        value={v || ''}
+        disabled={disabled}
+        onChange={(e) => setDraft((d) => ({ ...d, [k]: e.target.value || undefined }))}
+        className={`pilih-status ${kelasStatus(v ? byName.get(v) : undefined)}`}
+      >
+        <option value="" disabled>Pilih…</option>
+        {aktif.map((st) => <option key={st.code} value={st.name}>{st.name}</option>)}
+        {v && !aktif.some((st) => st.name === v) && <option value={v}>{v}</option>}
+      </select>
+    );
+  };
 
   return (
-    <section className="bg-white border border-slate-200 rounded-xl shadow-xs">
+    <section className="bg-white border border-slate-200 rounded-2xl shadow-xs">
       <header className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-slate-100">
         <button type="button" onClick={() => setOpen(!open)} className="text-left min-w-0">
           <h3 className="font-bold text-slate-800 text-sm truncate">{halaqah.nama}</h3>
-          <p className="text-sm sm:text-2xs text-slate-500">
-            {halaqah.marhalah} · {terisi}/{roster.length} santri terisi
-            {records.length > 0 ? '' : ' · sesi belum tercatat'}
+          <p className="text-xs text-slate-500">
+            {[halaqah.marhalah, halaqah.jenis].filter(Boolean).join(' · ')}
+            {records.length > 0 ? '' : ' · belum tercatat'}
           </p>
         </button>
-        <div className="flex items-center gap-2">
-          {hadir && (
-            <button type="button" onClick={tandaiSemuaHadir} className="inline-flex items-center gap-1 px-2.5 py-1.5 min-h-[40px] sm:min-h-0 rounded-lg border border-emerald-300 text-emerald-700 text-sm sm:text-xs font-semibold hover:bg-emerald-50">
-              <CheckCheck size={14} /> Tandai semua {hadir.name}
-            </button>
-          )}
-        </div>
+        <span className={`badge ${terisi === roster.length && roster.length > 0 ? 'badge-hijau' : 'badge-netral'}`}>{terisi}/{roster.length}</span>
       </header>
 
       {open && (
@@ -196,18 +197,20 @@ const AbsensiHalaqahCard: React.FC<Props> = ({
           {/* Musammi' */}
           {musammi?.id ? (
             <div className="px-4 py-3 bg-slate-50/60">
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <UserCheck size={16} className="text-blue-600 shrink-0" />
-                  <span className="text-sm font-semibold text-slate-800 truncate">{musammi.nama}</span>
-                  <span className="text-sm sm:text-2xs uppercase font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5">Musammi'</span>
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <UserCheck size={16} className="text-blue-600 shrink-0" />
+                    <span className="text-sm font-semibold text-slate-800 truncate">{musammi.nama}</span>
+                    <span className="badge badge-biru shrink-0">Musammi'</span>
+                  </div>
+                  {musammiRecord?.markedByName && (
+                    <div className="text-2xs text-slate-400 mt-0.5 pl-6">oleh {musammiRecord.markedByName} {jam(musammiRecord.updatedAt)}</div>
+                  )}
                 </div>
-                {musammiRecord?.markedByName && (
-                  <span className="text-sm sm:text-2xs text-slate-400">oleh {musammiRecord.markedByName} {jam(musammiRecord.updatedAt)}</span>
-                )}
+                <PilihStatus k="m" label={musammi.nama} />
               </div>
-              <StatusChips k="m" />
-              <div className="mt-2 flex flex-wrap items-center gap-2">
+              <div className="mt-2 pl-6 flex flex-wrap items-center gap-2">
                 <label className="inline-flex items-center gap-1.5 text-sm sm:text-xs text-slate-700">
                   <input type="checkbox" className="rounded border-slate-300" checked={badal.on}
                     onChange={(e) => setBadal({ on: e.target.checked, id: e.target.checked ? badal.id : null })} />
@@ -217,7 +220,7 @@ const AbsensiHalaqahCard: React.FC<Props> = ({
                   <select
                     value={badal.id ?? ''}
                     onChange={(e) => setBadal({ on: true, id: e.target.value ? Number(e.target.value) : null })}
-                    className="border border-slate-300 rounded-lg px-2 py-1 text-sm sm:text-xs"
+                    className="kontrol h-9 w-auto text-sm"
                   >
                     <option value="">Pilih musammi' pengganti…</option>
                     {musammiList.filter((m) => Number(m.id) !== Number(musammi.id)).map((m) => (
@@ -234,28 +237,28 @@ const AbsensiHalaqahCard: React.FC<Props> = ({
 
           {/* Santri */}
           {roster.length === 0 && <div className="px-4 py-4 text-sm sm:text-xs text-slate-500">Belum ada santri di halaqah ini pada tanggal tersebut.</div>}
-          {roster.map((s) => {
+          {roster.length > 0 && rosterTampil.length === 0 && <div className="px-4 py-4 text-sm sm:text-xs text-slate-500">Tidak ada santri yang cocok dengan pencarian.</div>}
+          {rosterTampil.map((s) => {
             const rec = santriRecords.get(Number(s.id));
             const k = `s:${s.id}`;
             const dirty = draft[k] !== undefined && draft[k] !== existing[k];
+            const ket = rec?.markedByName ? `oleh ${rec.markedByName} ${jam(rec.updatedAt)}` : s.kelas && s.kelas !== '-' ? s.kelas : '';
             return (
-              <div key={s.id} className={`px-4 py-2.5 ${dirty ? 'bg-blue-50/40' : ''}`}>
-                <div className="flex items-baseline justify-between gap-2 mb-1.5">
-                  <span className="text-sm font-medium text-slate-800 truncate">{s.nama}</span>
-                  <span className="text-sm sm:text-2xs text-slate-400 shrink-0">
-                    {rec?.markedByName ? `oleh ${rec.markedByName} ${jam(rec.updatedAt)}` : s.kelas && s.kelas !== '-' ? s.kelas : ''}
-                  </span>
+              <div key={s.id} className={`px-4 py-2.5 flex items-center justify-between gap-3 ${dirty ? 'bg-blue-50/50' : ''}`}>
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-slate-800 truncate">{s.nama}</div>
+                  {ket && <div className="text-2xs text-slate-400 truncate">{ket}</div>}
                 </div>
-                <StatusChips k={k} />
+                <PilihStatus k={k} label={s.nama} />
               </div>
             );
           })}
 
-          <footer className="sticky bottom-0 bg-white pl-4 pr-20 py-3 flex flex-wrap items-center justify-between gap-2 rounded-b-xl border-t border-slate-100">
-            <span className="text-sm sm:text-2xs text-slate-500">
+          <footer className="bilah-simpan bg-white pl-4 pr-20 py-3 flex flex-wrap items-center justify-between gap-2 rounded-b-xl border-t border-slate-200">
+            <span className="hidden sm:block text-2xs text-slate-500">
               {isPast ? 'Tanggal sudah lewat: perubahan catatan tersimpan = koreksi Admin dengan alasan.' : 'Perubahan hari ini bisa diperbarui Admin maupun Musammi\'.'}
             </span>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-1 sm:flex-none items-center gap-2">
               {jumlahBerubah > 0 && (
                 <button type="button" onClick={() => { setDraft({}); setBadal({ on: Boolean(musammiRecord?.isBadal), id: musammiRecord?.badalMusammiId ?? null }); }}
                   className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-300 text-sm sm:text-xs font-semibold text-slate-700">

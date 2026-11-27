@@ -19,7 +19,7 @@ import {
 import { sanitizeHtml } from '../lib/utils';
 import { normalizeRole, resolveTenantContext } from '../lib/permissions';
 import { NotificationStore } from '../lib/NotificationStore';
-import { ConfirmDialog } from '../components/ui/SaaSPrimitives';
+import { ConfirmDialog, LoadingState, PageHeader } from '../components/ui/SaaSPrimitives';
 
 // Define Interface locally to avoid complex generic issues in some environments
 interface Informasi {
@@ -491,7 +491,7 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
 
     const renderPengumumanContent = () => {
         if (loading) {
-            return <div className="text-center p-8 text-slate-500 text-sm">Memuat informasi...</div>;
+            return <LoadingState label="Memuat informasi…" />;
         }
         if (error) {
             return <div className="text-center p-8 text-red-600 text-sm">Error: {error}</div>;
@@ -523,24 +523,24 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
                                     Diposting oleh {info.author_name} • {formatDistanceToNow(new Date(info.created_at), { addSuffix: true })}
                                 </p>
                             </div>
-                            <div className="flex items-center space-x-2 flex-shrink-0">
+                            <div className="flex items-center gap-1 flex-shrink-0">
                                 {canManagePengumuman && (
                                   <>
                                     <button 
                                         type="button"
                                         onClick={() => openModal(info)} 
-                                        className="p-2 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-full transition-colors" 
+                                        className="btn-icon hover:!text-blue-600" 
                                         title="Edit Informasi"
                                     >
-                                        <Edit size={16}/>
+                                        <Edit size={15}/>
                                     </button>
                                     <button 
                                         type="button"
                                         onClick={() => handleDelete(info.id)} 
-                                        className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors" 
+                                        className="btn-icon hover:!text-red-600 hover:!bg-red-50" 
                                         title="Hapus Informasi"
                                     >
-                                        <Trash size={16}/>
+                                        <Trash size={15}/>
                                     </button>
                                   </>
                                 )}
@@ -555,14 +555,14 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
 
     const renderPembaruanContent = () => {
         return (
-            <div className="space-y-6">
+            <div className="space-y-5">
                 {releases.map((release: AppUpdateRelease) => {
                     const groupedCategories = Array.from(new Set((release.items || []).map(item => item.category)));
 
                     return (
                         <div 
                             key={release.id} 
-                            className="bg-white border border-slate-200/90 rounded-xl p-5 sm:p-7 shadow-sm transition-shadow hover:shadow-sm relative"
+                            className="card p-5 sm:p-6 relative"
                         >
                             {/* Header Rilis (Zero-Pill Typography) */}
                             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 border-b border-slate-100 pb-4">
@@ -654,61 +654,47 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
     };
 
     return (
-        <div className="space-y-6">
-            {/* Header Halaman & Segmented Tabs */}
-            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-                <div>
-                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Pusat Informasi</h1>
-                    <p className="text-sm text-slate-500 mt-1">
-                        Informasi pengumuman kegiatan ma'had serta riwayat pembaruan sistem aplikasi.
-                    </p>
-                </div>
-
-                {/* Admin can add announcements; Super Admin can add releases */}
-                {(activeTab === 'pengumuman' ? canManagePengumuman : isSuperAdmin) && (
-                    <div>
-                        {activeTab === 'pengumuman' ? (
+        <div className="space-y-5 pb-12">
+            {/* Header Halaman */}
+            <PageHeader
+                title="Pusat Informasi"
+                description="Informasi pengumuman kegiatan ma'had serta riwayat pembaruan sistem aplikasi."
+                actions={
+                    (activeTab === 'pengumuman' ? canManagePengumuman : isSuperAdmin) ? (
+                        activeTab === 'pengumuman' ? (
                             <button 
                                 type="button"
                                 onClick={() => openModal(null)} 
-                                className="btn btn-primary justify-center"
+                                className="btn btn-primary"
                             >
-                                <Plus size={16} className="mr-2" /> Buat Informasi Baru
+                                <Plus size={16} /> Buat Informasi Baru
                             </button>
                         ) : (
                             <button 
                                 type="button"
                                 onClick={() => openReleaseModal(null)} 
-                                className="btn btn-primary justify-center"
+                                className="btn btn-primary"
                             >
-                                <Plus size={16} className="mr-2" /> Tambah Catatan Rilis
+                                <Plus size={16} /> Tambah Catatan Rilis
                             </button>
-                        )}
-                    </div>
-                )}
-            </div>
+                        )
+                    ) : undefined
+                }
+            />
 
-            {/* Segmented Control Tabs (Clean & Anti-slop) */}
-            <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg w-fit border border-slate-200/60">
+            {/* Tabs */}
+            <div className="tabs">
                 <button
                     type="button"
                     onClick={() => handleSelectTab('pengumuman')}
-                    className={`px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
-                        activeTab === 'pengumuman'
-                            ? 'bg-white text-slate-900 shadow-sm'
-                            : 'text-slate-600 hover:text-slate-900'
-                    }`}
+                    className={`tab ${activeTab === 'pengumuman' ? 'tab-aktif' : ''}`}
                 >
                     Pengumuman Ma'had
                 </button>
                 <button
                     type="button"
                     onClick={() => handleSelectTab('pembaruan')}
-                    className={`px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
-                        activeTab === 'pembaruan'
-                            ? 'bg-white text-slate-900 shadow-sm'
-                            : 'text-slate-600 hover:text-slate-900'
-                    }`}
+                    className={`tab flex items-center gap-2 ${activeTab === 'pembaruan' ? 'tab-aktif' : ''}`}
                 >
                     <span>Pembaruan Aplikasi</span>
                     {hasUnread && (
@@ -725,7 +711,7 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
                 <Modal isOpen={isModalOpen} onClose={closeModal} title={editingInformasi ? 'Edit Informasi' : 'Buat Informasi Baru'}>
                     <div className="space-y-4">
                         <div>
-                            <label htmlFor="title" className="block text-sm font-medium text-slate-700">Judul</label>
+                            <label htmlFor="title" className="block text-xs font-semibold text-slate-700 mb-1.5">Judul</label>
                             <input 
                                 type="text" 
                                 name="title" 
@@ -733,7 +719,7 @@ const Informasi: React.FC<InformasiProps> = ({ userRole }) => {
                                 value={formData.title} 
                                 onChange={handleFormChange} 
                                 placeholder="Masukkan judul pengumuman..."
-                                className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" 
+                                className="field" 
                             />
                         </div>
                         <div>

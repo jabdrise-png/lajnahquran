@@ -11,8 +11,8 @@ const Card: React.FC<CardProps> = ({ children, className = '', title, id }) => {
   return (
     <div id={id} className={`card ${className}`}>
       {title && (
-        <div className="px-4 sm:px-5 py-3.5 border-b border-slate-200">
-          <h2 className="text-base font-bold text-slate-900">{title}</h2>
+        <div className="px-5 py-4 border-b border-slate-200">
+          <h2 className="text-sm sm:text-base font-bold text-slate-900">{title}</h2>
         </div>
       )}
       <div className="p-4 sm:p-5">

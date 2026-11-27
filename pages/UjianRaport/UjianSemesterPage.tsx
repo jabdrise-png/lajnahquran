@@ -179,7 +179,7 @@ const UjianSemesterPage: React.FC = () => {
           </div>
         }
       />
-      <div className="panel-filter"><div className="grid-filter">
+      <div className="panel-filter"><div className="grid-filter sm:grid-cols-2 lg:grid-cols-2">
         <label className="kontrol-label"><span>Halaqah</span><select className="kontrol-dalam" value={filterHalaqah} onChange={(e) => setFilterHalaqah(e.target.value)}>
             <option value="all">Semua yang saya uji</option>
             {halaqah.filter((h) => boleh.has(Number(h.id)) && !h.is_archived).map((h) => <option key={h.id} value={String(h.id)}>{h.nama}</option>)}

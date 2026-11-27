@@ -209,7 +209,7 @@ const UjianBulananPage: React.FC = () => {
         }
       />
 
-      <div className="panel-filter"><div className="grid-filter">
+      <div className="panel-filter"><div className="grid-filter sm:grid-cols-3 lg:grid-cols-3">
         <label className="kontrol-label"><span>Ujian</span><select className="kontrol-dalam" value={periodId} onChange={(e) => setPeriodId(e.target.value)}>
             {periodeList.length === 0 && <option value="">Belum ada ujian bulanan</option>}
             {periodeList.map((p) => <option key={p.id} value={p.id}>Ke-{p.ke} · {p.label}</option>)}

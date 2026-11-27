@@ -110,9 +110,9 @@ export const AuditLembagaPage: React.FC = () => {
           tone="success"
         />
         <StatCard
-          label="Riwayat Amendment Raport"
+          label="Riwayat Revisi Raport"
           value={reportCards.filter((r) => (Number(r.version_no) || 1) > 1 || r.status === 'amended').length}
-          meta="Revisi pasca-publikasi ber-alasan"
+          meta="Revisi pasca-terbit beralasan"
           tone="warning"
         />
       </div>
@@ -147,137 +147,137 @@ export const AuditLembagaPage: React.FC = () => {
       </div>
 
       {activeTab === 'audit' ? (
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          {filteredLogs.length === 0 ? (
+        filteredLogs.length === 0 ? (
+          <div className="card">
             <EmptyState
               title="Belum Ada Log Audit"
               description="Setiap perubahan nilai ujian, koreksi absensi pasca-simpan, review setoran, dan publikasi versi target/rubrik akan tercatat otomatis di sini."
             />
-          ) : (
-            <div className="wadah-tabel overflow-x-auto">
-              <table className="tabel">
-                <thead>
-                  <tr>
-                    <th>Waktu</th>
-                    <th>Aksi</th>
-                    <th>Entitas / Resource</th>
-                    <th>Alasan / Keterangan</th>
-                    <th className="text-right">Detail</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredLogs.map((log) => {
-                    const resType = log.resource_type || log.entity_type || '-';
-                    const resId = log.resource_id || log.entity_id || '';
-                    const reasonText =
-                      log.reason ||
-                      log.after_state?.reason ||
-                      log.diff_json?.reason ||
-                      log.diff_json?.note ||
-                      '-';
-                    return (
-                      <tr key={log.id}>
-                        <td className="text-slate-500 tabular-nums whitespace-nowrap">
-                          {log.created_at ? new Date(log.created_at).toLocaleString('id-ID') : '-'}
-                        </td>
-                        <td>
-                          <StatusBadge label={String(log.action || 'MUTATION').toUpperCase()} tone="primary" />
-                        </td>
-                        <td className="font-mono text-slate-700">
-                          {resType}
-                          {resId ? <span className="text-slate-400 ml-1">({String(resId).slice(0, 16)})</span> : null}
-                        </td>
-                        <td className="text-slate-700 max-w-md truncate">
-                          {reasonText}
-                        </td>
-                        <td className="text-right">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedAuditLog(log)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-100 font-semibold"
-                          >
-                            <Eye size={13} /> Detail
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="wadah-tabel overflow-x-auto">
+            <table className="tabel tabel-kartu">
+              <thead>
+                <tr>
+                  <th>Waktu</th>
+                  <th>Aksi</th>
+                  <th>Entitas</th>
+                  <th>Alasan / Keterangan</th>
+                  <th className="text-right">Detail</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredLogs.map((log) => {
+                  const resType = log.resource_type || log.entity_type || '-';
+                  const resId = log.resource_id || log.entity_id || '';
+                  const reasonText =
+                    log.reason ||
+                    log.after_state?.reason ||
+                    log.diff_json?.reason ||
+                    log.diff_json?.note ||
+                    '-';
+                  return (
+                    <tr key={log.id}>
+                      <td data-label="Waktu" className="text-slate-500 tabular-nums whitespace-nowrap">
+                        {log.created_at ? new Date(log.created_at).toLocaleString('id-ID') : '-'}
+                      </td>
+                      <td data-label="Aksi">
+                        <StatusBadge label={String(log.action || 'MUTASI').toUpperCase()} tone="primary" />
+                      </td>
+                      <td data-label="Entitas" className="font-mono text-slate-700">
+                        {resType}
+                        {resId ? <span className="text-slate-400 ml-1">({String(resId).slice(0, 16)})</span> : null}
+                      </td>
+                      <td data-label="Alasan" className="text-slate-700 max-w-md truncate">
+                        {reasonText}
+                      </td>
+                      <td data-label="Detail" className="text-right">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedAuditLog(log)}
+                          className="btn btn-secondary btn-sm"
+                        >
+                          <Eye size={13} /> Detail
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )
       ) : (
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          {filteredReportCards.length === 0 ? (
+        filteredReportCards.length === 0 ? (
+          <div className="card">
             <EmptyState
               title="Belum ada raport diterbitkan"
               description="Raport yang diterbitkan dari halaman Rekap Nilai & Raport akan tercatat di sini."
             />
-          ) : (
-            <div className="wadah-tabel overflow-x-auto">
-              <table className="tabel">
-                <thead>
-                  <tr>
-                    <th>Santri</th>
-                    <th>Semester</th>
-                    <th>Versi</th>
-                    <th>Nilai Akhir & Predikat</th>
-                    <th>Status</th>
-                    <th>Catatan Amendment</th>
-                    <th className="text-right">Arsip terbit</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredReportCards.map((rc) => {
-                    const sId = rc.santri_id || rc.student_id;
-                    const student = santri.find((s) => Number(s.id) === Number(sId));
-                    const snap = rc.snapshot_json || {};
-                    const finalScore = rc.final_score ?? snap.final_score ?? '-';
-                    const predikat = rc.predikat || snap.predikat || '-';
-                    return (
-                      <tr key={rc.id}>
-                        <td className="font-semibold text-slate-900">
-                          <div>{student?.nama || snap.santri_nama || `Santri #${sId}`}</div>
-                          <div className="text-2xs font-normal text-slate-500">
-                            {snap.marhalah || student?.marhalah || '-'} • Kelas {snap.kelas || student?.kelas || '-'}
-                          </div>
-                        </td>
-                        <td className="font-medium text-slate-700">
-                          {rc.semester_name || snap.semester || 'Ganjil'}
-                        </td>
-                        <td className="font-bold text-slate-800 tabular-nums">
-                          v{rc.version_no || 1}
-                        </td>
-                        <td className="font-bold text-slate-900 tabular-nums">
-                          {finalScore} <span className="text-slate-500 font-sans font-semibold">({predikat})</span>
-                        </td>
-                        <td>
-                          <StatusBadge
-                            label={String(rc.status || 'published').toUpperCase()}
-                            tone={rc.status === 'published' ? 'success' : 'warning'}
-                          />
-                        </td>
-                        <td className="text-slate-600 max-w-xs truncate">
-                          {rc.amendment_reason || 'Publikasi awal'}
-                        </td>
-                        <td className="text-right">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedSnapshot(rc)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-100 font-semibold"
-                          >
-                            <Eye size={13} /> Lihat JSON
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="wadah-tabel overflow-x-auto">
+            <table className="tabel tabel-kartu">
+              <thead>
+                <tr>
+                  <th>Santri</th>
+                  <th>Semester</th>
+                  <th>Versi</th>
+                  <th>Nilai Akhir & Predikat</th>
+                  <th>Status</th>
+                  <th>Catatan Revisi</th>
+                  <th className="text-right">Arsip Terbit</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredReportCards.map((rc) => {
+                  const sId = rc.santri_id || rc.student_id;
+                  const student = santri.find((s) => Number(s.id) === Number(sId));
+                  const snap = rc.snapshot_json || {};
+                  const finalScore = rc.final_score ?? snap.final_score ?? '-';
+                  const predikat = rc.predikat || snap.predikat || '-';
+                  return (
+                    <tr key={rc.id}>
+                      <td data-label="Santri" className="font-semibold text-slate-900">
+                        <div>{student?.nama || snap.santri_nama || `Santri #${sId}`}</div>
+                        <div className="text-2xs font-normal text-slate-500">
+                          {snap.marhalah || student?.marhalah || '-'} • Kelas {snap.kelas || student?.kelas || '-'}
+                        </div>
+                      </td>
+                      <td data-label="Semester" className="font-medium text-slate-700">
+                        {rc.semester_name || snap.semester || 'Ganjil'}
+                      </td>
+                      <td data-label="Versi" className="font-bold text-slate-800 tabular-nums">
+                        v{rc.version_no || 1}
+                      </td>
+                      <td data-label="Nilai Akhir" className="font-bold text-slate-900 tabular-nums">
+                        {finalScore} <span className="text-slate-500 font-sans font-semibold">({predikat})</span>
+                      </td>
+                      <td data-label="Status">
+                        <StatusBadge
+                          label={rc.status === 'published' ? 'Terbit' : rc.status === 'amended' ? 'Direvisi' : String(rc.status || 'Terbit')}
+                          tone={rc.status === 'published' ? 'success' : 'warning'}
+                        />
+                      </td>
+                      <td data-label="Catatan" className="text-slate-600 max-w-xs truncate">
+                        {rc.amendment_reason || 'Terbit awal'}
+                      </td>
+                      <td data-label="Arsip" className="text-right">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedSnapshot(rc)}
+                          className="btn btn-secondary btn-sm"
+                        >
+                          <Eye size={13} /> Lihat Data
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )
       )}
 
       {selectedSnapshot && (
@@ -343,7 +343,7 @@ export const AuditLembagaPage: React.FC = () => {
                 </span>
               </div>
               <div>
-                <span className="font-semibold text-slate-500">Resource: </span>
+                <span className="font-semibold text-slate-500">Entitas: </span>
                 <span className="font-mono text-slate-800">
                   {selectedAuditLog.resource_type || selectedAuditLog.entity_type} ({selectedAuditLog.resource_id || '-'})
                 </span>
@@ -355,7 +355,7 @@ export const AuditLembagaPage: React.FC = () => {
             </div>
             {selectedAuditLog.before_state && (
               <div>
-                <div className="font-bold text-slate-700 mb-1">Before State</div>
+                <div className="font-bold text-slate-700 mb-1">Data Sebelum</div>
                 <pre className="bg-slate-900 text-slate-100 p-3.5 rounded-xl text-2xs font-mono overflow-x-auto max-h-48">
                   {JSON.stringify(selectedAuditLog.before_state, null, 2)}
                 </pre>
@@ -363,7 +363,7 @@ export const AuditLembagaPage: React.FC = () => {
             )}
             {(selectedAuditLog.after_state || selectedAuditLog.diff_json) && (
               <div>
-                <div className="font-bold text-slate-700 mb-1">After State / Diff</div>
+                <div className="font-bold text-slate-700 mb-1">Data Sesudah / Perubahan</div>
                 <pre className="bg-slate-900 text-slate-100 p-3.5 rounded-xl text-2xs font-mono overflow-x-auto max-h-60">
                   {JSON.stringify(selectedAuditLog.after_state || selectedAuditLog.diff_json, null, 2)}
                 </pre>

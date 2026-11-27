@@ -11,7 +11,7 @@ import IsianFormPanel from '../components/evaluasi/IsianFormPanel';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { NotificationStore } from '../lib/NotificationStore';
-import { StatusBadge } from '../components/ui/SaaSPrimitives';
+import { PageHeader, StatusBadge } from '../components/ui/SaaSPrimitives';
 import { MurojaahRule, TargetMurojaahConfig } from '../types';
 import { format } from 'date-fns';
 
@@ -295,15 +295,11 @@ export const PengaturanEvaluasiPage: React.FC = () => {
     };
 
     return (
-        <div className="space-y-10 font-sans min-h-screen max-w-[1400px] mx-auto pb-16 pt-2 px-2 sm:px-4 lg:px-6">
-            <div className="border-b border-slate-200 pb-5">
-                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                    Pengaturan Evaluasi
-                </h1>
-                <p className="text-xs sm:text-sm text-slate-500 font-medium">
-                    Periode evaluasi, mode pencatatan halaqah, target setoran, isian form evaluasi periode, dan notifikasi setoran.
-                </p>
-            </div>
+        <div className="space-y-6 pb-12 font-sans">
+            <PageHeader
+                title="Pengaturan Evaluasi"
+                description="Periode evaluasi, mode pencatatan halaqah, target setoran, isian form evaluasi periode, dan notifikasi setoran."
+            />
 
             {/* Fase 4: periode dari tabel evaluation_periods */}
             <PeriodeEvaluasiPanel />
@@ -336,13 +332,13 @@ export const PengaturanEvaluasiPage: React.FC = () => {
                             value={targetVersionNote}
                             onChange={(e) => setTargetVersionNote(e.target.value)}
                             placeholder="Catatan versi target (opsional)..."
-                            className="text-xs border border-slate-200 rounded-xl px-3.5 py-2 bg-white text-slate-700 w-56 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                            className="field !w-56"
                         />
                         <button
                             type="button"
                             onClick={handleSaveTargets}
                             disabled={isSavingTargets}
-                            className="btn btn-primary btn-sm"
+                            className="btn btn-primary"
                         >
                             <Save size={15} />
                             <span>{isSavingTargets ? 'Menyimpan...' : 'Terbitkan Versi Target'}</span>
@@ -379,7 +375,7 @@ export const PengaturanEvaluasiPage: React.FC = () => {
                 </div>
 
                 {targetActiveTab === 'versions' && (
-                    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+                    <div className="card overflow-hidden">
                         <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200/80 flex items-center justify-between">
                             <span className="text-xs font-semibold text-slate-700">Riwayat versi target</span>
                             <span className="text-2xs text-slate-500">Semester Aktif: {activeSemester}</span>
@@ -398,13 +394,13 @@ export const PengaturanEvaluasiPage: React.FC = () => {
                                                     Target Semester {plan.semester_name} — Versi v{plan.version_no}
                                                 </span>
                                                 <StatusBadge
-                                                    label={plan.status === 'published' ? 'PUBLISHED' : 'ARCHIVED'}
+                                                    label={plan.status === 'published' ? 'Aktif' : 'Arsip'}
                                                     tone={plan.status === 'published' ? 'success' : 'neutral'}
                                                 />
                                             </div>
                                             <p className="text-xs text-slate-500 mt-1">{plan.notes || '-'}</p>
                                         </div>
-                                        <div className="text-2xs font-mono text-slate-400">
+                                        <div className="text-2xs font-mono text-slate-400 tabular-nums">
                                             {plan.created_at ? format(new Date(plan.created_at), 'dd MMM yyyy HH:mm') : '-'}
                                         </div>
                                     </div>
@@ -416,14 +412,14 @@ export const PengaturanEvaluasiPage: React.FC = () => {
 
                 {/* Content: Target Hafalan (Hanya menampilkan target hafalan saja) */}
                 {targetActiveTab === 'hafalan' && (
-                    <div className="space-y-6">
+                    <div className="space-y-4">
                         {activeMarhalahs.map(m => {
                             const kelasForMarhalah = getKelasListForMarhalah(m);
                             return (
-                                <div key={m.id || m.nama} className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-xs">
+                                <div key={m.id || m.nama} className="card overflow-hidden">
                                     <div className="bg-slate-50/80 px-5 py-3.5 font-bold text-sm text-slate-700 border-b border-slate-200/80 flex items-center justify-between">
                                         <span className="font-bold text-slate-800">Marhalah {m.nama}</span>
-                                        <span className="text-2xs font-semibold text-slate-500 bg-white px-2.5 py-0.5 rounded-full border border-slate-200">
+                                        <span className="badge badge-abu">
                                             {kelasForMarhalah.length} Kelas
                                         </span>
                                     </div>
@@ -460,20 +456,20 @@ export const PengaturanEvaluasiPage: React.FC = () => {
 
                 {/* Content: Target Murojaah (Aturan Ambang Batas Global) */}
                 {targetActiveTab === 'murojaah' && (
-                    <div className="space-y-6">
+                    <div className="space-y-4">
                         <p className="text-xs text-slate-500 font-medium leading-relaxed">
                             Tentukan target hafalan Murojaah bulanan berdasarkan ambang batas capaian hafalan santri (Juz) untuk masing-masing Marhalah.
                         </p>
                         {activeMarhalahs.map(m => {
                             const rules = murojaahRules[m.nama] || [];
                             return (
-                                <div key={m.id || m.nama} className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+                                <div key={m.id || m.nama} className="card overflow-hidden">
                                     <div className="bg-slate-50/80 px-5 py-3.5 font-bold text-sm text-slate-700 border-b border-slate-200/80 flex justify-between items-center">
                                         <span className="font-bold text-slate-800">Marhalah {m.nama}</span>
                                         <button 
                                             type="button" 
                                             onClick={() => handleAddMurojaahRule(m.nama)}
-                                            className="text-2xs flex items-center gap-1 font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-xl transition-colors border border-blue-200 cursor-pointer"
+                                            className="btn btn-soft btn-sm"
                                         >
                                             <Plus size={13} /> Tambah Ambang Batas
                                         </button>
@@ -516,7 +512,7 @@ export const PengaturanEvaluasiPage: React.FC = () => {
                                                     <button
                                                         type="button"
                                                         onClick={() => handleRemoveMurojaahRule(m.nama, idx)}
-                                                        className="sm:ml-auto p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer self-end sm:self-center mt-2 sm:mt-0"
+                                                        className="btn-icon sm:ml-auto hover:!text-red-600 hover:!bg-red-50 self-end sm:self-center mt-2 sm:mt-0"
                                                         title="Hapus Aturan"
                                                     >
                                                         <Trash2 size={15} />
@@ -537,16 +533,16 @@ export const PengaturanEvaluasiPage: React.FC = () => {
             <IsianFormPanel />
 
             {/* Setoran harian: jenis & waktu di Referensi Data Dasar, predikat di Tabel Kelancaran (Fase 2–3) */}
-            <section className="space-y-2">
+            <section className="space-y-3">
                 <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">Setoran Harian</h2>
-                <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600 space-y-2">
+                <div className="card p-5 text-sm text-slate-600 space-y-3">
                     <p>
                         Jenis setoran, waktu halaqah, dan <b>Tabel Kelancaran</b> (predikat otomatis) diatur di
                         <b> Pengaturan &gt; Referensi Data Dasar</b>. Di Mode Harian, rekap periode dijumlah otomatis dari setoran —
                         tidak perlu lagi "Tarik Data" atau sinkronisasi.
                     </p>
                     <Link to="/app/telegram"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700">
+                        className="btn btn-secondary btn-sm">
                         Notifikasi Telegram ke wali (setoran, kehadiran mingguan, capaian periode) →
                     </Link>
                 </div>

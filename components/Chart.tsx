@@ -159,12 +159,13 @@ export const StackedBarChart: React.FC<StackedBarChartProps> = ({
     height = 350, 
     bottomMargin = 30, 
     rotateLabels = false,
-    barSize = 40,
+    barSize,
     keys = ['Hadir', 'Izin', 'Sakit', 'Alpa', 'Terlambat'],
     unit
 }) => (
   <ResponsiveContainer width="100%" height={height}>
-    <BarChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: bottomMargin }}>
+    {/* Fase 8c: ruang label cukup dari tinggi sumbu X (tidak dobel dengan margin bawah); batang rapat */}
+    <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 4 }} barCategoryGap="22%">
       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
       <XAxis 
         dataKey="name" 
@@ -184,9 +185,9 @@ export const StackedBarChart: React.FC<StackedBarChartProps> = ({
         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
         formatter={unit ? (value: any) => [`${value}${unit}`] : undefined}
       />
-      <Legend verticalAlign="top" wrapperStyle={{paddingBottom: '20px'}} iconType="circle"/>
+      <Legend verticalAlign="top" wrapperStyle={{paddingBottom: '12px'}} iconType="circle"/>
       {keys.map((k, i) => (
-         <Bar key={k} barSize={barSize} dataKey={k} stackId="a" fill={getStatusColor(k)} name={k} radius={i === 0 ? [0,0,4,4] : i === keys.length - 1 ? [4,4,0,0] : [0,0,0,0]} />
+         <Bar key={k} barSize={barSize} maxBarSize={64} dataKey={k} stackId="a" fill={getStatusColor(k)} name={k} radius={i === 0 ? [0,0,4,4] : i === keys.length - 1 ? [4,4,0,0] : [0,0,0,0]} />
       ))}
     </BarChart>
   </ResponsiveContainer>

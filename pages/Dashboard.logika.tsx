@@ -325,7 +325,7 @@ export function useDashboardLogika({ onNavigate, userRole }: DashboardProps) {
 
         if (stats.alpa >= 3) {
           urgency = 'kritis';
-          statusKeterangan = `${stats.alpa} Alpa terakumulasi · Peringatan wali`;
+          statusKeterangan = `${stats.alpa} Alpa terakumulasi`;
         } else if (stats.alpa >= 1) {
           urgency = 'waspada';
           statusKeterangan = `${stats.alpa} Alpa tanpa keterangan`;

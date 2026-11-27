@@ -132,15 +132,15 @@ const TahunAjaranPage: React.FC = () => {
                             {(masterMarhalahs || []).map((m) => {
                                 const classesForM = (masterKelasRelasi || []).filter((k) => k.marhalah_id === m.id);
                                 return (
-                                    <div key={m.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                                        <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                                    <div key={m.id} className="card overflow-hidden">
+                                        <div className="px-5 py-4 bg-slate-50/70 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
                                             <div className="flex items-center gap-3">
-                                                <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-slate-900 text-white text-xs font-bold">
+                                                <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-900 text-white text-xs font-bold tabular-nums">
                                                     {m.urutan || 1}
                                                 </span>
                                                 <div>
                                                     <h3 className="text-sm font-bold text-slate-900">{m.nama}</h3>
-                                                    <p className="text-2xs text-slate-500">
+                                                    <p className="text-xs text-slate-500">
                                                         {classesForM.length} rombongan belajar terdaftar
                                                     </p>
                                                 </div>
@@ -149,23 +149,25 @@ const TahunAjaranPage: React.FC = () => {
                                                 <button
                                                     type="button"
                                                     onClick={() => openKelasModal(null, m.id)}
-                                                    className="px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold transition-colors"
+                                                    className="btn btn-soft btn-sm"
                                                 >
                                                     + Tambah Kelas di {m.nama}
                                                 </button>
                                                 <button
                                                     type="button"
                                                     onClick={() => openMarhalahModal(m)}
-                                                    className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600"
+                                                    className="btn-icon border border-slate-200 bg-white"
                                                     title="Edit Marhalah"
+                                                    aria-label="Edit Marhalah"
                                                 >
                                                     <Edit size={14} />
                                                 </button>
                                                 <button
                                                     type="button"
                                                     onClick={() => handleDeleteMarhalah(m)}
-                                                    className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-red-50 text-red-600"
+                                                    className="btn-icon border border-slate-200 bg-white hover:bg-red-50 text-red-600"
                                                     title="Hapus Marhalah"
+                                                    aria-label="Hapus Marhalah"
                                                 >
                                                     <Trash size={14} />
                                                 </button>
@@ -173,52 +175,53 @@ const TahunAjaranPage: React.FC = () => {
                                         </div>
 
                                         <div className="wadah-tabel overflow-x-auto">
-                                            <table className="tabel">
+                                            <table className="tabel tabel-kartu">
                                                 <thead>
                                                     <tr>
                                                         <th className="w-16">Urutan</th>
                                                         <th>Nama Kelas</th>
-                                                        <th>Wali Kelas (Atribut Administratif)</th>
+                                                        <th>Wali Kelas</th>
                                                         <th>Kontak Wali Kelas</th>
                                                         <th>Musyrif Pembina</th>
                                                         <th className="text-right">Aksi</th>
                                                     </tr>
                                                 </thead>
-                                                <tbody className="text-xs">
+                                                <tbody>
                                                     {classesForM.map((k) => (
                                                         <tr key={k.id}>
-                                                            <td className="font-mono text-slate-500">#{k.urutan || 1}</td>
+                                                            <td data-label="No" className="font-mono text-xs text-slate-500">#{k.urutan || 1}</td>
                                                             <td>
-                                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-blue-50 text-blue-700 font-bold border border-blue-200">
+                                                                <span className="badge badge-biru">
                                                                     Kelas {k.nama_kelas}
                                                                 </span>
                                                             </td>
-                                                            <td className="font-medium text-slate-800">
+                                                            <td data-label="Wali Kelas" className="font-medium text-slate-800">
                                                                 {k.wali_kelas_name || (
                                                                     <span className="text-slate-400 italic">Belum diatur</span>
                                                                 )}
                                                             </td>
-                                                            <td className="text-slate-600">
+                                                            <td data-label="Kontak" className="text-slate-600">
                                                                 {k.wali_kelas_phone || '-'}
                                                             </td>
-                                                            <td className="text-slate-700">
+                                                            <td data-label="Musyrif" className="text-slate-700">
                                                                 {k.musyrif_name || (
                                                                     <span className="text-slate-400 italic">-</span>
                                                                 )}
                                                             </td>
-                                                            <td className="text-right">
+                                                            <td data-label="Aksi" className="text-right">
                                                                 <div className="inline-flex items-center gap-1.5">
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => openKelasModal(k)}
-                                                                        className="px-2.5 py-1 rounded-md border border-slate-200 hover:bg-slate-100 text-slate-700 font-semibold"
+                                                                        className="btn btn-secondary btn-sm"
                                                                     >
                                                                         Atur Wali / Edit
                                                                     </button>
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => handleDeleteKelas(k)}
-                                                                        className="p-1 rounded-md border border-slate-200 hover:bg-red-50 text-red-600"
+                                                                        aria-label="Hapus Kelas"
+                                                                        className="btn-icon border border-slate-200 hover:bg-red-50 text-red-600"
                                                                     >
                                                                         <Trash size={13} />
                                                                     </button>

@@ -123,7 +123,7 @@ const BisnisPanel: React.FC<{ awal?: Sub }> = ({ awal = 'pendaftaran' }) => {
           {tampilPendaftaran.length === 0 ? (
             <EmptyState title="Tidak ada pendaftaran menunggu" description="Pendaftaran baru akan muncul di sini." />
           ) : (
-            <div className="card overflow-hidden">
+            <div className="wadah-tabel overflow-x-auto">
               <table className="tabel tabel-kartu">
                 <thead><tr><th>Lembaga</th><th>Pendaftar</th><th>Kontak</th><th>Perkiraan santri</th><th>Tanggal</th><th>Status</th><th className="text-right">Aksi</th></tr></thead>
                 <tbody>
@@ -132,8 +132,8 @@ const BisnisPanel: React.FC<{ awal?: Sub }> = ({ awal = 'pendaftaran' }) => {
                       <td><div className="font-semibold text-slate-900">{p.nama_lembaga}</div>{p.kota && <div className="text-xs text-slate-500">{p.kota}</div>}</td>
                       <td data-label="Pendaftar">{p.nama_pendaftar}</td>
                       <td data-label="Kontak"><div>{p.email}</div>{p.no_hp && <div className="text-xs text-slate-500">{p.no_hp}</div>}</td>
-                      <td data-label="Perkiraan santri">{p.perkiraan_santri ?? '-'}</td>
-                      <td data-label="Tanggal">{tanggalId(p.created_at)}</td>
+                      <td data-label="Perkiraan santri" className="tabular-nums">{p.perkiraan_santri ?? '-'}</td>
+                      <td data-label="Tanggal" className="tabular-nums">{tanggalId(p.created_at)}</td>
                       <td data-label="Status">
                         <StatusBadge label={p.status === 'menunggu' ? 'Menunggu' : p.status === 'disetujui' ? 'Disetujui' : 'Ditolak'}
                           tone={p.status === 'menunggu' ? 'warning' : p.status === 'disetujui' ? 'success' : 'danger'} />
@@ -168,7 +168,7 @@ const BisnisPanel: React.FC<{ awal?: Sub }> = ({ awal = 'pendaftaran' }) => {
             ))}
           </div>
           <p className="text-sm text-slate-600">Pembayaran transfer dicatat manual. Lembaga yang lewat masa langganan hanya ditandai — tidak ditangguhkan otomatis.</p>
-          <div className="card overflow-hidden">
+          <div className="wadah-tabel overflow-x-auto">
             <table className="tabel tabel-kartu">
               <thead><tr><th>Lembaga</th><th>Paket</th><th>Santri aktif</th><th>Langganan sampai</th><th>Bayar terakhir</th><th className="text-right">Aksi</th></tr></thead>
               <tbody>
@@ -179,11 +179,11 @@ const BisnisPanel: React.FC<{ awal?: Sub }> = ({ awal = 'pendaftaran' }) => {
                       <tr>
                         <td><div className="font-semibold text-slate-900">{r.nama}</div><div className="text-xs text-slate-500">{[r.kota, r.no_hp, r.status === 'active' ? null : r.status].filter(Boolean).join(' · ')}</div></td>
                         <td data-label="Paket">{r.nama_paket || r.plan_id}</td>
-                        <td data-label="Santri aktif"><span className={lebih ? 'font-semibold text-red-700' : ''}>{r.santri_aktif}{r.batas_santri != null ? ` / ${r.batas_santri}` : ''}</span></td>
-                        <td data-label="Langganan sampai">
+                        <td data-label="Santri aktif" className="tabular-nums"><span className={lebih ? 'font-semibold text-red-700' : ''}>{r.santri_aktif}{r.batas_santri != null ? ` / ${r.batas_santri}` : ''}</span></td>
+                        <td data-label="Langganan sampai" className="tabular-nums">
                           <span className="inline-flex items-center gap-2">{tanggalId(r.langganan_sampai)} <StatusBadge label={LABEL_STATUS_LANGGANAN[r.status_langganan]} tone={NADA[r.status_langganan]} /></span>
                         </td>
-                        <td data-label="Bayar terakhir">{r.bayar_terakhir ? `${tanggalId(r.bayar_terakhir)} · ${rupiah(r.jumlah_terakhir)}` : '-'}</td>
+                        <td data-label="Bayar terakhir" className="tabular-nums">{r.bayar_terakhir ? `${tanggalId(r.bayar_terakhir)} · ${rupiah(r.jumlah_terakhir)}` : '-'}</td>
                         <td data-label="Aksi" className="text-right whitespace-nowrap">
                           <span className="inline-flex gap-2">
                             <button type="button" className="btn btn-ghost btn-sm" onClick={() => (riwayat[r.organization_id] ? setRiwayat((x) => { const y = { ...x }; delete y[r.organization_id]; return y; }) : muatRiwayat(r.organization_id))}>Riwayat</button>

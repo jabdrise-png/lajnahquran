@@ -33,6 +33,8 @@ interface Props {
   /** Mode koreksi oleh Admin */
   editEntry?: SetoranRow | null;
   onDone?: () => void;
+  /** Fase 8c: form untuk satu santri saja (dibuka dari daftar santri sesi); selesai simpan -> onDone */
+  santriTetap?: number | null;
 }
 
 const Stepper: React.FC<{ label: string; value: number; onChange: (n: number) => void }> = ({ label, value, onChange }) => (
@@ -47,7 +49,7 @@ const Stepper: React.FC<{ label: string; value: number; onChange: (n: number) =>
   </div>
 );
 
-const FormSetoranRingkas: React.FC<Props> = ({ halaqahOptions, initialHalaqahId, date: dateProp, slot: slotProp, lockContext, editEntry, onDone }) => {
+const FormSetoranRingkas: React.FC<Props> = ({ halaqahOptions, initialHalaqahId, date: dateProp, slot: slotProp, lockContext, editEntry, onDone, santriTetap }) => {
   const {
     allSantri, setoranHarian, attendance, attendanceStatuses, recitationKinds, sessionSlots, fluencyRules,
     simpanSetoran, appSettings,
@@ -76,7 +78,7 @@ const FormSetoranRingkas: React.FC<Props> = ({ halaqahOptions, initialHalaqahId,
   const setoranHariIni = (santriId: number) =>
     setoranHarian.filter((r) => r.santri_id === santriId && r.tanggal === date && r.waktu === slot).length;
 
-  const [santriId, setSantriId] = useState<number | null>(editEntry?.santri_id ?? null);
+  const [santriId, setSantriId] = useState<number | null>(editEntry?.santri_id ?? santriTetap ?? null);
   const kinds = recitationKinds.filter((k) => k.is_active);
   const defaultKind = sessionSlots.find((s) => s.code === slot)?.default_kind_code || kinds[0]?.code || 'ziyadah';
   const [kind, setKind] = useState<string>(editEntry?.kind || defaultKind);
@@ -178,6 +180,7 @@ const FormSetoranRingkas: React.FC<Props> = ({ halaqahOptions, initialHalaqahId,
       }
       // Fase 6: pesan wali dibuat server (notification_queue); picu kirim sekarang (cadangan: tiap menit)
       kirimAntrianSekarang();
+      if (santriTetap) { onDone?.(); return; }
       nextSantri();
     } catch (e) {
       tampilkanError(e, 'Gagal menyimpan setoran');
@@ -214,9 +217,9 @@ const FormSetoranRingkas: React.FC<Props> = ({ halaqahOptions, initialHalaqahId,
       )}
 
       {/* 1. Santri */}
-      <div>
+      <div className={santriTetap ? 'hidden' : ''}>
         <div className="text-sm sm:text-xs font-semibold text-slate-600 mb-1.5">Santri</div>
-        {isEdit ? (
+        {isEdit || santriTetap ? (
           <div className="text-sm font-semibold text-slate-800">{santri?.nama || `Santri ${santriId}`}</div>
         ) : (
           <div className="flex flex-wrap gap-1.5 max-h-44 overflow-y-auto">

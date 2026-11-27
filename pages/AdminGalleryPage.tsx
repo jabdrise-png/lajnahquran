@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { NotificationStore } from '../lib/NotificationStore';
-import { ConfirmDialog } from '../components/ui/SaaSPrimitives';
+import { ConfirmDialog, LoadingState, PageHeader } from '../components/ui/SaaSPrimitives';
 import { Trash2, Plus, Image as ImageIcon, ArrowLeft } from 'lucide-react';
 
 interface GalleryImage {
@@ -19,6 +19,7 @@ const AdminGalleryPage: React.FC = () => {
 
     // Form state
     const [imageUrl, setImageUrl] = useState('');
+    const [previewError, setPreviewError] = useState(false);
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
 
@@ -105,115 +106,116 @@ const AdminGalleryPage: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 p-6 md:p-12">
-            <div className="max-w-5xl mx-auto">
-                <div className="flex items-center gap-4 mb-8">
-                    <button 
+        <div className="space-y-5 pb-12">
+            <PageHeader
+                title="Galeri Landing Page"
+                description="Kelola gambar galeri yang tampil di halaman depan."
+                actions={
+                    <button
+                        type="button"
                         onClick={() => window.location.href = '/'}
-                        className="p-2 bg-white rounded-full shadow-sm hover:bg-slate-100 transition-colors"
+                        className="btn btn-secondary btn-sm"
                     >
-                        <ArrowLeft size={20} className="text-slate-600" />
+                        <ArrowLeft size={15} /> Kembali
                     </button>
-                    <div>
-                        <h1 className="text-3xl font-bold text-slate-900">Admin Landing Page</h1>
-                        <p className="text-slate-500">Kelola gambar galeri untuk Landing Page</p>
+                }
+            />
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                {/* Form Section */}
+                <div className="lg:col-span-1">
+                    <div className="card p-5 sticky top-6">
+                        <h2 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <Plus size={18} className="text-blue-600" /> Tambah Gambar
+                        </h2>
+                        <form onSubmit={handleAddImage} className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-700 mb-1.5">URL Gambar *</label>
+                                <input 
+                                    type="url" 
+                                    required
+                                    placeholder="https://contoh.com/gambar.jpg"
+                                    className="field"
+                                    value={imageUrl}
+                                    onChange={(e) => { setImageUrl(e.target.value); setPreviewError(false); }}
+                                />
+                                {imageUrl && (
+                                    <div className="mt-2 rounded-xl overflow-hidden border border-slate-200 h-32 bg-slate-100 flex items-center justify-center">
+                                        {previewError ? (
+                                            <span className="text-xs text-slate-500 px-3 text-center">URL gambar tidak dapat dimuat</span>
+                                        ) : (
+                                            <img src={imageUrl} alt="Pratinjau" className="w-full h-full object-cover" onError={() => setPreviewError(true)} />
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Judul (Opsional)</label>
+                                <input 
+                                    type="text" 
+                                    placeholder="Kegiatan Santri"
+                                    className="field"
+                                    value={title}
+                                    onChange={(e) => setTitle(e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Deskripsi Singkat (Opsional)</label>
+                                <textarea 
+                                    placeholder="Deskripsi kegiatan..."
+                                    rows={3}
+                                    className="field !h-auto py-2 resize-none"
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                ></textarea>
+                            </div>
+                            <button 
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="btn btn-primary w-full"
+                            >
+                                {isSubmitting ? 'Menyimpan...' : 'Simpan Gambar'}
+                            </button>
+                        </form>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Form Section */}
-                    <div className="lg:col-span-1">
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 sticky top-6">
-                            <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-                                <Plus size={20} className="text-blue-600" /> Tambah Gambar
-                            </h2>
-                            <form onSubmit={handleAddImage} className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">URL Gambar *</label>
-                                    <input 
-                                        type="url" 
-                                        required
-                                        placeholder="https://contoh.com/gambar.jpg"
-                                        className="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                        value={imageUrl}
-                                        onChange={(e) => setImageUrl(e.target.value)}
-                                    />
-                                    {imageUrl && (
-                                        <div className="mt-2 rounded-lg overflow-hidden border border-slate-200 h-32 bg-slate-100">
-                                            <img src={imageUrl} alt="Preview" className="w-full h-full object-cover" onError={(e) => (e.currentTarget.src = 'https://via.placeholder.com/400x200?text=Invalid+Image+URL')} />
-                                        </div>
-                                    )}
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Judul (Opsional)</label>
-                                    <input 
-                                        type="text" 
-                                        placeholder="Kegiatan Santri"
-                                        className="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                        value={title}
-                                        onChange={(e) => setTitle(e.target.value)}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Deskripsi Singkat (Opsional)</label>
-                                    <textarea 
-                                        placeholder="Deskripsi kegiatan..."
-                                        rows={3}
-                                        className="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-                                        value={description}
-                                        onChange={(e) => setDescription(e.target.value)}
-                                    ></textarea>
-                                </div>
-                                <button 
-                                    type="submit"
-                                    disabled={isSubmitting}
-                                    className="btn btn-primary w-full"
-                                >
-                                    {isSubmitting ? 'Menyimpan...' : 'Simpan Gambar'}
-                                </button>
-                            </form>
-                        </div>
-                    </div>
+                {/* Gallery List */}
+                <div className="lg:col-span-2">
+                    <div className="card p-5 min-h-[420px]">
+                        <h2 className="text-base font-bold text-slate-800 mb-5 flex items-center gap-2">
+                            <ImageIcon size={18} className="text-blue-600" /> Daftar Gambar Galeri
+                        </h2>
 
-                    {/* Gallery List */}
-                    <div className="lg:col-span-2">
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 min-h-[500px]">
-                            <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-                                <ImageIcon size={20} className="text-blue-600" /> Daftar Gambar Galeri
-                            </h2>
-
-                            {loading ? (
-                                <div className="flex justify-center items-center h-64">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                                </div>
-                            ) : images.length === 0 ? (
-                                <div className="text-center py-16 text-slate-400 border-2 border-dashed border-slate-200 rounded-xl">
-                                    <ImageIcon size={48} className="mx-auto mb-4 opacity-20" />
-                                    <p>Belum ada gambar yang ditambahkan.</p>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    {images.map((img) => (
-                                        <div key={img.id} className="group relative rounded-xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-sm transition-all">
-                                            <div className="aspect-video bg-slate-100">
-                                                <img src={img.image_url} alt={img.title || 'Gallery Image'} className="w-full h-full object-cover" />
-                                            </div>
-                                            <div className="p-4">
-                                                <h3 className="font-bold text-slate-800 truncate">{img.title || 'Tanpa Judul'}</h3>
-                                                <p className="text-sm text-slate-500 line-clamp-2 mt-1">{img.description || 'Tidak ada deskripsi'}</p>
-                                            </div>
-                                            <button 
-                                                onClick={() => handleDelete(img.id)}
-                                                className="absolute top-2 right-2 p-2 bg-white/90 text-red-500 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50"
-                                                title="Hapus Gambar"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
+                        {loading ? (
+                            <LoadingState label="Memuat gambar galeri…" />
+                        ) : images.length === 0 ? (
+                            <div className="text-center py-16 text-slate-400 border-2 border-dashed border-slate-200 rounded-xl">
+                                <ImageIcon size={40} className="mx-auto mb-3 opacity-30" />
+                                <p className="text-sm">Belum ada gambar yang ditambahkan.</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {images.map((img) => (
+                                    <div key={img.id} className="group relative rounded-xl overflow-hidden border border-slate-200 bg-white transition-all">
+                                        <div className="aspect-video bg-slate-100">
+                                            <img src={img.image_url} alt={img.title || 'Gambar Galeri'} className="w-full h-full object-cover" />
                                         </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
+                                        <div className="p-4">
+                                            <h3 className="font-bold text-sm text-slate-800 truncate">{img.title || 'Tanpa Judul'}</h3>
+                                            <p className="text-xs text-slate-500 line-clamp-2 mt-1">{img.description || 'Tidak ada deskripsi'}</p>
+                                        </div>
+                                        <button 
+                                            onClick={() => handleDelete(img.id)}
+                                            className="absolute top-2 right-2 p-2 bg-white/90 text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 border border-slate-200/80"
+                                            title="Hapus Gambar"
+                                        >
+                                            <Trash2 size={15} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

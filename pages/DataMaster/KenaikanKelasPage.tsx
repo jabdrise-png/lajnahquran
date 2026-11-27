@@ -6,6 +6,7 @@ import { useAcademicYear } from '../../lib/AcademicYearContext';
 import { supabase } from '../../lib/supabaseClient';
 import { Marhalah, Santri } from '../../types';
 import { ArrowRight, Check, Search, AlertCircle, XCircle, ChevronLeft, ChevronRight, GraduationCap } from 'lucide-react';
+import { PageHeader } from '../../components/ui/SaaSPrimitives';
 
 type PromotionActionType = 'promoted' | 'graduated' | 'transferred' | 'withdrawn';
 
@@ -302,22 +303,25 @@ const KenaikanKelasPage: React.FC = () => {
     const renderSourceEnrollmentStatusBadge = (status?: string) => {
         const st = status || 'active';
         if (st === 'promoted') {
-            return <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-2xs font-bold uppercase">Promoted</span>;
+            return <span className="badge badge-biru">Naik kelas</span>;
         }
         if (st === 'graduated') {
-            return <span className="px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 text-2xs font-bold uppercase">Graduated</span>;
+            return <span className="badge badge-netral">Lulus</span>;
         }
-        if (st === 'transferred' || st === 'withdrawn') {
-            return <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-2xs font-bold uppercase">{st}</span>;
+        if (st === 'transferred') {
+            return <span className="badge badge-kuning">Pindah</span>;
         }
-        return <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-2xs font-bold uppercase">Active</span>;
+        if (st === 'withdrawn') {
+            return <span className="badge badge-kuning">Berhenti</span>;
+        }
+        return <span className="badge badge-hijau">Aktif</span>;
     };
 
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20 max-w-[1400px] font-sans">
+        <div className="space-y-5 pb-12 font-sans">
             {notification && (
                 <div
-                    className={`p-4 rounded-xl flex items-start gap-3 shadow-sm ${
+                    className={`p-4 rounded-2xl flex items-start gap-3 shadow-xs ${
                         notification.type === 'success'
                             ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                             : 'bg-red-50 text-red-800 border border-red-200'
@@ -337,119 +341,100 @@ const KenaikanKelasPage: React.FC = () => {
                 </div>
             )}
 
-            {/* Header */}
-            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3 sm:gap-4">
-                <div className="min-w-0 flex-1">
-                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                        Kenaikan Kelas & Kelulusan
-                    </h1>
-                    <p className="mt-1 text-sm text-slate-500">
-                        Naikkan kelas atau luluskan santri ke tahun ajaran berikutnya. Riwayat kelas tahun lalu tetap tersimpan.
-                    </p>
+            <PageHeader
+                title="Kenaikan Kelas & Kelulusan"
+                description="Naikkan kelas atau luluskan santri ke tahun ajaran berikutnya. Riwayat kelas tahun lalu tetap tersimpan."
+            />
+
+            <div className="panel-filter space-y-3">
+                <div className="grid-filter sm:grid-cols-2 lg:grid-cols-2">
+                    <label className="kontrol-label">
+                        <span>TA Sumber</span>
+                        <select
+                            className="kontrol-dalam"
+                            value={sourceYearId}
+                            onChange={(e) => setSourceYearId(e.target.value ? Number(e.target.value) : '')}
+                        >
+                            <option value="">Pilih Tahun Ajaran Sumber…</option>
+                            {academicYears.map((ay) => (
+                                <option key={ay.id} value={ay.id}>
+                                    {ay.name} - {ay.active_semester} {ay.is_active ? '(Aktif)' : ''}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                    <input
+                        type="text"
+                        placeholder="Cari nama / kelas asal..."
+                        className="kontrol kontrol-cari"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        disabled={!sourceYearId}
+                    />
+                </div>
+                <div className="grid-filter sm:grid-cols-3 lg:grid-cols-3">
+                    <select
+                        className="kontrol"
+                        value={sourceMarhalah}
+                        onChange={(e) => {
+                            setSourceMarhalah(e.target.value);
+                            setSourceKelas('');
+                        }}
+                        disabled={!sourceYearId}
+                    >
+                        <option value="">Semua Marhalah</option>
+                        {globalMarhalahs.map((m) => (
+                            <option key={m} value={m}>
+                                {m}
+                            </option>
+                        ))}
+                    </select>
+                    <select
+                        className="kontrol"
+                        value={sourceKelas}
+                        onChange={(e) => setSourceKelas(e.target.value)}
+                        disabled={!sourceYearId || !sourceMarhalah}
+                    >
+                        <option value="">Semua Kelas</option>
+                        {sourceMarhalah &&
+                            availableSourceKelas.map((k) => (
+                                <option key={k} value={k}>
+                                    {k}
+                                </option>
+                            ))}
+                    </select>
+                    <select
+                        className="kontrol"
+                        value={sourceStatus}
+                        onChange={(e) => setSourceStatus(e.target.value)}
+                        disabled={!sourceYearId || !targetYearId}
+                    >
+                        <option value="all">Semua Status Penempatan</option>
+                        <option value="unplotted">Belum Ditempatkan di TA Tujuan</option>
+                        <option value="plotted">Sudah Ditempatkan di TA Tujuan</option>
+                    </select>
                 </div>
             </div>
 
-            <div className="flex flex-col gap-6">
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col h-auto min-h-[500px]">
-                    <div className="p-5 border-b border-slate-100 bg-slate-50/30 flex flex-col gap-5">
-                        <div className="flex flex-col sm:flex-row gap-4 items-end">
-                            <div className="w-full sm:w-1/2">
-                                <label className="block text-xs font-semibold text-slate-500 mb-1.5">
-                                    Tahun Ajaran Sumber (Lama)
-                                </label>
-                                <select
-                                    className="kontrol"
-                                    value={sourceYearId}
-                                    onChange={(e) => setSourceYearId(e.target.value ? Number(e.target.value) : '')}
-                                >
-                                    <option value="">-- Pilih Tahun Ajaran Sumber --</option>
-                                    {academicYears.map((ay) => (
-                                        <option key={ay.id} value={ay.id}>
-                                            {ay.name} - {ay.active_semester} {ay.is_active ? '(Aktif)' : ''}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="w-full sm:w-1/2 relative">
-                                <input
-                                    type="text"
-                                    placeholder="Cari nama / kelas asal..."
-                                    className="kontrol kontrol-cari"
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    disabled={!sourceYearId}
-                                />
-                            </div>
+            <div className="wadah-tabel flex flex-col h-auto min-h-[420px]">
+                <div className="flex-1 overflow-auto p-0 min-h-[300px]">
+                    {!sourceYearId ? (
+                        <div className="h-full flex flex-col items-center justify-center text-slate-400 p-8 text-center min-h-[300px]">
+                            <AlertCircle size={40} className="mb-3 opacity-30" />
+                            <p className="text-sm font-medium">
+                                Pilih Tahun Ajaran Sumber terlebih dahulu untuk melihat riwayat kelas santri.
+                            </p>
                         </div>
-
-                        <div className="flex flex-col sm:flex-row gap-4">
-                            <div className="w-full sm:w-1/3">
-                                <select
-                                    className="kontrol"
-                                    value={sourceMarhalah}
-                                    onChange={(e) => {
-                                        setSourceMarhalah(e.target.value);
-                                        setSourceKelas('');
-                                    }}
-                                    disabled={!sourceYearId}
-                                >
-                                    <option value="">Semua Marhalah</option>
-                                    {globalMarhalahs.map((m) => (
-                                        <option key={m} value={m}>
-                                            {m}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="w-full sm:w-1/3">
-                                <select
-                                    className="kontrol"
-                                    value={sourceKelas}
-                                    onChange={(e) => setSourceKelas(e.target.value)}
-                                    disabled={!sourceYearId || !sourceMarhalah}
-                                >
-                                    <option value="">Semua Kelas</option>
-                                    {sourceMarhalah &&
-                                        availableSourceKelas.map((k) => (
-                                            <option key={k} value={k}>
-                                                {k}
-                                            </option>
-                                        ))}
-                                </select>
-                            </div>
-                            <div className="w-full sm:w-1/3">
-                                <select
-                                    className="kontrol"
-                                    value={sourceStatus}
-                                    onChange={(e) => setSourceStatus(e.target.value)}
-                                    disabled={!sourceYearId || !targetYearId}
-                                >
-                                    <option value="all">Semua Status Plotting</option>
-                                    <option value="unplotted">Belum Diplot di TA Tujuan</option>
-                                    <option value="plotted">Sudah Diplot di TA Tujuan</option>
-                                </select>
-                            </div>
+                    ) : loading ? (
+                        <div className="h-full flex items-center justify-center min-h-[300px]">
+                            <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent"></div>
                         </div>
-                    </div>
-
-                    <div className="flex-1 overflow-auto p-0 min-h-[300px]">
-                        {!sourceYearId ? (
-                            <div className="h-full flex flex-col items-center justify-center text-slate-400 p-8 text-center min-h-[300px]">
-                                <AlertCircle size={48} className="mb-4 opacity-20" />
-                                <p className="text-sm font-medium">
-                                    Pilih Tahun Ajaran Sumber terlebih dahulu untuk melihat histori enrollment santri.
-                                </p>
-                            </div>
-                        ) : loading ? (
-                            <div className="h-full flex items-center justify-center min-h-[300px]">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                            </div>
-                        ) : filteredStudents.length === 0 ? (
-                            <div className="h-full flex items-center justify-center text-slate-400 min-h-[300px]">
-                                <p className="text-sm font-medium">Tidak ada santri ditemukan pada filter ini.</p>
-                            </div>
-                        ) : (
-                            <table className="tabel">
+                    ) : filteredStudents.length === 0 ? (
+                        <div className="h-full flex items-center justify-center text-slate-400 min-h-[300px]">
+                            <p className="text-sm font-medium">Tidak ada santri ditemukan pada filter ini.</p>
+                        </div>
+                    ) : (
+                        <table className="tabel tabel-kartu">
                                 <thead className="sticky top-0 z-10">
                                     <tr>
                                         <th className="w-12 text-center">
@@ -500,11 +485,11 @@ const KenaikanKelasPage: React.FC = () => {
                                                     <div className="text-2xs font-mono text-slate-400">NIS: {s.nis}</div>
                                                 )}
                                             </td>
-                                            <td>
+                                            <td data-label="Kelas Asal">
                                                 <div className="flex flex-wrap items-center gap-2">
-                                                    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                                                    <span className="badge badge-netral">
                                                         <KelasLabel text={s.kelas} id={s.kelas_id} />{' '}
-                                                        <span className="text-slate-400 ml-1 font-semibold">
+                                                        <span className="text-slate-400 font-medium">
                                                             (<MarhalahLabel text={s.marhalah} id={s.marhalah_id} />)
                                                         </span>
                                                     </span>
@@ -516,14 +501,14 @@ const KenaikanKelasPage: React.FC = () => {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td>
+                                            <td data-label="Status TA Tujuan">
                                                 {targetYearClasses.some((tc) => tc.santri_id === s.id) ? (
-                                                    <span className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
-                                                        Ter-Enroll ({targetYearClasses.find((tc) => tc.santri_id === s.id)?.kelas})
+                                                    <span className="badge badge-hijau">
+                                                        Terdaftar ({targetYearClasses.find((tc) => tc.santri_id === s.id)?.kelas})
                                                     </span>
                                                 ) : (
-                                                    <span className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold bg-red-50 text-red-700 border border-red-200/60">
-                                                        Belum Ter-Enroll
+                                                    <span className="badge badge-merah">
+                                                        Belum Ditempatkan
                                                     </span>
                                                 )}
                                             </td>
@@ -535,11 +520,11 @@ const KenaikanKelasPage: React.FC = () => {
                     </div>
 
                     {/* Pagination & Action Footer */}
-                    <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <div className="px-5 py-4 border-t border-slate-200 bg-slate-50/60 flex flex-col sm:flex-row justify-between items-center gap-4">
                         <div className="flex flex-wrap items-center gap-4">
                             <span className="text-sm font-medium text-slate-600">
-                                Terpilih: <span className="text-blue-600 font-extrabold">{selectedStudentIds.length}</span> dari{' '}
-                                <span className="font-bold">{filteredStudents.length}</span> santri
+                                Terpilih: <span className="text-blue-600 font-bold tabular-nums">{selectedStudentIds.length}</span> dari{' '}
+                                <span className="font-bold tabular-nums">{filteredStudents.length}</span> santri
                             </span>
                             {filteredStudents.length > itemsPerPage && (
                                 <div className="inline-flex items-center gap-1.5 text-xs">
@@ -547,18 +532,18 @@ const KenaikanKelasPage: React.FC = () => {
                                         type="button"
                                         disabled={currentPage <= 1}
                                         onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                                        className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40"
+                                        className="btn-icon border border-slate-200 bg-white disabled:opacity-40"
                                     >
                                         <ChevronLeft size={14} />
                                     </button>
-                                    <span className="px-2 text-slate-600">
+                                    <span className="px-2 text-slate-600 tabular-nums">
                                         Hal {currentPage} / {totalPages}
                                     </span>
                                     <button
                                         type="button"
                                         disabled={currentPage >= totalPages}
                                         onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                                        className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40"
+                                        className="btn-icon border border-slate-200 bg-white disabled:opacity-40"
                                     >
                                         <ChevronRight size={14} />
                                     </button>
@@ -570,45 +555,44 @@ const KenaikanKelasPage: React.FC = () => {
                             disabled={loading || selectedStudentIds.length === 0}
                             className="btn btn-primary w-full sm:w-auto justify-center"
                         >
-                            <ArrowRight size={16} strokeWidth={2.5} className="mr-2" />
+                            <ArrowRight size={16} strokeWidth={2.5} />
                             Proses Kenaikan / Kelulusan
                         </button>
                     </div>
-                </div>
             </div>
 
             {/* Target Selection & Confirmation Modal */}
-            <Modal isOpen={confirmModalOpen} onClose={() => setConfirmModalOpen(false)} title="Proses Transisi Akademik Santri (V2)">
+            <Modal isOpen={confirmModalOpen} onClose={() => setConfirmModalOpen(false)} title="Proses Transisi Akademik Santri">
                 <div className="space-y-5">
                     <p className="text-slate-600 text-xs">
                         Anda akan memproses <span className="font-bold text-slate-900">{selectedStudentIds.length} santri</span> dari Tahun Ajaran sumber. Riwayat kelas pada tahun ajaran lama tetap tersimpan.
                     </p>
 
-                    <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/80 space-y-4">
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-4">
                         <div>
-                            <label className="block text-xs font-semibold text-slate-500 mb-2">
+                            <label className="field-label">
                                 Jenis Keputusan Akademik
                             </label>
                             <select
-                                className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-white outline-none focus:border-blue-500 text-sm font-semibold text-slate-800 cursor-pointer"
+                                className="field font-medium"
                                 value={actionType}
                                 onChange={(e) => setActionType(e.target.value as PromotionActionType)}
                             >
-                                <option value="promoted">Naik Kelas / Plotting ke Tahun Ajaran Baru (Promoted)</option>
-                                <option value="graduated">Lulus dari Lembaga (Graduated)</option>
-                                <option value="transferred">Pindah Lembaga / Mutasi Keluar (Transferred)</option>
-                                <option value="withdrawn">Berhenti / Mengundurkan Diri (Withdrawn)</option>
+                                <option value="promoted">Naik Kelas / Penempatan ke Tahun Ajaran Baru</option>
+                                <option value="graduated">Lulus dari Lembaga</option>
+                                <option value="transferred">Pindah Lembaga / Mutasi Keluar</option>
+                                <option value="withdrawn">Berhenti / Mengundurkan Diri</option>
                             </select>
                         </div>
 
                         {actionType === 'promoted' ? (
                             <>
                                 <div>
-                                    <label className="block text-xs font-semibold text-slate-500 mb-2">
+                                    <label className="field-label">
                                         Tahun Ajaran Tujuan
                                     </label>
                                     <select
-                                        className="w-full border border-slate-200/80 rounded-xl px-4 py-2.5 bg-white outline-none focus:border-blue-500 text-sm font-semibold text-slate-800 cursor-pointer"
+                                        className="field font-medium"
                                         value={targetYearId}
                                         onChange={(e) => setTargetYearId(e.target.value ? Number(e.target.value) : '')}
                                     >

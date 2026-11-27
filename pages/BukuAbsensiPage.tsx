@@ -15,6 +15,7 @@ import {
   ChevronDown,
   Check
 } from 'lucide-react';
+import { PageHeader } from '../components/ui/SaaSPrimitives';
 import type { Page, Peran, Waktu } from '../types';
 import { useBukuAbsensiPageLogika, type BukuAbsensiPageLogika, type BukuAbsensiPageProps, type StudentRow } from './BukuAbsensiPage.logika';
 
@@ -25,47 +26,39 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = (props) => {
   const { onNavigate, halaqah, santri, attendance, addAttendanceRecords, userProfile, globalWaktuHalaqah, globalAttendanceStatus, masterMarhalahs, orgName, orgLogo, loading, isAdminUser, correctionTarget, setCorrectionTarget, isSavingCorrection, setIsSavingCorrection, handleSaveCorrection, startDate, setStartDate, endDate, setEndDate, daysInRange, availableWaktuList, selectedWaktuSessions, setSelectedWaktuSessions, isWaktuDropdownOpen, setIsWaktuDropdownOpen, waktuDropdownRef, toggleWaktuSession, handleSelectAllWaktu, activeWaktuSessions, filterMarhalah, setFilterMarhalah, filterKelas, setFilterKelas, filterJenisHalaqah, setFilterJenisHalaqah, filterPeran, setFilterPeran, searchQuery, setSearchQuery, permittedHalaqah, availableMarhalahList, availableJenisHalaqahList, availableKelasList, handleResetFilters, isAnyFilterActive, sortField, setSortField, sortDirection, setSortDirection, handleSort, attendanceLookup, studentRows, renderStatusCell, calculateStudentSummary, handlePrint } = s;
 
   return (
-    <div className="space-y-6 print:space-y-4">
+    <div className="space-y-5 pb-12 print:space-y-4">
       {/* =====================================================================
           HEADER HALAMAN
       ===================================================================== */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/80 print:hidden">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Buku Absensi</h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Rekapitulasi kehadiran santri dalam format matriks tanggal dan sesi halaqah.
-            {isAdminUser && (
-              <span className="ml-1.5 text-blue-600 font-medium">
-                (Admin: Klik sel status pada matriks untuk koreksi kehadiran teraudit)
-              </span>
-            )}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2.5 self-start sm:self-center">
-          <ActionDropdown
-            label="Cetak"
-            icon={<Printer size={15} />}
-            variant="blue"
-          >
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 text-left transition-colors"
+      <div className="print:hidden">
+        <PageHeader
+          title="Buku Absensi"
+          description="Rekapitulasi kehadiran santri dalam format matriks tanggal dan sesi halaqah."
+          actions={
+            <ActionDropdown
+              label="Cetak"
+              icon={<Printer size={15} />}
+              variant="blue"
             >
-              Cetak Data
-            </button>
-            {onNavigate && (
               <button
                 type="button"
-                onClick={() => onNavigate('CetakBukuFisik')}
-                className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100 transition-colors"
+                onClick={handlePrint}
+                className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 text-left transition-colors"
               >
-                Cetak Buku Fisik
+                Cetak Data
               </button>
-            )}
-          </ActionDropdown>
-        </div>
+              {onNavigate && (
+                <button
+                  type="button"
+                  onClick={() => onNavigate('CetakBukuFisik')}
+                  className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100 transition-colors"
+                >
+                  Cetak Buku Fisik
+                </button>
+              )}
+            </ActionDropdown>
+          }
+        />
       </div>
 
       {/* =====================================================================
@@ -101,8 +94,8 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = (props) => {
           FILTER BAR (Seragam dengan Input Absensi: Tanpa Judul Kolom, Tinggi h-11)
           Urutan: 1. Rentang Tanggal, 2. Marhalah, 3. Kelas, 4. Jenis Halaqah, 5. Waktu, 6. Cari Nama Santri
       ===================================================================== */}
-      <div className="relative z-40 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs print:hidden space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-center">
+      <div className="panel-filter relative z-40 print:hidden">
+        <div className="grid-filter items-center">
           {/* 1. Tanggal Mulai */}
           <div className="col-span-1">
             <div className="relative flex items-center h-11 w-full rounded-xl border border-slate-200/90 bg-white px-3 shadow-xs hover:border-slate-300 hover:bg-slate-50 focus-within:bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
@@ -658,7 +651,7 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = (props) => {
                 onChange={e =>
                   setCorrectionTarget(prev => (prev ? { ...prev, newStatus: e.target.value } : null))
                 }
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-800 focus:border-blue-600 focus:outline-none"
+                className="field"
               >
                 {(globalAttendanceStatus?.length
                   ? globalAttendanceStatus
@@ -682,7 +675,7 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = (props) => {
                   setCorrectionTarget(prev => (prev ? { ...prev, reason: e.target.value } : null))
                 }
                 placeholder="Contoh: Koreksi berdasarkan surat keterangan dokter / konfirmasi musyrif..."
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-800 focus:border-blue-600 focus:outline-none"
+                className="field min-h-[84px] py-2"
               />
             </div>
 
@@ -690,7 +683,7 @@ export const BukuAbsensiPage: React.FC<BukuAbsensiPageProps> = (props) => {
               <button
                 type="button"
                 onClick={() => setCorrectionTarget(null)}
-                className="px-4 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                className="btn btn-secondary btn-sm"
               >
                 Batal
               </button>

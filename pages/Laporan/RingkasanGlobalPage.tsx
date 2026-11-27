@@ -30,10 +30,10 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = (props) => {
     if (loading) return <LoadingState label="Memuat data…" />;
     if (error) return <p className="text-red-500">{error}</p>;
   return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 font-sans">
+        <div className="space-y-5 font-sans">
             {dialogAlasan}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card id="chart-trend" className="lg:col-span-2 !rounded-2xl !p-6 border-slate-200 bg-white relative">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                <Card id="chart-trend" className="lg:col-span-2 p-5 relative">
                      <div className="flex justify-between items-start mb-6">
                         <div>
                             <h2 className="text-base font-semibold text-slate-800">Tren Persentase Kehadiran</h2>
@@ -96,7 +96,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = (props) => {
                     </div>
                 </Card>
 
-                <Card id="chart-pie" className="!rounded-2xl !p-6 border-slate-200 bg-white relative">
+                <Card id="chart-pie" className="p-5 relative">
                      <div className="flex justify-between items-start mb-6">
                         <div>
                             <h2 className="text-base font-semibold text-slate-800">Distribusi Status</h2>
@@ -163,7 +163,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = (props) => {
             </div>
 
             {/* Akumulasi Kehadiran Per Individu Chart */}
-            <Card id="chart-bar" className="!rounded-2xl !p-6 border-slate-200 mt-6 bg-white relative">
+            <Card id="chart-bar" className="p-5 relative">
                  <div className="flex justify-between items-start mb-6">
                     <div>
                         <h2 className="text-base font-semibold text-slate-800">Akumulasi Kehadiran Per Individu</h2>
@@ -210,10 +210,10 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = (props) => {
             </Card>
 
             {/* Statistik Absensi Berdasarkan Marhalah */}
-            <Card className="!rounded-2xl !p-0 border-slate-200 overflow-hidden mt-6 mb-6">
-                <div className="p-4 lg:px-6 lg:py-5 border-b border-slate-100 bg-white flex justify-between items-start">
+            <Card className="p-0 overflow-hidden">
+                <div className="px-5 py-4 border-b border-slate-100 bg-white flex justify-between items-start">
                     <div>
-                        <h2 className="text-lg font-semibold text-slate-800">Statistik Absensi (Berdasarkan Filter)</h2>
+                        <h2 className="text-base font-semibold text-slate-800">Statistik Absensi (Berdasarkan Filter)</h2>
                         <p className="text-sm text-slate-500 mt-0.5">Rekapitulasi data kehadiran untuk periode terpilih.</p>
                     </div>
                     <div className="relative">
@@ -232,8 +232,8 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = (props) => {
                         )}
                     </div>
                 </div>
-                <div className="wadah-tabel overflow-x-auto">
-                    <table className="tabel">
+                <div className="overflow-x-auto">
+                    <table className="tabel tabel-kartu">
                         <thead>
                             <tr>
                                 <th className="text-left">Marhalah</th>
@@ -250,13 +250,13 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = (props) => {
                         <tbody>
                             {summaryOptions.map((row, idx) => (
                                 <tr key={idx} className="bg-white">
-                                    <td className="text-left font-semibold text-slate-700"><MarhalahLabel text={row.marhalah} id={row.marhalah_id} /></td>
-                                    {showStatsKelas && <td className="text-left text-slate-600"><KelasLabel text={row.kelas} id={row.kelas_id} /></td>}
-                                    {showStatsWaktu && <td className="text-left text-slate-600">{row.waktu}</td>}
+                                    <td data-label="Marhalah" className="text-left font-semibold text-slate-700"><MarhalahLabel text={row.marhalah} id={row.marhalah_id} /></td>
+                                    {showStatsKelas && <td data-label="Kelas" className="text-left text-slate-600"><KelasLabel text={row.kelas} id={row.kelas_id} /></td>}
+                                    {showStatsWaktu && <td data-label="Waktu" className="text-left text-slate-600">{row.waktu}</td>}
                                     {globalAttendanceStatus?.map((status: string) => {
                                         const val = row[status as keyof typeof row] as number;
                                         return (
-                                            <td key={status} className="text-slate-700 font-medium">
+                                            <td key={status} data-label={status} className="text-slate-700 font-medium tabular-nums">
                                                 {val > 0 ? (
                                                     <div className="flex items-center justify-center">
                                                         {status?.toLowerCase() === 'hadir' && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-2"></div>}
@@ -266,7 +266,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = (props) => {
                                             </td>
                                         )
                                     })}
-                                    <td className="font-bold text-slate-800">{row.Total}</td>
+                                    <td data-label="Total" className="font-bold text-slate-800 tabular-nums">{row.Total}</td>
                                 </tr>
                             ))}
                             {summaryOptions.length === 0 && (
@@ -279,8 +279,8 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = (props) => {
                 </div>
             </Card>
 
-            <Card className="!rounded-2xl !p-0 border-slate-200 overflow-hidden mt-6 mb-12">
-                <div className="p-4 lg:px-5 lg:py-4 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
+            <Card className="p-0 overflow-hidden">
+                <div className="p-4 lg:px-5 lg:py-4 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-3">
                     <div className="relative flex-1 w-full max-w-sm">
                         <input 
                             type="text" 
@@ -325,7 +325,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = (props) => {
                         <button
                             onClick={() => setShowAdvancedFilters(prev => !prev)}
                             title="Filter Lanjutan"
-                            className={`p-2.5 rounded-full border flex items-center justify-center transition-all shadow-sm ${
+                            className={`h-[44px] w-[44px] rounded-xl border flex items-center justify-center transition-all shadow-xs ${
                                 showAdvancedFilters 
                                     ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700' 
                                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
@@ -337,7 +337,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = (props) => {
                         </button>
                         <button
                             onClick={() => exportToExcel(recapData, 'Rekap_Global')}
-                            className="btn btn-primary"
+                            className="btn btn-primary h-[44px]"
                         >
                             <Download size={15} />
                             <span>Ekspor data</span>
@@ -346,8 +346,8 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = (props) => {
                 </div>
 
                 {showAdvancedFilters && (
-                    <div className="bg-white p-5 sm:p-6 border-b border-slate-100 flex flex-col gap-4 animate-in fade-in duration-200">
-                        <div className="flex justify-end pb-2 border-b border-slate-100/80">
+                    <div className="bg-slate-50/40 p-4 sm:p-5 border-b border-slate-100 flex flex-col gap-3">
+                        <div className="flex justify-end">
                             <button 
                                 onClick={() => {
                                     setDateRange({start: '', end: ''});
@@ -361,53 +361,47 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = (props) => {
                                 Reset Filter
                             </button>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Dari Tanggal</label>
+                        <div className="grid-filter">
+                            <label className="kontrol-label">
+                                <span>Dari</span>
                                 <input 
                                     type="date" 
                                     value={dateRange.start} 
                                     onChange={e => setDateRange(p => ({...p, start: e.target.value}))} 
-                                    className="w-full border border-slate-200 bg-white rounded-xl text-xs py-2 px-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none text-slate-700 font-medium"
+                                    className="kontrol-dalam"
                                 />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Sampai Tanggal</label>
+                            </label>
+                            <label className="kontrol-label">
+                                <span>Sampai</span>
                                 <input 
                                     type="date" 
                                     value={dateRange.end} 
                                     onChange={e => setDateRange(p => ({...p, end: e.target.value}))} 
-                                    className="w-full border border-slate-200 bg-white rounded-xl text-xs py-2 px-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none text-slate-700 font-medium"
+                                    className="kontrol-dalam"
                                 />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Peran Santri</label>
-                                <select 
-                                    value={selectedPeran} 
-                                    onChange={e => setSelectedPeran(e.target.value as any)} 
-                                    className="kontrol"
-                                >
-                                    <option value="all">Semua Peran</option>
-                                    {ALL_PERAN.map(p => <option key={p} value={p}>{p}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Status Kehadiran</label>
-                                <select 
-                                    value={selectedStatus} 
-                                    onChange={e => setSelectedStatus(e.target.value as any)} 
-                                    className="kontrol"
-                                >
-                                    <option value="all">Semua Status</option>
-                                    {globalAttendanceStatus?.map(s => <option key={s} value={s}>{s}</option>)}
-                                </select>
-                            </div>
+                            </label>
+                            <select 
+                                value={selectedPeran} 
+                                onChange={e => setSelectedPeran(e.target.value as any)} 
+                                className="kontrol"
+                            >
+                                <option value="all">Semua Peran</option>
+                                {ALL_PERAN.map(p => <option key={p} value={p}>{p}</option>)}
+                            </select>
+                            <select 
+                                value={selectedStatus} 
+                                onChange={e => setSelectedStatus(e.target.value as any)} 
+                                className="kontrol"
+                            >
+                                <option value="all">Semua Status</option>
+                                {globalAttendanceStatus?.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
                         </div>
                     </div>
                 )}
 
-                <div className="wadah-tabel overflow-x-auto">
-                    <table className="tabel">
+                <div className="overflow-x-auto">
+                    <table className="tabel tabel-kartu">
                         <thead>
                             <tr>
                                 <th className="w-12">
@@ -444,7 +438,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = (props) => {
                         <tbody>
                             {visibleData.map((item, idx) => (
                                 <tr key={idx} className="bg-white cursor-pointer" onClick={() => setSelectedStudentDetail({id: item.id, nama: item.Nama, peran: item.Peran as Peran})}>
-                                    <td onClick={(e) => { e.stopPropagation(); if (item.Peran === 'Santri') { setSelectedSantriIds(p => p.includes(item.id) ? p.filter(id => id !== item.id) : [...p, item.id]); } }}>
+                                    <td data-label="Pilih" onClick={(e) => { e.stopPropagation(); if (item.Peran === 'Santri') { setSelectedSantriIds(p => p.includes(item.id) ? p.filter(id => id !== item.id) : [...p, item.id]); } }}>
                                         <div className="flex items-center justify-center">
                                             {item.Peran === 'Santri' ? (
                                                 <button className="text-slate-400 hover:text-slate-600">
@@ -453,9 +447,9 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = (props) => {
                                             ) : null}
                                         </div>
                                     </td>
-                                    <td>
+                                    <td data-label="Nama">
                                         <div className="flex items-center">
-                                            <div className="flex-shrink-0 h-10 w-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 font-bold text-sm border border-slate-200/80 mr-4">
+                                            <div className="flex-shrink-0 h-9 w-9 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 font-bold text-xs border border-slate-200/80 mr-3">
                                                 {getInitials(item.Nama)}
                                             </div>
                                             <div>
@@ -464,28 +458,28 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = (props) => {
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="text-slate-500 text-sm">
+                                    <td data-label="Informasi" className="text-slate-500 text-sm">
                                         <div className="flex items-center">
-                                            {item.Kelas && <span className="bg-slate-100 text-slate-600 text-2xs px-2 py-0.5 rounded font-bold mr-2 uppercase">{item.Kelas}</span>}
+                                            {item.Kelas && <span className="badge badge-abu mr-2 uppercase">{item.Kelas}</span>}
                                             <span className="font-medium text-sm">{item.Marhalah}</span>
                                         </div>
                                     </td>
-                                    <td className="text-center font-bold text-emerald-600">
+                                    <td data-label="Hadir" className="text-center font-bold text-emerald-600 tabular-nums">
                                         {item.Hadir > 0 ? item.Hadir : '-'}
                                     </td>
-                                    <td className="text-center text-slate-400 font-medium">
+                                    <td data-label="Izin" className="text-center text-slate-400 font-medium tabular-nums">
                                         {item.Izin > 0 ? item.Izin : '-'}
                                     </td>
-                                    <td className="text-center text-slate-400 font-medium">
+                                    <td data-label="Sakit" className="text-center text-slate-400 font-medium tabular-nums">
                                         {item.Sakit > 0 ? item.Sakit : '-'}
                                     </td>
-                                    <td className="text-center text-slate-400 font-medium">
+                                    <td data-label="Alpa" className="text-center text-slate-400 font-medium tabular-nums">
                                         {item.Alpa > 0 ? item.Alpa : '-'}
                                     </td>
-                                    <td className="text-center text-slate-400 font-medium">
+                                    <td data-label="Telat" className="text-center text-slate-400 font-medium tabular-nums">
                                         {item.Terlambat > 0 ? item.Terlambat : '-'}
                                     </td>
-                                    <td className="text-center font-bold text-slate-800">
+                                    <td data-label="Total" className="text-center font-bold text-slate-800 tabular-nums">
                                         {item.Total}
                                     </td>
                                 </tr>
@@ -494,20 +488,20 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = (props) => {
                     </table>
                 </div>
 
-                <div className="p-4 lg:px-6 lg:py-4 bg-white flex flex-col sm:flex-row justify-between items-center gap-4 text-sm">
-                     <p className="text-slate-400 font-medium">
+                <div className="p-4 lg:px-5 lg:py-4 bg-white border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-3 text-sm">
+                     <p className="text-slate-400 font-medium tabular-nums">
                          Menampilkan <span className="font-bold text-slate-700">1-{visibleData.length}</span> dari <span className="font-bold text-slate-700">{recapData.length}</span> data
                      </p>
                      
                      {visibleData.length < recapData.length && (
-                         <div className="flex space-x-2 items-center">
+                         <div className="flex gap-2 items-center">
                              <button 
                                  onClick={() => setDisplayLimit(prev => prev + 50)}
                                  className="btn btn-secondary btn-sm"
-                             >Load More (50)</button>
+                             >Muat 50 Lagi</button>
                              <button 
                                  onClick={() => setDisplayLimit(999999)}
-                                 className="px-3.5 py-1.5 border border-blue-200 bg-blue-50/50 rounded-lg text-sm font-bold text-blue-600 hover:bg-blue-100 transition-colors"
+                                 className="btn btn-soft btn-sm"
                              >Tampilkan Semua</button>
                          </div>
                      )}
@@ -568,23 +562,20 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = (props) => {
 
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Tanggal</label>
-                            <div className="relative">
-                                <Calendar size={16} className="absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
-                                <input 
-                                    type="date" 
-                                    className="w-full border-slate-200 rounded-lg text-sm pl-10 pr-3 py-2 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none"
-                                    value={newManualRecord.date}
-                                    onChange={e => setNewManualRecord({...newManualRecord, date: e.target.value})}
-                                />
-                            </div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Tanggal</label>
+                            <input 
+                                type="date" 
+                                className="field"
+                                value={newManualRecord.date}
+                                onChange={e => setNewManualRecord({...newManualRecord, date: e.target.value})}
+                            />
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Waktu / Sesi</label>
+                                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Waktu / Sesi</label>
                                 <select 
-                                    className="w-full border-slate-200 rounded-lg text-sm px-3 py-2 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none"
+                                    className="field"
                                     value={newManualRecord.waktu}
                                     onChange={e => setNewManualRecord({...newManualRecord, waktu: e.target.value as Waktu})}
                                 >
@@ -592,9 +583,9 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = (props) => {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Status</label>
+                                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Status</label>
                                 <select 
-                                    className="w-full border-slate-200 rounded-lg text-sm px-3 py-2 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none"
+                                    className="field"
                                     value={newManualRecord.status}
                                     onChange={e => setNewManualRecord({...newManualRecord, status: e.target.value as AttendanceStatus})}
                                 >
@@ -604,14 +595,14 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = (props) => {
                         </div>
                     </div>
 
-                    <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 mt-4">
-                        <button onClick={() => setIsAddModalOpen(false)} className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-sm font-semibold hover:bg-slate-50">Batal</button>
+                    <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-100 mt-4">
+                        <button onClick={() => setIsAddModalOpen(false)} className="btn btn-secondary">Batal</button>
                         <button 
                             onClick={handleAddManualSubmit} 
                             disabled={isSubmitting}
                             className="btn btn-primary"
                         >
-                            {isSubmitting ? 'Menyimpan...' : <><CheckCircle size={16} className="mr-2"/> Tambah Data</>}
+                            {isSubmitting ? 'Menyimpan...' : <><CheckCircle size={15}/> Tambah Data</>}
                         </button>
                     </div>
                 </div>
@@ -622,19 +613,19 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = (props) => {
                 {editingRecord && (
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Tanggal</label>
-                            <input type="date" className="w-full border-slate-200 rounded-lg text-sm p-2 bg-slate-50 focus:bg-white" value={editingRecord.date} onChange={e => setEditingRecord({...editingRecord, date: e.target.value})} />
+                            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Tanggal</label>
+                            <input type="date" className="field" value={editingRecord.date} onChange={e => setEditingRecord({...editingRecord, date: e.target.value})} />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Waktu</label>
-                            <select className="w-full border-slate-200 rounded-lg text-sm p-2 bg-slate-50 focus:bg-white" value={editingRecord.waktu} onChange={e => setEditingRecord({...editingRecord, waktu: e.target.value as Waktu})}>{globalWaktuHalaqah.map(w => <option key={w} value={w}>{w}</option>)}</select>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Waktu</label>
+                            <select className="field" value={editingRecord.waktu} onChange={e => setEditingRecord({...editingRecord, waktu: e.target.value as Waktu})}>{globalWaktuHalaqah.map(w => <option key={w} value={w}>{w}</option>)}</select>
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Status</label>
-                            <select className="w-full border-slate-200 rounded-lg text-sm p-2 bg-slate-50 focus:bg-white" value={editingRecord.status} onChange={e => setEditingRecord({...editingRecord, status: e.target.value as AttendanceStatus})}>{globalAttendanceStatus?.map(s => <option key={s} value={s}>{s}</option>)}</select>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Status</label>
+                            <select className="field" value={editingRecord.status} onChange={e => setEditingRecord({...editingRecord, status: e.target.value as AttendanceStatus})}>{globalAttendanceStatus?.map(s => <option key={s} value={s}>{s}</option>)}</select>
                         </div>
-                        <div className="flex justify-end pt-4 gap-3 border-t border-slate-100 mt-4">
-                            <button onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 border rounded-lg text-sm font-semibold hover:bg-slate-50 border-slate-200">Batal</button>
+                        <div className="flex justify-end pt-4 gap-2.5 border-t border-slate-100 mt-4">
+                            <button onClick={() => setIsEditModalOpen(false)} className="btn btn-secondary">Batal</button>
                             <button onClick={handleUpdate} disabled={isSubmitting} className="btn btn-primary">{isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}</button>
                         </div>
                     </div>
@@ -642,7 +633,7 @@ const RingkasanGlobalPage: React.FC<RingkasanGlobalPageProps> = (props) => {
             </Modal>
 
             {/* Preview Pesan Modal */}
-            <Modal isOpen={isPreviewModalOpen} onClose={() => setIsPreviewModalOpen(false)} title="Preview & Kirim Pesan" maxWidth="3xl">
+            <Modal isOpen={isPreviewModalOpen} onClose={() => setIsPreviewModalOpen(false)} title="Pratinjau & Kirim Pesan" maxWidth="3xl">
                 <div className="space-y-4">
                     <div className="flex items-center justify-between bg-blue-50/50 p-4 rounded-xl border border-blue-100">
                         <div className="flex items-start gap-3">

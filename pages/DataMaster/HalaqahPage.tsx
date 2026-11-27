@@ -13,7 +13,7 @@ import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { parseSpreadsheet, exportToExcel, exportToPDF } from '../../lib/utils';
 import { supabase } from '../../lib/supabaseClient';
-import { StatusBadge, LoadingState } from '../../components/ui/SaaSPrimitives';
+import { PageHeader, StatusBadge, LoadingState } from '../../components/ui/SaaSPrimitives';
 import { NotificationStore } from '../../lib/NotificationStore';
 import { useHalaqahPageLogika, type HalaqahPageLogika, WaktuDropdown, SearchableMusammiSelect } from './HalaqahPage.logika';
 
@@ -25,41 +25,62 @@ const HalaqahPage: React.FC = () => {
   const { location, halaqahId, halaqah, musammi, santri, addHalaqah, deleteHalaqah, deleteHalaqahBatch, restoreHalaqah, updateHalaqah, addSantriToHalaqah, keluarkanSantri, mutasiSantri, assignHalaqahMusammi, fetchData, loading, error, getOrgId, globalMarhalahs, globalJenisHalaqah, globalWaktuHalaqah, masterMarhalahs, masterKelasRelasi, selectedAcademicYear, fileInputRef, activeViewTab, setActiveViewTab, selectedHalaqah, setSelectedHalaqah, modalType, setModalType, isSubmitting, setIsSubmitting, manageStatusModalOpen, setManageStatusModalOpen, manageStatusType, setManageStatusType, manageSantriId, setManageSantriId, manageTargetHalaqahId, setManageTargetHalaqahId, manageDate, setManageDate, showRiwayat, setShowRiwayat, rosterAsOfDate, setRosterAsOfDate, musammiModalOpen, setMusammiModalOpen, musammiAssignType, setMusammiAssignType, musammiAssignId, setMusammiAssignId, musammiValidFrom, setMusammiValidFrom, musammiValidTo, setMusammiValidTo, musammiAssignNotes, setMusammiAssignNotes, selectedHalaqahIds, setSelectedHalaqahIds, currentPage, setCurrentPage, itemsPerPage, filterStatus, setFilterStatus, newHalaqahName, setNewHalaqahName, noUrut, setNoUrut, selectedMusammiId, setSelectedMusammiId, selectedJenis, setSelectedJenis, selectedMarhalah, setSelectedMarhalah, selectedWaktu, setSelectedWaktu, selectedSantriIds, setSelectedSantriIds, isCustomJenis, setIsCustomJenis, customJenisName, setCustomJenisName, filterJenis, setFilterJenis, filterMarhalah, setFilterMarhalah, filterSearch, setFilterSearch, availableTypes, scheduleAnalysis, filteredHalaqah, totalPages, paginatedHalaqah, availableSantri, toggleSelectAll, toggleSelectRow, handleBulkDelete, openEditModal, toggleWaktuSelection, handleCreate, handleUpdateHalaqahSubmit, handleAssignMusammiSubmit, handleDelete, handleRestore, openManageStatusModal, handleManageStatusSubmit, handleDownloadTemplate, handleImportCSV, getDetailedExportData, handleExportExcel, handleExportPDF, renderFormContent } = s;
 
   return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20 max-w-[1400px] font-sans">
-            {/* Header */}
-            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3 sm:gap-4">
-                <div className="min-w-0 flex-1">
-                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                        Kelompok Halaqah
-                    </h1>
-                    <p className="mt-1 text-sm text-slate-500">
-                        Kelola kelompok halaqah, penugasan Musammi, riwayat mutasi anggota, dan deteksi bentrok waktu sesi otomatis.
-                    </p>
-                </div>
-            </div>
+        <div className="space-y-5 pb-12 font-sans">
+            <input type="file" ref={fileInputRef} onChange={handleImportCSV} accept=".csv,.xlsx,.xls" className="hidden" />
+            <PageHeader
+                title="Kelompok Halaqah"
+                description="Kelola kelompok halaqah, penugasan Musammi, riwayat mutasi anggota, dan deteksi bentrok waktu sesi otomatis."
+                actions={!selectedHalaqah && activeViewTab === 'groups' ? (
+                    <>
+                        {selectedHalaqahIds.length > 0 && (
+                            <button
+                                onClick={handleBulkDelete}
+                                disabled={isSubmitting}
+                                className="btn btn-danger-soft"
+                            >
+                                <Trash size={16} strokeWidth={2.5}/> Arsipkan {selectedHalaqahIds.length} Terpilih
+                            </button>
+                        )}
+                        <ActionDropdown label="Ekspor" icon={<Download size={14}/>}>
+                            <button onClick={handleExportExcel} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left">
+                                <FileSpreadsheet size={14} className="mr-2 text-emerald-600"/> Ekspor Excel Lengkap
+                            </button>
+                            <button onClick={handleExportPDF} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100">
+                                <FileText size={14} className="mr-2 text-red-600"/> Ekspor PDF Lengkap
+                            </button>
+                        </ActionDropdown>
+                        <ActionDropdown label="Impor" icon={<Upload size={14}/>}>
+                            <button onClick={() => fileInputRef.current?.click()} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left">
+                                <FileSpreadsheet size={14} className="mr-2 text-emerald-600"/> Unggah File
+                            </button>
+                            <button onClick={handleDownloadTemplate} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100">
+                                <Download size={14} className="mr-2 text-blue-600"/> Unduh Templat
+                            </button>
+                        </ActionDropdown>
+                        <button
+                            onClick={() => { setModalType('create'); setNewHalaqahName(''); setNoUrut(999); setSelectedSantriIds([]); setSelectedWaktu([Waktu.Shubuh, Waktu.Ashar, Waktu.Isya]); setSelectedMusammiId(''); }}
+                            className="btn btn-primary justify-center"
+                        >
+                            <Plus size={16} strokeWidth={2.5}/> Buat Baru
+                        </button>
+                    </>
+                ) : undefined}
+            />
 
             {!selectedHalaqah && (
-                <div className="flex flex-wrap items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl p-2">
-                    <div className="inline-flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="tabs">
                         <button
                             type="button"
                             onClick={() => setActiveViewTab('groups')}
-                            className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                                activeViewTab === 'groups'
-                                    ? 'bg-white text-slate-900 shadow-xs'
-                                    : 'text-slate-600 hover:text-slate-900'
-                            }`}
+                            className={`tab ${activeViewTab === 'groups' ? 'tab-aktif' : ''}`}
                         >
                             Daftar Halaqah ({filteredHalaqah.length})
                         </button>
                         <button
                             type="button"
                             onClick={() => setActiveViewTab('schedule')}
-                            className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                                activeViewTab === 'schedule'
-                                    ? 'bg-white text-slate-900 shadow-xs'
-                                    : 'text-slate-600 hover:text-slate-900'
-                            }`}
+                            className={`tab ${activeViewTab === 'schedule' ? 'tab-aktif' : ''}`}
                         >
                             Jadwal & Bentrok ({scheduleAnalysis.totalConflicts} Konflik)
                         </button>
@@ -68,7 +89,7 @@ const HalaqahPage: React.FC = () => {
                         <button
                             type="button"
                             onClick={() => setActiveViewTab('schedule')}
-                            className="px-3 py-1 rounded-lg bg-red-50 text-red-700 border border-red-200 text-xs font-semibold hover:bg-red-100"
+                            className="btn btn-danger-soft btn-sm"
                         >
                             Lihat {scheduleAnalysis.totalConflicts} Bentrok Waktu Sesi →
                         </button>
@@ -497,46 +518,6 @@ const HalaqahPage: React.FC = () => {
             ) : (
                 // LIST VIEW
                 <>
-                    <div className="flex justify-end">
-                        <div className="flex flex-wrap items-center justify-end gap-2">
-                            {selectedHalaqahIds.length > 0 && (
-                                <button 
-                                    onClick={handleBulkDelete} 
-                                    disabled={isSubmitting}
-                                    className="btn btn-danger-soft"
-                                >
-                                    <Trash size={16} strokeWidth={2.5}/> Arsipkan {selectedHalaqahIds.length} Terpilih
-                                </button>
-                            )}
-
-                            <input type="file" ref={fileInputRef} onChange={handleImportCSV} accept=".csv,.xlsx,.xls" className="hidden" />
-                            
-                            <ActionDropdown label="Ekspor" icon={<Download size={14}/>}>
-                                <button onClick={handleExportExcel} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left">
-                                    <FileSpreadsheet size={14} className="mr-2 text-emerald-600"/> Ekspor Excel Lengkap
-                                </button>
-                                <button onClick={handleExportPDF} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100">
-                                    <FileText size={14} className="mr-2 text-red-600"/> Ekspor PDF Lengkap
-                                </button>
-                            </ActionDropdown>
-                            
-                            <ActionDropdown label="Impor" icon={<Upload size={14}/>}>
-                                <button onClick={() => fileInputRef.current?.click()} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left">
-                                    <FileSpreadsheet size={14} className="mr-2 text-emerald-600"/> Upload File
-                                </button>
-                                <button onClick={handleDownloadTemplate} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100">
-                                    <Download size={14} className="mr-2 text-blue-600"/> Unduh Templat
-                                </button>
-                            </ActionDropdown>
-                            
-                            <button 
-                                onClick={() => { setModalType('create'); setNewHalaqahName(''); setNoUrut(999); setSelectedSantriIds([]); setSelectedWaktu([Waktu.Shubuh, Waktu.Ashar, Waktu.Isya]); setSelectedMusammiId(''); }} 
-                                className="btn btn-primary justify-center"
-                            >
-                                <Plus size={16} strokeWidth={2.5}/> Buat Baru
-                            </button>
-                        </div>
-                    </div>
 
                     <div className="panel-filter">
                       <div className="grid-filter">

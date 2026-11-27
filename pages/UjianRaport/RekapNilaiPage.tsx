@@ -17,7 +17,7 @@ import { normalizeRole } from '../../lib/permissions';
 import { NotificationStore } from '../../lib/NotificationStore';
 import { tampilkanError, pesanErrorRamah } from '../../lib/pesanError';
 import { exportToExcel } from '../../lib/utils';
-import { PageHeader, LoadingState, EmptyState } from '../../components/ui/SaaSPrimitives';
+import { PageHeader, LoadingState, EmptyState, StatCard } from '../../components/ui/SaaSPrimitives';
 import { useMintaAlasan } from '../../components/ui/AlasanDialog';
 import { tampilNilai, type KomponenRaport } from '../../lib/ujian';
 
@@ -229,14 +229,13 @@ const RekapNilaiPage: React.FC = () => {
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-700 font-semibold">{ringkas.total} santri</span>
-          <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold">Lengkap {ringkas.lengkap}</span>
-          <span className="px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-semibold">Terbit {ringkas.terbit}</span>
-          {proses && <span className="text-slate-500">{proses}</span>}
+        <div className="grid grid-cols-3 gap-3">
+          <StatCard label="Total santri" value={ringkas.total} />
+          <StatCard label="Siap terbit" value={ringkas.lengkap} tone="success" />
+          <StatCard label="Sudah terbit" value={ringkas.terbit} tone="primary" meta={proses || undefined} />
         </div>
 
-        <div className="panel-filter"><div className="grid-filter">
+        <div className="panel-filter"><div className="grid-filter sm:grid-cols-3 lg:grid-cols-3">
           <label className="kontrol-label"><span>Marhalah</span><select className="kontrol-dalam" value={filterMarhalah} onChange={(e) => setFilterMarhalah(e.target.value)}>
               <option value="all">Semua</option>
               {(masterMarhalahs || []).map((m) => <option key={m.id} value={m.nama}>{m.nama}</option>)}

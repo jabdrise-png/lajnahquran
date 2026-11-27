@@ -14,7 +14,6 @@ import { PageHeader, LoadingState, EmptyState } from '../../components/ui/SaaSPr
 import { periodeDalamRentang, rekapLembaga, ringkasUjian, fmt } from '../../lib/laporanMudir';
 import { buatPdfMudir } from '../../lib/laporanMudirPdf';
 
-const inputCls = 'bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500';
 const tgl = (d?: string | null) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-');
 
 const LaporanMudirPage: React.FC = () => {
@@ -100,34 +99,41 @@ const LaporanMudirPage: React.FC = () => {
         actions={<button type="button" onClick={unduh} disabled={!periodeDipakai.length}
           className="btn btn-primary"><Download size={15} /> Unduh PDF</button>}
       />
-      <div className="flex flex-wrap gap-3 items-end">
-        <label className="text-xs font-semibold text-slate-600">Jenis<br />
-          <select className={inputCls} value={jenis} onChange={(e) => setJenis(e.target.value as any)}>
-            <option value="bulanan">Bulanan (per periode)</option>
-            <option value="semester">Semester {semester}</option>
-          </select>
-        </label>
-        {jenis === 'bulanan' && (
-          <label className="text-xs font-semibold text-slate-600">Periode<br />
-            <select className={inputCls} value={periodeId} onChange={(e) => setPeriodeId(e.target.value)}>
-              {daftarPeriode.map((p) => <option key={p.id} value={p.id}>{p.name} ({tgl(p.start_date)} – {tgl(p.end_date)})</option>)}
+      <div className="panel-filter">
+        <div className={`grid-filter ${jenis === 'bulanan' ? 'sm:grid-cols-3 lg:grid-cols-3' : 'sm:grid-cols-2 lg:grid-cols-2'}`}>
+          <label className="kontrol-label">
+            <span>Jenis</span>
+            <select className="kontrol-dalam" value={jenis} onChange={(e) => setJenis(e.target.value as any)}>
+              <option value="bulanan">Bulanan (per periode)</option>
+              <option value="semester">Semester {semester}</option>
             </select>
           </label>
-        )}
-        <label className="inline-flex items-center gap-2 text-sm text-slate-700 pb-1.5">
-          <input type="checkbox" className="w-4 h-4" checked={rincian} onChange={(e) => setRincian(e.target.checked)} /> Sertakan rincian per santri
-        </label>
+          {jenis === 'bulanan' && (
+            <label className="kontrol-label">
+              <span>Periode</span>
+              <select className="kontrol-dalam" value={periodeId} onChange={(e) => setPeriodeId(e.target.value)}>
+                {daftarPeriode.map((p) => <option key={p.id} value={p.id}>{p.name} ({tgl(p.start_date)} – {tgl(p.end_date)})</option>)}
+              </select>
+            </label>
+          )}
+          <label className="kontrol flex items-center gap-2.5 cursor-pointer select-none">
+            <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" checked={rincian} onChange={(e) => setRincian(e.target.checked)} />
+            <span className="truncate text-sm font-medium text-slate-700">Sertakan rincian per santri</span>
+          </label>
+        </div>
       </div>
 
       {!periodeDipakai.length ? (
         <EmptyState title="Belum ada periode" description={jenis === 'bulanan' ? 'Buat periode evaluasi di Target & Periode Evaluasi.' : 'Tidak ada periode evaluasi dalam tanggal semester aktif. Periksa tanggal semester dan periode.'} />
       ) : (
-        <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-5">
+        <div className="card p-5 space-y-5">
           <div className="flex items-start gap-3">
-            <FileText className="text-blue-700 mt-0.5" size={20} />
-            <div><div className="font-bold text-slate-900">{orgName} · {judul}</div><div className="text-xs text-slate-500">{subjudul}</div></div>
+            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+              <FileText size={18} />
+            </div>
+            <div><div className="font-bold text-slate-900">{orgName} · {judul}</div><div className="text-xs text-slate-500 mt-0.5">{subjudul}</div></div>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className={`grid grid-cols-2 ${jenis === 'semester' ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-3`}>
             {[
               ['Halaqah', String(r.halaqah)], ['Santri', String(r.santri)],
               ['Total ziyadah', `${fmt(r.ziyadah_halaman)} hal · ${fmt(r.ziyadah_juz)} juz`], ['Rata kehadiran', fmt(r.kehadiran, '%')],
@@ -137,11 +143,11 @@ const LaporanMudirPage: React.FC = () => {
                 ['Raport lengkap / terbit', memuatUjian ? '…' : ujian ? `${ujian.lengkap} / ${ujian.terbit}` : '-'],
               ] : []),
             ].map(([k, v]) => (
-              <div key={k} className="rounded-lg bg-slate-50 px-3 py-2"><div className="text-2xs text-slate-500">{k}</div><div className="text-sm font-bold text-slate-800">{v}</div></div>
+              <div key={k} className="rounded-xl border border-slate-100 bg-slate-50/70 px-3.5 py-2.5"><div className="text-xs text-slate-500">{k}</div><div className="text-sm font-bold text-slate-800 tabular-nums mt-0.5">{v}</div></div>
             ))}
           </div>
           <div className="wadah-tabel overflow-x-auto">
-            <table className="tabel">
+            <table className="tabel tabel-kartu">
               <thead><tr>
                 <th className="text-left">Halaqah</th><th className="text-left">Musammi'</th><th className="text-right">Santri</th>
                 <th className="text-right">Ziyadah (hal)</th><th className="text-right">Rata murojaah</th><th className="text-right">Kehadiran</th>
@@ -150,17 +156,22 @@ const LaporanMudirPage: React.FC = () => {
               <tbody>
                 {data.perHalaqah.map((h) => (
                   <tr key={h.halaqah_id}>
-                    <td className="font-semibold text-slate-800">{h.halaqah}</td><td className="text-slate-600">{h.musammi}</td>
-                    <td className="text-right">{h.santri}</td><td className="text-right">{fmt(h.ziyadah)}</td>
-                    <td className="text-right">{fmt(h.rata_murojaah)}</td><td className="text-right">{fmt(h.kehadiran, '%')}</td>
-                    <td className="text-right">{fmt(h.rata_total_juz)}</td>
-                    <td className={`px-3 py-1.5 text-center ${h.form_terkirim < h.form_total ? 'text-amber-700' : 'text-emerald-700'}`}>{h.form_terkirim}/{h.form_total}</td>
+                    <td data-label="Halaqah" className="font-semibold text-slate-800">{h.halaqah}</td>
+                    <td data-label="Musammi'" className="text-slate-600">{h.musammi}</td>
+                    <td data-label="Santri" className="text-right tabular-nums">{h.santri}</td>
+                    <td data-label="Ziyadah (hal)" className="text-right tabular-nums">{fmt(h.ziyadah)}</td>
+                    <td data-label="Rata murojaah" className="text-right tabular-nums">{fmt(h.rata_murojaah)}</td>
+                    <td data-label="Kehadiran" className="text-right tabular-nums">{fmt(h.kehadiran, '%')}</td>
+                    <td data-label="Rata total (juz)" className="text-right tabular-nums">{fmt(h.rata_total_juz)}</td>
+                    <td data-label="Form" className={`text-center tabular-nums font-semibold ${h.form_terkirim < h.form_total ? 'text-amber-700' : 'text-emerald-700'}`}>{h.form_terkirim}/{h.form_total}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          {catatan.map((c) => <p key={c} className="text-xs text-slate-500">• {c}</p>)}
+          <div className="space-y-1">
+            {catatan.map((c) => <p key={c} className="text-xs text-slate-500">• {c}</p>)}
+          </div>
         </div>
       )}
     </div>

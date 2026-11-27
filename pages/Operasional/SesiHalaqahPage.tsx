@@ -6,6 +6,8 @@
  *   Santri   — posisi hafalan terakhir, total ziyadah (tanpa Rasib), kehadiran
  *   Riwayat  — sesi yang sudah tercatat
  * Tidak ada lagi Kunci Sesi maupun Validasi Setoran.
+ * Fase 8c: urutan KPI -> filter -> tab; filter penuh (nama, marhalah, jenis halaqah, halaqah, tanggal, waktu,
+ * "Tandai semua hadir"); status kehadiran berupa dropdown; tab Setoran berupa daftar santri.
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
@@ -14,9 +16,9 @@ import { supabase } from '../../lib/supabaseClient';
 import { normalizeRole } from '../../lib/permissions';
 import { PageHeader, LoadingState, EmptyState, StatCard } from '../../components/ui/SaaSPrimitives';
 import AbsensiHalaqahCard from '../../components/absensi/AbsensiHalaqahCard';
-import FormSetoranRingkas from '../../components/setoran/FormSetoranRingkas';
-import DaftarSetoran from '../../components/setoran/DaftarSetoran';
-import { hariIni, halaqahSaya, rosterPadaTanggal } from '../../lib/sesiHalaqah';
+import DaftarSantriSetoran from '../../components/setoran/DaftarSantriSetoran';
+import FilterSesi, { saringHalaqah, unik } from '../../components/absensi/FilterSesi';
+import { hariIni, halaqahSaya, rosterPadaTanggal, statusHadir } from '../../lib/sesiHalaqah';
 import { findStatus } from '../../lib/v2Adapter';
 import { labelArah } from '../../lib/arahHafalan';
 
@@ -48,7 +50,16 @@ const SesiHalaqahPage: React.FC = () => {
   );
 
   const [halaqahId, setHalaqahId] = useState<number | null>(Number(params.get('halaqahId')) || null);
-  const active = mine.find((h) => h.id === halaqahId) || mine[0] || null;
+  const [cari, setCari] = useState('');
+  const [marhalah, setMarhalah] = useState('');
+  const [jenis, setJenis] = useState('');
+  const pilihan = useMemo(() => {
+    const dasar = saringHalaqah(mine, { marhalah, jenis });
+    // nama yang dicari ada di halaqah lain? persempit pilihan ke halaqah yang memuatnya
+    const cocok = cari.trim() ? saringHalaqah(dasar, { marhalah: '', jenis: '', cari }) : [];
+    return cocok.length ? cocok : dasar;
+  }, [mine, marhalah, jenis, cari]);
+  const active = pilihan.find((h) => h.id === halaqahId) || pilihan[0] || null;
   const slotOptions = useMemo(() => {
     const w = (active?.waktu || []).map(String);
     return w.length ? w : sessionSlots.filter((s) => s.is_active).map((s) => s.code);
@@ -128,8 +139,13 @@ const SesiHalaqahPage: React.FC = () => {
     return Array.from(map.values()).sort((a, b) => (b.date + b.slot).localeCompare(a.date + a.slot)).slice(0, 60);
   }, [attendance, setoranHarian, active?.id, attendanceStatuses]);
 
+  const q = cari.trim().toLowerCase();
+  const cocokNama = (s: { nama?: string }) => !q || (s.nama || '').toLowerCase().includes(q);
+  const statusOf = (id: number) => sesiAbsen.find((a) => Number(a.personId) === id)?.status as string | undefined;
+  const [sinyalTandai, setSinyalTandai] = useState(0);
+
   if (loading) return <LoadingState label="Memuat sesi halaqah…" />;
-  if (!active) {
+  if (mine.length === 0) {
     return (
       <div className="space-y-4">
         <PageHeader title="Sesi Halaqah" />
@@ -139,42 +155,43 @@ const SesiHalaqahPage: React.FC = () => {
   }
 
   const hadirSesi = sesiAbsen.filter((a) => findStatus(attendanceStatuses, a.status as string)?.counts_as_present).length;
+  const santriPerSesi = new Set(sesiSetoran.map((r) => r.santri_id)).size;
 
   return (
     <div className="space-y-4 pb-24">
       <PageHeader title="Sesi Halaqah" description="Absensi dan setoran satu halaqah. Sesi tercatat saat absensi pertama disimpan." />
 
-      <div className="panel-filter grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <select value={active.id} onChange={(e) => setHalaqahId(Number(e.target.value))} className="kontrol">
-          {mine.map((h) => <option key={h.id} value={h.id}>{h.nama} — {h.musammi?.nama || 'tanpa musammi\''}</option>)}
-        </select>
-        <input type="date" value={date} max={today} onChange={(e) => setDate(e.target.value || today)} className="kontrol" />
-        <div className="flex flex-wrap gap-1.5">
-          {slotOptions.map((w) => (
-            <button key={w} type="button" onClick={() => setSlot(w)}
-              className={`flex-1 h-11 px-3 rounded-xl border text-sm font-semibold transition-colors ${slot === w ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
-              {sessionSlots.find((s) => s.code === w)?.name || w}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-3">
         <StatCard label="Santri" value={roster.length} />
         <StatCard label="Hadir" value={`${hadirSesi}/${sesiAbsen.length || 0}`} tone={sesiAbsen.length ? 'success' : 'neutral'} />
-        <StatCard label="Setoran" value={sesiSetoran.length} tone="primary" />
+        <StatCard label="Setoran" value={`${santriPerSesi}/${roster.length}`} tone="primary" />
       </div>
 
-      <div className="flex gap-1 p-1 bg-slate-100 rounded-lg border border-slate-200 overflow-x-auto">
+      <FilterSesi
+        cari={cari} setCari={setCari}
+        marhalahOpsi={unik(mine.map((h) => h.marhalah as string))} marhalah={marhalah} setMarhalah={setMarhalah}
+        jenisOpsi={unik(mine.map((h) => h.jenis as string))} jenis={jenis} setJenis={setJenis}
+        halaqahOpsi={pilihan} halaqahId={active?.id ?? null} setHalaqahId={setHalaqahId}
+        date={date} setDate={setDate} today={today}
+        slot={slot} setSlot={setSlot}
+        slotOpsi={slotOptions.map((w) => ({ value: w, label: sessionSlots.find((s) => s.code === w)?.name || w }))}
+        onTandai={tab === 'absensi' && active ? () => setSinyalTandai((n) => n + 1) : undefined}
+        labelTandai={`Tandai semua ${statusHadir(attendanceStatuses)?.name?.toLowerCase() || 'hadir'}`}
+      />
+
+      <div className="tabs w-full">
         {([['absensi', 'Absensi'], ['setoran', 'Setoran'], ['santri', 'Santri'], ['riwayat', 'Riwayat']] as [Tab, string][]).map(([id, label]) => (
-          <button key={id} type="button" onClick={() => setTab(id)}
-            className={`flex-1 px-3 py-2 rounded-md text-sm font-semibold whitespace-nowrap ${tab === id ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}`}>
+          <button key={id} type="button" onClick={() => setTab(id)} className={`tab flex-1 py-2 ${tab === id ? 'tab-aktif' : ''}`}>
             {label}
           </button>
         ))}
       </div>
 
-      {tab === 'absensi' && (
+      {!active && (
+        <EmptyState title="Tidak ada halaqah yang cocok" description="Ubah pilihan marhalah atau jenis halaqah." />
+      )}
+
+      {active && tab === 'absensi' && (
         <AbsensiHalaqahCard
           key={`${active.id}-${date}-${slot}`}
           halaqah={active}
@@ -187,24 +204,30 @@ const SesiHalaqahPage: React.FC = () => {
           allSantri={allSantri}
           musammiList={musammi}
           onSave={(records, reason) => addAttendanceRecords(records as any, reason)}
+          sinyalTandai={sinyalTandai}
+          cari={cari}
         />
       )}
 
-      {tab === 'setoran' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-          <div className="bg-white border border-slate-200 rounded-xl p-4">
-            <FormSetoranRingkas halaqahOptions={mine} initialHalaqahId={active.id} date={date} slot={slot} lockContext />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-slate-700 mb-2">Setoran sesi ini</h3>
-            <DaftarSetoran rows={sesiSetoran} isAdmin={isAdmin} halaqahOptions={mine} santriList={allSantri} emptyText="Belum ada setoran pada sesi ini." />
-          </div>
-        </div>
+      {active && tab === 'setoran' && (
+        <DaftarSantriSetoran
+          roster={roster.filter(cocokNama)}
+          rows={sesiSetoran}
+          statusOf={statusOf}
+          statuses={attendanceStatuses}
+          halaqah={active}
+          halaqahOptions={mine}
+          date={date}
+          slot={slot}
+          isAdmin={isAdmin}
+          allSantri={allSantri}
+          kosong={roster.length ? 'Tidak ada santri yang cocok dengan pencarian.' : 'Belum ada santri di halaqah ini.'}
+        />
       )}
 
-      {tab === 'santri' && (
+      {active && tab === 'santri' && (
         <div className="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100">
-          {progresSantri.map((p) => (
+          {progresSantri.filter((p) => cocokNama(p.santri)).map((p) => (
             <div key={p.santri.id} className="px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-1">
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-semibold text-slate-800">{p.santri.nama}</div>
@@ -220,7 +243,7 @@ const SesiHalaqahPage: React.FC = () => {
         </div>
       )}
 
-      {tab === 'riwayat' && (
+      {active && tab === 'riwayat' && (
         <div className="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100">
           {riwayatSesi.length === 0 && <p className="px-4 py-3 text-sm sm:text-xs text-slate-500">Belum ada sesi tercatat pada tahun ajaran ini.</p>}
           {riwayatSesi.map((r) => (

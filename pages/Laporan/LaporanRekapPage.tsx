@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import RingkasanGlobalPage from './RingkasanGlobalPage';
 import AnalisisPerKelasPage from './AnalisisPerKelasPage';
 import TrenHistorisPage from './TrenHistorisPage';
+import { PageHeader } from '../../components/ui/SaaSPrimitives';
 
 interface Props {
     onNavigate?: (page: any) => void;
@@ -50,13 +51,8 @@ const LaporanRekapPage: React.FC<Props> = () => {
     };
 
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20 max-w-[1400px] font-sans">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">{getPageTitle()}</h1>
-                    <p className="text-sm text-slate-500 mt-1 pb-1">{getPageDescription()}</p>
-                </div>
-            </div>
+        <div className="space-y-5 pb-12 font-sans">
+            <PageHeader title={getPageTitle()} description={getPageDescription()} />
 
             {/* Tabs */}
             <div className="tabs">
@@ -81,7 +77,7 @@ const LaporanRekapPage: React.FC<Props> = () => {
             </div>
 
             {/* Content Area */}
-            <div className="mt-6">
+            <div>
                 {activeTab === 'ringkasan' && (
                     <RingkasanGlobalPage 
                         showAdvancedFilters={showAdvancedFilters} 

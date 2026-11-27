@@ -10,11 +10,9 @@ import {
   AlertTriangle,
   CheckCircle2,
   Lock,
-  ChevronRight,
   UserX,
   Phone,
-  ExternalLink,
-  BookOpen
+  ExternalLink
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -72,23 +70,6 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5 capitalize">
             {format(new Date(), 'EEEE, dd MMMM yyyy', { locale: localeId })}
           </p>
-        </div>
-        <div className="flex items-center gap-2.5 shrink-0">
-          <button
-            type="button"
-            onClick={() => navigate('/app/attendance-book')}
-            className="btn btn-secondary btn-sm"
-          >
-            <BookOpen size={14} className="text-slate-500" />
-            Buku Absensi
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/app/sessions')}
-            className="btn btn-primary btn-sm"
-          >
-            Buka Ruang Sesi →
-          </button>
         </div>
       </div>
 
@@ -453,14 +434,6 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
                   Menampilkan santri-santri yang banyak alfa dan terlambatnya
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => navigate('/app/attendance-book')}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
-              >
-                Buku Absensi Lengkap
-                <ChevronRight size={14} />
-              </button>
             </div>
 
             {/* List / Tabel Santri Perlu Perhatian */}
@@ -576,30 +549,6 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
               </div>
             )}
 
-            {/* Catatan Kaki */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-3 mt-3 border-t border-slate-200 text-2xs text-slate-500">
-              <div className="flex items-center gap-3">
-                <span className="inline-flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-red-500" />
-                  Kritis: ≥ 3 Alpa (Peringatan Wali)
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-amber-500" />
-                  Waspada: 1–2 Alpa / Terlambat
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-blue-500" />
-                  Pantau: Izin/Sakit intensif
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => navigate('/app/rekap-absensi')}
-                className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
-              >
-                ➔ Buka Rekap Absensi Global
-              </button>
-            </div>
           </div>
         </div>
 

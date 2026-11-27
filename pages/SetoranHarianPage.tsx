@@ -72,13 +72,13 @@ export default function SetoranHarianPage() {
         )}
       />
 
-      <div className="flex gap-1 p-1 bg-slate-100 rounded-lg border border-slate-200 w-fit">
+      <div className="tabs">
         {([['daftar', 'Daftar setoran'], ['rekap', 'Rekap per santri']] as const).map(([id, label]) => (
-          <button key={id} type="button" onClick={() => setTab(id)} className={`px-4 py-2 rounded-md text-sm font-semibold ${tab === id ? 'bg-white shadow-xs text-slate-900' : 'text-slate-600'}`}>{label}</button>
+          <button key={id} type="button" onClick={() => setTab(id)} className={`tab ${tab === id ? 'tab-aktif' : ''}`}>{label}</button>
         ))}
       </div>
 
-      <div className="panel-filter space-y-3">
+      <div className="panel-filter">
         <div className="grid-filter">
           <label className="kontrol-label"><span>Dari</span><input type="date" value={dari} onChange={(e) => setDari(e.target.value)} className="kontrol-dalam" /></label>
           <label className="kontrol-label"><span>Sampai</span><input type="date" value={sampai} onChange={(e) => setSampai(e.target.value)} className="kontrol-dalam" /></label>
@@ -90,14 +90,15 @@ export default function SetoranHarianPage() {
             <option value="all">Semua Jenis</option>
             {recitationKinds.map((k) => <option key={k.code} value={k.code}>{k.name}</option>)}
           </select>
-          <input value={cari} onChange={(e) => setCari(e.target.value)} placeholder="Cari nama santri…" className="kontrol kontrol-cari" />
+          <input value={cari} onChange={(e) => setCari(e.target.value)} placeholder="Cari nama santri…" className="kontrol kontrol-cari sm:col-span-2 lg:col-span-2" />
           {tab === 'daftar' && (
-            <label className="inline-flex items-center gap-2 text-sm text-slate-700">
-              <input type="checkbox" checked={hanyaUlang} onChange={(e) => setHanyaUlang(e.target.checked)} className="rounded border-slate-300" /> Hanya yang diulang (Rasib)
+            <label className="flex h-11 items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-700 shadow-xs cursor-pointer hover:border-slate-300 hover:bg-slate-50 transition-colors sm:col-span-2 lg:col-span-2">
+              <input type="checkbox" checked={hanyaUlang} onChange={(e) => setHanyaUlang(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
+              <span>Hanya yang diulang (Rasib)</span>
             </label>
           )}
           {tab === 'rekap' && (
-            <button type="button" onClick={() => rekapRef.current?.exportData()} className="btn btn-secondary h-11">
+            <button type="button" onClick={() => rekapRef.current?.exportData()} className="btn btn-secondary h-11 w-full sm:col-span-2 lg:col-span-2">
               <Download size={14} /> Ekspor Excel
             </button>
           )}

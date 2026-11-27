@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import Card from '../components/Card';
 import Modal from '../components/Modal';
 import { supabase } from '../lib/supabaseClient';
 import { Trash2, Search, Building, Plus, Edit, User, Mail, KeyRound, CheckCircle, Copy, Hash } from 'lucide-react';
@@ -522,10 +521,24 @@ const Users: React.FC = () => {
     );
 
     return (
-        <div className="space-y-6">
-            <PageHeader title="Akses & Undangan" description="Siapa saja yang bisa masuk ke aplikasi lembaga ini, perannya, dan undangan yang masih berjalan." />
+        <div className="space-y-5 pb-12">
+            <PageHeader
+                title="Akses & Undangan"
+                description="Siapa saja yang bisa masuk ke aplikasi lembaga ini, perannya, dan undangan yang masih berjalan."
+                actions={
+                    ['super_admin', 'admin', 'admin_mahad'].includes(currentUser?.role) ? (
+                        <button
+                            type="button"
+                            onClick={openAddModal}
+                            className="btn btn-primary"
+                        >
+                            <Plus size={16} /> Undang Pengguna Baru
+                        </button>
+                    ) : undefined
+                }
+            />
             {lastIssuedInvite && (
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                     <div className="space-y-1">
                         <div className="font-bold text-blue-950">
                             Tautan Aktivasi Undangan Sekali Pakai ({lastIssuedInvite.email})
@@ -546,14 +559,14 @@ const Users: React.FC = () => {
                                 navigator.clipboard.writeText(`${window.location.origin}${lastIssuedInvite.invitePath}`);
                                 NotificationStore.addNotification('Tautan undangan disalin.', 'info');
                             }}
-                            className="px-3 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white font-semibold"
+                            className="btn btn-primary btn-sm"
                         >
                             Salin Tautan /invite
                         </button>
                         <button
                             type="button"
                             onClick={() => setLastIssuedInvite(null)}
-                            className="px-2.5 py-1.5 rounded-lg border border-blue-200 text-blue-800 hover:bg-blue-100 font-semibold"
+                            className="btn btn-secondary btn-sm"
                         >
                             Tutup
                         </button>
@@ -561,157 +574,155 @@ const Users: React.FC = () => {
                 </div>
             )}
 
-            <Card title="Daftar pengguna">
-                <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-                    <p className="text-sm text-slate-500">
-                        Total {users.length} pengguna terdaftar.
+            <div className="panel-filter">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <p className="text-sm text-slate-500 font-medium tabular-nums">
+                        Total <span className="font-bold text-slate-800">{filteredUsers.length}</span> dari {users.length} pengguna terdaftar.
                     </p>
-                    <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-                        <div className="relative w-full sm:w-64">
-                            <input 
-                                type="text" 
-                                placeholder="Cari nama, email, atau ma'had..." 
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="kontrol kontrol-cari"
-                            />
-                        </div>
-                        {['super_admin', 'admin', 'admin_mahad'].includes(currentUser?.role) && (
-                            <button 
-                                onClick={openAddModal}
-                                className="bg-secondary text-white font-semibold py-2 px-4 rounded-lg hover:bg-accent transition-colors flex items-center justify-center text-sm shadow-sm whitespace-nowrap"
-                            >
-                                <Plus size={18} className="mr-2" /> Undang Pengguna Baru
-                            </button>
-                        )}
+                    <div className="relative w-full sm:w-80">
+                        <input 
+                            type="text" 
+                            placeholder="Cari nama, email, atau ma'had..." 
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="kontrol kontrol-cari"
+                        />
                     </div>
                 </div>
+            </div>
 
-                <div className="wadah-tabel overflow-x-auto">
-                    <table className="tabel tabel-kartu">
-                        <thead>
-                            <tr>
-                                <th>Nama Lengkap</th>
-                                <th>Email</th>
-                                <th>Peran / Status</th>
-                                <th>Nama Ma'had & ID</th>
-                                <th className="text-right">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
-                                <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-400">Memuat data users...</td></tr>
-                            ) : filteredUsers.length === 0 ? (
-                                <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-400">Tidak ada user ditemukan.</td></tr>
-                            ) : (
-                                filteredUsers.map((user) => (
-                                    <tr key={user.id} className={`hover:bg-slate-50 transition-colors ${user.role === 'pending' || user.grant_status === 'invited' ? 'bg-yellow-50/50' : ''}`}>
-                                        <td className="font-medium text-slate-900">
-                                            {user.full_name || 'Tanpa Nama'}
-                                        </td>
-                                        <td data-label="Email" className="text-xs">
-                                            {user.email || '-'}
-                                        </td>
-                                        <td data-label="Peran / status">
-                                            <div className="flex flex-wrap items-center gap-1.5">
-                                                {user.role === 'super_admin' || user.role === 'superadmin' ? (
-                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-slate-900 text-white">
-                                                        Superadmin Platform
-                                                    </span>
-                                                ) : user.role === 'pending' ? (
-                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                                                        Menunggu Aktivasi
-                                                    </span>
-                                                ) : user.role === 'musammi' ? (
-                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                        Musammi
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                                                        Admin Lembaga
-                                                    </span>
-                                                )}
-                                                {(user.grants || [])
-                                                    .filter(g => g.status === 'active' && g.role !== 'superadmin' && g.role !== user.role)
-                                                    .map(g => (
-                                                        <span key={g.id} className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                            + {g.role === 'musammi' ? "Musammi'" : g.role === 'admin' ? 'Admin Lembaga' : g.role}
-                                                        </span>
-                                                    ))}
-                                                {user.grant_status && (
-                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-2xs font-bold uppercase ${
-                                                        user.grant_status === 'active'
-                                                            ? 'bg-emerald-100 text-emerald-800'
-                                                            : user.grant_status === 'invited'
-                                                            ? 'bg-amber-100 text-amber-800'
-                                                            : 'bg-red-100 text-red-800'
-                                                    }`}>
-                                                        {user.grant_status}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td data-label="Lembaga">
-                                            {user.organizations ? (
-                                                <div>
-                                                    <div className="flex items-center mb-1">
-                                                        <Building size={14} className="mr-2 text-slate-400"/>
-                                                        <span className="font-semibold text-slate-800">{user.organizations.name}</span>
-                                                    </div>
-                                                    <button 
-                                                        onClick={() => copyToClipboard(user.organizations?.id || '')}
-                                                        className="flex items-center text-xs text-slate-400 hover:text-secondary bg-slate-50 px-2 py-1 rounded border border-slate-100 hover:border-slate-300 transition-all"
-                                                        title="Salin ID Organisasi"
-                                                    >
-                                                        <Hash size={10} className="mr-1"/>
-                                                        <span className="font-mono">{user.organizations.id.slice(0, 8)}...</span>
-                                                        <Copy size={10} className="ml-2"/>
-                                                    </button>
-                                                </div>
+            <div className="wadah-tabel overflow-x-auto">
+                <table className="tabel tabel-kartu">
+                    <thead>
+                        <tr>
+                            <th>Nama Lengkap</th>
+                            <th>Email</th>
+                            <th>Peran / Status</th>
+                            <th>Nama Ma'had & ID</th>
+                            <th className="text-right">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {loading ? (
+                            <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-400">Memuat data pengguna...</td></tr>
+                        ) : filteredUsers.length === 0 ? (
+                            <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-400">Tidak ada pengguna ditemukan.</td></tr>
+                        ) : (
+                            filteredUsers.map((user) => (
+                                <tr key={user.id} className={user.role === 'pending' || user.grant_status === 'invited' ? 'bg-amber-50/40' : ''}>
+                                    <td className="font-semibold text-slate-900">
+                                        {user.full_name || 'Tanpa Nama'}
+                                    </td>
+                                    <td data-label="Email" className="text-xs text-slate-600">
+                                        {user.email || '-'}
+                                    </td>
+                                    <td data-label="Peran / Status">
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                            {user.role === 'super_admin' || user.role === 'superadmin' ? (
+                                                <span className="badge bg-slate-900 text-white">
+                                                    Superadmin Platform
+                                                </span>
+                                            ) : user.role === 'pending' ? (
+                                                <span className="badge badge-kuning">
+                                                    Menunggu Aktivasi
+                                                </span>
+                                            ) : user.role === 'musammi' ? (
+                                                <span className="badge badge-hijau">
+                                                    Musammi'
+                                                </span>
                                             ) : (
-                                                <span className="text-red-400 italic">Tidak ada Org</span>
+                                                <span className="badge badge-biru">
+                                                    Admin Lembaga
+                                                </span>
                                             )}
-                                        </td>
-                                        <td data-label="Aksi" className="text-right">
-                                            <div className="flex justify-end gap-2">
-                                                {canManageGrant(user) && (user.role === 'pending' || user.grant_status === 'invited' || user.grant_status === 'suspended' || user.grant_status === 'revoked') && (
-                                                    <button 
-                                                        onClick={() => handleApproveUser(user.id, user.full_name)}
-                                                        className="btn btn-primary btn-sm mr-2"
-                                                        title="Aktifkan akses pengguna ini"
-                                                    >
-                                                        <CheckCircle size={14} className="mr-1" /> Aktifkan
-                                                    </button>
-                                                )}
-                                                
-                                                {(canManageGrant(user) || user.id === currentUser?.id) && (
-                                                    <button 
-                                                        onClick={() => openEditModal(user)}
-                                                        className="text-slate-400 hover:text-secondary transition-colors p-1 rounded-full hover:bg-slate-100"
-                                                        title={user.id === currentUser?.id ? 'Edit Nama Saya' : 'Edit User'}
-                                                    >
-                                                        <Edit size={18} />
-                                                    </button>
-                                                )}
-                                                
-                                                {canManageGrant(user) && user.role !== 'super_admin' && user.role !== 'superadmin' && user.grant_status !== 'revoked' && (
-                                                    <button 
-                                                        onClick={() => handleDeleteUser(user)}
-                                                        className="text-slate-400 hover:text-error transition-colors p-1 rounded-full hover:bg-red-50"
-                                                        title="Cabut Akses / Batalkan Undangan (Non-Destruktif)"
-                                                    >
-                                                        <Trash2 size={18} />
-                                                    </button>
-                                                )}
+                                            {(user.grants || [])
+                                                .filter(g => g.status === 'active' && g.role !== 'superadmin' && g.role !== user.role)
+                                                .map(g => (
+                                                    <span key={g.id} className="badge badge-hijau">
+                                                        + {g.role === 'musammi' ? "Musammi'" : g.role === 'admin' ? 'Admin Lembaga' : g.role}
+                                                    </span>
+                                                ))}
+                                            {user.grant_status && (
+                                                <span className={`badge ${
+                                                    user.grant_status === 'active'
+                                                        ? 'badge-hijau'
+                                                        : user.grant_status === 'invited'
+                                                        ? 'badge-kuning'
+                                                        : 'badge-merah'
+                                                }`}>
+                                                    {user.grant_status === 'active'
+                                                        ? 'Aktif'
+                                                        : user.grant_status === 'invited'
+                                                        ? 'Diundang'
+                                                        : user.grant_status === 'suspended'
+                                                        ? 'Ditangguhkan'
+                                                        : user.grant_status === 'expired'
+                                                        ? 'Kedaluwarsa'
+                                                        : 'Dicabut'}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td data-label="Lembaga">
+                                        {user.organizations ? (
+                                            <div>
+                                                <div className="flex items-center mb-1">
+                                                    <Building size={14} className="mr-2 text-slate-400"/>
+                                                    <span className="font-semibold text-slate-800">{user.organizations.name}</span>
+                                                </div>
+                                                <button 
+                                                    onClick={() => copyToClipboard(user.organizations?.id || '')}
+                                                    className="inline-flex items-center text-xs text-slate-400 hover:text-blue-600 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200/80 hover:border-slate-300 transition-all"
+                                                    title="Salin ID Organisasi"
+                                                >
+                                                    <Hash size={10} className="mr-1"/>
+                                                    <span className="font-mono">{user.organizations.id.slice(0, 8)}...</span>
+                                                    <Copy size={10} className="ml-2"/>
+                                                </button>
                                             </div>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </Card>
+                                        ) : (
+                                            <span className="text-red-400 italic">Tidak ada lembaga</span>
+                                        )}
+                                    </td>
+                                    <td data-label="Aksi" className="text-right">
+                                        <div className="flex justify-end items-center gap-1.5">
+                                            {canManageGrant(user) && (user.role === 'pending' || user.grant_status === 'invited' || user.grant_status === 'suspended' || user.grant_status === 'revoked') && (
+                                                <button 
+                                                    onClick={() => handleApproveUser(user.id, user.full_name)}
+                                                    className="btn btn-primary btn-sm"
+                                                    title="Aktifkan akses pengguna ini"
+                                                >
+                                                    <CheckCircle size={14} /> Aktifkan
+                                                </button>
+                                            )}
+                                            
+                                            {(canManageGrant(user) || user.id === currentUser?.id) && (
+                                                <button 
+                                                    onClick={() => openEditModal(user)}
+                                                    className="btn-icon hover:!text-blue-600"
+                                                    title={user.id === currentUser?.id ? 'Edit Nama Saya' : 'Edit Pengguna'}
+                                                >
+                                                    <Edit size={15} />
+                                                </button>
+                                            )}
+                                            
+                                            {canManageGrant(user) && user.role !== 'super_admin' && user.role !== 'superadmin' && user.grant_status !== 'revoked' && (
+                                                <button 
+                                                    onClick={() => handleDeleteUser(user)}
+                                                    className="btn-icon hover:!text-red-600 hover:!bg-red-50"
+                                                    title="Cabut Akses / Batalkan Undangan (Non-Destruktif)"
+                                                >
+                                                    <Trash2 size={15} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
+                    </tbody>
+                </table>
+            </div>
 
             <Modal 
                 isOpen={isModalOpen} 

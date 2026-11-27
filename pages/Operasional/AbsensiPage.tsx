@@ -3,16 +3,19 @@
  *  - Admin (termasuk petugas keliling di tablet): semua halaqah yang terjadwal pada waktu terpilih.
  *  - Musammi': hanya halaqah yang ia pegang (termasuk saat menjadi badal).
  * Waktu yang bisa dipilih mengikuti jadwal halaqah (BUG-11). Sesi tercatat saat absensi pertama disimpan.
+ * Fase 8c: tata letak sama dengan Sesi Halaqah (KPI -> filter penuh -> kartu dengan dropdown status).
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Search } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { useSupabaseData } from '../../hooks/useSupabaseData';
 import { supabase } from '../../lib/supabaseClient';
 import { normalizeRole } from '../../lib/permissions';
-import { PageHeader, LoadingState, EmptyState } from '../../components/ui/SaaSPrimitives';
+import { PageHeader, LoadingState, EmptyState, StatCard } from '../../components/ui/SaaSPrimitives';
 import AbsensiHalaqahCard from '../../components/absensi/AbsensiHalaqahCard';
-import { hariIni, halaqahSaya, halaqahPadaWaktu, opsiWaktu } from '../../lib/sesiHalaqah';
+import { hariIni, halaqahSaya, halaqahPadaWaktu, opsiWaktu, statusHadir } from '../../lib/sesiHalaqah';
+import FilterSesi, { saringHalaqah, unik } from '../../components/absensi/FilterSesi';
+import { findStatus } from '../../lib/v2Adapter';
 
 interface Bentrok { jenis: string; nama: string; waktu: string; halaqah_nama: string[] }
 
@@ -30,6 +33,10 @@ const AbsensiPage: React.FC = () => {
   const [date, setDate] = useState(params.get('date') || today);
   useEffect(() => { pastikanTanggal(date); }, [date, pastikanTanggal]); // Fase 7
   const [search, setSearch] = useState('');
+  const [marhalah, setMarhalah] = useState('');
+  const [jenis, setJenis] = useState('');
+  const [halaqahId, setHalaqahId] = useState<number | null>(null);
+  const [sinyalTandai, setSinyalTandai] = useState(0);
   const [bentrok, setBentrok] = useState<Bentrok[]>([]);
 
   const myMusammiIds = useMemo(
@@ -70,17 +77,29 @@ const AbsensiPage: React.FC = () => {
   }, [isAdmin, halaqah, getOrgId]);
 
   const visible = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return halaqahPadaWaktu(mine, slot)
-      .filter((h) => !q || h.nama.toLowerCase().includes(q) || (h.musammi?.nama || '').toLowerCase().includes(q))
+    return saringHalaqah(halaqahPadaWaktu(mine, slot), { marhalah, jenis, cari: search })
+      .filter((h) => !halaqahId || h.id === halaqahId)
       .sort((a, b) => (a.no_urut || 999) - (b.no_urut || 999) || a.nama.localeCompare(b.nama));
-  }, [mine, slot, search]);
+  }, [mine, slot, search, marhalah, jenis, halaqahId]);
+  const halaqahOpsi = useMemo(
+    () => saringHalaqah(halaqahPadaWaktu(mine, slot), { marhalah, jenis })
+      .sort((a, b) => (a.no_urut || 999) - (b.no_urut || 999) || a.nama.localeCompare(b.nama)),
+    [mine, slot, marhalah, jenis]
+  );
+  useEffect(() => { if (halaqahId && !halaqahOpsi.some((h) => h.id === halaqahId)) setHalaqahId(null); }, [halaqahOpsi, halaqahId]);
+  // nama santri yang dicari: baris santri di kartu ikut tersaring, kecuali yang dicari nama halaqah/musammi'
+  const cariSantri = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return '';
+    return visible.some((h) => (h.santri || []).some((s) => (s.nama || '').toLowerCase().includes(q))) ? search : '';
+  }, [visible, search]);
 
   const ringkasan = useMemo(() => {
     const rec = attendance.filter((a) => a.date === date && a.waktu === slot && a.peran === 'Santri' && visible.some((h) => h.id === a.halaqahId));
     const total = visible.reduce((n, h) => n + (h.santri?.length || 0), 0);
-    return { terisi: rec.length, total };
-  }, [attendance, date, slot, visible]);
+    const hadir = rec.filter((a) => findStatus(attendanceStatuses, a.status as string)?.counts_as_present).length;
+    return { terisi: rec.length, total, hadir };
+  }, [attendance, date, slot, visible, attendanceStatuses]);
 
   if (loading) return <LoadingState label="Memuat absensi…" />;
 
@@ -93,24 +112,24 @@ const AbsensiPage: React.FC = () => {
           : 'Absensi halaqah yang Anda pegang.'}
       />
 
-      <div className="panel-filter flex flex-col lg:flex-row lg:items-center gap-3">
-        <label className="kontrol-label lg:w-56"><span>Tanggal</span><input type="date" value={date} max={today} onChange={(e) => setDate(e.target.value || today)} className="kontrol-dalam" /></label>
-        <div className="flex flex-wrap gap-1.5">
-          {waktuList.length === 0 && <span className="text-sm text-slate-500 py-2">Belum ada jadwal halaqah.</span>}
-          {waktuList.map((w) => (
-            <button key={w} type="button" onClick={() => setSlot(w)}
-              className={`h-11 px-4 rounded-xl border text-sm font-semibold transition-colors ${slot === w ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
-              {sessionSlots.find((s) => s.code === w)?.name || w}
-            </button>
-          ))}
-        </div>
-        {(isAdmin || visible.length > 3) && (
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari halaqah / musammi'…" className="kontrol kontrol-cari lg:flex-1" />
-        )}
-        <div className="text-sm sm:text-xs text-slate-600 ml-auto">
-          {visible.length} halaqah · {ringkasan.terisi}/{ringkasan.total} santri terisi
-        </div>
+      <div className="grid grid-cols-3 gap-3">
+        <StatCard label="Halaqah" value={visible.length} />
+        <StatCard label="Terisi" value={`${ringkasan.terisi}/${ringkasan.total}`} tone={ringkasan.total && ringkasan.terisi >= ringkasan.total ? 'success' : 'neutral'} />
+        <StatCard label="Hadir" value={`${ringkasan.hadir}/${ringkasan.terisi}`} tone={ringkasan.terisi ? 'success' : 'neutral'} />
       </div>
+
+      <FilterSesi
+        cari={search} setCari={setSearch}
+        cariPlaceholder="Cari santri / halaqah / musammi'…"
+        marhalahOpsi={unik(mine.map((h) => h.marhalah as string))} marhalah={marhalah} setMarhalah={setMarhalah}
+        jenisOpsi={unik(mine.map((h) => h.jenis as string))} jenis={jenis} setJenis={setJenis}
+        halaqahOpsi={halaqahOpsi} halaqahId={halaqahId} setHalaqahId={setHalaqahId} semuaHalaqah
+        date={date} setDate={setDate} today={today}
+        slot={slot} setSlot={setSlot}
+        slotOpsi={waktuList.map((w) => ({ value: w, label: sessionSlots.find((s) => s.code === w)?.name || w }))}
+        onTandai={visible.length ? () => setSinyalTandai((n) => n + 1) : undefined}
+        labelTandai={`Tandai semua ${statusHadir(attendanceStatuses)?.name?.toLowerCase() || 'hadir'}`}
+      />
 
       {isAdmin && bentrok.length > 0 && (
         <details className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -147,7 +166,9 @@ const AbsensiPage: React.FC = () => {
               allSantri={allSantri}
               musammiList={musammi}
               onSave={(records, reason) => addAttendanceRecords(records as any, reason)}
-              defaultOpen={visible.length <= 6}
+              defaultOpen={visible.length <= 6 || Boolean(cariSantri)}
+              sinyalTandai={sinyalTandai}
+              cari={cariSantri}
             />
           ))}
         </div>

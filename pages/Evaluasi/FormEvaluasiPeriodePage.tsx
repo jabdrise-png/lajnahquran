@@ -314,38 +314,40 @@ const FormEvaluasiPeriodePage: React.FC = () => {
         description="Rekap capaian santri per periode. Mode Harian terisi otomatis dari setoran harian; Mode Rekap diisi di akhir periode."
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <label className="text-sm sm:text-xs font-semibold text-slate-600">Periode
-          <select className={`${inputCls} mt-1`} value={periodId} onChange={(e) => setPeriodId(e.target.value)}>
-            {periods.length === 0 && <option value="">Belum ada periode</option>}
-            {periods.map((p) => (
-              <option key={p.id} value={p.id} disabled={p.needs_review}>
-                {p.name} ({p.start_date} s.d. {p.end_date}){p.needs_review ? ' — tanggal perlu dicek Admin' : ''}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm sm:text-xs font-semibold text-slate-600">Halaqah
-          <select className={`${inputCls} mt-1`} value={halaqahId || ''} onChange={(e) => setHalaqahId(Number(e.target.value))}>
-            {halaqahList.length === 0 && <option value="">Tidak ada halaqah</option>}
-            {halaqahList.map((h) => <option key={h.id} value={h.id}>{h.nama}{h.musammi?.nama ? ` · ${h.musammi.nama}` : ''}</option>)}
-          </select>
-        </label>
+      <div className="panel-filter">
+        <div className="grid-filter sm:grid-cols-2 lg:grid-cols-2">
+          <label className="kontrol-label"><span>Periode</span>
+            <select className="kontrol-dalam" value={periodId} onChange={(e) => setPeriodId(e.target.value)}>
+              {periods.length === 0 && <option value="">Belum ada periode</option>}
+              {periods.map((p) => (
+                <option key={p.id} value={p.id} disabled={p.needs_review}>
+                  {p.name} ({p.start_date} s.d. {p.end_date}){p.needs_review ? ' — tanggal perlu dicek Admin' : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="kontrol-label"><span>Halaqah</span>
+            <select className="kontrol-dalam" value={halaqahId || ''} onChange={(e) => setHalaqahId(Number(e.target.value))}>
+              {halaqahList.length === 0 && <option value="">Tidak ada halaqah</option>}
+              {halaqahList.map((h) => <option key={h.id} value={h.id}>{h.nama}{h.musammi?.nama ? ` · ${h.musammi.nama}` : ''}</option>)}
+            </select>
+          </label>
+        </div>
       </div>
 
       {periods.length === 0 && (
         <EmptyState title="Belum ada periode evaluasi" description={isAdmin ? 'Buat periode di Pengaturan Evaluasi.' : 'Minta Admin membuat periode evaluasi.'} />
       )}
       {galat && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 flex gap-2"><AlertTriangle size={16} className="mt-0.5 shrink-0" />{galat}</div>
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-700 flex gap-2"><AlertTriangle size={16} className="mt-0.5 shrink-0" />{galat}</div>
       )}
       {memuat && <LoadingState label="Membuka form…" rows={3} />}
 
       {data && !memuat && (
         <>
           <div className="flex flex-wrap items-center gap-2 text-sm sm:text-xs">
-            <span className="px-2.5 py-1 rounded-full border bg-blue-50 text-blue-700 border-blue-200 font-semibold">{MODE_LABEL[mode]}</span>
-            <span className={`px-2.5 py-1 rounded-full border font-semibold ${badgeStatus[status]}`}>{STATUS_FORM_LABEL[status]}</span>
+            <span className="badge badge-biru">{MODE_LABEL[mode]}</span>
+            <span className={`badge ${badgeStatus[status]}`}>{STATUS_FORM_LABEL[status]}</span>
             {periode && <span className="text-slate-500">{periode.start_date} s.d. {periode.end_date}</span>}
             {form?.source === 'migrasi' && <span className="text-slate-500">· data pindahan aplikasi lama</span>}
             <div className="ml-auto flex gap-2">
@@ -355,7 +357,7 @@ const FormEvaluasiPeriodePage: React.FC = () => {
                 </button>
               )}
               {isAdmin && terkirim && (
-                <button type="button" onClick={bukaKembali} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-amber-300 bg-amber-50 font-semibold text-amber-800">
+                <button type="button" onClick={bukaKembali} className="btn btn-secondary btn-sm text-amber-800 border-amber-200 bg-amber-50 hover:bg-amber-100">
                   <Unlock size={13} /> Buka kembali
                 </button>
               )}

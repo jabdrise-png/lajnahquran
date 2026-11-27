@@ -14,10 +14,10 @@ import { tampilkanError } from '../../lib/pesanError';
 import { PageHeader, LoadingState } from '../../components/ui/SaaSPrimitives';
 import { cekBobot, nilaiJuz, predikatNilai, type Rubrik } from '../../lib/ujian';
 
-const inputCls = 'w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500';
+const inputCls = 'field';
 const Kartu: React.FC<{ judul: string; ket: string; children: React.ReactNode; aksi?: React.ReactNode }> = ({ judul, ket, children, aksi }) => (
-  <section className="rounded-xl border border-slate-200 bg-white">
-    <div className="flex flex-wrap items-start justify-between gap-3 px-5 py-4 border-b border-slate-100">
+  <section className="card overflow-hidden">
+    <div className="flex flex-wrap items-start justify-between gap-3 px-5 py-4 border-b border-slate-200">
       <div><h2 className="text-base font-bold text-slate-900">{judul}</h2><p className="text-xs text-slate-500 mt-0.5">{ket}</p></div>
       {aksi}
     </div>
@@ -96,7 +96,7 @@ const PengaturanNilaiPage: React.FC = () => {
   const contohNilai = nilaiJuz(rubrik, sim.kabir, sim.shoghir);
 
   return (
-    <div className="space-y-6 pb-12 max-w-5xl">
+    <div className="space-y-5 pb-12">
       <PageHeader title="Pengaturan Nilai" description={`Rubrik ujian, bobot raport, tanda tangan Ketua Lajnah, dan penguji · Semester ${semester} ${selectedAcademicYear?.name || ''}`} />
 
       <Kartu judul="Rubrik Penilaian Ujian" ket={`Versi aktif: v${rubrikAktif.version_no ?? '-'} ${rubrikAktif.name ? `· ${rubrikAktif.name}` : ''}. Nilai juz = nilai awal − kabir × pengurang kabir − shoghir × pengurang shoghir (tidak di bawah nilai minimum).`}
@@ -120,49 +120,49 @@ const PengaturanNilaiPage: React.FC = () => {
           </div>
           <div className="flex gap-2 mt-2 max-w-md">
             <input className={inputCls} placeholder="Predikat" value={predBaru.label} onChange={(e) => setPredBaru({ ...predBaru, label: e.target.value })} />
-            <input type="number" className={`${inputCls.replace('w-full', 'w-28')}`} placeholder="Min" value={predBaru.min} onChange={(e) => setPredBaru({ ...predBaru, min: e.target.value })} />
-            <button type="button" disabled={!predBaru.label.trim() || predBaru.min === ''} className="px-3 rounded-lg bg-slate-800 text-white disabled:opacity-50"
-              onClick={() => { setRubrik({ ...rubrik, predicates: [...rubrik.predicates.filter((x) => x.label !== predBaru.label.trim()), { label: predBaru.label.trim(), minScore: Number(predBaru.min) }] }); setPredBaru({ label: '', min: '' }); }}><Plus size={14} /></button>
+            <input type="number" className="field w-28 shrink-0" placeholder="Min" value={predBaru.min} onChange={(e) => setPredBaru({ ...predBaru, min: e.target.value })} />
+            <button type="button" disabled={!predBaru.label.trim() || predBaru.min === ''} className="btn btn-primary shrink-0"
+              onClick={() => { setRubrik({ ...rubrik, predicates: [...rubrik.predicates.filter((x) => x.label !== predBaru.label.trim()), { label: predBaru.label.trim(), minScore: Number(predBaru.min) }] }); setPredBaru({ label: '', min: '' }); }}><Plus size={15} /></button>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm">
-          <span className="font-semibold text-slate-600">Coba:</span> kabir
-          <input type="number" min={0} className={`${inputCls.replace('w-full', 'w-20')}`} value={sim.kabir} onChange={(e) => setSim({ ...sim, kabir: Number(e.target.value) || 0 })} /> shoghir
-          <input type="number" min={0} className={`${inputCls.replace('w-full', 'w-20')}`} value={sim.shoghir} onChange={(e) => setSim({ ...sim, shoghir: Number(e.target.value) || 0 })} />
-          → nilai juz <b>{contohNilai}</b> ({predikatNilai(rubrik, contohNilai)}{contohNilai < rubrik.passing_score ? ', perlu remedial' : ''})
+        <div className="flex flex-wrap items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+          <span className="font-semibold text-slate-600">Simulasi:</span> kabir
+          <input type="number" min={0} className="field w-20" value={sim.kabir} onChange={(e) => setSim({ ...sim, kabir: Number(e.target.value) || 0 })} /> shoghir
+          <input type="number" min={0} className="field w-20" value={sim.shoghir} onChange={(e) => setSim({ ...sim, shoghir: Number(e.target.value) || 0 })} />
+          → nilai juz <b className="tabular-nums">{contohNilai}</b> ({predikatNilai(rubrik, contohNilai)}{contohNilai < rubrik.passing_score ? ', perlu remedial' : ''})
         </div>
         <label className="block text-xs font-semibold text-slate-600 max-w-md">Catatan versi (opsional)
-          <input className={`${inputCls} mt-1`} value={catatanVersi} onChange={(e) => setCatatanVersi(e.target.value)} placeholder="mis. Pengurang shoghir dinaikkan" />
+          <input className={`${inputCls} mt-1.5`} value={catatanVersi} onChange={(e) => setCatatanVersi(e.target.value)} placeholder="mis. Pengurang shoghir dinaikkan" />
         </label>
       </Kartu>
 
       <Kartu judul="Raport" ket="Raport per semester terdiri dari 3 komponen dengan bobot total 100%. Raport tidak bisa terbit bila komponen berbobot > 0 masih kosong."
         aksi={<button type="button" disabled={simpanRaportBusy || Boolean(errBobot)} onClick={simpanRaport} className="btn btn-primary"><Save size={15} /> Simpan raport</button>}>
-        <div className="grid grid-cols-3 gap-3 max-w-xl">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {([['bobot_semester', 'Ujian semester (%)'], ['bobot_bulanan', 'Rata-rata ujian bulanan (%)'], ['bobot_kehadiran', 'Kehadiran (%)']] as const).map(([k, l]) => (
             <label key={k} className="text-xs font-semibold text-slate-600">{l}
-              <input type="number" min={0} max={100} step="any" className={`${inputCls} mt-1`} value={raport[k]} onChange={(e) => setRaport({ ...raport, [k]: Number(e.target.value) })} />
+              <input type="number" min={0} max={100} step="any" className={`${inputCls} mt-1.5`} value={raport[k]} onChange={(e) => setRaport({ ...raport, [k]: Number(e.target.value) })} />
             </label>
           ))}
         </div>
-        <p className={`text-xs ${errBobot ? 'text-red-700' : 'text-emerald-700'}`}>{errBobot || `Total ${Number(raport.bobot_semester) + Number(raport.bobot_bulanan) + Number(raport.bobot_kehadiran)}% ✓`}</p>
+        <p className={`text-xs font-medium ${errBobot ? 'text-red-700' : 'text-emerald-700'}`}>{errBobot || `Total ${Number(raport.bobot_semester) + Number(raport.bobot_bulanan) + Number(raport.bobot_kehadiran)}% ✓`}</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <label className="text-xs font-semibold text-slate-600">Nama Ketua Lajnah
-            <input className={`${inputCls} mt-1`} value={raport.ketua_lajnah_nama || ''} onChange={(e) => setRaport({ ...raport, ketua_lajnah_nama: e.target.value })} />
+            <input className={`${inputCls} mt-1.5`} value={raport.ketua_lajnah_nama || ''} onChange={(e) => setRaport({ ...raport, ketua_lajnah_nama: e.target.value })} />
           </label>
           <label className="text-xs font-semibold text-slate-600">Jabatan
-            <input className={`${inputCls} mt-1`} value={raport.ketua_lajnah_jabatan || ''} onChange={(e) => setRaport({ ...raport, ketua_lajnah_jabatan: e.target.value })} />
+            <input className={`${inputCls} mt-1.5`} value={raport.ketua_lajnah_jabatan || ''} onChange={(e) => setRaport({ ...raport, ketua_lajnah_jabatan: e.target.value })} />
           </label>
           <label className="text-xs font-semibold text-slate-600">Kota (di atas tanggal raport)
-            <input className={`${inputCls} mt-1`} value={raport.kota_terbit || ''} onChange={(e) => setRaport({ ...raport, kota_terbit: e.target.value })} />
+            <input className={`${inputCls} mt-1.5`} value={raport.kota_terbit || ''} onChange={(e) => setRaport({ ...raport, kota_terbit: e.target.value })} />
           </label>
         </div>
         <div className="flex flex-wrap items-center gap-4">
-          <div className="h-24 w-56 rounded-lg border border-dashed border-slate-300 bg-slate-50 flex items-center justify-center overflow-hidden">
+          <div className="h-24 w-56 rounded-xl border border-dashed border-slate-300 bg-slate-50 flex items-center justify-center overflow-hidden">
             {raport.ttd_image ? <img src={raport.ttd_image} alt="Tanda tangan Ketua Lajnah" className="max-h-full max-w-full object-contain mix-blend-multiply" /> : <span className="text-xs text-slate-400">Belum ada tanda tangan</span>}
           </div>
           <div className="space-y-2">
-            <label className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-700 cursor-pointer">
+            <label className="btn btn-secondary cursor-pointer">
               <Upload size={15} /> Unggah tanda tangan
               <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => e.target.files?.[0] && unggahTtd(e.target.files[0])} />
             </label>
@@ -173,36 +173,36 @@ const PengaturanNilaiPage: React.FC = () => {
       </Kartu>
 
       <Kartu judul={`Penguji Ujian · Semester ${semester}`} ket="Selain musammi' halaqahnya sendiri, Admin dapat menugaskan musammi' lain sebagai penguji untuk seluruh santri satu halaqah (halaqah ujian).">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
           <label className="text-xs font-semibold text-slate-600">Halaqah
-            <select className={`${inputCls} mt-1`} value={penguji.halaqah} onChange={(e) => setPenguji({ ...penguji, halaqah: e.target.value })}>
+            <select className={`${inputCls} mt-1.5`} value={penguji.halaqah} onChange={(e) => setPenguji({ ...penguji, halaqah: e.target.value })}>
               <option value="">— pilih —</option>
               {halaqah.filter((h) => !h.is_archived).map((h) => <option key={h.id} value={h.id}>{h.nama}</option>)}
             </select>
           </label>
           <label className="text-xs font-semibold text-slate-600">Musammi' penguji
-            <select className={`${inputCls} mt-1`} value={penguji.musammi} onChange={(e) => setPenguji({ ...penguji, musammi: e.target.value })}>
+            <select className={`${inputCls} mt-1.5`} value={penguji.musammi} onChange={(e) => setPenguji({ ...penguji, musammi: e.target.value })}>
               <option value="">— pilih —</option>
               {musammi.map((m) => <option key={m.id} value={m.id}>{m.nama}{m.user_id ? '' : ' (belum punya akun)'}</option>)}
             </select>
           </label>
           <label className="text-xs font-semibold text-slate-600">Ujian
-            <select className={`${inputCls} mt-1`} value={penguji.jenis} onChange={(e) => setPenguji({ ...penguji, jenis: e.target.value as any })}>
+            <select className={`${inputCls} mt-1.5`} value={penguji.jenis} onChange={(e) => setPenguji({ ...penguji, jenis: e.target.value as any })}>
               <option value="semua">Bulanan & semester</option><option value="bulanan">Bulanan saja</option><option value="semester">Semester saja</option>
             </select>
           </label>
-          <button type="button" disabled={!penguji.halaqah || !penguji.musammi} className="btn btn-primary justify-center"
+          <button type="button" disabled={!penguji.halaqah || !penguji.musammi} className="btn btn-primary h-[42px] w-full justify-center"
             onClick={async () => {
               try { await tambahPenguji(Number(penguji.halaqah), Number(penguji.musammi), penguji.jenis); setPenguji({ halaqah: '', musammi: '', jenis: 'semua' }); NotificationStore.addNotification('Penguji ditambahkan.', 'success'); }
               catch (e) { tampilkanError(e, 'Gagal menambah penguji'); }
             }}><Plus size={15} /> Tambah</button>
         </div>
-        <div className="divide-y divide-slate-100 rounded-lg border border-slate-200">
-          {pengujiSemester.length === 0 && <p className="px-3 py-3 text-sm text-slate-400">Belum ada penugasan. Musammi' tetap bisa menguji santri halaqahnya sendiri.</p>}
+        <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+          {pengujiSemester.length === 0 && <p className="px-4 py-3 text-sm text-slate-400">Belum ada penugasan. Musammi' tetap bisa menguji santri halaqahnya sendiri.</p>}
           {pengujiSemester.map((p) => (
-            <div key={p.id} className="flex items-center gap-2 px-3 py-2 text-sm">
+            <div key={p.id} className="flex items-center gap-2 px-4 py-2.5 text-sm">
               <span className="flex-1"><b>{namaMusammi(p.musammi_id)}</b> menguji <b>{namaHalaqah(p.halaqah_id)}</b> <span className="text-slate-400">· {p.exam_type === 'semua' ? 'bulanan & semester' : p.exam_type}</span></span>
-              <button type="button" title="Hapus" className="text-slate-400 hover:text-red-600" onClick={() => hapusPenguji(p.id).catch((e) => tampilkanError(e, 'Gagal menghapus penguji'))}><Trash2 size={14} /></button>
+              <button type="button" title="Hapus" aria-label="Hapus penguji" className="btn-icon text-slate-400 hover:text-red-600" onClick={() => hapusPenguji(p.id).catch((e) => tampilkanError(e, 'Gagal menghapus penguji'))}><Trash2 size={14} /></button>
             </div>
           ))}
         </div>

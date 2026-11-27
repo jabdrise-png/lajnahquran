@@ -9,7 +9,7 @@ import { Marhalah, WaliKelas } from '../../types';
 import { Plus, Trash, Download, Edit, Upload, FileSpreadsheet, FileText, Search, ChevronRight } from 'lucide-react';
 import { parseSpreadsheet, exportToExcel, exportToPDF } from '../../lib/utils';
 import { supabase } from '../../lib/supabaseClient';
-import { StatusBadge, LoadingState } from '../../components/ui/SaaSPrimitives';
+import { PageHeader, StatusBadge, LoadingState } from '../../components/ui/SaaSPrimitives';
 import { NotificationStore } from '../../lib/NotificationStore';
 
 const WaliKelasPage: React.FC = () => {
@@ -237,81 +237,71 @@ const WaliKelasPage: React.FC = () => {
     if (loading) return <LoadingState label="Memuat data…" />;
 
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20 max-w-[1400px] font-sans">
+        <div className="space-y-5 pb-12 font-sans">
             <input type="file" ref={fileInputRef} onChange={handleImportExcel} accept=".xlsx,.xls,.csv" className="hidden" />
 
-            {/* Header */}
-            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3 sm:gap-4">
-                <div className="min-w-0 flex-1">
-                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                        Wali Kelas
-                    </h1>
-                    <p className="mt-1 text-sm text-slate-500">
-                        Nama wali kelas per kelas, dipakai di dokumen kelas & raportt.
-                    </p>
-                </div>
-            </div>
+            <PageHeader
+                title="Wali Kelas"
+                description="Nama wali kelas per kelas, dipakai di dokumen kelas & raport."
+                actions={
+                    <>
+                        <ActionDropdown label="Impor Excel" icon={<Upload size={16}/>}>
+                            <button onClick={() => fileInputRef.current?.click()} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left">
+                                <FileSpreadsheet size={14} className="mr-2 text-emerald-600"/> Unggah File Excel
+                            </button>
+                            <button onClick={handleDownloadTemplate} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100">
+                                <Download size={14} className="mr-2 text-blue-600"/> Unduh template
+                            </button>
+                        </ActionDropdown>
 
-            <div className="flex justify-end">
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                    <ActionDropdown label="Impor Excel" icon={<Upload size={16}/>}>
-                        <button onClick={() => fileInputRef.current?.click()} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left">
-                            <FileSpreadsheet size={14} className="mr-2 text-emerald-600"/> Upload File Excel
-                        </button>
-                        <button onClick={handleDownloadTemplate} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100">
-                            <Download size={14} className="mr-2 text-blue-600"/> Unduh template
-                        </button>
-                    </ActionDropdown>
+                        <ActionDropdown label="Ekspor data" icon={<Download size={16}/>}>
+                            <button onClick={() => exportToExcel(waliList, 'Data_Wali_Kelas')} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left">
+                                <FileSpreadsheet size={14} className="mr-2 text-emerald-600"/> Ekspor Excel
+                            </button>
+                            <button onClick={handleExportPDF} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100">
+                                <FileText size={14} className="mr-2 text-red-600"/> Ekspor PDF
+                            </button>
+                        </ActionDropdown>
 
-                    <ActionDropdown label="Ekspor data" icon={<Download size={16}/>}>
-                        <button onClick={() => exportToExcel(waliList, 'Data_Wali_Kelas')} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left">
-                            <FileSpreadsheet size={14} className="mr-2 text-emerald-600"/> Ekspor Excel
+                        <button
+                            onClick={() => openModal(null)}
+                            className="btn btn-primary justify-center"
+                        >
+                            <Plus size={16} strokeWidth={2.5}/> Tambah Baru
                         </button>
-                        <button onClick={handleExportPDF} className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100">
-                            <FileText size={14} className="mr-2 text-red-600"/> Ekspor PDF
-                        </button>
-                    </ActionDropdown>
-                    
-                    <button 
-                        onClick={() => openModal(null)} 
-                        className="btn btn-primary justify-center"
-                    >
-                        <Plus size={16} strokeWidth={2.5}/> Tambah Baru
-                    </button>
-                </div>
-            </div>
+                    </>
+                }
+            />
 
             <div className="panel-filter">
-              <div className="grid-filter">
-                <input 
-                                                type="text" 
-                                                placeholder="Cari nama wali kelas..." 
-                                                value={search} 
-                                                onChange={e => setSearch(e.target.value)} 
-                                                className="kontrol kontrol-cari" 
-                                            />
-                <select 
-                                            value={filterMarhalah} 
-                                            onChange={e => {setFilterMarhalah(e.target.value as any); setFilterKelas('all')}} 
-                                            className="kontrol"
-                                        >
-                                            <option value="all">Semua Marhalah</option>
-                                            {masterMarhalahs.map((m) => <option key={m.id} value={m.nama}>{m.nama}</option>)}
-                                        </select>
-                <select 
-                                            value={filterKelas} 
-                                            onChange={e => setFilterKelas(e.target.value)} 
-                                            disabled={filterMarhalah === 'all'} 
-                                            className="kontrol"
-                                        >
-                                            <option value="all">Semua Kelas</option>
-                                            {filterMarhalah !== 'all' && availableFilterKelas.map(k => <option key={k} value={k}>{k}</option>)}
-                                        </select>
+              <div className="grid-filter sm:grid-cols-3 lg:grid-cols-3">
+                <input
+                  type="text"
+                  placeholder="Cari nama wali kelas..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="kontrol kontrol-cari"
+                />
+                <select
+                  value={filterMarhalah}
+                  onChange={e => {setFilterMarhalah(e.target.value as any); setFilterKelas('all')}}
+                  className="kontrol"
+                >
+                  <option value="all">Semua Marhalah</option>
+                  {masterMarhalahs.map((m) => <option key={m.id} value={m.nama}>{m.nama}</option>)}
+                </select>
+                <select
+                  value={filterKelas}
+                  onChange={e => setFilterKelas(e.target.value)}
+                  disabled={filterMarhalah === 'all'}
+                  className="kontrol"
+                >
+                  <option value="all">Semua Kelas</option>
+                  {filterMarhalah !== 'all' && availableFilterKelas.map(k => <option key={k} value={k}>{k}</option>)}
+                </select>
               </div>
             </div>
             <div className="wadah-tabel flex flex-col h-auto min-h-[500px]">
-                
-
                 <div className="flex-1 overflow-auto p-0 min-h-[300px]">
                     <table className="tabel tabel-kartu">
                         <thead className="sticky top-0 z-10">
@@ -329,7 +319,7 @@ const WaliKelasPage: React.FC = () => {
                                     <td className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{w.nama}</td>
                                     <td data-label="Marhalah" className="text-sm font-semibold text-slate-600"><MarhalahLabel text={w.marhalah} id={w.marhalah_id} /></td>
                                     <td data-label="Kelas">
-                                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                                        <span className="badge badge-biru">
                                             <KelasLabel text={w.kelas} id={w.kelas_id} />
                                         </span>
                                     </td>
